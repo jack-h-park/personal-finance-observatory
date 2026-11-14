@@ -21,8 +21,16 @@ export const metadata: Metadata = {
   },
   description: 'Assets, cash flow and KR/US tax history with private local evidence.',
   applicationName: APP_NAME,
+  // The app's own icon set (generated with the other private Studio surfaces'
+  // icons from one construction: the JHP mark's tile with a per-app glyph).
+  // Regenerate it at its source and recopy rather than editing these files.
   icons: {
-    icon: '/favicon.ico',
+    icon: [
+      { url: '/favicon.ico', sizes: 'any' },
+      { url: '/favicon-32x32.png', type: 'image/png', sizes: '32x32' },
+      { url: '/favicon-16x16.png', type: 'image/png', sizes: '16x16' },
+    ],
+    apple: '/apple-touch-icon.png',
   },
 }
 
