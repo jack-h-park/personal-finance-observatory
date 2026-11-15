@@ -42,3 +42,8 @@ Do not assume that a consumer can follow a GitHub redirect, a moved checkout, or
 - Additional historical years or wider settlement claims require their own reviewed evidence scope; bounded adoption does not establish complete authority posting.
 
 These block the dependent operational action, not synthetic development.
+
+
+## Proposed curated-input and archive contract
+
+The [authority and path design](../superpowers/specs/2026-11-15-finance-authority-path-design.md) proposes explicit curator/operator roles for FX inputs and an identical resolved archive identity across the briefing producer and PFO reader. Original custody, existing mapping authority, per-file overrides, evidence hash/root checks and disabled web writes remain unchanged. The design is not an implemented writer guard, a confirmed human assignment or an operating path cutover.
