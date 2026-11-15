@@ -49,3 +49,8 @@ A `matched` result is internal consistency of the supplied recorded contract. It
 Synthetic domain tests cover independent scopes, canonical aliases, host/cwd differences, missing/unreadable facts, allowed-root escape, wrong kinds/roles, duplicates, missing stages/resources, authority disagreement, input/output collision, malformed contracts, deterministic results and unchanged input. Subprocess tests cover exit/diagnostic contracts, symlink/directory/FIFO/oversized/non-UTF8 inputs and successful assessment while side-effect functions are denied. They also retain input/environment fixtures unchanged even when the child has `FINANCE_STATE_WRITABLE=1`; the tool never reads that flag or follows nonexistent endpoint locators.
 
 No operating preflight was run, private proposal adopted, original opened, financial input/map changed, web write enabled, backup/drill invoked, Hometax accessed or app deployed by this increment. Human assignments and actual producer archive routing remain unresolved. The next packages are a reviewed live observation adapter and coordinated producer integration, not an unguarded FX apply command.
+
+
+## Local observation follow-up
+
+The separately scoped [local observer](finance-preflight-observer.md) collects explicit metadata and allowlisted effective process settings before using this assessor. It does not change this recorded-only command or make its results into a live scheduler/producer gate. See the [plan review](../product/plan-review-2026-11-15.md) for the remaining integration and operating boundaries.
