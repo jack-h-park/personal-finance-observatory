@@ -49,6 +49,7 @@
     "summary": "tsx scripts/summary.mjs",
     "tax:annual:preview": "tsx scripts/annual-tax-preview.ts",
     "finance:preflight": "tsx scripts/finance-preflight.ts",
+    "finance:observe": "tsx scripts/finance-preflight-observe.ts",
     "tax:scenario": "tsx scripts/observatory-cli.mjs tax:scenario",
     "tax:calendar": "tsx scripts/observatory-cli.mjs tax:calendar",
     "tax:realized": "tsx scripts/observatory-cli.mjs tax:realized",

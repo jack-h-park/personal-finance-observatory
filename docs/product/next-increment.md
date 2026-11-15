@@ -4,6 +4,8 @@ Updated November 15, 2026 (America/Los_Angeles). The original program is still t
 
 The [implementation status](implementation-status.md) and [installation observation](../operations/installation-status.md) separate source, installation, historical acceptance and current gaps. Hometax remains held; further deployments require separate authorization. This document authorizes no implementation, merge, private-data mutation or operating change.
 
+The [November 15 plan review](plan-review-2026-11-15.md) confirms the original direction and separates source completion, local observation, actual job-context verification and operating adoption. The recorded foundation #324 is merged; the [local observer](../architecture/finance-preflight-observer.md) is the next source package. Pending account/curator decisions do not block archive-only or synthetic work.
+
 ## Completed security prerequisite and bounded maintenance
 
 [#311](https://github.com/jack-h-park/stock-portfolio-observatory/pull/311) is merged and its Next.js 15.5.28 patch was deployed with bounded browser/build/evidence and preservation verification. This is completed work, not the next feature PR. The [installation observation](../operations/installation-status.md) separates that release from the subsequent #312 checkout/build observation.
@@ -34,7 +36,7 @@ Exit: a reviewer can trace a supported total and an actionable gap to existing e
 
 ## Priority 2: complete operating ownership and recovery boundaries
 
-The [curated-input and archive contract design](../superpowers/specs/2026-11-15-finance-authority-path-design.md) proposes the next bounded source work: typed read-only endpoint/authority checks, followed separately by producer integration. The [first recorded-observation foundation](../architecture/finance-preflight.md) now has source-level types, pure assessment and an explicit-file CLI; no live observer, producer integration, human curator appointment or operating setting change is included. Unanswered account decisions remain pending.
+The [curated-input and archive contract design](../superpowers/specs/2026-11-15-finance-authority-path-design.md) proposes the next bounded source work: typed read-only endpoint/authority checks, followed separately by producer integration. The [recorded-observation foundation](../architecture/finance-preflight.md) is merged in #324. The [local metadata/settings observer](../architecture/finance-preflight-observer.md) adds explicit endpoint collection in source review; actual scheduler/job-context binding, producer integration, human curator appointment and operating setting changes are not included. Unanswered account decisions remain pending.
 
 The wider durable-state inventory and first expanded MacBook snapshot recovery are done for their documented scope. Do not repeat that same restore merely to generate another success receipt.
 
