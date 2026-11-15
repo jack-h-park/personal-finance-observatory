@@ -14,7 +14,7 @@ The release audit retained two moderate transitive findings through Tailwind and
 
 Build on merged [#308](https://github.com/jack-h-park/stock-portfolio-observatory/pull/308), which addresses query-period evidence across accounts. Merged #310 adds Samsung/Chase period handling; #312 shows file requests only when an update is needed and is present in the latest observed checkout. These are inputs to the next increment, not evidence that expected-account coverage is complete. Do not duplicate their period handling or conditional request prompts. Merged #304–#307 already address KR receipts and selected Fidelity/Bithumb/Merrill period/date cases.
 
-Merged #318 connects the read-only account inventory to recorded evidence review; #320 handles Robinhood identity compatibility and preserves legacy pension closure/non-load presentation. These source increments are complete but absent from the observed operating checkout. The private minimum-input revision and sandboxed replay now distinguish document-supported holder identity, explicit joint registration, unresolved owner titles and proposed alias bridges. No private metadata, binding or owner attestation was applied.
+Merged #318 connects the read-only account inventory to recorded evidence review; #320 handles Robinhood identity compatibility and preserves legacy pension closure/non-load presentation. These source increments were absent from the preceding audit checkout; the [later design-time source observation](../operations/installation-status.md#later-design-time-observation-november-15-2026) includes them by ancestry, without new browser acceptance or private metadata adoption. The private minimum-input revision and sandboxed replay now distinguish document-supported holder identity, explicit joint registration, unresolved owner titles and proposed alias bridges. No private metadata, binding or owner attestation was applied.
 
 The remaining increment should connect an explicitly accepted inventory to the existing coverage/read-only review surfaces when separately authorized; unresolved inputs do not block independent documentation and authority audits. Its question is: which expected assets/accounts are represented, which have missing or stale evidence, and which still need reconciliation? A fresh file or recent API fetch must not imply complete history.
 
@@ -33,6 +33,8 @@ Adapter/display acceptance scope; remaining unsupported bridges must stay explic
 Exit: a reviewer can trace a supported total and an actionable gap to existing evidence without a refresh, importer, provider call or write surface. Where existing contracts cannot establish an authoritative inventory, produce the small contract/design decision first rather than creating guessed records. Private acceptance later uses an explicitly authorized read-only review; deployment remains held.
 
 ## Priority 2: complete operating ownership and recovery boundaries
+
+The [curated-input and archive contract design](../superpowers/specs/2026-11-15-finance-authority-path-design.md) proposes the next bounded source work: typed read-only endpoint/authority checks, followed separately by producer integration. No implementation, human curator appointment or operating setting change is included. Unanswered account decisions remain pending.
 
 The wider durable-state inventory and first expanded MacBook snapshot recovery are done for their documented scope. Do not repeat that same restore merely to generate another success receipt.
 
