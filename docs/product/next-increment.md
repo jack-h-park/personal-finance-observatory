@@ -34,7 +34,7 @@ Exit: a reviewer can trace a supported total and an actionable gap to existing e
 
 ## Priority 2: complete operating ownership and recovery boundaries
 
-The [curated-input and archive contract design](../superpowers/specs/2026-11-15-finance-authority-path-design.md) proposes the next bounded source work: typed read-only endpoint/authority checks, followed separately by producer integration. No implementation, human curator appointment or operating setting change is included. Unanswered account decisions remain pending.
+The [curated-input and archive contract design](../superpowers/specs/2026-11-15-finance-authority-path-design.md) proposes the next bounded source work: typed read-only endpoint/authority checks, followed separately by producer integration. The [first recorded-observation foundation](../architecture/finance-preflight.md) now has source-level types, pure assessment and an explicit-file CLI; no live observer, producer integration, human curator appointment or operating setting change is included. Unanswered account decisions remain pending.
 
 The wider durable-state inventory and first expanded MacBook snapshot recovery are done for their documented scope. Do not repeat that same restore merely to generate another success receipt.
 

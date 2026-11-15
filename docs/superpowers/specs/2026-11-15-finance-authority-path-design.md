@@ -1,6 +1,6 @@
 # Curated finance authority and briefing archive path contract
 
-Status: **proposed design; not implemented or activated**. November 15, 2026 (America/Los_Angeles). PR #322 records the preceding read-only audit. This proposal addresses its FX/evidence editing and briefing producer/consumer path gaps. It neither appoints an unconfirmed human curator nor applies a private configuration change.
+Status: **design with first recorded-observation foundation in source review; not operationally activated**. November 15, 2026 (America/Los_Angeles). PR #322 records the preceding read-only audit. This proposal addresses its FX/evidence editing and briefing producer/consumer path gaps. It neither appoints an unconfirmed human curator nor applies a private configuration change.
 
 ## Intent and boundaries
 
@@ -124,3 +124,8 @@ Keep private web writes disabled and approved-device access unchanged. Shared ba
 - [FX extractor input/output contracts](../../../scripts/extract-fx-ledger.py)
 - [Existing evidence root/hash reader](../../../lib/application/evidence-index.ts) and [reviewed history edits](../../../lib/application/tax-history-edit.ts)
 - [Current operating priorities](../../product/next-increment.md)
+
+
+## First source increment
+
+The [recorded-observation foundation](../../architecture/finance-preflight.md) implements types, strict validation, pure requested-scope assessment and an explicit-file CLI. It intentionally does not observe endpoint/evidence paths or establish actual job-time environment. Its matched receipts are not live publish gates or operational authority; producer integration and curated writes remain separate.

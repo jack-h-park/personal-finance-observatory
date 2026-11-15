@@ -1,0 +1,107 @@
+{
+  "schemaVersion": 1,
+  "observedAt": "2025-01-15T12:00:00Z",
+  "requestedContracts": [
+    "archive_path"
+  ],
+  "archive": {
+    "producer": {
+      "hostId": "synthetic-host",
+      "cwd": "/synthetic",
+      "configuredPath": "records/archive",
+      "configurationSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "observation": {
+        "state": "available",
+        "resolvedPath": "/synthetic/records/archive",
+        "canonicalPath": "/synthetic/records/archive",
+        "allowedRootCanonicalPath": "/synthetic/records",
+        "kind": "directory",
+        "readAccess": "readable"
+      }
+    },
+    "consumer": {
+      "hostId": "synthetic-host",
+      "cwd": "/synthetic",
+      "configuredPath": "records/archive",
+      "configurationSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "observation": {
+        "state": "available",
+        "resolvedPath": "/synthetic/records/archive",
+        "canonicalPath": "/synthetic/records/archive",
+        "allowedRootCanonicalPath": "/synthetic/records",
+        "kind": "directory",
+        "readAccess": "readable"
+      }
+    },
+    "stages": [
+      {
+        "stage": "document_writer",
+        "endpoint": {
+          "hostId": "synthetic-host",
+          "cwd": "/synthetic",
+          "configuredPath": "records/archive",
+          "configurationSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "observation": {
+            "state": "available",
+            "resolvedPath": "/synthetic/records/archive",
+            "canonicalPath": "/synthetic/records/archive",
+            "allowedRootCanonicalPath": "/synthetic/records",
+            "kind": "directory",
+            "readAccess": "readable"
+          }
+        }
+      },
+      {
+        "stage": "benchmarks",
+        "endpoint": {
+          "hostId": "synthetic-host",
+          "cwd": "/synthetic",
+          "configuredPath": "records/archive",
+          "configurationSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "observation": {
+            "state": "available",
+            "resolvedPath": "/synthetic/records/archive",
+            "canonicalPath": "/synthetic/records/archive",
+            "allowedRootCanonicalPath": "/synthetic/records",
+            "kind": "directory",
+            "readAccess": "readable"
+          }
+        }
+      },
+      {
+        "stage": "archive_commit",
+        "endpoint": {
+          "hostId": "synthetic-host",
+          "cwd": "/synthetic",
+          "configuredPath": "records/archive",
+          "configurationSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "observation": {
+            "state": "available",
+            "resolvedPath": "/synthetic/records/archive",
+            "canonicalPath": "/synthetic/records/archive",
+            "allowedRootCanonicalPath": "/synthetic/records",
+            "kind": "directory",
+            "readAccess": "readable"
+          }
+        }
+      },
+      {
+        "stage": "renderer",
+        "endpoint": {
+          "hostId": "synthetic-host",
+          "cwd": "/synthetic",
+          "configuredPath": "records/archive",
+          "configurationSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "observation": {
+            "state": "available",
+            "resolvedPath": "/synthetic/records/archive",
+            "canonicalPath": "/synthetic/records/archive",
+            "allowedRootCanonicalPath": "/synthetic/records",
+            "kind": "directory",
+            "readAccess": "readable"
+          }
+        }
+      }
+    ]
+  }
+}
