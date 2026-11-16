@@ -19,6 +19,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { loadLocalEnv } from './env.mjs'
 import { summarizeFills } from './toss-orders.mjs'
+import { runShadowHandoff, shouldRunShadow } from './toss-shadow-handoff.mjs'
 
 loadLocalEnv()
 
@@ -135,6 +136,12 @@ for (const account of list) {
 fs.mkdirSync(path.dirname(OUT_PATH), { recursive: true })
 fs.writeFileSync(OUT_PATH, `${JSON.stringify(snapshot, null, 2)}\n`)
 console.log(`Wrote ${OUT_PATH} (${snapshot.accounts.length} account(s))`)
+// Explicit opt-in only; the existing snapshot is committed before the sidecar.
+if (process.argv.slice(2).includes('--shadow-once')) {
+  let result = { status: 'invalid_configuration' }
+  try { if (BASE === 'https://openapi.tossinvest.com' && shouldRunShadow(process.argv.slice(2), process.env)) result = await runShadowHandoff(token) } catch { result = { status: 'failed' } }
+  console.error(`[toss-shadow] ${result.status}`)
+}
 }
 
 // A rejected top-level await is a module-evaluation failure, not an unhandled
