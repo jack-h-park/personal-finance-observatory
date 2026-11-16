@@ -619,7 +619,7 @@ test('notify: with nudge_prompt.py the opening prompt is the shared contract, a 
   const f = fixture({ FAKE_NOTIFY_JSON: notifyJson([withMaterial()]) }, { nudge: true })
   const r = run(f, 'rebalance-notify-cron.sh')
   assert.equal(r.code, 0, r.err)
-  const subject = 'Subject: rebalancing proposal rb-1 from the Stock Observatory. Its facts follow; the page is the place to approve, close or reject it.'
+  const subject = 'Subject: rebalancing proposal rb-1 from the Personal Finance Observatory. Its facts follow; the page is the place to approve, close or reject it.'
   // The contract's \uXXXX escapes arrive as the Korean text they stand for.
   assert.equal(promptOf(f), `CONTRACT RULES\n한국어 block\n\n${subject}\n\nFact one\nFact two`)
   const args = read(path.join(f.root, 'nudge.log')).split('\n')
