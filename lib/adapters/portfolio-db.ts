@@ -18,6 +18,7 @@ import { ASSET_CLASSES, depositsSeries, totalAssetsSeries, type CashBalanceRow, 
 import type { PensionContributionYear } from '@/lib/pension'
 import { summarizeAllocation, type AssetAllocation } from '@/lib/asset-allocation'
 import { getInstrumentClasses } from '@/lib/rebalance/instrument-classes'
+import { maskAccountLabel } from '@/lib/account-label'
 import { groupAccountRanges, type AccountDataRange, type AssetType, type RangeKind, type RangeRow } from '@/lib/account-ranges'
 import { foreignAccountMaxima, isUsBrokerage, isUsCashInstitution, maxBalance, treasuryRateFor, type BalancePoint, type ForeignAccountInput, type ForeignAccountMaxima } from '@/lib/fbar'
 import treasuryRates from '@/data/treasury-reporting-rates.json'
@@ -3986,8 +3987,12 @@ export function getAccountCoverage(): AccountCoverageSummary {
         action = '주식보상 계좌의 최신 계좌거래내역서를 다운로드해 inbox에 넣으세요.'
         detail = checks.get('samsung_statement_fresh')?.detail ?? detail
       } else if (market === 'KR') {
-        requiredArtifact = `${brokerage} ${account} 거래내역증명서`
-        action = `${brokerage} ${account}의 최신 거래내역증명서를 다운로드해 inbox에 넣으세요.`
+        // Both texts leave this function for readers that print them as they are
+        // (briefing summary, Telegram reminder, CLI, /data-ops), so they name the
+        // account masked; `account` itself stays raw for identity and keys.
+        const shown = maskAccountLabel(account)
+        requiredArtifact = `${brokerage} ${shown} 거래내역증명서`
+        action = `${brokerage} ${shown}의 최신 거래내역증명서를 다운로드해 inbox에 넣으세요.`
         coveredThrough = statementCoveredThrough
       }
 
