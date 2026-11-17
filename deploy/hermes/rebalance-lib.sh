@@ -227,7 +227,7 @@ rb_index_events() { # <json> <dir>
 # the fleet's opening rules, including the verified Korean copy block every opening is
 # checked for. Without the script, or when it fails or prints nothing usable, it is the
 # CLI's own fallback prompt (<dir>/<index>.prompt) exactly as before.
-RB_SUBJECT_LINE_FMT='Subject: rebalancing proposal %s from the Stock Observatory. Its facts follow; the page is the place to approve, close or reject it.'
+RB_SUBJECT_LINE_FMT='Subject: rebalancing proposal %s from the Personal Finance Observatory. Its facts follow; the page is the place to approve, close or reject it.'
 RB_STEP_THREE='Your read of the proposal: what it suggests and why, in two or three lines (decision, outlook, triggers, and any loss-harvest figure exactly as given), which ideas look worth researching, and what to check first on its page. Approval happens on the page, not in this thread. Do not invent figures; this is input to the maintainer'"'"'s own decision, not advice.'
 rb_opening_prompt() { # <cp> <dir> <index> <proposal id>
   local cp="$1" dir="$2" i="$3" pid="$4" script="$1/gateway/scripts/nudge_prompt.py" json subject contract=""
