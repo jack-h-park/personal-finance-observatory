@@ -62,7 +62,7 @@ export default async function AccountsPage() {
       <AccountInventoryReview review={inventoryReview} language={language} />
 
       <CardRow columns={3}>
-        <Card>
+        <Card accent>
           <MetricField
             label={copy.accounts}
             value={fmtNumber(summary.total)}
@@ -81,7 +81,6 @@ export default async function AccountsPage() {
       <Card
         title={copy.investmentsTitle}
         info={copy.tableInfo}
-        accent
         action={<TextLink href="/data-ops#account-coverage">{copy.nextDownloads}</TextLink>}
       >
         {axis ? (

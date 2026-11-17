@@ -133,7 +133,7 @@ export default async function RebalanceSettingsPage({ searchParams }: { searchPa
       {!state.policy && !state.error && <Note size="caption" spacing="below-4">{copy.policyMissing}</Note>}
       {!input && <Note size="caption" spacing="below-4">{copy.noDatabase}</Note>}
 
-      <Card title={copy.bounds.title} info={copy.bounds.info} accent>
+      <Card title={copy.bounds.title} info={copy.bounds.info}>
         <form action={saveBoundsAndTargets} className="space-y-4">
           <DataTable
             minWidth="32rem"
