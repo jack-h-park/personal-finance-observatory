@@ -456,7 +456,7 @@ export default async function DailyBriefingPage({ searchParams }: { searchParams
       <MetaRow>
         <MetaItem label={copy.briefingDate}>{doc.date}</MetaItem>
         <MetaItem label={copy.documentBuilt}>{fmtDateTime(doc.generatedAt, language)}</MetaItem>
-        <MetaItem label={copy.markets}>{markets.map((m) => m.id).join(', ') || copy.noMarkets}</MetaItem>
+        <MetaItem label={copy.markets}>{markets.map(marketName).join(', ') || copy.noMarkets}</MetaItem>
         <MetaItem label={copy.archive}>{archive.dir}</MetaItem>
       </MetaRow>
       <Note spacing="above-2" relaxed>
