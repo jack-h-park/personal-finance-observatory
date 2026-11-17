@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { mkdtempSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
@@ -55,7 +55,25 @@ for (const [strategy, age] of [['Mid-term',59],['Long-term',3]] as const) {
 transaction.run('US', 'Fidelity', 'Cash', 'Sample Fidelity', daysAgo(100))
 const confirmation = db.prepare('insert into source_coverage_confirmations values (?, ?, ?, ?, ?, ?, ?, ?)')
 for (const kind of ['holdings','transactions']) confirmation.run('investment','Fidelity','Sample Fidelity',kind,daysAgo(0),'sample.csv','0'.repeat(64),kind === 'holdings' ? 1 : 0)
+// A Korean account outside the named brokerages, filed under a label that carries
+// a full (made-up) account number, with a stale declared statement period: the
+// certificate branch, whose text names the account.
+const KR_RAW_ACCOUNT = 'Example Securities AB-12345678'
+transaction.run('KR', 'Example Securities', 'General', KR_RAW_ACCOUNT, daysAgo(100))
 db.close()
+const krStatementsDir = path.join(dir, 'kr-statements')
+mkdirSync(krStatementsDir)
+writeFileSync(
+  path.join(krStatementsDir, 'as-of.json'),
+  JSON.stringify({
+    statementPeriods: {
+      schemaVersion: 1,
+      accounts: {
+        [KR_RAW_ACCOUNT]: { state: 'declared', sources: [{ source: 'example.pdf', sha256: 'a'.repeat(64), page: 1, start: daysAgo(400), end: daysAgo(100) }] },
+      },
+    },
+  })
+)
 
 writeFileSync(
   snapshotPath,
@@ -71,7 +89,7 @@ writeFileSync(
 
 process.env.STOCK_DB_PATH = dbPath
 process.env.STOCK_ROBINHOOD_SNAPSHOT_PATH = snapshotPath
-process.env.STOCK_KR_STATEMENTS_DIR = path.join(dir, 'absent')
+process.env.STOCK_KR_STATEMENTS_DIR = krStatementsDir
 
 test('one Robinhood row per account, as stale as its transaction CSVs even when the snapshot is fresh', async () => {
   const { getAccountCoverage } = await import('../lib/adapters/portfolio-db')
@@ -149,6 +167,21 @@ test('closed explicitly labelled brokerage accounts are excluded while the activ
   assert(!rows.some(row => row.account.startsWith('Sample second')))
   assert(rows.some(row => row.account === '미래에셋증권(종합) · …1234'))
   assert.deepEqual(getBrokerageAccountHints().get('Sample second'), { suffix: '…5678', retired: true })
+})
+
+
+test('a Korean certificate row names its account only masked in its artifact and action text', async () => {
+  const { getAccountCoverage } = await import('../lib/adapters/portfolio-db')
+  const row = getAccountCoverage().rows.find((r) => r.market === 'KR' && r.brokerage === 'Example Securities')
+  assert.ok(row, 'the certificate row is present')
+  assert.equal(row.status, 'action_needed')
+  // The artifact text reaches the briefing summary, the Telegram reminder and the
+  // CLI; the action text is what /data-ops prints.
+  for (const text of [row.requiredArtifact, row.action]) {
+    assert.ok(!text.includes('12345678'), text)
+    assert.match(text, /…5678/)
+  }
+  for (const source of row.sources) assert.ok(!source.requiredArtifact.includes('12345678'))
 })
 
 
