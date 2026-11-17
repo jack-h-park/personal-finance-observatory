@@ -12,7 +12,7 @@ import type { Language } from '@/lib/i18n'
 import { positionHref } from '@/lib/position-url'
 import type { MasterPlanMonth, MonthlySaleMasterPlan } from '@/lib/tax-planning'
 import type { SavedInstructionExecution, SavedInstructionStatus } from '@/lib/tax-plan-store'
-import { FILING_PROFILE_TONE, PLAN_ROLE_TONE, bucketTone, categoryTone, signTone } from '@/lib/tone'
+import { FILING_PROFILE_TONE, PLAN_ROLE_TONE, bucketTone, categoryTone, signTone, toneBgClass } from '@/lib/tone'
 import { Input, Select } from '@/components/form'
 import { DataTable } from '@/components/DataTable'
 import { SubmitButton } from '@/components/SubmitButton'
@@ -265,11 +265,9 @@ export function TaxPlanTimeline({
                           </span>
                           <span className="mt-auto flex h-[3.25rem] items-end">
                             <span
-                              className={`block w-5 rounded-t-sm transition-all ${
-                                month.gainKrw >= 0
-                                  ? 'bg-info'
-                                  : 'bg-danger'
-                              } ${selected ? 'opacity-100' : 'opacity-60 group-hover:opacity-85'}`}
+                              className={`block w-5 rounded-t-sm transition-all ${toneBgClass(
+                                categoryTone(PLAN_ROLE_TONE, month.gainKrw >= 0 ? 'gain' : 'loss'),
+                              )} ${selected ? 'opacity-100' : 'opacity-60 group-hover:opacity-85'}`}
                               style={{ height: `${barHeight}px` }}
                             />
                           </span>

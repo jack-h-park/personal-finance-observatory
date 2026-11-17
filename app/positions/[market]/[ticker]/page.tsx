@@ -12,7 +12,7 @@ import { getCurrencyPreferences } from '@/lib/currency-server'
 import { buildTaxPlan } from '@/lib/tax-planning'
 import { getTaxPolicyState } from '@/lib/tax-policy'
 import { getGlossary } from '@/lib/glossary'
-import { EVIDENCE_LINK_SEVERITY, POSITION_EVENT_TONE, REVIEW_SEVERITY, TRANSACTION_TYPE_TONE, bucketTone, categoryTone, signClass, signTone, statusTone } from '@/lib/tone'
+import { EVIDENCE_LINK_SEVERITY, POSITION_EVENT_TONE, REVIEW_SEVERITY, TRANSACTION_TYPE_TONE, bucketTone, categoryTone, signClass, signTone, statusTone, toneTextClass } from '@/lib/tone'
 import { getLanguage } from '@/lib/i18n-server'
 import { getPageCopy } from '@/lib/ui-copy'
 import { CardRow, KpiBand } from '@/components/layout'
@@ -93,7 +93,7 @@ function ReconciliationStrip({
         </div>
         <div>
           <div className="text-ink-3">{copy.difference}</div>
-          <div className={ok ? 'font-medium tabular-nums text-success' : 'font-medium tabular-nums text-warning'}>
+          <div className={`font-medium tabular-nums ${toneTextClass(statusTone(REVIEW_SEVERITY, ok ? 'clear' : 'needs_review'))}`}>
             {unit === 'KRW' ? money(diff, 'KRW') : fmtNumber(diff, 4)}
           </div>
         </div>

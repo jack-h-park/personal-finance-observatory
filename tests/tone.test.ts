@@ -22,6 +22,7 @@ import {
   PLANNING_RESULT_TONE,
   POSITION_EVENT_TONE,
   PRIORITY_SEVERITY,
+  REFRESH_DOT_CLASS,
   REBALANCE_ACTION_TONE,
   RECONCILIATION_STATUS_TONE,
   RETENTION_TONE,
@@ -51,6 +52,8 @@ import {
   severityTone,
   signClass,
   statusTone,
+  toneBgClass,
+  toneTextClass,
 } from '@/lib/tone'
 
 test('severityTone maps the five steps to the five tones in order', () => {
@@ -298,4 +301,20 @@ test('the category maps keep the colours of the ternaries they replace', () => {
 test('signClass gives the class Signed drew for each sign', () => {
   assert.equal(signClass(-1), 'text-danger')
   assert.equal(signClass(1), 'text-success')
+})
+
+test('the tone class tables give the classes the replaced class-string ternaries wrote', () => {
+  // positions, cost-basis and income figures: text-success / text-warning / text-danger.
+  assert.equal(toneTextClass('success'), 'text-success')
+  assert.equal(toneTextClass('warning'), 'text-warning')
+  assert.equal(toneTextClass('danger'), 'text-danger')
+  // The tax-plan month bars: a gain bar in info, a loss bar in danger.
+  assert.equal(toneBgClass(categoryTone(PLAN_ROLE_TONE, 'gain')), 'bg-info')
+  assert.equal(toneBgClass(categoryTone(PLAN_ROLE_TONE, 'loss')), 'bg-danger')
+  // The auto-refresh dot, class string for class string.
+  assert.deepEqual(REFRESH_DOT_CLASS, {
+    paused: 'bg-warning',
+    refreshing: 'bg-info motion-safe:animate-pulse',
+    live: 'bg-success/70',
+  })
 })

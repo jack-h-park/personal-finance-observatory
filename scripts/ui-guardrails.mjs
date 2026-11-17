@@ -420,54 +420,69 @@ export function findHandWrittenGrid(source, file = '<source>') {
 
 /**
  * G5. A colour picked by a ternary between two tones
- * (`x > 0 ? 'text-success' : 'text-danger'`, `ok ? 'success' : 'warning'`)
- * instead of `signTone` or a severity table or named map in lib/tone.ts. A
- * ternary decides zero, null and the threshold its own way, so the same number
- * can read green on one page and grey on another; and either branch can be
- * flipped without anything objecting. R2 shipped exactly that: a status whose
- * two tones were the wrong way round, which type-checked and looked
- * deliberate. So any two tone names (or any two `text-<tone>` classes) count,
- * in either order and over line breaks, and a chained ternary counts once per
- * link whose two branches are both tones. A bare tone passed to a function or
- * written as a map value is not a ternary and is not a hit. Reported at the
- * line of the first branch.
+ * (`x > 0 ? 'text-success' : 'text-danger'`, `ok ? 'success' : 'warning'`,
+ * `ok ? 'px-2 text-success' : 'px-2 text-warning'`) instead of `signTone` or a
+ * severity table or named map in lib/tone.ts. A ternary decides zero, null and
+ * the threshold its own way, so the same number can read green on one page and
+ * grey on another; and either branch can be flipped without anything
+ * objecting. R2 shipped exactly that: a status whose two tones were the wrong
+ * way round, which type-checked and looked deliberate.
+ *
+ * So a ternary is a hit when both branches are string literals (quoted, or a
+ * backtick with no interpolation) and each one is toned: either a bare tone
+ * name, or a class string holding a `text-`, `bg-` or `border-` tone class as
+ * a whole token (under any variant, with an opacity, e.g. `bg-success/70`).
+ * Either order, over line breaks, and once per link of a chained ternary whose
+ * two branches are both toned. A ternary with one untoned branch
+ * (`'text-success' : 'text-ink-3'`), a bare tone passed to a function and a
+ * map value are not hits. Reported at the line of the first branch.
  */
 const TONE_NAME = '(?:neutral|info|success|warning|danger)'
 
-/** `? 'tone' :` or `? 'text-tone' :`, the `?` being a ternary (not `?.` or `??`). */
-const TONE_THEN = new RegExp(`(?<!\\?)\\?(?![.?])\\s*(['"])(text-)?${TONE_NAME}\\1\\s*:\\s*`, 'g')
+/** A string literal on one line: quoted, or a backtick with no interpolation. */
+const BRANCH_LITERAL = "(?:'(?:[^'\\\\\\n]|\\\\.)*'|\"(?:[^\"\\\\\\n]|\\\\.)*\"|`[^`$\\\\]*`)"
+
+/** `? <literal> :`, the `?` being a ternary operator (not `?.` or `??`). */
+const LITERAL_THEN = new RegExp(`(?<!\\?)\\?(?![.?])\\s*(${BRANCH_LITERAL})\\s*:\\s*`, 'g')
 
 /**
- * The else branch: a tone literal, or `cond ? 'tone'` opening the next link of
- * a chain. The condition stays on one line (the next `?` may start the line
+ * The else branch: a literal, or `cond ? <literal>` opening the next link of a
+ * chain. The condition stays on one line (the next `?` may start the line
  * after it, as prettier writes a chain), so a statement that merely ends in a
  * ternary is not joined to the next one.
  */
-function toneElse(prefix) {
-  const literal = `(['"])${prefix}${TONE_NAME}\\1`
-  return [
-    new RegExp(literal, 'y'),
-    new RegExp(`(?:[^?:;,{}\\n]|\\?\\.|\\?\\?)+?\\s*(?<!\\?)\\?(?![.?])\\s*${literal}`, 'y'),
-  ]
-}
+const LITERAL_ELSE = [
+  new RegExp(BRANCH_LITERAL, 'y'),
+  new RegExp(`(?:[^?:;,{}\\n]|\\?\\.|\\?\\?)+?\\s*(?<!\\?)\\?(?![.?])\\s*(${BRANCH_LITERAL})`, 'y'),
+]
 
-const TONE_ELSE = { bare: toneElse(''), text: toneElse('text-') }
+const BARE_TONE = new RegExp(`^${TONE_NAME}$`)
+const TONE_CLASS = new RegExp(`^(?:[^\\s:]+:)*(?:text|bg|border)-${TONE_NAME}(?:/\\d+)?$`)
+
+/** A bare tone name, or a class string with a tone class among its tokens. */
+function isToned(literal) {
+  const body = literal.slice(1, -1).trim()
+  return BARE_TONE.test(body) || body.split(/\s+/).some((token) => TONE_CLASS.test(token))
+}
 
 export function findInlineSignTone(source, file = '<source>') {
   const code = stripComments(source)
   const hits = []
-  for (const match of code.matchAll(TONE_THEN)) {
+  for (const match of code.matchAll(LITERAL_THEN)) {
+    if (!isToned(match[1])) continue
     const after = match.index + match[0].length
-    const elseMatch = TONE_ELSE[match[2] ? 'text' : 'bare']
-      .map((re) => {
-        re.lastIndex = after
-        return re.exec(code)
-      })
-      .find(Boolean)
-    if (!elseMatch) continue
+    let elseEnd = -1
+    for (const re of LITERAL_ELSE) {
+      re.lastIndex = after
+      const m = re.exec(code)
+      if (!m) continue
+      if (isToned(m[1] ?? m[0])) elseEnd = after + m[0].length
+      break
+    }
+    if (elseEnd === -1) continue
     const branch = match.index + match[0].indexOf(match[1])
     const line = code.slice(0, branch).split('\n').length
-    const snippet = code.slice(match.index, after + elseMatch[0].length).replace(/\s+/g, ' ')
+    const snippet = code.slice(match.index, elseEnd).replace(/\s+/g, ' ')
     hits.push(hit(file, line, snippet))
   }
   return hits

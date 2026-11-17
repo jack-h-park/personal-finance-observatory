@@ -12,7 +12,7 @@ import { getLanguage } from '@/lib/i18n-server'
 import { getPageCopy, getUiCopy } from '@/lib/ui-copy'
 import { applyFilters, applySearch, filterOptions, readFilters, withParam, type FilterGroup } from '@/lib/table-filter'
 import { formatSort, parseSort, sortRows, type TableSort } from '@/lib/table-sort'
-import { CAVEAT_SEVERITY, COST_BASIS_STATUS_TONE, FAULT_SEVERITY, countTone } from '@/lib/tone'
+import { CAVEAT_SEVERITY, COST_BASIS_STATUS_TONE, FAULT_SEVERITY, countTone, toneTextClass } from '@/lib/tone'
 import { routeMetadata, routeSection } from '@/lib/page-names'
 import { maskAccountLabel } from '@/lib/account-label'
 
@@ -87,7 +87,7 @@ export default async function CostBasisPage({
             </div>
             <div className="flex items-center justify-between gap-3">
               <span className="text-ink-3">{copy.missingCostRows}</span>
-              <span className={missingCost > 0 ? 'font-medium tabular-nums text-danger' : 'font-medium tabular-nums text-success'}>
+              <span className={`font-medium tabular-nums ${toneTextClass(countTone(FAULT_SEVERITY, missingCost))}`}>
                 {missingCost}
               </span>
             </div>

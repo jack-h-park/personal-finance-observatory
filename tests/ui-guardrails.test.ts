@@ -240,6 +240,24 @@ test('G5 catches a ternary between any two tones, in either order', () => {
   assert.deepEqual(findInlineSignTone("const m = { 'info': 'neutral' }"), [])
 })
 
+// A tone hidden in a class string is still a tone ternary: the reviewer found
+// four that the exact-literal pattern let through.
+test('G5 catches a ternary between two class strings that each carry a tone class', () => {
+  assert.equal(findInlineSignTone("const c = ok ? 'px-2 text-success' : 'px-2 text-warning'").length, 1)
+  assert.equal(findInlineSignTone("const c = a ? 'bg-warning' : b ? 'bg-info' : 'bg-success'").length, 2)
+  // Opacity, a variant prefix, a backtick without interpolation, a border class.
+  assert.equal(findInlineSignTone("const c = p ? 'h-1 bg-info motion-safe:animate-pulse' : 'bg-success/70'").length, 1)
+  assert.equal(findInlineSignTone('const c = p ? `border-danger` : `hover:border-info`').length, 1)
+  // A mixed pair: a bare tone against a tone class.
+  assert.equal(findInlineSignTone("const c = p ? 'success' : 'text-danger'").length, 1)
+  // One branch has no tone class, the token is not a whole class, or a branch interpolates.
+  assert.deepEqual(findInlineSignTone("const c = x ? 'text-success font-medium' : 'text-ink-3'"), [])
+  assert.deepEqual(findInlineSignTone("const c = x ? 'text-success-strong' : 'text-danger-strong'"), [])
+  assert.deepEqual(findInlineSignTone("const c = x ? 'ring-success' : 'ring-danger'"), [])
+  assert.deepEqual(findInlineSignTone('const c = x ? `text-${a}` : `text-danger`'), [])
+  assert.deepEqual(findInlineSignTone("const c = x ? 'text-ink' : 'text-ink-3'"), [])
+})
+
 test('G6 catches a missing value written by hand', () => {
   assert.deepEqual(snippets(findNullLiteral("const v = x ?? 'n/a'")), ["'n/a'"])
   assert.deepEqual(snippets(findNullLiteral('const v = x ?? "N/A"')), ['"N/A"'])

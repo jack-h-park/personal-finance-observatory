@@ -62,6 +62,46 @@ export function signClass(value: number | null | undefined) {
 }
 
 /**
+ * The text and background class for a tone, where a status colours a plain
+ * figure or a bar rather than a Badge. Static, so Tailwind sees every class.
+ * Neutral text is body ink, as in MetricField; neutral fill is tertiary ink.
+ */
+const TONE_TEXT_CLASS: Record<Tone, string> = {
+  neutral: 'text-ink',
+  info: 'text-info',
+  success: 'text-success',
+  warning: 'text-warning',
+  danger: 'text-danger',
+}
+
+export function toneTextClass(tone: Tone) {
+  return TONE_TEXT_CLASS[tone]
+}
+
+const TONE_BG_CLASS: Record<Tone, string> = {
+  neutral: 'bg-ink-3',
+  info: 'bg-info',
+  success: 'bg-success',
+  warning: 'bg-warning',
+  danger: 'bg-danger',
+}
+
+export function toneBgClass(tone: Tone) {
+  return TONE_BG_CLASS[tone]
+}
+
+/**
+ * The auto-refresh status dot: paused (warning), a refresh in flight (info,
+ * pulsing) or running (a softened success). Keyed by state rather than tone,
+ * because the pulse and the softened fill belong to the state.
+ */
+export const REFRESH_DOT_CLASS: Record<'paused' | 'refreshing' | 'live', string> = {
+  paused: 'bg-warning',
+  refreshing: 'bg-info motion-safe:animate-pulse',
+  live: 'bg-success/70',
+}
+
+/**
  * A tax lot's holding period: long-term is the outcome worth having.
  *
  * Two spellings reach here: the lot engine's `long`/`short` and the broker
