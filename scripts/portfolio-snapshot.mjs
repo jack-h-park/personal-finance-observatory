@@ -74,3 +74,31 @@ export function valuePortfolio(positions) {
 
   return Object.fromEntries(Object.entries(books).map(([key, book]) => [key, finishBook(book)]))
 }
+
+const PRICE_MARKETS = ['KR', 'US', 'CRYPTO']
+
+/**
+ * The market dates of the prices a snapshot was valued with, per market: the
+ * newest and the oldest among the holdings that carry a market value. A row
+ * states its price date in `price_as_of` where the price came from a price file
+ * whose date differs from the row's own `as_of_date` (a Robinhood lot dated by
+ * its lot snapshot, priced from us-prices.json); every other row's price is as
+ * of its `as_of_date`. Unpriced rows say nothing about price dates and are
+ * skipped, so a market with no priced row gets nulls.
+ *
+ * The newest date shows whether the last refresh fetched prices at all; the
+ * oldest shows a single quote that stopped updating (a halted ticker) while the
+ * rest moved on.
+ */
+export function priceDatesByMarket(rows) {
+  const dates = Object.fromEntries(PRICE_MARKETS.map((market) => [market, { newest: null, oldest: null }]))
+  for (const row of rows) {
+    const entry = dates[row.market]
+    if (!entry || row.base_market_value == null) continue
+    const date = String(row.price_as_of ?? row.as_of_date ?? '').slice(0, 10)
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue
+    if (entry.newest == null || date > entry.newest) entry.newest = date
+    if (entry.oldest == null || date < entry.oldest) entry.oldest = date
+  }
+  return dates
+}
