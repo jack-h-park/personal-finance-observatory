@@ -97,7 +97,7 @@ export default async function DataMapPage({
         </HeroAside>
       </CardRow>
 
-      <Card title={copy.reviewQueue} accent={actionItems.length > 0}>
+      <Card title={copy.reviewQueue} issues={{ count: reviewCount, severity: 'problem' }}>
         <div className="border-b border-line-subtle bg-surface px-4 py-3 text-label leading-relaxed text-ink-3">
           {copy.retentionGuide}
         </div>
@@ -126,7 +126,7 @@ export default async function DataMapPage({
         title={copy.driftMonitor}
         info={copy.driftMonitorInfo}
         className="mt-5"
-        accent={operational.sourceDrift.some((item) => item.status !== 'fresh')}
+        issues={{ count: operational.sourceDrift.filter((item) => item.status !== 'fresh').length, severity: 'problem' }}
       >
         <FreshnessRows items={operational.sourceDrift} language={language} />
       </Card>

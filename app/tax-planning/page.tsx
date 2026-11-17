@@ -285,7 +285,6 @@ export default async function TaxPlanningPage({
         <Card
           title={copy.page.annualFilingProfile}
           info={copy.page.annualFilingProfileInfo}
-          accent
         >
           <DataTable
             caption={copy.page.annualFilingProfile}
@@ -366,7 +365,6 @@ export default async function TaxPlanningPage({
           title={copy.page.annualTargetScenarioComparison}
           info={copy.page.annualTargetInfo}
           className="mb-5"
-          accent
         >
           <Panel text="caption-note" spacing="mb-3">
             {copy.page.annualTargetNote}
@@ -440,7 +438,7 @@ export default async function TaxPlanningPage({
           </div>
         </Card>
 
-        <Card title={copy.page.warnings} accent={plan.summary.warnings.length + operational.staleItems.length > 0}>
+        <Card title={copy.page.warnings} issues={{ count: plan.summary.warnings.length + operational.staleItems.length }}>
           {plan.summary.warnings.length === 0 && operational.staleItems.length === 0 ? (
             <EmptyState ok>{copy.page.noPlannerWarnings}</EmptyState>
           ) : (
@@ -454,7 +452,7 @@ export default async function TaxPlanningPage({
         </Card>
       </CardRow>
 
-      <Card title={copy.page.recommendedSaleLotSequence} className="mb-5" accent>
+      <Card title={copy.page.recommendedSaleLotSequence} className="mb-5">
         <CandidateTable rows={plan.recommended} copy={copy} money={money} />
       </Card>
 

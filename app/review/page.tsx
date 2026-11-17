@@ -146,7 +146,7 @@ export default async function ReviewPage() {
           </div>
         </Card>
 
-        <Card title={copy.operationalReadiness} accent={issueCount > 0}>
+        <Card title={copy.operationalReadiness} issues={{ count: issueCount }}>
           {operational.staleItems.length === 0 ? (
             <EmptyState ok>{copy.noOperationalInputs}</EmptyState>
           ) : (
@@ -173,7 +173,7 @@ export default async function ReviewPage() {
         </Card>
       </CardRow>
 
-      <Card title={copy.missingMarketValue} accent={review.noMarketValue.length > 0}>
+      <Card title={copy.missingMarketValue} issues={{ count: review.noMarketValue.length }}>
         <PositionTable rows={review.noMarketValue} mode="missing" copy={copy} money={money} />
       </Card>
     </>

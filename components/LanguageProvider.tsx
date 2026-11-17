@@ -50,3 +50,8 @@ export function CommonLabel({ label }: { label: keyof ReturnType<typeof getUiCop
   const value = getUiCopy(usePageLanguage()).common[label]
   return <>{typeof value === 'string' ? value : ''}</>
 }
+
+/** The count a card's header badge shows for the problems it lists. */
+export function IssueCountLabel({ count }: { count: number }) {
+  return <>{getUiCopy(usePageLanguage()).common.issueCount(count)}</>
+}

@@ -120,7 +120,7 @@ export default async function RebalanceSettingsPage({ searchParams }: { searchPa
       />
 
       {params.error && (
-        <Card title={copy.errorsTitle} accent>
+        <Card title={copy.errorsTitle}>
           <ul className="list-disc space-y-1 pl-5 text-caption text-warning">
             {messages.map((message) => (
               <li key={message}>{message}</li>

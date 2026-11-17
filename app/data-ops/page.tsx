@@ -68,7 +68,7 @@ export default async function DataOpsPage() {
         action={issueCount ? <Badge tone="warning">{copy.needsReview(fmtNumber(issueCount))}</Badge> : <Badge tone="success">{copy.noPending}</Badge>}
       />
 
-      <Card title={coverageCopy.title} info={coverageCopy.info} accent={coverage.actionNeeded > 0} className="mb-5" action={<TextLink href="#account-coverage">{coverageCopy.viewAll}</TextLink>}>
+      <Card title={coverageCopy.title} info={coverageCopy.info} issues={{ count: coverage.actionNeeded, severity: 'problem' }} className="mb-5" action={<TextLink href="#account-coverage">{coverageCopy.viewAll}</TextLink>}>
         <div className="mb-4 grid grid-cols-3 gap-3">
           <MetricField label={coverageCopy.actionNeeded} value={fmtNumber(coverage.actionNeeded)} tone={countTone(FAULT_SEVERITY, coverage.actionNeeded)} />
           <MetricField label={coverageCopy.dueSoon} value={fmtNumber(coverage.dueSoon)} tone={countTone(TO_REVIEW_SEVERITY, coverage.dueSoon)} />
@@ -190,7 +190,7 @@ export default async function DataOpsPage() {
         </HeroAside>
       </CardRow>
 
-      <Card title={copy.priorityWork} info={copy.priorityWorkInfo} className="mb-5" accent={ops.actionQueue.length > 0}>
+      <Card title={copy.priorityWork} info={copy.priorityWorkInfo} className="mb-5" issues={{ count: ops.actionQueue.length }}>
         {ops.actionQueue.length === 0 ? (
           <EmptyState ok>{copy.noPriorityWork}</EmptyState>
         ) : (
@@ -252,7 +252,7 @@ export default async function DataOpsPage() {
       </CardRow>
 
       <CardRow>
-        <Card title={copy.manualSuggestions} accent={ops.mappingSuggestions.length > 0}>
+        <Card title={copy.manualSuggestions} issues={{ count: ops.mappingSuggestions.length }}>
           {ops.mappingSuggestions.length === 0 ? (
             <EmptyState ok>{copy.noManualSuggestions}</EmptyState>
           ) : (
@@ -270,7 +270,7 @@ export default async function DataOpsPage() {
           )}
         </Card>
 
-        <Card title={copy.valuationFixSuggestions} accent={ops.valuationFixes.length > 0}>
+        <Card title={copy.valuationFixSuggestions} issues={{ count: ops.valuationFixes.length }}>
           {ops.valuationFixes.length === 0 ? (
             <EmptyState ok>{copy.noValuationFixes}</EmptyState>
           ) : (
@@ -291,7 +291,7 @@ export default async function DataOpsPage() {
         </Card>
       </CardRow>
 
-      <Card title={copy.tickerlessTriage} accent={ops.tickerlessIncome.length > 0}>
+      <Card title={copy.tickerlessTriage} issues={{ count: ops.tickerlessIncome.length }}>
         {ops.tickerlessIncome.length === 0 ? (
           <EmptyState ok>{copy.allIncomeMapped}</EmptyState>
         ) : (
@@ -338,7 +338,7 @@ export default async function DataOpsPage() {
           )}
         </Card>
 
-        <Card title={copy.sourceValidationIssues} accent={ops.sourceIssues.length + ops.validationIssues.length > 0}>
+        <Card title={copy.sourceValidationIssues} issues={{ count: ops.sourceIssues.length + ops.validationIssues.length, severity: 'problem' }}>
           {ops.sourceIssues.length === 0 && ops.validationIssues.length === 0 ? (
             <EmptyState ok>{copy.noSourceValidationIssues}</EmptyState>
           ) : (

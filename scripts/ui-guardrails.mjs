@@ -524,22 +524,29 @@ export function findMetricValueSize(source, file = '<source>') {
 }
 
 /**
- * G8. The `accent` prop marks the one figure a page wants read first. With two
- * or more on a page none of them stands out, and no tool notices. The target is
- * at most one per page; the baseline records where pages stand. Only the bare
- * prop counts, not a class token such as `accent-danger`. Read over the whole
- * source rather than line by line, so a bare `accent` alone on a line of a
- * wrapped tag still has its newline to match.
+ * G8. The `accent` prop marks the one figure a page wants read first. Two
+ * misuses: binding it to a condition, which turns the bar into a status light
+ * (a card that lists problems shows a count with `issues` instead), and a
+ * second bare `accent` on one page, after which none of them stands out. So
+ * report every `accent={...}`, and every bare `accent` after the first in the
+ * file. Only the bare prop counts, not a class token such as `accent-danger`.
+ * Read over the whole source rather than line by line, so a bare `accent`
+ * alone on a line of a wrapped tag still has its newline to match.
  */
 const ACCENT_PROP = /(?<=\s)accent(?=[\s=>}])/g
 
 export function findAccentProp(source, file = '<source>') {
   const text = stripComments(source)
   const lines = text.split('\n')
-  return [...text.matchAll(ACCENT_PROP)].map((match) => {
+  const hits = []
+  let bare = 0
+  for (const match of text.matchAll(ACCENT_PROP)) {
+    const bound = /^\s*=/.test(text.slice(match.index + match[0].length))
+    if (!bound && bare++ === 0) continue
     const line = text.slice(0, match.index).split('\n').length
-    return hit(file, line, lines[line - 1])
-  })
+    hits.push(hit(file, line, lines[line - 1]))
+  }
+  return hits
 }
 
 /**
@@ -768,7 +775,7 @@ export const CHECKS = [
   {
     code: 'G8',
     id: 'accent-per-page',
-    title: 'accent prop on a page (target: at most one per page)',
+    title: 'accent bar used as a status, or more than once on a page',
     roots: ['app'],
     include: /(?:^|\/)page\.tsx$/,
     find: findAccentProp,

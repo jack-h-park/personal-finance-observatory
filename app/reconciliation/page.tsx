@@ -96,7 +96,7 @@ export default async function ReconciliationPage({
         </HeroAside>
       </CardRow>
 
-      <Card title={copy.actionQueue} accent={review.actionQueue.length > 0}>
+      <Card title={copy.actionQueue} issues={{ count: review.actionQueue.length }}>
         {review.actionQueue.length === 0 ? (
           <EmptyState ok>{copy.noQueuedActions}</EmptyState>
         ) : (
@@ -138,7 +138,7 @@ export default async function ReconciliationPage({
         />
       </Card>
 
-      <Card title={copy.positionBreaks} className="mt-5" accent={review.positionBreaks.length > 0}>
+      <Card title={copy.positionBreaks} className="mt-5" issues={{ count: review.positionBreaks.length, severity: 'problem' }}>
         {review.positionBreaks.length === 0 ? (
           <EmptyState ok>{copy.noPositionBreaks}</EmptyState>
         ) : (
@@ -189,7 +189,7 @@ export default async function ReconciliationPage({
           )}
         </Card>
 
-        <Card title={copy.valuationBreaks} accent={review.valuationBreaks.length > 0}>
+        <Card title={copy.valuationBreaks} issues={{ count: review.valuationBreaks.length, severity: 'problem' }}>
           {review.valuationBreaks.length === 0 ? (
             <EmptyState ok>{copy.allValued}</EmptyState>
           ) : (

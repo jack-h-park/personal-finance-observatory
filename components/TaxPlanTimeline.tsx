@@ -197,7 +197,6 @@ export function TaxPlanTimeline({
       title={copy.saleTimeline}
       info={copy.saleTimelineInfo}
       className="mb-5"
-      accent
       action={<Badge tone="info">{copy.activeMonths(fmtNumber(plan.months.length))}</Badge>}
     >
       {activeMonth ? (

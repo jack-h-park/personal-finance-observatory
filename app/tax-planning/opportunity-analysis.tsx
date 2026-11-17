@@ -270,7 +270,7 @@ export function DecisionSummary({
       : copy.opportunity.recommendationBody
 
   return (
-    <Card title={copy.opportunity.currentDecision} className="mb-5" accent>
+    <Card title={copy.opportunity.currentDecision} className="mb-5">
       <Split side="26rem" at="xl" gap={4}>
         <div>
           <div className="flex flex-wrap items-center gap-2">
@@ -354,7 +354,6 @@ export function PlanningMap({
       title={hasPlanningTarget ? copy.opportunity.actionPlanTitle : copy.opportunity.opportunityMapTitle}
       info={hasPlanningTarget ? copy.opportunity.actionPlanInfo : copy.opportunity.opportunityMapInfo}
       className="mb-5"
-      accent
       action={hasPlanningTarget && scenario ? <Badge tone="info">{scenario.label}</Badge> : undefined}
     >
       {!hasPlanningTarget || !scenario ? (

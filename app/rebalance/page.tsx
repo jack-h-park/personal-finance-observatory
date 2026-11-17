@@ -103,7 +103,7 @@ export default async function RebalancePage({ searchParams }: { searchParams: Pr
       />
 
       {errorMessage && (
-        <Card title={proposalCopy.errorTitle} accent className="mb-5">
+        <Card title={proposalCopy.errorTitle} className="mb-5">
           <p className="text-caption text-warning">{errorMessage}</p>
         </Card>
       )}
@@ -151,7 +151,7 @@ export default async function RebalancePage({ searchParams }: { searchParams: Pr
           )}
         </Card>
 
-        <Card title={pc.title} info={pc.info} accent>
+        <Card title={pc.title} info={pc.info}>
           <div className="space-y-4">
             <Panel bordered={false} text="label-note">{proposalCopy.disclaimer}</Panel>
             {proposals === null ? (
@@ -402,7 +402,7 @@ export default async function RebalancePage({ searchParams }: { searchParams: Pr
         </Card>
       </CardRow>
 
-      <Card title={copy.holdWatch} accent={rebalance.watchCandidates.length + freshnessIssues > 0}>
+      <Card title={copy.holdWatch} issues={{ count: rebalance.watchCandidates.length + freshnessIssues }}>
         {rebalance.watchCandidates.length === 0 && freshnessIssues === 0 ? (
           <EmptyState ok>{copy.noBlockers}</EmptyState>
         ) : (

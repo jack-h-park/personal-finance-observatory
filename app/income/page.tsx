@@ -194,7 +194,7 @@ export default async function IncomePage() {
           />
         </Card>
 
-        <Card title={copy.tickerlessIncomeRows} accent={income.tickerless.length > 0}>
+        <Card title={copy.tickerlessIncomeRows} issues={{ count: income.tickerless.length }}>
           {income.tickerless.length === 0 ? (
             <EmptyState ok>{copy.allIncomeMapped}</EmptyState>
           ) : (

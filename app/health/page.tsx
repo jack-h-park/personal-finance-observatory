@@ -104,7 +104,7 @@ export default async function HealthPage() {
       />
 
       <CardRow columns={3}>
-        <Card title={copy.accountCoverage} info={copy.accountCoverageInfo} accent={accountCoverage.actionNeeded > 0} className="xl:col-span-3" action={<TextLink href="/data-ops#account-coverage">{copy.openUpdates}</TextLink>}>
+        <Card title={copy.accountCoverage} info={copy.accountCoverageInfo} issues={{ count: accountCoverage.actionNeeded, severity: 'problem' }} className="xl:col-span-3" action={<TextLink href="/data-ops#account-coverage">{copy.openUpdates}</TextLink>}>
           <MiniStatGrid columns={3}>
             <MiniStat label={copy.actionNeeded} value={fmtNumber(accountCoverage.actionNeeded)} tone="danger" />
             <MiniStat label={copy.dueSoon} value={fmtNumber(accountCoverage.dueSoon)} tone="warning" />
@@ -112,7 +112,7 @@ export default async function HealthPage() {
           </MiniStatGrid>
           <div className="mt-3 text-label leading-relaxed text-ink-3">{copy.accountCoverageNote}</div>
         </Card>
-        <Card title={copy.operationalStatus} info={copy.operationalStatusInfo} accent={issueCount > 0}>
+        <Card title={copy.operationalStatus} info={copy.operationalStatusInfo} issues={{ count: issueCount, severity: 'problem' }}>
           <MiniStatGrid columns={2}>
             <MiniStat label={freshnessLabels.fresh} value={fmtNumber(operational.summary.fresh)} tone="success" />
             <MiniStat label={freshnessLabels.stale} value={fmtNumber(operational.summary.stale)} tone="warning" />
@@ -129,7 +129,7 @@ export default async function HealthPage() {
         <Card
           title={copy.reconciliationCoverage}
           info={copy.reconciliationCoverageInfo}
-          accent={reconciliationBreaks > 0}
+          issues={{ count: reconciliationBreaks, severity: 'problem' }}
           action={<TextLink href="/reconciliation">{copy.openReconciliation}</TextLink>}
         >
           {reconciliation.length === 0 ? (
@@ -153,7 +153,7 @@ export default async function HealthPage() {
 
       <Card
         title={copy.refreshHistory}
-        accent={latestRefresh?.status === 'failed'}
+        issues={{ count: Number(latestRefresh?.status === 'failed'), severity: 'problem' }}
         action={
           latestRefresh ? (
             <Badge tone={statusTone(RUN_SEVERITY, runStatusLabel(latestRefresh))}>{displayRunStatus(runStatusLabel(latestRefresh), runStatusLabels)}</Badge>
@@ -236,7 +236,7 @@ export default async function HealthPage() {
 
       </CardRow>
 
-      <Card title={copy.freshnessIssues} accent={operational.staleItems.length > 0}>
+      <Card title={copy.freshnessIssues} issues={{ count: operational.staleItems.length }}>
         {operational.staleItems.length === 0 ? (
           <EmptyState ok>{copy.noFreshnessIssues}</EmptyState>
         ) : (
@@ -244,7 +244,7 @@ export default async function HealthPage() {
         )}
       </Card>
 
-      <Card title={copy.validationChecks} info={copy.validationChecksInfo} className="mt-5" accent={failed.length > 0}>
+      <Card title={copy.validationChecks} info={copy.validationChecksInfo} className="mt-5" issues={{ count: failed.length, severity: 'problem' }}>
         {checks.length === 0 ? (
           <EmptyState>{copy.noChecks}</EmptyState>
         ) : (

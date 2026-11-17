@@ -280,7 +280,14 @@ test('G7 catches a font size passed to a metric value', () => {
   assert.deepEqual(findMetricValueSize('<Metric valueClassName={tone} />'), [])
 })
 
-test('G8 counts the accent prop, not an accent class', () => {
+test('G8 reports an accent bound to an expression', () => {
+  assert.deepEqual(
+    (findAccentProp('<Card title={copy.b} accent={n > 0}>') as Hit[]).map((h) => h.line),
+    [1],
+  )
+})
+
+test('G8 reports every bare accent after the first in one page', () => {
   const page = [
     '<Card title={copy.a} accent>',
     '<Card title={copy.b} accent={count > 0}>',
@@ -290,8 +297,13 @@ test('G8 counts the accent prop, not an accent class', () => {
   ].join('\n')
   assert.deepEqual(
     (findAccentProp(page) as Hit[]).map((h) => h.line),
-    [1, 2, 4],
+    [2, 4],
   )
+})
+
+test('G8 leaves a single bare accent and accent classes alone', () => {
+  assert.deepEqual(findAccentProp('<Card title={copy.a} accent>'), [])
+  assert.deepEqual(findAccentProp('<Card\n  title={copy.a}\n  accent\n>'), [])
   assert.deepEqual(findAccentProp('<span className="text-accent-danger accent-info">'), [])
   assert.deepEqual(findAccentProp('<div className="border accent-danger">'), [])
   assert.deepEqual(findAccentProp('const accentTone = tone'), [])
@@ -463,6 +475,7 @@ test('the counted checks are registered in order with their scopes', () => {
     assert.equal(byCode[code].include, null, code)
   }
   assert.deepEqual(byCode.G8.roots, ['app'])
+  assert.equal((byCode.G8 as Check & { title: string }).title, 'accent bar used as a status, or more than once on a page')
   assert.ok(byCode.G8.include?.test('app/rebalance/settings/page.tsx'))
   assert.ok(!byCode.G8.include?.test('app/tax-planning/components.tsx'))
   assert.deepEqual(byCode.G11.roots, ['app', 'components'])
