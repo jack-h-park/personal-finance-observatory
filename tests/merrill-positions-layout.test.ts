@@ -104,3 +104,49 @@ test('the ingest builds positions from it, with the basis under its new spelling
     | undefined
   assert.equal(asOf?.as_of_date, '2026-08-11')
 })
+
+// The export is priced the day it was downloaded and no refresh downloads it,
+// so a newer us-prices.json quote revalues the position. A quote from the same
+// day as the file says nothing newer and leaves the broker's figure alone.
+test('a quote newer than the export revalues the position; a same-day quote does not', () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'merrill-reprice-'))
+  writeExport(dir)
+  writeSheetPayloads(dir)
+  const quotes = path.join(dir, 'us-prices.json')
+  writeFileSync(quotes, JSON.stringify({
+    prices: [
+      { ticker: 'JEPI', price: 60, currency: 'USD', asOfDate: '2026-08-12' },
+      { ticker: 'JEPQ', price: 70, currency: 'USD', asOfDate: '2026-08-11' },
+    ],
+  }), 'utf8')
+
+  // A won rate, or no row has a base value and the snapshot skips every US row.
+  const fx = path.join(dir, 'fx-rates.json')
+  writeFileSync(fx, JSON.stringify({
+    baseCurrency: 'KRW',
+    rates: [
+      { from: 'USD', to: 'KRW', rate: 1300, asOfDate: '2026-08-11', source: 'test' },
+      { from: 'KRW', to: 'KRW', rate: 1, asOfDate: '2026-08-11', source: 'test' },
+    ],
+  }), 'utf8')
+
+  const dbPath = runIngest(dir, { env: { STOCK_US_PRICES_PATH: quotes, STOCK_FX_RATES_PATH: fx }, allowFailure: true })
+
+  const db = new Database(dbPath, { readonly: true })
+  const rows = db
+    .prepare('select ticker, quantity, native_cost, native_price, native_market_value, native_unrealized_gl from holdings where brokerage = ? order by ticker')
+    .all('Merrill') as { ticker: string; quantity: number; native_cost: number; native_price: number; native_market_value: number; native_unrealized_gl: number }[]
+  const snapshot = db
+    .prepare('select us_price_date_newest, us_price_date_oldest from portfolio_snapshots order by snapshot_date desc limit 1')
+    .get()
+  db.close()
+
+  const [jepi, jepq] = rows
+  assert.equal(jepi.native_price, 60)
+  assert.equal(jepi.native_market_value, 60 * 123.2894)
+  assert.equal(jepi.native_cost, 6877.18)
+  assert.equal(jepi.native_unrealized_gl, 60 * 123.2894 - 6877.18)
+  assert.equal(jepq.native_market_value, 19202.39)
+  assert.equal(jepq.native_unrealized_gl, 431.62)
+  assert.deepEqual(snapshot, { us_price_date_newest: '2026-08-12', us_price_date_oldest: '2026-08-11' })
+})
