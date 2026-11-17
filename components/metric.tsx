@@ -137,7 +137,7 @@ export function SectionHeading({
     <div>
       {eyebrow != null ? <Label size="micro">{eyebrow}</Label> : null}
       {titled}
-      {subtitle != null ? <p className="mt-0.5 text-label text-ink-3">{subtitle}</p> : null}
+      {subtitle != null ? <Note spacing="above-0.5">{subtitle}</Note> : null}
     </div>
   )
 }

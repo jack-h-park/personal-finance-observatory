@@ -267,7 +267,7 @@ export default async function RebalancePage({ searchParams }: { searchParams: Pr
               { key: 'currentPct', label: copy.columns.current, align: 'right', render: (r) => fmtPct(r.currentPct) },
               { key: 'targetPct', label: copy.columns.target, align: 'right', render: (r) => fmtPct(r.targetPct) },
               { key: 'gapValue', label: copy.columns.gap, align: 'right', render: (r) => <Signed value={r.gapValue} format={(m) => money(m, 'KRW')} /> },
-              { key: 'action', label: copy.columns.action, render: (r) => <Badge tone={categoryTone(REBALANCE_ACTION_TONE, r.action, 'warning')}>{r.action}</Badge> },
+              { key: 'action', label: copy.columns.action, render: (r) => <Badge tone={categoryTone(REBALANCE_ACTION_TONE, r.action, 'warning')}>{copy.actions[r.action] ?? r.action}</Badge> },
             ]}
           />
         </Card>

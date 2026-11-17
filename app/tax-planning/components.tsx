@@ -6,6 +6,7 @@ import type { createMoneyFormatter } from '@/lib/currency'
 import { fmtDateShort, fmtDateTime, fmtDurationDays, fmtNumber, fmtPct, fmtQuantity, fmtSigned } from '@/lib/format'
 import type { Language } from '@/lib/i18n'
 import type { MonthlySaleMasterPlan, MonthlySalePlanSet, TaxPlanCandidate, MasterPlanStrategyKey } from '@/lib/tax-planning'
+import type { FilingScenario } from '@/lib/tax-policy'
 import { savedTaxPlanProgress, type SavedTaxPlan } from '@/lib/tax-plan-store'
 import { TAX_DUE_SEVERITY, TAX_PLAN_STATUS_SEVERITY, TO_REVIEW_SEVERITY, bucketTone, countTone, signClass, statusTone } from '@/lib/tone'
 import type { getPageCopy } from '@/lib/ui-copy'
@@ -29,7 +30,7 @@ export function CandidateTable({ rows, copy, money }: { rows: TaxPlanCandidate[]
         { key: 'ticker', label: copy.candidateTable.position, render: (r) => <PositionCell market={r.market} ticker={r.ticker} name={r.name} /> },
         { key: 'account', label: copy.candidateTable.account, render: (r) => <span className="max-w-[12rem] truncate">{displayAccount(r.brokerage, r.account)}</span> },
         { key: 'acquired_date', label: copy.candidateTable.acquired },
-        { key: 'holdingBucket', label: copy.candidateTable.term, render: (r) => <Badge tone={bucketTone(r.holdingBucket)}>{r.holdingBucket}</Badge> },
+        { key: 'holdingBucket', label: copy.candidateTable.term, render: (r) => <Badge tone={bucketTone(r.holdingBucket)}>{copy.enums.holdingBucket[r.holdingBucket] ?? r.holdingBucket}</Badge> },
         { key: 'open_quantity', label: copy.candidateTable.quantity, align: 'right', render: (r) => fmtQuantity(r.open_quantity, 4) },
         { key: 'proceedsNative', label: copy.candidateTable.proceeds, align: 'right', render: (r) => (r.proceedsNative == null ? copy.candidateTable.notAvailable : money(r.proceedsNative, r.currency)) },
         { key: 'gainKrw', label: copy.candidateTable.baseGainLoss, align: 'right', render: (r) => <Signed value={r.gainKrw} format={(m) => money(m, 'KRW')} /> },
@@ -343,7 +344,7 @@ export function SavedPlansPanel({
                           {saved.name}
                         </Link>
                         <Badge tone={statusTone(TAX_PLAN_STATUS_SEVERITY, saved.status)}>
-                          {saved.status}
+                          {copy.savedPlanDetail.statusLabels[saved.status] ?? saved.status}
                         </Badge>
                       </div>
                       <div className="mt-1 text-micro text-ink-3">
@@ -393,7 +394,7 @@ export function MasterPlanAnnualTax({ plan, copy, money }: { plan: MonthlySaleMa
         getRowKey={(year: any) => year.year}
         columns={[
           { key: 'year', label: copy.annualTax.taxYear, nowrap: true, render: (y: any) => <span className="font-mono text-ink">{y.year}</span> },
-          { key: 'profile', label: copy.annualTax.profile, render: (y: any) => <Badge tone="info">{y.filingScenario}</Badge> },
+          { key: 'profile', label: copy.annualTax.profile, render: (y: any) => <Badge tone="info">{copy.enums.filingScenario[y.filingScenario as FilingScenario] ?? y.filingScenario}</Badge> },
           { key: 'proceeds', label: copy.annualTax.sales, align: 'right', render: (y: any) => money(y.proceedsKrw) },
           { key: 'gain', label: copy.annualTax.netGainLoss, align: 'right', render: (y: any) => <Signed value={y.gainKrw} format={(m) => money(m, 'KRW')} /> },
           { key: 'usGross', label: copy.annualTax.usGross, align: 'right', priority: 'secondary', render: (y: any) => money(y.usGrossTaxKrw ?? 0) },

@@ -242,7 +242,7 @@ export default async function DataOpsPage() {
             rows={ops.mappingSummary}
             caption={copy.mappingStatusCaption}
             columns={[
-              { key: 'mapping_status', label: copy.columns.status, render: (r) => <Badge tone={statusTone(MAPPING_STATUS_SEVERITY, mappingStatusKey(r.mapping_status))}>{r.mapping_status}</Badge> },
+              { key: 'mapping_status', label: copy.columns.status, render: (r) => <Badge tone={statusTone(MAPPING_STATUS_SEVERITY, mappingStatusKey(r.mapping_status))}>{copy.mappingStatuses[r.mapping_status] ?? r.mapping_status}</Badge> },
               { key: 'income_category', label: copy.columns.category },
               { key: 'row_count', label: copy.columns.rows, align: 'right', render: (r) => fmtNumber(r.row_count) },
               { key: 'base_income', label: copy.columns.baseIncome, align: 'right', render: (r) => money(r.base_income) },
@@ -348,7 +348,7 @@ export default async function DataOpsPage() {
                 <ul className="divide-y divide-line-subtle">
                   {ops.validationIssues.map((issue) => (
                     <li key={issue.id} className="flex flex-col gap-1 py-2.5 lg:flex-row lg:items-center lg:gap-3">
-                      <Badge tone={statusTone(CHECK_RESULT_SEVERITY, issue.severity)}>{issue.status}</Badge>
+                      <Badge tone={statusTone(CHECK_RESULT_SEVERITY, issue.severity)}>{copy.sourceIssueStatuses[issue.status] ?? issue.status}</Badge>
                       <span className="min-w-0 flex-1 text-body font-medium text-ink">{issue.name}</span>
                       <span className="text-caption text-ink-3">{issue.detail}</span>
                     </li>

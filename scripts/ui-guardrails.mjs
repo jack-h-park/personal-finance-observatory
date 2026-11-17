@@ -506,22 +506,7 @@ export function findNullLiteral(source, file = '<source>') {
   return hits
 }
 
-/**
- * G7. A font size passed to a metric through `valueClassName`. The metric
- * components own the size of their value; an override makes one card on a row
- * larger or smaller than its neighbours, and next to the component's own size
- * class the two fight by emit order, which the conflict check cannot see
- * because the classes sit in two different literals.
- */
-const METRIC_VALUE_SIZE = /valueClassName=(?:["']|\{\s*["'`])\s*text-/g
-
-export function findMetricValueSize(source, file = '<source>') {
-  const hits = []
-  eachLine(source, (text, line) => {
-    for (const _ of text.matchAll(METRIC_VALUE_SIZE)) hits.push(hit(file, line, text))
-  })
-  return hits
-}
+// G7 (metric-value-size) is gone: R2 deleted `valueClassName`, so the check had nothing left to find.
 
 /**
  * G8. The `accent` prop marks the one figure a page wants read first. Two
@@ -717,6 +702,73 @@ export function findEnglishInKoreanCopy(source, file = '<source>') {
   return hits
 }
 
+/**
+ * The root of a copy lookup: `copy`, a `…Copy` object such as `fbarCopy`, or a
+ * `labels` / `…Labels` table such as `priorityLabels`.
+ */
+const COPY_ROOT = /^(?:copy|[a-z]\w*Copy|labels|[a-z]\w*Labels)$/
+
+/**
+ * Properties that hold something other than an enum code. A market code (KR,
+ * US, CRYPTO) is shown raw by design; a ticker is an identifier, not a member
+ * of a closed set; a `label` already holds display text.
+ */
+const RAW_BY_DESIGN = new Set(['market', 'ticker', 'label'])
+
+/**
+ * Local names for a slice of copy declared in the file, such as
+ * `const ac = copy.allocation` or `const proposalCopy = getPageCopy(…)`, read
+ * in order so an alias of an alias also counts.
+ */
+function copyAliases(text) {
+  const aliases = new Set()
+  for (const match of text.matchAll(/\b(?:const|let)\s+([A-Za-z_$][\w$]*)\s*=\s*([A-Za-z_$][\w$]*)\s*[.([]/g)) {
+    const [, name, root] = match
+    if (COPY_ROOT.test(root) || aliases.has(root) || root === 'getPageCopy' || root === 'getUiCopy') aliases.add(name)
+  }
+  return aliases
+}
+
+/** `a.b`, `a?.b`, `a[0].b`, `a.b[c]`: an identifier followed by one or more accesses. */
+const MEMBER_EXPRESSION = /^([A-Za-z_$][\w$]*)(?:\??\.[A-Za-z_$][\w$]*|\[[^\]]*\])+$/
+
+/**
+ * G13. An enum value rendered raw in a badge: `<Badge>{row.status}</Badge>`.
+ * The reader sees the code the data uses (`US_AND_KR`, `tickerless_categorized`)
+ * in both languages, where a word belongs. Every such value reads a copy map,
+ * `labels[value] ?? value`, so an unknown value still shows instead of a blank.
+ *
+ * A hit is a `<Badge …>` whose only child is one `{expression}` that is a plain
+ * member expression, not rooted in a copy object (COPY_ROOT, or a local alias
+ * of one) and not ending in a RAW_BY_DESIGN property. The tag may wrap over
+ * lines; the hit is reported on the line of `<Badge`. Heuristic: it cannot see
+ * a badge child built in a variable first (`const text = row.status` …
+ * `<Badge>{text}</Badge>`), a value passed through a helper that returns it
+ * unchanged, or a badge rendered by another component from a raw prop.
+ */
+export function findRawEnumBadge(source, file = '<source>') {
+  const hits = []
+  const text = stripComments(source)
+  const aliases = copyAliases(text)
+  for (const match of text.matchAll(/<Badge\b/g)) {
+    const tagEnd = scanStructure(text, match.index + match[0].length, (ch, i, depth) => ch === '>' && depth === 0 && text[i - 1] !== '=')
+    if (tagEnd === -1 || text[tagEnd - 1] === '/') continue
+    const open = text.slice(tagEnd + 1).match(/^\s*\{/)
+    if (!open) continue
+    const braceAt = tagEnd + open[0].length
+    const braceClose = scanStructure(text, braceAt, (ch, _, depth) => depth === 0)
+    if (braceClose === -1 || !/^\s*<\/Badge>/.test(text.slice(braceClose + 1))) continue
+    const expression = text.slice(braceAt + 1, braceClose).trim()
+    const member = expression.match(MEMBER_EXPRESSION)
+    if (!member || COPY_ROOT.test(member[1]) || aliases.has(member[1])) continue
+    const last = expression.match(/\.([A-Za-z_$][\w$]*)$/)
+    if (last && RAW_BY_DESIGN.has(last[1])) continue
+    const line = text.slice(0, match.index).split('\n').length
+    hits.push(hit(file, line, `<Badge>{${expression}}</Badge>`))
+  }
+  return hits
+}
+
 const BILINGUAL_BY_DESIGN = ['app/global-error.tsx']
 
 /**
@@ -766,12 +818,7 @@ export const CHECKS = [
     title: 'missing value written as n/a or a dash instead of by a formatter',
     find: findNullLiteral,
   },
-  {
-    code: 'G7',
-    id: 'metric-value-size',
-    title: 'font size passed to a metric value',
-    find: findMetricValueSize,
-  },
+  // G7 metric-value-size was retired: R2 deleted `valueClassName`, so it had nothing left to find.
   {
     code: 'G8',
     id: 'accent-per-page',
@@ -807,6 +854,12 @@ export const CHECKS = [
     title: 'English word left in the Korean half of a copy module',
     roots: ['lib/ui-copy'],
     find: findEnglishInKoreanCopy,
+  },
+  {
+    code: 'G13',
+    id: 'raw-enum-badge',
+    title: 'enum value shown raw in a badge instead of through a copy label',
+    find: findRawEnumBadge,
   },
 ].map((check) => ({ roots: ['app', 'components'], exclude: [], include: null, ...check }))
 

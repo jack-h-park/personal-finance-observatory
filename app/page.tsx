@@ -50,7 +50,7 @@ import { getGlossary } from '@/lib/glossary'
 import { getLanguage } from '@/lib/i18n-server'
 import { positionHref } from '@/lib/position-url'
 import { TRANSACTION_TYPE_TONE, categoryTone, signClass, signTone } from '@/lib/tone'
-import { getPageCopy } from '@/lib/ui-copy'
+import { getPageCopy, getUiCopy } from '@/lib/ui-copy'
 import { routeMetadata, routeSection } from '@/lib/page-names'
 import { CardRow, KpiBand, MiniStat, MiniStatGrid } from '@/components/layout'
 import { ShareBar } from '@/components/bars'
@@ -190,7 +190,7 @@ export default async function OverviewPage({
   }))
   const marketBreakdown = [
     {
-      key: 'KR',
+      market: 'KR',
       label: copy.korea,
       tone: 'success' as const,
       cost: krBase,
@@ -201,7 +201,7 @@ export default async function OverviewPage({
       barStyle: 'linear-gradient(90deg, var(--accent-success), var(--brand-cyan))',
     },
     {
-      key: 'US',
+      market: 'US',
       label: copy.us,
       tone: 'info' as const,
       cost: usBase,
@@ -212,7 +212,7 @@ export default async function OverviewPage({
       barStyle: 'linear-gradient(90deg, var(--accent-info), var(--brand-blue))',
     },
     {
-      key: 'CRYPTO',
+      market: 'CRYPTO',
       label: copy.crypto,
       tone: 'warning' as const,
       cost: cryptoBase,
@@ -349,7 +349,7 @@ export default async function OverviewPage({
             <div className="text-caption font-medium text-ink-2">{copy.marketAllocation}</div>
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
               {marketBreakdown.map((market) => (
-                <div key={market.key} className="flex items-center gap-1.5 text-caption text-ink-3">
+                <div key={market.market} className="flex items-center gap-1.5 text-caption text-ink-3">
                   <span className="h-2 w-2 rounded-pill" style={{ backgroundImage: market.barStyle }} />
                   <span>{market.label}</span>
                   <span className="font-medium tabular-nums text-ink">{fmtPct(market.share, { digits: 0 })}</span>
@@ -359,7 +359,7 @@ export default async function OverviewPage({
           </div>
           <ShareBar
             segments={marketBreakdown.map((market, index) => ({
-              key: market.key,
+              key: market.market,
               // A present market keeps a sliver even when it rounds to nothing.
               pct: Math.max(market.share > 0 ? 1 : 0, market.share),
               title: `${market.label} ${fmtPct(market.share, { digits: 0 })}`,
@@ -372,10 +372,10 @@ export default async function OverviewPage({
         </div>
         <div className="grid gap-4 lg:grid-cols-3">
           {marketBreakdown.map((market) => (
-            <div key={market.key} className="min-w-0">
+            <div key={market.market} className="min-w-0">
               <div className="mb-2 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
-                  <Badge tone={market.tone}>{market.key}</Badge>
+                  <Badge tone={market.tone}>{market.market}</Badge>
                   <span className="text-body font-medium text-ink">{market.label}</span>
                 </div>
                 <span className="text-caption tabular-nums text-ink-3">{copy.share} {fmtPct(market.share, { digits: 0 })}</span>
@@ -724,7 +724,7 @@ export default async function OverviewPage({
                 <div className="flex min-w-0 items-center gap-2">
                   <Badge tone={marketTone(t.market)}>{t.market}</Badge>
                   <Badge tone={categoryTone(TRANSACTION_TYPE_TONE, t.type, 'info')}>
-                    {t.type}
+                    {getUiCopy(language).transactionTypes[t.type] ?? t.type}
                   </Badge>
                 </div>
                 <span className="text-caption tabular-nums text-ink-3">{copy.count(fmtNumber(t.count))}</span>

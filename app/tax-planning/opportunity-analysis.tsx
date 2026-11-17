@@ -365,7 +365,7 @@ export function PlanningMap({
           getRowKey={(year: MultiYearTaxScenario['years'][number]) => year.year}
           columns={[
             { key: 'year', label: copy.opportunity.year, render: (y: any) => <span className="font-mono text-ink">{y.year}</span> },
-            { key: 'profile', label: copy.opportunity.filingProfile, render: (y: any) => <Badge tone="info">{y.filingScenario}</Badge> },
+            { key: 'profile', label: copy.opportunity.filingProfile, render: (y: any) => <Badge tone="info">{copy.enums.filingScenario[y.filingScenario as FilingScenario] ?? y.filingScenario}</Badge> },
             { key: 'kr', label: copy.opportunity.sellKrMarket, align: 'right', render: (y: any) => fmtKrw(marketAmount(y, 'KR')) },
             { key: 'us', label: copy.opportunity.sellUsMarket, align: 'right', render: (y: any) => fmtKrw(marketAmount(y, 'US')) },
             { key: 'target', label: copy.opportunity.target, align: 'right', render: () => fmtKrw(annualTargetCashKrw) },
@@ -453,7 +453,7 @@ function OpportunityTable({
         columns={[
           { key: 'yearLabel', label: copy.opportunity.years, render: (r: any) => <span className="font-mono text-ink">{r.yearLabel}</span> },
           { key: 'market', label: copy.opportunity.market, render: (r: any) => <Badge tone={marketTone(r.market)}>{r.market}</Badge> },
-          { key: 'filingScenario', label: copy.opportunity.taxProfile, description: copy.opportunity.taxProfileInfo, render: (r: any) => <Badge tone="neutral">{r.filingScenario}</Badge> },
+          { key: 'filingScenario', label: copy.opportunity.taxProfile, description: copy.opportunity.taxProfileInfo, render: (r: any) => <Badge tone="neutral">{copy.enums.filingScenario[r.filingScenario as FilingScenario] ?? r.filingScenario}</Badge> },
           { key: 'netGainKrw', label: copy.opportunity.netGainLoss, description: copy.opportunity.netGainLossInfo, align: 'right', render: (r: any) => <Signed value={r.netGainKrw} format={fmtKrw} /> },
           { key: 'lossHarvestKrw', label: copy.opportunity.lossInventory, description: copy.opportunity.lossInventoryInfo, align: 'right', render: (r: any) => <span className="text-danger">{r.lossHarvestKrw > 0 ? fmtKrw(r.lossHarvestKrw) : fmtKrw(0)}</span> },
           { key: 'usTaxIfAllSoldKrw', label: copy.opportunity.usEstimate, description: copy.opportunity.usEstimateInfo, align: 'right', render: (r: any) => fmtKrw(r.usTaxIfAllSoldKrw) },

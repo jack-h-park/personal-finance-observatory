@@ -292,7 +292,7 @@ export default async function TaxPlanningPage({
             getRowKey={(profile: TaxYearProfile) => profile.year}
             columns={[
               { key: 'year', label: copy.page.year, render: (p: TaxYearProfile) => <span className="font-mono text-ink">{p.year}</span> },
-              { key: 'scenario', label: copy.page.taxCalc, render: (p: TaxYearProfile) => <Badge tone="info">{scenarioFromTaxYearProfile(p)}</Badge> },
+              { key: 'scenario', label: copy.page.taxCalc, render: (p: TaxYearProfile) => <Badge tone="info">{copy.enums.filingScenario[scenarioFromTaxYearProfile(p)] ?? scenarioFromTaxYearProfile(p)}</Badge> },
               {
                 key: 'wages',
                 label: copy.page.projectedWages,
@@ -322,14 +322,14 @@ export default async function TaxPlanningPage({
                     <Badge>{copy.page.off}</Badge>
                   ),
               },
-              { key: 'status', label: copy.page.status, render: (p: TaxYearProfile) => <Badge tone={statusTone(TAX_PROFILE_STATUS_SEVERITY, p.status)}>{p.status}</Badge> },
+              { key: 'status', label: copy.page.status, render: (p: TaxYearProfile) => <Badge tone={statusTone(TAX_PROFILE_STATUS_SEVERITY, p.status)}>{copy.enums.taxYearProfileStatus[p.status] ?? p.status}</Badge> },
             ]}
           />
         </Card>
 
         <Card title={copy.page.baseAssumptions}>
           <div className="space-y-2 text-caption text-ink-2">
-            <div className="flex items-center justify-between gap-3"><span>{copy.page.scenario}</span><Badge tone="info">{plan.assumptions.scenario}</Badge></div>
+            <div className="flex items-center justify-between gap-3"><span>{copy.page.scenario}</span><Badge tone="info">{copy.enums.filingScenario[plan.assumptions.scenario] ?? plan.assumptions.scenario}</Badge></div>
             <div className="flex items-center justify-between gap-3"><span>{copy.page.filingState}</span><span className="text-ink">{assumptionString(taxPolicy.policy, 'US', 'filingStatus', EMPTY_VALUE)} / {assumptionString(taxPolicy.policy, 'US', 'stateCode', EMPTY_VALUE)}</span></div>
             <div className="flex items-center justify-between gap-3"><span>{copy.page.w2WageBase}</span><span className="tabular-nums text-ink">{assumptionNumber(taxPolicy.policy, 'US', 'wageBaseYear', 0)} · {fmtMoney(assumptionNumber(taxPolicy.policy, 'US', 'wageBaseUsd', 0), 'USD')}</span></div>
             <div className="flex items-center justify-between gap-3"><span>{copy.page.annualIncomeGrowth}</span><span className="tabular-nums text-ink">{fmtPct(assumptionNumber(taxPolicy.policy, 'US', 'annualIncomeGrowthPct', 0))}</span></div>
@@ -472,7 +472,7 @@ function ScenarioTimeline({ scenario, copy }: { scenario: MultiYearTaxScenario; 
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <span className="font-mono text-body text-ink">{year.year}</span>
-                <Badge tone="info">{year.filingScenario}</Badge>
+                <Badge tone="info">{copy.enums.filingScenario[year.filingScenario] ?? year.filingScenario}</Badge>
               </div>
               <div className="text-right text-caption tabular-nums text-ink">
                 {fmtKrw(year.taxKrw)}

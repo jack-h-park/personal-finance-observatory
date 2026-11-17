@@ -78,7 +78,7 @@ export default async function TransactionsPage({
               { key: 'date', label: copy.columns.date, sortable: true, nowrap: true },
               { key: 'brokerage', label: copy.columns.broker, sortable: true, sortFirst: 'asc' },
               { key: 'account', label: copy.columns.account, sortable: true, sortFirst: 'asc', priority: 'secondary', render: (r) => maskAccountLabel(r.account) },
-              { key: 'type', label: copy.columns.type, sortable: true, sortFirst: 'asc', render: (r) => <Badge tone={categoryTone(TRANSACTION_TYPE_TONE, r.type, 'info')}>{r.type}</Badge> },
+              { key: 'type', label: copy.columns.type, sortable: true, sortFirst: 'asc', render: (r) => <Badge tone={categoryTone(TRANSACTION_TYPE_TONE, r.type, 'info')}>{getUiCopy(language).transactionTypes[r.type] ?? r.type}</Badge> },
               { key: 'ticker', label: copy.columns.ticker, sortable: true, sortFirst: 'asc' },
               { key: 'name', label: copy.columns.name, sortable: true, sortFirst: 'asc' },
               { key: 'quantity', label: copy.columns.quantity, align: 'right', sortable: true, render: (r) => fmtQuantity(r.quantity, 2) },

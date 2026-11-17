@@ -107,7 +107,7 @@ export default async function DataMapPage({
           <DataTable
             rows={actionItems}
             columns={[
-              { key: 'status', label: copy.columns.status, render: (r) => <Badge tone={categoryTone(INVENTORY_STATUS_TONE, r.status, 'danger')}>{r.status}</Badge> },
+              { key: 'status', label: copy.columns.status, render: (r) => <Badge tone={categoryTone(INVENTORY_STATUS_TONE, r.status, 'danger')}>{copy.statusLabels[r.status] ?? r.status}</Badge> },
               { key: 'category', label: copy.columns.category },
               { key: 'relativePath', label: copy.columns.file, render: (r) => <span className="block max-w-[34rem] truncate">{r.relativePath}</span> },
               { key: 'bytes', label: copy.columns.size, align: 'right', render: (r) => fmtBytes(r.bytes) },
@@ -137,7 +137,7 @@ export default async function DataMapPage({
           sortHref={sortHref}
           rows={sortRows(inventory.items, sort, (row, key) => (row as Record<string, any>)[key])}
           columns={[
-            { key: 'status', sortable: true, sortFirst: 'asc', label: copy.columns.status, render: (r) => <Badge tone={categoryTone(INVENTORY_STATUS_TONE, r.status, 'danger')}>{r.status}</Badge> },
+            { key: 'status', sortable: true, sortFirst: 'asc', label: copy.columns.status, render: (r) => <Badge tone={categoryTone(INVENTORY_STATUS_TONE, r.status, 'danger')}>{copy.statusLabels[r.status] ?? r.status}</Badge> },
             { key: 'category', sortable: true, sortFirst: 'asc', label: copy.columns.category },
             { key: 'name', sortable: true, sortFirst: 'asc', label: copy.columns.dataset },
             { key: 'relativePath', sortable: true, sortFirst: 'asc', label: copy.columns.path, render: (r) => <span className="block max-w-[32rem] truncate">{r.relativePath}</span> },

@@ -1,8 +1,20 @@
 import { EMPTY_VALUE } from '@/lib/format'
+import type { TaxPlanCandidate } from '@/lib/tax-planning'
+import type { FilingScenario, TaxYearProfile } from '@/lib/tax-policy'
 import { defineCopy } from '@/lib/ui-copy/define'
+
+// Named here so the Korean half carries no English string literal in a type (G12).
+type HoldingBucket = TaxPlanCandidate['holdingBucket']
+type TaxYearProfileStatus = TaxYearProfile['status']
 
 export const taxPlanning = defineCopy({
   en: {
+    /** Enum values a badge shows. Read with `labels[value] ?? value`, so an unknown value still shows. */
+    enums: {
+      holdingBucket: { short: 'Short-term', long: 'Long-term' } satisfies Record<HoldingBucket, string>,
+      taxYearProfileStatus: { assumed: 'Assumed', confirmed: 'Confirmed' } satisfies Record<TaxYearProfileStatus, string>,
+      filingScenario: { US_ONLY: 'US only', KR_ONLY: 'KR only', US_AND_KR: 'US + KR' } satisfies Record<FilingScenario, string>,
+    },
     page: {
       title: 'Tax Planning',
       emphasis: 'Planning',
@@ -259,8 +271,6 @@ export const taxPlanning = defineCopy({
       next: 'Next',
       noScheduledSaleInstructions: 'No scheduled sale instructions',
       noProfile: 'No profile',
-      usOnly: 'US only',
-      krOnly: 'KR only',
     },
     annualTax: {
       title: 'Annual tax roll-up',
@@ -358,7 +368,7 @@ export const taxPlanning = defineCopy({
       years: 'Years',
       market: 'Market',
       taxProfile: 'Tax profile',
-      taxProfileInfo: 'Which country tax calculations are enabled for that year. US_AND_KR means both US and Korea estimates are included.',
+      taxProfileInfo: 'Which country tax calculations are enabled for that year. US + KR means both US and Korea estimates are included.',
       netGainLoss: 'Net G/L',
       netGainLossInfo: 'Estimated gain or loss if every currently priced lot in this market were sold. This stress case is not a sale recommendation.',
       lossInventory: 'Loss inventory',
@@ -417,6 +427,11 @@ export const taxPlanning = defineCopy({
     },
   },
   ko: {
+    enums: {
+      holdingBucket: { short: '단기', long: '장기' } satisfies Record<HoldingBucket, string>,
+      taxYearProfileStatus: { assumed: '가정', confirmed: '확정' } satisfies Record<TaxYearProfileStatus, string>,
+      filingScenario: { US_ONLY: '미국만', KR_ONLY: '한국만', US_AND_KR: '미국 + 한국' } satisfies Record<FilingScenario, string>,
+    },
     page: {
       title: '세금 계획',
       emphasis: '계획',
@@ -673,8 +688,6 @@ export const taxPlanning = defineCopy({
       next: '다음',
       noScheduledSaleInstructions: '예약된 매도 지시가 없습니다',
       noProfile: '프로필 없음',
-      usOnly: '미국만',
-      krOnly: '한국만',
     },
     annualTax: {
       title: '연도별 세금 합계',
@@ -772,7 +785,7 @@ export const taxPlanning = defineCopy({
       years: '연도',
       market: '시장',
       taxProfile: '세금 프로필',
-      taxProfileInfo: '해당 연도에 어느 국가의 세금 계산이 활성화되는지입니다. US_AND_KR은 미국과 한국 추정치를 모두 포함한다는 뜻입니다.',
+      taxProfileInfo: '해당 연도에 어느 국가의 세금 계산이 활성화되는지입니다. 미국 + 한국은 미국과 한국 추정치를 모두 포함한다는 뜻입니다.',
       netGainLoss: '순손익',
       netGainLossInfo: '현재 가격이 있는 이 시장의 모든 세금 단위를 판다고 가정한 손익입니다. 이 스트레스 케이스는 매도 추천이 아닙니다.',
       lossInventory: '손실 재고',

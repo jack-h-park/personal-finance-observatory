@@ -16,8 +16,8 @@ import {
   findHangulLiteral,
   findInlineLanguageBranch,
   findInlineSignTone,
-  findMetricValueSize,
   findNullLiteral,
+  findRawEnumBadge,
   stripComments,
 } from '../scripts/ui-guardrails.mjs'
 
@@ -271,15 +271,6 @@ test('G6 catches a missing value written by hand', () => {
   assert.deepEqual(findNullLiteral('const v = fmtNumber(x, language)'), [])
 })
 
-test('G7 catches a font size passed to a metric value', () => {
-  assert.equal(findMetricValueSize('<Metric label={l} value={v} valueClassName="text-body" />').length, 1)
-  assert.equal(findMetricValueSize("<Metric valueClassName={'text-hero'} />").length, 1)
-  assert.equal(findMetricValueSize('<Metric valueClassName={` text-title`} />').length, 1)
-  // A colour or weight that is not the first class, and no override.
-  assert.deepEqual(findMetricValueSize('<Metric valueClassName="font-medium" />'), [])
-  assert.deepEqual(findMetricValueSize('<Metric valueClassName={tone} />'), [])
-})
-
 test('G8 reports an accent bound to an expression', () => {
   assert.deepEqual(
     (findAccentProp('<Card title={copy.b} accent={n > 0}>') as Hit[]).map((h) => h.line),
@@ -448,6 +439,43 @@ test('G12 skips path-shaped tokens and lets MCP, XLSX and SHA stand, but still r
   )
 })
 
+test('G13 catches an enum value rendered raw in a Badge', () => {
+  assert.deepEqual(
+    (findRawEnumBadge('<Badge tone="info">{y.filingScenario}</Badge>') as Hit[]).map((h) => h.line),
+    [1],
+  )
+  // A tag wrapped over lines, a child on its own line, optional chaining and an index.
+  assert.deepEqual(
+    (findRawEnumBadge('<div>\n  <Badge\n    tone={t}\n  >\n    {row?.status}\n  </Badge>\n</div>') as Hit[]).map((h) => h.line),
+    [2],
+  )
+  assert.equal(findRawEnumBadge('<Badge tone={statusTone(S, p.status)}>{p.status}</Badge>').length, 1)
+  assert.equal(findRawEnumBadge('<Badge>{rows[0].action}</Badge>').length, 1)
+  // An alias of a data row is not copy.
+  assert.equal(findRawEnumBadge('const ac = row.allocation\n<Badge>{ac.status}</Badge>').length, 1)
+})
+
+test('G13 leaves copy lookups, market codes, calls and literals alone', () => {
+  assert.deepEqual(findRawEnumBadge('<Badge>{copy.filing[y.filingScenario]}</Badge>'), [])
+  assert.deepEqual(findRawEnumBadge('<Badge>{copy.filing[y.filingScenario] ?? y.filingScenario}</Badge>'), [])
+  assert.deepEqual(findRawEnumBadge('<Badge>{fbarCopy.understated}</Badge>'), [])
+  assert.deepEqual(findRawEnumBadge('<Badge>{priorityLabels[r.priority]}</Badge>'), [])
+  assert.deepEqual(findRawEnumBadge('<Badge>{r.market}</Badge>'), [])
+  assert.deepEqual(findRawEnumBadge('<Badge tone={marketTone(row.market)}>{row.market}</Badge>'), [])
+  assert.deepEqual(findRawEnumBadge('<Badge>{fmtNumber(n)}</Badge>'), [])
+  assert.deepEqual(findRawEnumBadge('<Badge>{market}</Badge>'), [])
+  assert.deepEqual(findRawEnumBadge('<Badge tone="neutral">2%</Badge>'), [])
+  assert.deepEqual(findRawEnumBadge('<Badge>{a.status}{b.status}</Badge>'), [])
+  // A ticker is an identifier and a `.label` already holds display text: neither is an enum.
+  assert.deepEqual(findRawEnumBadge('<Badge tone="neutral">{h.ticker}</Badge>'), [])
+  assert.deepEqual(findRawEnumBadge('<Badge tone="success">{plan.label}</Badge>'), [])
+  // A local alias of a slice of copy is still copy.
+  assert.deepEqual(findRawEnumBadge('const ac = copy.allocation\n<Badge>{ac.statuses[r.status]}</Badge>'), [])
+  assert.deepEqual(findRawEnumBadge("const pc = getPageCopy('x', l)\nconst st = pc.statuses\n<Badge>{st.open}</Badge>"), [])
+  // In a comment, nothing to report.
+  assert.deepEqual(findRawEnumBadge('// <Badge>{y.filingScenario}</Badge>'), [])
+})
+
 test('the counted checks are registered in order with their scopes', () => {
   type Check = { code: string; id: string; roots: string[]; exclude: string[]; include: RegExp | null }
   const checks = CHECKS as Check[]
@@ -460,17 +488,17 @@ test('the counted checks are registered in order with their scopes', () => {
       'G4 hand-written-grid',
       'G5 inline-sign-tone',
       'G6 null-literal',
-      'G7 metric-value-size',
       'G8 accent-per-page',
       'G9 date-format-without-language',
       'G10 browser-locale-number',
       'G11 bare-footnote',
       'G12 english-in-korean-copy',
+      'G13 raw-enum-badge',
     ],
   )
   const byCode = Object.fromEntries(checks.map((c) => [c.code, c]))
   for (const code of ['G1', 'G2', 'G3']) assert.ok(byCode[code].exclude.includes('app/global-error.tsx'))
-  for (const code of ['G1', 'G2', 'G3', 'G4', 'G5', 'G6', 'G7', 'G9', 'G10']) {
+  for (const code of ['G1', 'G2', 'G3', 'G4', 'G5', 'G6', 'G9', 'G10', 'G13']) {
     assert.deepEqual(byCode[code].roots, ['app', 'components'], code)
     assert.equal(byCode[code].include, null, code)
   }
