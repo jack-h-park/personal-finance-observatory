@@ -48,6 +48,7 @@
     "refresh": "node scripts/refresh.mjs",
     "summary": "tsx scripts/summary.mjs",
     "tax:annual:preview": "tsx scripts/annual-tax-preview.ts",
+    "tax:annual:compare": "tsx scripts/annual-tax-compare.ts",
     "finance:preflight": "tsx scripts/finance-preflight.ts",
     "finance:observe": "tsx scripts/finance-preflight-observe.ts",
     "tax:scenario": "tsx scripts/observatory-cli.mjs tax:scenario",
