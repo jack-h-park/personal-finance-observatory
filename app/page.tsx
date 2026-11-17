@@ -537,7 +537,7 @@ export default async function OverviewPage({
                 {' · '}
               </>
             ) : null}
-            {copy.snapshotWritten(fmtDateTime(latestSnapshot.captured_at))}
+            {copy.snapshotWritten(fmtDateTime(latestSnapshot.captured_at, language))}
             {latestSnapshotStale ? <div>{copy.snapshotStale}</div> : null}
           </div>
         ) : null}

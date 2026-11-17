@@ -182,7 +182,7 @@ export const overview = defineCopy({
     priceBasis: '가격 기준',
     priceOldest: (date: string) => `가장 오래된 가격 ${date}`,
     snapshotWritten: (when: string) => `${when} 반영`,
-    snapshotStale: '반영한 지 36시간이 넘어 지금 숫자는 그때 가격 기준입니다. refresh가 실패하고 있을 수 있습니다.',
+    snapshotStale: '반영한 지 36시간이 넘어 지금 숫자는 그때 가격 기준입니다. 자동 갱신이 실패하고 있을 수 있습니다.',
     percentagePoints: '퍼센트포인트',
     krwMillions: '백만 원 단위',
     usdMillions: '백만 달러 단위',
@@ -204,7 +204,7 @@ export const overview = defineCopy({
     trendRangeSummary: (start: string, end: string, valued: number, total: number, gaps: number) =>
       `${start}부터 ${end}까지 · 가격 확인 ${valued}개 / 전체 ${total}개 스냅샷${gaps ? ` · 공백 ${gaps}개` : ''}`,
     snapshotsOnce: '스냅샷은 ingest 날짜마다 한 번 기록됩니다.',
-    trendExplanation: '취득원가, 보유수량, 배당은 세금 단위와 거래일 기준으로 재구성됩니다. 외화 가격은 환율 스냅샷으로 환산한 뒤 선택 표시 통화로 표시됩니다. 취득원가 기준 가격 확인률이 90% 미만인 평가 지점은 차트 공백으로 남기고, 90~95%는 부분 평가로 표시합니다. 취득원가 이력 자체에는 시장 가격이 필요하지 않습니다. 마지막 점은 마지막 refresh가 받아 온 가격으로, 그 이전 월말 점은 해당 날짜 이전 최신 종가로 평가합니다. 실현손익은 각 날짜까지 발생한 모든 매도의 누적 합계이며, 선택한 기간의 시작이 아니라 첫 매도부터 누적합니다. 브로커가 Form 1099-B로 신고한 매도는 자체 재계산 값 대신 신고 값을 사용합니다.',
+    trendExplanation: '취득원가, 보유수량, 배당은 세금 단위와 거래일 기준으로 재구성됩니다. 외화 가격은 환율 스냅샷으로 환산한 뒤 선택 표시 통화로 표시됩니다. 취득원가 기준 가격 확인률이 90% 미만인 평가 지점은 차트 공백으로 남기고, 90~95%는 부분 평가로 표시합니다. 취득원가 이력 자체에는 시장 가격이 필요하지 않습니다. 마지막 점은 마지막 자동 갱신이 받아 온 가격으로, 그 이전 월말 점은 해당 날짜 이전 최신 종가로 평가합니다. 실현손익은 각 날짜까지 발생한 모든 매도의 누적 합계이며, 선택한 기간의 시작이 아니라 첫 매도부터 누적합니다. 브로커가 Form 1099-B로 신고한 매도는 자체 재계산 값 대신 신고 값을 사용합니다.',
     topHoldingsByCost: '취득원가 상위 보유종목',
     topHoldingsNote: '막대 값은 설정된 환율 스냅샷을 적용한 선택 표시 통화 단위입니다.',
     dividendTrend: '배당 추이',
