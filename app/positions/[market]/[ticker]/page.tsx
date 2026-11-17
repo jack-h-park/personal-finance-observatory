@@ -197,7 +197,7 @@ export default async function PositionPage({ params }: { params: Promise<{ marke
   const lineageSummary = detail.sources.map((source) => ({
     id: source.source,
     label: source.file?.filename ?? source.source,
-    usage: source.usages.join(', '),
+    usage: source.usages.map((usage) => translated(usage, copy.sourceUsages)).join(', '),
     rows: source.file?.row_count ?? null,
     modified: source.file ? new Date(source.file.mtime_ms).toISOString() : null,
     status: source.file ? ('linked' as const) : ('unlinked' as const),
@@ -422,7 +422,7 @@ export default async function PositionPage({ params }: { params: Promise<{ marke
             rows={detail.sources}
             columns={[
               { key: 'source', label: copy.columns.source, render: (r) => <span className="max-w-[18rem] break-words">{r.source}</span> },
-              { key: 'usages', label: copy.columns.usage, render: (r) => r.usages.join(', ') },
+              { key: 'usages', label: copy.columns.usage, render: (r) => r.usages.map((usage) => translated(usage, copy.sourceUsages)).join(', ') },
               { key: 'row_count', label: copy.columns.rows, align: 'right', render: (r) => (r.file ? fmtNumber(r.file.row_count) : EMPTY_VALUE) },
               { key: 'mtime_ms', label: copy.columns.modified, render: (r) => (r.file ? fmtDateTime(new Date(r.file.mtime_ms).toISOString(), language) : EMPTY_VALUE) },
               { key: 'sha256', label: copy.columns.sha, render: (r) => (r.file ? <code className="font-mono text-label">{shortHash(r.file.sha256)}</code> : EMPTY_VALUE) },

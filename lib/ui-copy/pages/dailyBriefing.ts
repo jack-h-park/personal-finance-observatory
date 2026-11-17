@@ -81,6 +81,7 @@ export const dailyBriefing = defineCopy({
     archiveMissingHint: (dir: string) =>
       `Set STOCK_BRIEFING_ARCHIVE_DIR to the briefing archive path (currently ${dir}, which does not exist).`,
     docSubtitle: (dateLabel: string, built: string) => `${dateLabel} · built ${built}`,
+    marketNames: { US: 'US', KR: 'Korea' } as Record<string, string>,
     openPublished: 'Open published page ↗',
     narrativeOnlyHint:
       'Holdings snapshots were only retained from the archive rollout onward; earlier days kept the narrative alone.',
@@ -217,6 +218,7 @@ export const dailyBriefing = defineCopy({
     archiveMissingHint: (dir: string) =>
       `STOCK_BRIEFING_ARCHIVE_DIR를 브리핑 보관 경로로 설정하세요. 현재 값 ${dir}은(는) 존재하지 않습니다.`,
     docSubtitle: (dateLabel: string, built: string) => `${dateLabel} · ${built} 생성`,
+    marketNames: { US: '미국', KR: '한국' } as Record<string, string>,
     openPublished: '발행된 페이지 열기 ↗',
     narrativeOnlyHint: '보유 스냅샷은 보관 기능을 도입한 이후부터만 남아 있습니다. 그 이전 날짜는 서술만 보관했습니다.',
     narrativeOnly: (date: string) => `${date}의 포트폴리오 수치가 없습니다 — 이 브리핑은 서술만 보관되었습니다.`,
