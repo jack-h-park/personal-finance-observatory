@@ -1,0 +1,11 @@
+# Toss shadow token handoff
+
+The experimental handoff reuses the token already issued within an existing Toss fetch process. Both an explicit runtime opt-in and a private one-time request file are required; neither is configured by this change. The request binds its settlement window, page budget, collector entry SHA-256, collector configuration SHA-256, and an expiry no more than 24 hours away. A successful atomic rename claims it once; inode and bytes are checked again after the rename. The claimed file remains as evidence even if a later step fails, and there is no automatic retry. A separate owner-only result records a fixed execution status, not financial data or a run ID; shadow-run validation remains a separate step. A later invocation without a request performs no shadow collection.
+
+The parent sends the token only through child stdin, starts the child with an empty environment, and discards child stdout and stderr. Only a fixed status is logged. A timeout or failure does not turn a successful existing snapshot write into a failed fetch, though the process can wait up to 90 seconds.
+
+The configured CLI, request and account config must be operator-owned, symlink-free and not group/world-writable; the account config and request must be owner-only and the request directory mode 700. The CLI entry file and private config must match the approved SHA-256 values. The child independently verifies the bytes it reads from the config against the approved hash before reading the token or making a request. The CLI entry hash does not cover imported modules, runtime, or dependencies. Another application can still invalidate the token by issuing a new one.
+
+**Operational hold:** Deployment and runtime configuration remain disabled and need review. The request is consumed only after the existing scheduled fetch has written the snapshot it normally writes; no extra fetch process or token issuance is introduced. Account selection and a live API/PDF reconciliation remain pending. No request file or financial API call was made as part of this implementation.
+
+Validation uses synthetic responses, an actual child subprocess with synthetic input, a separate real collector stdin error-path test and an atomically consumed request; no financial APIs or private token files are touched.

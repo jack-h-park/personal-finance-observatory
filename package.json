@@ -47,6 +47,9 @@
     "backfill:history": "node scripts/backfill-portfolio-history.mjs",
     "refresh": "node scripts/refresh.mjs",
     "summary": "tsx scripts/summary.mjs",
+    "tax:annual:preview": "tsx scripts/annual-tax-preview.ts",
+    "finance:preflight": "tsx scripts/finance-preflight.ts",
+    "finance:observe": "tsx scripts/finance-preflight-observe.ts",
     "tax:scenario": "tsx scripts/observatory-cli.mjs tax:scenario",
     "tax:calendar": "tsx scripts/observatory-cli.mjs tax:calendar",
     "tax:realized": "tsx scripts/observatory-cli.mjs tax:realized",
@@ -71,9 +74,10 @@
     "ui:compare": "node scripts/snap-ui.mjs --compare"
   },
   "dependencies": {
+    "ajv": "8.20.0",
     "better-sqlite3": "^11.8.1",
     "clsx": "^2.1.1",
-    "next": "^15.5.27",
+    "next": "^15.5.28",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "recharts": "^2.15.0"
