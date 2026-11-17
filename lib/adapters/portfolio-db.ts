@@ -295,15 +295,30 @@ export type PositionDetail = {
 
 export type FreshnessStatus = 'fresh' | 'stale' | 'drift' | 'missing'
 
+/** What a freshness row says, as a code and its values; the sentence is copy (`common.freshness.detail`). */
+export type FreshnessDetail =
+  | { code: 'PRICE_SNAPSHOT'; count: number; marketDate: string | null }
+  | { code: 'CRYPTO_SNAPSHOT'; count: number; quotes: string[] }
+  | { code: 'FX_RATE'; rate: number; source: string }
+  | { code: 'FX_RATE_MISSING' }
+  | { code: 'SOURCE_MISSING' }
+  | { code: 'SOURCE_CHANGED'; recordedBytes: number; currentBytes: number }
+  | { code: 'SOURCE_MTIME_ONLY' }
+  | { code: 'SOURCE_MATCHES' }
+  | { code: 'SNAPSHOT_PRICE_DATES'; markets: { market: 'KR' | 'US' | 'CRYPTO'; newest: string; oldest: string | null }[] }
+
+export type FreshnessSnapshotKey = 'kr_prices' | 'us_prices' | 'crypto_prices' | 'fx_rates' | 'snapshot_prices'
+
 export type FreshnessItem = {
   key: string
+  /** A snapshot's key (its name is copy), or a source file's name (data). */
   label: string
   category: 'price' | 'fx' | 'source'
   status: FreshnessStatus
   observedAt: string | null
   thresholdMs: number | null
   ageMs: number | null
-  detail: string
+  detail: FreshnessDetail
   path?: string | null
   rowCount?: number | null
 }
@@ -324,6 +339,48 @@ export type OperationalHealth = {
 
 export type AccountCoverageStatus = 'current' | 'due_soon' | 'action_needed' | 'missing' | 'unconfirmed'
 
+/** What an account's coverage needs, as a code the page renders through its copy module. */
+export type CoverageArtifact =
+  | { code: 'KR_STATEMENT' }
+  | { code: 'KR_CERTIFICATE'; brokerage: string; account: string }
+  | { code: 'TOSS_STATEMENT_WITH_API' }
+  | { code: 'SAMSUNG_STOCK_COMP_STATEMENT' }
+  | { code: 'US_HOLDINGS_AND_TRANSACTIONS_CSV'; brokerage: string }
+  | { code: 'ROBINHOOD_MCP_SNAPSHOT' }
+  | { code: 'ROBINHOOD_TRANSACTIONS_CSV' }
+  | { code: 'BITHUMB_PDF_AND_XLSX' }
+  | { code: 'ROBINHOOD_CRYPTO_STATEMENT' }
+
+/** What to do to bring the account current. */
+export type CoverageAction =
+  | { code: 'DOWNLOAD_TO_INBOX' }
+  | { code: 'KR_CERTIFICATE'; brokerage: string; account: string }
+  | { code: 'TOSS_API_OR_STATEMENT' }
+  | { code: 'SAMSUNG_STOCK_COMP' }
+  | { code: 'US_HOLDINGS_AND_TRANSACTIONS'; brokerage: string }
+  | { code: 'ROBINHOOD_SNAPSHOT' }
+  | { code: 'ROBINHOOD_SNAPSHOT_AND_CSV' }
+  | { code: 'BITHUMB_SAME_PERIOD' }
+  | { code: 'CRYPTO_MONTHLY_STATEMENT' }
+  | { code: 'NONE_NEEDED' }
+  | { code: 'NONE_NEEDED_DUE_SOON' }
+  | { code: 'CONFIRM_QUERY_END' }
+
+/**
+ * How the coverage date is computed. `checkDetail` carries the validation
+ * check's own text when the branch has one; it is ingest output, not copy.
+ */
+export type CoverageDetail =
+  | { code: 'STATEMENT_PERIOD_END'; checkDetail?: string }
+  | { code: 'ROBINHOOD_OLDER_OF_TWO' }
+  | { code: 'ROBINHOOD_SNAPSHOT_FETCHED_AT'; checkDetail?: string }
+  | { code: 'OLDER_OF_TWO_CSVS' }
+  | { code: 'USER_CONFIRMED_QUERY_END' }
+  | { code: 'BITHUMB_DECLARED_PERIODS' }
+  | { code: 'MONTHLY_STATEMENT_CONTINUITY' }
+  | { code: 'TOSS_STATEMENT_AND_API'; checkDetail?: string }
+  | { code: 'UNCONFIRMED_PERIOD'; lastTransaction: string | null }
+
 /**
  * One of the separate artifacts an account's coverage is made of, when there is
  * more than one and each goes stale on its own. Robinhood is the case: its
@@ -340,7 +397,9 @@ export type AccountCoverageSource = {
   maxLagDays: number
   overdueDays: number | null
   status: AccountCoverageStatus
+  /** Printed by the briefing summary, the reminder script and the CLI; the page renders `artifact`. */
   requiredArtifact: string
+  artifact: CoverageArtifact
   destination: string
   /**
    * Tickers whose disposal is missing from this artifact's history: the broker
@@ -373,12 +432,14 @@ export type AccountCoverage = {
   // placed by hand. A Robinhood transactions CSV carries no account, and which
   // account it is exists only in the name someone gives it.
   method: 'inbox' | 'manual' | 'api' | 'mcp' | 'mixed'
+  /** Printed by the briefing summary, the reminder script and the CLI; the page renders `artifacts`. */
   requiredArtifact: string
+  artifacts: CoverageArtifact[]
   format: string
   destination: string
   lastFile: string | null
-  action: string
-  detail: string
+  action: CoverageAction
+  detail: CoverageDetail
   /**
    * Non-empty when the row stands for several artifacts that age separately. The row's
    * own date, status and method are those of the one furthest behind, so a
@@ -440,7 +501,8 @@ export type SourceInventoryItem = {
   mtimeMs: number | null
   rowCount: number | null
   sha256: string | null
-  detail: string
+  /** A tracked file carries its freshness code; an untracked file a sentence. */
+  detail: FreshnessDetail | string
   retention: 'active' | 'fallback' | 'archive' | 'derived' | 'review'
   retentionReason: string
 }
@@ -636,6 +698,15 @@ export type RebalanceReview = {
   }[]
 }
 
+export type ActionPriority = 'high' | 'medium' | 'low'
+export type DataOpsQueueKind = 'validation' | 'source_freshness' | 'manual_mappings' | 'valuation'
+export type ReconciliationQueueKind = 'source_freshness' | 'validation' | 'position_breaks' | 'valuation'
+/** One row of an action queue; the page says what the kind means (`dataOps.queue`, `reconciliation.queue`). */
+export type ActionQueueItem<K extends string> = { kind: K; priority: ActionPriority; count: number; href: string }
+export type TickerlessSuggestion = 'keep_interest' | 'keep_stock_lending' | 'keep_other' | 'review_override'
+export type ValuationReason = 'price_snapshot_missing' | 'ticker_missing_from_price_snapshot' | 'source_missing_market_value'
+export type PositionBreakStatus = 'holding_only' | 'lot_only' | 'quantity_break' | 'cost_break'
+
 export type DataOpsReview = {
   manualMappings: {
     path: string
@@ -663,7 +734,7 @@ export type DataOpsReview = {
     row_count: number
     native_income: number
     base_income: number
-    suggestion: string
+    suggestion: TickerlessSuggestion
     suggestedRule: string
   }[]
   missingValuation: {
@@ -676,16 +747,9 @@ export type DataOpsReview = {
     quantity: number
     native_cost: number
     base_cost: number | null
-    reason: string
-    suggestion: string
+    reason: ValuationReason
   }[]
-  actionQueue: {
-    priority: 'high' | 'medium' | 'low'
-    area: string
-    count: number
-    action: string
-    href: string
-  }[]
+  actionQueue: ActionQueueItem<DataOpsQueueKind>[]
   mappingSuggestions: {
     id: string
     market: string
@@ -695,15 +759,14 @@ export type DataOpsReview = {
     row_count: number
     base_income: number
     rule: string
-    note: string
+    note: TickerlessSuggestion
   }[]
   valuationFixes: {
     market: string
     ticker: string
     name: string
     brokerage: string | null
-    reason: string
-    suggestion: string
+    reason: ValuationReason
   }[]
   sourceIssues: FreshnessItem[]
   validationIssues: HealthCheck[]
@@ -745,7 +808,7 @@ export type ReconciliationReview = {
     holding_base_cost: number | null
     lot_base_cost: number | null
     base_cost_diff: number | null
-    status: 'holding_only' | 'lot_only' | 'quantity_break' | 'cost_break'
+    status: PositionBreakStatus
   }[]
   incomeBreaks: {
     market: string
@@ -764,13 +827,7 @@ export type ReconciliationReview = {
     native_cost: number
     base_cost: number | null
   }[]
-  actionQueue: {
-    priority: 'high' | 'medium' | 'low'
-    area: string
-    count: number
-    action: string
-    href: string
-  }[]
+  actionQueue: ActionQueueItem<ReconciliationQueueKind>[]
 }
 
 function db(dbPath: string = config.stockDbPath) {
@@ -2309,25 +2366,23 @@ function freshnessStatus(observedAt: string | null, thresholdMs: number): Freshn
 
 function snapshotFreshness({
   key,
-  label,
   category,
   path,
   observedAt,
   thresholdMs,
   detail,
 }: {
-  key: string
-  label: string
+  key: FreshnessSnapshotKey
   category: 'price' | 'fx'
   path: string
   observedAt: string | null
   thresholdMs: number
-  detail: string
+  detail: FreshnessDetail
 }): FreshnessItem {
   const age = ageMs(observedAt)
   return {
     key,
-    label,
+    label: key,
     category,
     status: freshnessStatus(observedAt, thresholdMs),
     observedAt,
@@ -2348,7 +2403,7 @@ function sourceFreshness(source: any): FreshnessItem {
       observedAt: null,
       thresholdMs: null,
       ageMs: null,
-      detail: 'Source file is missing from disk.',
+      detail: { code: 'SOURCE_MISSING' },
       path: source.path,
       rowCount: source.row_count,
     }
@@ -2376,10 +2431,10 @@ function sourceFreshness(source: any): FreshnessItem {
     ageMs: ageMs(observedAt),
     detail:
       contentChanged
-        ? `Changed since ingest. Recorded ${source.bytes} bytes; current ${stat.size} bytes.`
+        ? { code: 'SOURCE_CHANGED', recordedBytes: Number(source.bytes), currentBytes: stat.size }
         : mtimeChanged
-          ? 'Content matches the SHA-256 captured at ingest; only modified time changed.'
-          : 'Matches the content fingerprint captured at ingest.',
+          ? { code: 'SOURCE_MTIME_ONLY' }
+          : { code: 'SOURCE_MATCHES' },
     path: source.path,
     rowCount: source.row_count,
   }
@@ -2611,24 +2666,22 @@ function snapshotPriceFreshness(conn: Database.Database, thresholdMs: number): F
     .prepare(`select captured_at, ${PRICE_DATE_COLUMNS.join(', ')} from portfolio_snapshots order by snapshot_date desc limit 1`)
     .get() as (Record<(typeof PRICE_DATE_COLUMNS)[number], string | null> & { captured_at: string }) | undefined
   if (!row) return []
-  const markets = [
-    ['KR', row.kr_price_date_newest, row.kr_price_date_oldest],
-    ['US', row.us_price_date_newest, row.us_price_date_oldest],
-    ['Crypto', row.crypto_price_date_newest, row.crypto_price_date_oldest],
-  ] as const
-  const parts = markets
-    .filter(([, newest]) => newest)
-    .map(([label, newest, oldest]) => `${label} ${newest}${oldest && oldest < newest! ? ` (oldest ${oldest})` : ''}`)
-  if (parts.length === 0) return []
+  const markets = (
+    [
+      ['KR', row.kr_price_date_newest, row.kr_price_date_oldest],
+      ['US', row.us_price_date_newest, row.us_price_date_oldest],
+      ['CRYPTO', row.crypto_price_date_newest, row.crypto_price_date_oldest],
+    ] as const
+  ).flatMap(([market, newest, oldest]) => (newest ? [{ market, newest, oldest: oldest && oldest < newest ? oldest : null }] : []))
+  if (markets.length === 0) return []
   return [
     snapshotFreshness({
       key: 'snapshot_prices',
-      label: 'Prices in figures',
       category: 'price',
       path: config.stockDbPath,
       observedAt: row.captured_at,
       thresholdMs,
-      detail: `market date ${parts.join(' · ')}`,
+      detail: { code: 'SNAPSHOT_PRICE_DATES', markets },
     }),
   ]
 }
@@ -2652,41 +2705,49 @@ export function getOperationalHealth(): OperationalHealth {
     const snapshots: FreshnessItem[] = [
       snapshotFreshness({
         key: 'kr_prices',
-        label: 'KR prices',
         category: 'price',
         path: config.stockKrPricesPath,
         observedAt: krPrices?.generatedAt ?? statMtimeIso(config.stockKrPricesPath),
         thresholdMs: priceThresholdMs,
-        detail: `${krPrices?.prices?.length ?? 0} prices · market date ${krPrices?.prices?.[0]?.asOfDate ?? 'n/a'}`,
+        detail: {
+          code: 'PRICE_SNAPSHOT',
+          count: krPrices?.prices?.length ?? 0,
+          marketDate: krPrices?.prices?.[0]?.asOfDate ?? null,
+        },
       }),
       snapshotFreshness({
         key: 'us_prices',
-        label: 'US prices',
         category: 'price',
         path: config.stockUsPricesPath,
         observedAt: usPrices?.generatedAt ?? statMtimeIso(config.stockUsPricesPath),
         thresholdMs: priceThresholdMs,
-        detail: `${usPrices?.prices?.length ?? 0} prices · market date ${usPrices?.prices?.[0]?.asOfDate ?? 'n/a'}`,
+        detail: {
+          code: 'PRICE_SNAPSHOT',
+          count: usPrices?.prices?.length ?? 0,
+          marketDate: usPrices?.prices?.[0]?.asOfDate ?? null,
+        },
       }),
       snapshotFreshness({
         key: 'crypto_prices',
-        label: 'Crypto prices',
         category: 'price',
         path: config.stockCryptoPricesPath,
         observedAt: cryptoPrices?.generatedAt ?? statMtimeIso(config.stockCryptoPricesPath),
         thresholdMs: cryptoPriceThresholdMs,
-        detail: `${cryptoPrices?.prices?.length ?? 0} prices · ${
-          cryptoPrices?.prices?.map((price: any) => `${price.venue} ${price.symbol}`).join(', ') || 'none'
-        }`,
+        detail: {
+          code: 'CRYPTO_SNAPSHOT',
+          count: cryptoPrices?.prices?.length ?? 0,
+          quotes: cryptoPrices?.prices?.map((price: any) => `${price.venue} ${price.symbol}`) ?? [],
+        },
       }),
       snapshotFreshness({
         key: 'fx_rates',
-        label: 'USD/KRW FX',
         category: 'fx',
         path: config.stockFxRatesPath,
         observedAt: fxRate?.asOfDate ? `${fxRate.asOfDate}T00:00:00.000Z` : statMtimeIso(config.stockFxRatesPath),
         thresholdMs: fxThresholdMs,
-        detail: fxRate ? `${fxRate.rate} · ${fxRate.source}` : 'No FX rate configured.',
+        detail: fxRate
+          ? { code: 'FX_RATE', rate: fxRate.rate, source: fxRate.source }
+          : { code: 'FX_RATE_MISSING' },
       }),
       ...snapshotPriceFreshness(conn, priceThresholdMs),
     ]
@@ -3591,11 +3652,23 @@ export function getRebalanceReview(): RebalanceReview {
   }
 }
 
-function tickerlessSuggestion(category: string | null | undefined) {
-  if (category === 'interest') return 'Keep tickerless; category explains non-position cash interest.'
-  if (category === 'stock_lending') return 'Keep tickerless or add source-specific ticker override only when position identity matters.'
-  if (category === 'other') return 'Keep tickerless as other income unless the source row clearly belongs to a security.'
-  return 'Review source/name and add dividendOverrides entry if this income belongs to a specific ticker.'
+function tickerlessSuggestion(category: string | null | undefined): TickerlessSuggestion {
+  if (category === 'interest') return 'keep_interest'
+  if (category === 'stock_lending') return 'keep_stock_lending'
+  if (category === 'other') return 'keep_other'
+  return 'review_override'
+}
+
+/**
+ * The `note` inside a suggested rule. The rule is JSON the operator pastes into
+ * data/manual-mappings.json, so this is file content, not page copy, and stays
+ * English; the page shows the suggestion through `dataOps.tickerlessSuggestion`.
+ */
+const TICKERLESS_RULE_NOTE: Record<TickerlessSuggestion, string> = {
+  keep_interest: 'Keep tickerless; category explains non-position cash interest.',
+  keep_stock_lending: 'Keep tickerless or add source-specific ticker override only when position identity matters.',
+  keep_other: 'Keep tickerless as other income unless the source row clearly belongs to a security.',
+  review_override: 'Review source/name and add dividendOverrides entry if this income belongs to a specific ticker.',
 }
 
 function compactRuleValue(value: string | null | undefined) {
@@ -3622,7 +3695,7 @@ function mappingRuleSuggestion(row: {
   const payload = {
     match,
     category,
-    note: tickerlessSuggestion(category),
+    note: TICKERLESS_RULE_NOTE[tickerlessSuggestion(category)],
   }
   return JSON.stringify(payload)
 }
@@ -3644,18 +3717,12 @@ function priceSnapshotPathFor(market: string) {
   return config.stockUsPricesPath
 }
 
-function valuationReason(row: { market: string; ticker: string }) {
+function valuationReason(row: { market: string; ticker: string }): ValuationReason {
   const prices = readJson(priceSnapshotPathFor(row.market))
   const tickers = new Set((prices?.prices ?? []).map((price: any) => String(price.ticker ?? '').toUpperCase()))
   if (!prices) return 'price_snapshot_missing'
   if (!tickers.has(String(row.ticker).toUpperCase())) return 'ticker_missing_from_price_snapshot'
   return 'source_missing_market_value'
-}
-
-function valuationSuggestion(reason: string) {
-  if (reason === 'price_snapshot_missing') return 'Run pnpm refresh or restore the local price snapshot file.'
-  if (reason === 'ticker_missing_from_price_snapshot') return 'Check ticker normalization and refresh the relevant price snapshot.'
-  return 'Review source valuation fields; tax-lot-only sources may need external price enrichment.'
 }
 
 function calendarAgeDays(value: string | null) {
@@ -3697,7 +3764,9 @@ type CoverageDbRow = { market: string; brokerage: string; account: string; accou
 
 const COVERAGE_STATUS_RANK: Record<AccountCoverageStatus, number> = { unconfirmed: 0, missing: 0, action_needed: 1, due_soon: 2, current: 3 }
 
-function coverageSource(input: Pick<AccountCoverageSource, 'label' | 'method' | 'coveredThrough' | 'maxLagDays' | 'requiredArtifact' | 'destination'>): AccountCoverageSource {
+function coverageSource(
+  input: Pick<AccountCoverageSource, 'label' | 'method' | 'coveredThrough' | 'maxLagDays' | 'requiredArtifact' | 'artifact' | 'destination'>
+): AccountCoverageSource {
   const lagDays = calendarAgeDays(input.coveredThrough)
   return {
     ...input,
@@ -3941,10 +4010,11 @@ export function getAccountCoverage(): AccountCoverageSummary {
       let maxLagDays = market === 'US' ? 14 : market === 'CRYPTO' ? 35 : 35
       let method: AccountCoverage['method'] = 'inbox'
       let requiredArtifact = '최근 거래내역서'
+      let artifacts: CoverageArtifact[] = [{ code: 'KR_STATEMENT' }]
       let format = 'PDF'
       let destination = 'kr-statements/'
-      let action = '최근 조회기간이 오늘까지 포함된 자료를 다운로드해 inbox에 넣으세요.'
-      let detail = '문서가 선언한 조회기간의 마지막 날짜를 기준으로 계산합니다.'
+      let action: CoverageAction = { code: 'DOWNLOAD_TO_INBOX' }
+      let detail: CoverageDetail = { code: 'STATEMENT_PERIOD_END' }
       const brokerLower = brokerage.toLowerCase()
 
       if (market === 'KR') coveredThrough = statementCoveredThrough
@@ -3964,6 +4034,7 @@ export function getAccountCoverage(): AccountCoverageSummary {
           coveredThrough: snapshotDate,
           maxLagDays: 7,
           requiredArtifact: 'Robinhood MCP snapshot + tax lots',
+          artifact: { code: 'ROBINHOOD_MCP_SNAPSHOT' },
           destination: 'data/robinhood-snapshot.json',
         })]
         // An account the CSVs do not know by name (a holdings label with no
@@ -3977,6 +4048,7 @@ export function getAccountCoverage(): AccountCoverageSummary {
             coveredThrough: robinhoodCsvThrough.get(rawAccount) ?? null,
             maxLagDays: 14,
             requiredArtifact: 'Robinhood transactions CSV',
+            artifact: { code: 'ROBINHOOD_TRANSACTIONS_CSV' },
             // The export names no account, so the file is named by hand; the
             // window shape is what the ingest reads beside the year-to-date.
             destination: `us-transactions/robinhood-transactions-${token}-YYYYMMDD-YYYYMMDD.csv`,
@@ -3987,31 +4059,31 @@ export function getAccountCoverage(): AccountCoverageSummary {
         const behind = worstSource(sources)
         method = behind.method
         requiredArtifact = sources.map((source) => source.requiredArtifact).join(' + ')
+        artifacts = sources.map((source) => source.artifact)
         format = sources.length > 1 ? 'JSON + CSV' : 'JSON'
         destination = sources.length > 1 ? 'data/robinhood-snapshot.json + us-transactions/' : 'data/robinhood-snapshot.json'
         coveredThrough = behind.coveredThrough
         maxLagDays = behind.maxLagDays
-        action = (missingDisposals.length
-          ? `매도 기록 누락 ${missingDisposals.length}종목(${missingDisposals.join(', ')}): 이 계좌의 거래내역 CSV가 들어와야 실현손익이 잡힙니다. `
-          : '') + (sources.length > 1
-          ? 'snapshot은 Robinhood MCP에서 다시 생성하고, 거래내역 CSV는 계좌별로 다운로드해 이름을 붙여 us-transactions/에 넣으세요. 둘 중 오래된 쪽이 계좌 기준일입니다.'
-          : 'Robinhood MCP에서 계좌 snapshot과 lot을 다시 생성하세요. broker CSV를 inbox에 넣는 작업이 아닙니다.')
+        // The missing-disposal prefix is rendered by the page from missingDisposals.
+        action = { code: sources.length > 1 ? 'ROBINHOOD_SNAPSHOT_AND_CSV' : 'ROBINHOOD_SNAPSHOT' }
         detail = sources.length > 1
-          ? 'MCP snapshot의 fetchedAt과 거래내역 CSV가 다루는 마지막 날(파일 이름에 확인하여 기록한 조회 종료일) 중 오래된 쪽을 기준으로 계산합니다.'
-          : checks.get('robinhood_snapshot_fresh')?.detail ?? 'MCP snapshot의 fetchedAt을 기준으로 계산합니다.'
+          ? { code: 'ROBINHOOD_OLDER_OF_TWO' }
+          : { code: 'ROBINHOOD_SNAPSHOT_FETCHED_AT', checkDetail: checks.get('robinhood_snapshot_fresh')?.detail }
       } else if (market === 'US') {
         requiredArtifact = `${brokerage} holdings CSV + transactions CSV`
+        artifacts = [{ code: 'US_HOLDINGS_AND_TRANSACTIONS_CSV', brokerage }]
         format = 'CSV × 2'
         destination = 'us-holdings/ + us-transactions/'
-        action = `${brokerage}의 holdings/positions와 최신 transactions CSV를 같은 기준일로 다운로드해 inbox에 넣으세요.`
-        detail = '두 CSV 중 더 오래된 기준일을 계좌 coverage로 사용합니다.'
+        action = { code: 'US_HOLDINGS_AND_TRANSACTIONS', brokerage }
+        detail = { code: 'OLDER_OF_TWO_CSVS' }
         const confirmed = confirmations.filter(row => row.scope === 'investment' && row.institution === brokerage && names.includes(row.account))
         const confirmedDate = (kind: string) => confirmed.filter(row => row.kind === kind).map(row => row.through_date).sort().at(-1)
         const dates = [latestOf(confirmedDate('holdings'), holding?.covered_through), confirmedDate('transactions')]
-        if (confirmed.length) detail = '사용자가 확인한 조회 종료일과 보유 기준일을 반영합니다. 마지막 거래일과는 별도로 판단합니다.'
+        if (confirmed.length) detail = { code: 'USER_CONFIRMED_QUERY_END' }
         coveredThrough = dates.every(Boolean) ? (dates as string[]).sort()[0] : null
       } else if (market === 'CRYPTO' && brokerLower === 'bithumb') {
         requiredArtifact = '빗썸 거래내역확인서 PDF + 기간별 거래내역 XLSX'
+        artifacts = [{ code: 'BITHUMB_PDF_AND_XLSX' }]
         format = 'PDF + XLSX'
         destination = 'crypto-bithumb/'
         maxLagDays = 14
@@ -4019,21 +4091,23 @@ export function getAccountCoverage(): AccountCoverageSummary {
         // today even when no recent activity occurred. The PDF's declared
         // full-scope, contiguous query periods establish coverage instead.
         coveredThrough = cryptoStatementCoverageEnd(cryptoActivity, {venue: brokerage, account: rawAccount, category: 'bithumb_statement', today: new Date().toISOString().slice(0, 10)})
-        action = '같은 조회기간의 PDF와 XLSX를 모두 다운로드해 inbox에 넣으세요.'
-        detail = 'PDF가 선언한 전체 자산·전체 거래유형의 연속 조회기간을 기준으로 계산합니다. XLSX는 입출금 사유 보강용입니다.'
+        action = { code: 'BITHUMB_SAME_PERIOD' }
+        detail = { code: 'BITHUMB_DECLARED_PERIODS' }
       } else if (market === 'CRYPTO') {
         requiredArtifact = 'Robinhood Crypto monthly statement'
+        artifacts = [{ code: 'ROBINHOOD_CRYPTO_STATEMENT' }]
         format = 'PDF'
         destination = 'crypto-robinhood/'
         coveredThrough = cryptoStatementCoverageEnd(cryptoActivity, {venue: brokerage, account: rawAccount, category: 'robinhood_crypto_statement', today: new Date().toISOString().slice(0, 10)})
-        action = '누락된 최신 월의 Crypto Statement PDF를 다운로드해 inbox에 넣으세요.'
-        detail = '월별 statement가 끊기지 않는지 기준일을 계산합니다.'
+        action = { code: 'CRYPTO_MONTHLY_STATEMENT' }
+        detail = { code: 'MONTHLY_STATEMENT_CONTINUITY' }
       } else if (market === 'KR' && (brokerLower.includes('toss') || brokerLower.includes('토스'))) {
         method = 'mixed'
         requiredArtifact = '토스증권 거래내역서 PDF (Open API 보완)'
+        artifacts = [{ code: 'TOSS_STATEMENT_WITH_API' }]
         maxLagDays = 35
-        action = 'Open API가 최신이면 조치하지 않아도 됩니다. statement cutoff가 뒤처지면 새 거래내역서를 다운로드하세요.'
-        detail = checks.get('toss_positions_fresh')?.detail ?? 'statement와 Open API snapshot을 함께 표시합니다.'
+        action = { code: 'TOSS_API_OR_STATEMENT' }
+        detail = { code: 'TOSS_STATEMENT_AND_API', checkDetail: checks.get('toss_positions_fresh')?.detail }
         const api = readJson(config.stockTossSnapshotPath)
         apiCoveredThrough = api?.accounts?.length ? strictIsoDate(String(api.fetchedAt ?? '').slice(0, 10)) : null
         // The API fills the days after the statement, so the account is as current
@@ -4042,16 +4116,16 @@ export function getAccountCoverage(): AccountCoverageSummary {
         coveredThrough = [statementCoveredThrough, apiCoveredThrough].filter(Boolean).sort().at(-1) ?? null
       } else if (market === 'KR' && brokerLower.includes('삼성')) {
         requiredArtifact = '삼성증권 주식보상 계좌거래내역서'
+        artifacts = [{ code: 'SAMSUNG_STOCK_COMP_STATEMENT' }]
         maxLagDays = 120
-        action = '주식보상 계좌의 최신 계좌거래내역서를 다운로드해 inbox에 넣으세요.'
-        detail = checks.get('samsung_statement_fresh')?.detail ?? detail
+        action = { code: 'SAMSUNG_STOCK_COMP' }
+        detail = { code: 'STATEMENT_PERIOD_END', checkDetail: checks.get('samsung_statement_fresh')?.detail }
       } else if (market === 'KR') {
-        // Both texts leave this function for readers that print them as they are
-        // (briefing summary, Telegram reminder, CLI, /data-ops), so they name the
-        // account masked; `account` itself stays raw for identity and keys.
-        const shown = maskAccountLabel(account)
-        requiredArtifact = `${brokerage} ${shown} 거래내역증명서`
-        action = `${brokerage} ${shown}의 최신 거래내역증명서를 다운로드해 inbox에 넣으세요.`
+        // This text leaves the machine (briefing summary, Telegram reminder, CLI),
+        // so it names the account masked; the typed codes keep the raw label.
+        requiredArtifact = `${brokerage} ${maskAccountLabel(account)} 거래내역증명서`
+        artifacts = [{ code: 'KR_CERTIFICATE', brokerage, account }]
+        action = { code: 'KR_CERTIFICATE', brokerage, account }
         coveredThrough = statementCoveredThrough
       }
 
@@ -4066,11 +4140,12 @@ export function getAccountCoverage(): AccountCoverageSummary {
       const statementLagDays = calendarAgeDays(statementCoveredThrough)
       const overdueDays = lagDays == null ? null : Math.max(0, lagDays - maxLagDays)
       const status = sources.length ? worstSource(sources).status : coveredThrough ? coverageStatus(lagDays, maxLagDays) : (holding || transaction ? 'unconfirmed' : 'missing')
-      if (status === 'current') action = '추가 자료 필요 없음'
-      if (status === 'due_soon') action = '현재 추가 자료 필요 없음 · 곧 갱신 예정'
+      if (status === 'current') action = { code: 'NONE_NEEDED' }
+      if (status === 'due_soon') action = { code: 'NONE_NEEDED_DUE_SOON' }
       if (status === 'unconfirmed') {
-        detail = `조회기간 근거가 확인되지 않았습니다. 마지막 거래일 ${isoDate(transaction?.covered_through) ?? '없음'}은 조회 종료일이 아닙니다.`
-        action = '기존 자료의 조회 종료일을 확인해주세요. 확인 전에는 새 다운로드가 필요한지 판단하지 않습니다.'
+        detail = { code: 'UNCONFIRMED_PERIOD', lastTransaction: isoDate(transaction?.covered_through) }
+        action = { code: 'CONFIRM_QUERY_END' }
+        // Read by the reminder and the CLI only; the page renders `action`.
         requiredArtifact = '조회기간 확인'
       }
       const sourceNeedles = [brokerLower.replace(/증권|\s+/g, ''), account.toLowerCase().replace(/\s+/g, '')]
@@ -4094,6 +4169,7 @@ export function getAccountCoverage(): AccountCoverageSummary {
         status,
         method,
         requiredArtifact,
+        artifacts,
         format,
         destination,
         lastFile: latestSourceFilename(sourceRows, sourceNeedles),
@@ -4458,11 +4534,8 @@ export function getDataOpsReview(): DataOpsReview {
          order by coalesce(base_cost, total_cost_krw) desc
          limit 50`
       )
-      .all() as Omit<DataOpsReview['missingValuation'][number], 'reason' | 'suggestion'>[]
-    const missingValuation = missingValuationRows.map((row) => {
-      const reason = valuationReason(row)
-      return { ...row, reason, suggestion: valuationSuggestion(reason) }
-    })
+      .all() as Omit<DataOpsReview['missingValuation'][number], 'reason'>[]
+    const missingValuation = missingValuationRows.map((row) => ({ ...row, reason: valuationReason(row) }))
     const validationIssues = conn
       .prepare("select * from validation_checks where status != 'pass' order by severity, name")
       .all() as HealthCheck[]
@@ -4483,44 +4556,29 @@ export function getDataOpsReview(): DataOpsReview {
       name: row.name,
       brokerage: row.brokerage,
       reason: row.reason,
-      suggestion: row.suggestion,
     }))
     const actionQueue: DataOpsReview['actionQueue'] = []
     if (validationIssues.length > 0) {
-      actionQueue.push({
-        priority: 'high',
-        area: 'Validation',
-        count: validationIssues.length,
-        action: 'Fix failing ingest validation checks before acting on downstream triage.',
-        href: '/health',
-      })
+      actionQueue.push({ kind: 'validation', priority: 'high', count: validationIssues.length, href: '/health' })
     }
     if (operational.staleItems.length > 0) {
       actionQueue.push({
+        kind: 'source_freshness',
         priority: operational.summary.missing || operational.summary.drift ? 'high' : 'medium',
-        area: 'Source freshness',
         count: operational.staleItems.length,
-        action: 'Resolve stale, drifted, or missing inputs and rerun pnpm refresh.',
         href: '/health',
       })
     }
     if (mappingSuggestions.length > 0) {
       actionQueue.push({
+        kind: 'manual_mappings',
         priority: 'medium',
-        area: 'Manual mappings',
         count: mappingSuggestions.reduce((sum, row) => sum + Number(row.row_count ?? 0), 0),
-        action: 'Review suggested read-only mapping rules and apply the useful ones to data/manual-mappings.json.',
         href: '/data-ops',
       })
     }
     if (valuationFixes.length > 0) {
-      actionQueue.push({
-        priority: 'low',
-        area: 'Valuation',
-        count: valuationFixes.length,
-        action: 'Refresh price snapshots or resolve ticker normalization for missing valuation rows.',
-        href: '/data-ops',
-      })
+      actionQueue.push({ kind: 'valuation', priority: 'low', count: valuationFixes.length, href: '/data-ops' })
     }
     return {
       manualMappings: {
@@ -4712,39 +4770,20 @@ export function getReconciliationReview(): ReconciliationReview {
     const actionQueue: ReconciliationReview['actionQueue'] = []
     if (operational.staleItems.length > 0) {
       actionQueue.push({
+        kind: 'source_freshness',
         priority: operational.summary.missing || operational.summary.drift ? 'high' : 'medium',
-        area: 'Source freshness',
         count: operational.staleItems.length,
-        action: 'Resolve stale, drifted, or missing source inputs before trusting reconciliation deltas.',
         href: '/health',
       })
     }
     if (validationIssues.count > 0) {
-      actionQueue.push({
-        priority: 'high',
-        area: 'Validation checks',
-        count: validationIssues.count,
-        action: 'Fix failing validation checks from the latest ingest.',
-        href: '/health',
-      })
+      actionQueue.push({ kind: 'validation', priority: 'high', count: validationIssues.count, href: '/health' })
     }
     if (positionBreaks.length > 0) {
-      actionQueue.push({
-        priority: 'medium',
-        area: 'Holdings vs lots',
-        count: positionBreaks.length,
-        action: 'Review quantity and cost-basis differences by ticker and brokerage.',
-        href: '/reconciliation',
-      })
+      actionQueue.push({ kind: 'position_breaks', priority: 'medium', count: positionBreaks.length, href: '/reconciliation' })
     }
     if (valuationBreaks.length > 0) {
-      actionQueue.push({
-        priority: 'low',
-        area: 'Valuation',
-        count: valuationBreaks.length,
-        action: 'Refresh or map missing market valuation rows.',
-        href: '/data-ops',
-      })
+      actionQueue.push({ kind: 'valuation', priority: 'low', count: valuationBreaks.length, href: '/data-ops' })
     }
 
     const issueCount =

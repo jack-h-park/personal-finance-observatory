@@ -22,17 +22,18 @@ test('only required updates render the supplied artifact and query window',()=>{
 
 test('Robinhood requests only the stale source and never downloads an MCP snapshot',async()=>{
  const {InvestmentUpdateAction}=await import('../components/AccountUpdateAction')
- const source=(label:string,method:'mcp'|'manual',status:'current'|'action_needed'|'unconfirmed')=>({label,method,status,coveredThrough:'2026-01-01',downloadFrom:method==='mcp'?null:'2025-12-31',lagDays:1,maxLagDays:14,overdueDays:0,requiredArtifact:label+' ARTIFACT',destination:label+'-destination'})
+ // The page renders each source's artifact code, not its requiredArtifact string.
+ const source=(label:string,method:'mcp'|'manual',status:'current'|'action_needed'|'unconfirmed')=>({label,method,status,coveredThrough:'2026-01-01',downloadFrom:method==='mcp'?null:'2025-12-31',lagDays:1,maxLagDays:14,overdueDays:0,requiredArtifact:label+' ARTIFACT',artifact:{code:method==='mcp'?'ROBINHOOD_MCP_SNAPSHOT':'ROBINHOOD_TRANSACTIONS_CSV'} as const,destination:label+'-destination'})
  const sources=[source('MCP','mcp','action_needed'),source('CSV','manual','current')]
- const row:import('../lib/adapters/portfolio-db').AccountCoverage={id:'US|RH|Sample',market:'US',brokerage:'Robinhood',account:'Sample',coveredThrough:'2026-01-01',downloadFrom:null,lagDays:1,apiCoveredThrough:null,apiLagDays:null,statementCoveredThrough:null,statementLagDays:null,maxLagDays:14,overdueDays:0,status:'action_needed',method:'mcp',requiredArtifact:'MCP AND CSV',format:'JSON + CSV',destination:'both',lastFile:null,action:'old combined request',detail:'',sources,missingDisposals:[]}
+ const row:import('../lib/adapters/portfolio-db').AccountCoverage={id:'US|RH|Sample',market:'US',brokerage:'Robinhood',account:'Sample',coveredThrough:'2026-01-01',downloadFrom:null,lagDays:1,apiCoveredThrough:null,apiLagDays:null,statementCoveredThrough:null,statementLagDays:null,maxLagDays:14,overdueDays:0,status:'action_needed',method:'mcp',requiredArtifact:'MCP AND CSV',format:'JSON + CSV',destination:'both',lastFile:null,artifacts:[{code:'ROBINHOOD_MCP_SNAPSHOT'},{code:'ROBINHOOD_TRANSACTIONS_CSV'}],action:{code:'ROBINHOOD_SNAPSHOT_AND_CSV'},detail:{code:'ROBINHOOD_OLDER_OF_TWO'},sources,missingDisposals:[]}
  let html=renderToStaticMarkup(React.createElement(InvestmentUpdateAction,{row,language:'en'}))
- assert.match(html,/Regenerate MCP ARTIFACT/);assert.doesNotMatch(html,/CSV ARTIFACT|Full available history|2025-12-31/)
+ assert.match(html,/Regenerate Robinhood MCP snapshot/);assert.doesNotMatch(html,/transactions CSV|Full available history|2025-12-31/)
  sources[0].status='current';sources[1].status='action_needed'
  html=renderToStaticMarkup(React.createElement(InvestmentUpdateAction,{row,language:'en'}))
- assert.match(html,/CSV ARTIFACT/);assert.match(html,/2025-12-31/);assert.doesNotMatch(html,/MCP ARTIFACT|old combined request/)
+ assert.match(html,/Robinhood transactions CSV/);assert.match(html,/2025-12-31/);assert.doesNotMatch(html,/MCP snapshot|Regenerate the snapshot/)
  sources[0].status='action_needed';sources[1].status='unconfirmed';row.status='unconfirmed'
  html=renderToStaticMarkup(React.createElement(InvestmentUpdateAction,{row,language:'en'}))
- assert.match(html,/Regenerate MCP ARTIFACT/);assert.match(html,/Confirm the query end date/);assert.doesNotMatch(html,/2025-12-31/)
+ assert.match(html,/Regenerate Robinhood MCP snapshot/);assert.match(html,/Confirm the query end date/);assert.doesNotMatch(html,/2025-12-31/)
 })
 
 test('needed supplementary history actions include both query endpoints',async()=>{

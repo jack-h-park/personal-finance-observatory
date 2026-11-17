@@ -109,6 +109,8 @@ test('one Robinhood row per account, as stale as its transaction CSVs even when 
   assert.equal(midterm.method, 'manual')
   assert.match(midterm.requiredArtifact, /MCP snapshot/)
   assert.match(midterm.requiredArtifact, /transactions CSV/)
+  assert.equal(midterm.detail.code, 'ROBINHOOD_OLDER_OF_TWO')
+  assert.deepEqual(midterm.artifacts.map((a) => a.code), ['ROBINHOOD_MCP_SNAPSHOT', 'ROBINHOOD_TRANSACTIONS_CSV'])
   const [snapshot, csv] = midterm.sources
   assert.equal(snapshot.status, 'current')
   assert.equal(snapshot.coveredThrough, daysAgo(0))
@@ -137,7 +139,8 @@ test('a missing disposal marks only its own account, even when that account\'s C
     const csv = longterm.sources.find((source) => source.label === 'CSV')!
     assert.equal(csv.status, 'action_needed')
     assert.deepEqual(csv.missingDisposals, ['ACME', 'WIDG'])
-    assert.match(longterm.action, /매도 기록 누락 2종목\(ACME, WIDG\)/)
+    assert.equal(longterm.action.code, 'ROBINHOOD_SNAPSHOT_AND_CSV')
+    assert.deepEqual(longterm.missingDisposals, ['ACME', 'WIDG'])
 
     // The others carry nothing extra.
     for (const row of rows.filter((row) => row !== longterm)) assert.deepEqual(row.missingDisposals, [])
@@ -170,18 +173,26 @@ test('closed explicitly labelled brokerage accounts are excluded while the activ
 })
 
 
-test('a Korean certificate row names its account only masked in its artifact and action text', async () => {
+test('a Korean certificate row names its account only masked in the text that leaves the machine', async () => {
   const { getAccountCoverage } = await import('../lib/adapters/portfolio-db')
   const row = getAccountCoverage().rows.find((r) => r.market === 'KR' && r.brokerage === 'Example Securities')
   assert.ok(row, 'the certificate row is present')
   assert.equal(row.status, 'action_needed')
-  // The artifact text reaches the briefing summary, the Telegram reminder and the
-  // CLI; the action text is what /data-ops prints.
-  for (const text of [row.requiredArtifact, row.action]) {
-    assert.ok(!text.includes('12345678'), text)
-    assert.match(text, /…5678/)
-  }
+  // The artifact text reaches the briefing summary, the Telegram reminder and the CLI.
+  assert.ok(!row.requiredArtifact.includes('12345678'), row.requiredArtifact)
+  assert.match(row.requiredArtifact, /…5678/)
   for (const source of row.sources) assert.ok(!source.requiredArtifact.includes('12345678'))
+  // The typed codes keep the raw label; /data-ops masks it when it renders them.
+  assert.deepEqual(row.action, { code: 'KR_CERTIFICATE', brokerage: 'Example Securities', account: KR_RAW_ACCOUNT })
+  const { coverageActionLabel, coverageArtifactLabel } = await import('../components/AccountUpdateAction')
+  const { getPageCopy } = await import('../lib/ui-copy')
+  for (const language of ['ko', 'en'] as const) {
+    const copy = getPageCopy('dataOps', language).coverage
+    for (const text of [coverageActionLabel(row.action, copy), ...row.artifacts.map((artifact) => coverageArtifactLabel(artifact, copy))]) {
+      assert.ok(!text.includes('12345678'), text)
+      assert.match(text, /…5678/)
+    }
+  }
 })
 
 
@@ -190,7 +201,7 @@ test('confirmed Fidelity query and empty snapshot dates replace last-transaction
  const row=getAccountCoverage().rows.find(row=>row.brokerage==='Fidelity')!
  assert.equal(row.coveredThrough,daysAgo(0))
  assert.equal(row.status,'current')
- assert.match(row.detail,/확인/)
+ assert.equal(row.detail.code,'USER_CONFIRMED_QUERY_END')
 })
 
 
@@ -259,5 +270,6 @@ test('row-only US transactions do not establish query coverage', async()=>{
  const {getAccountCoverage}=await import('../lib/adapters/portfolio-db')
  const row=getAccountCoverage().rows.find(row=>row.brokerage==='Chase')!
  assert.equal(row.coveredThrough,null);assert.equal(row.status,'unconfirmed')
- assert.match(row.action,/조회 종료일/)
+ assert.equal(row.action.code,'CONFIRM_QUERY_END')
+ assert.deepEqual(row.detail,{code:'UNCONFIRMED_PERIOD',lastTransaction:daysAgo(0)})
 })

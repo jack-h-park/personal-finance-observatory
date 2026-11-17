@@ -1,11 +1,19 @@
-import {InvestmentUpdateAction} from '@/components/AccountUpdateAction'
+import { InvestmentUpdateAction, coverageDetailLabel, type CoverageCopy } from '@/components/AccountUpdateAction'
 import Link from 'next/link'
 import { SupplementaryCoverageTable } from '@/components/SupplementaryCoverageTable'
 import { DataTable } from '@/components/DataTable'
 import { FreshnessRows } from '@/components/Freshness'
 import { PageHeader } from '@/components/PageHeader'
 import { Badge, Card, EmptyState, MetricField, MetricHeroCard, TextLink, marketTone, type Tone } from '@/components/ui'
-import { getAccountCoverage, getSupplementaryCoverage, getDataOpsReview, type AccountCoverage } from '@/lib/adapters/portfolio-db'
+import {
+  getAccountCoverage,
+  getDataOpsReview,
+  getSupplementaryCoverage,
+  type AccountCoverage,
+  type DataOpsReview,
+  type TickerlessSuggestion,
+  type ValuationReason,
+} from '@/lib/adapters/portfolio-db'
 import { fmtDate, fmtNumber } from '@/lib/format'
 import { createMoneyFormatter } from '@/lib/currency'
 import { getCurrencyPreferences } from '@/lib/currency-server'
@@ -28,23 +36,19 @@ function coverageTone(status: AccountCoverage['status']): Tone {
   return 'success'
 }
 
-function coverageDateLabel(row: AccountCoverage): string {
+function coverageDateLabel(row: AccountCoverage, c: CoverageCopy): string {
   const date = (value: string | null) => value ? fmtDate(value) : 'n/a'
   if (row.sources.length > 1) return row.sources.map((source) => `${source.label} ${date(source.coveredThrough)}`).join(' · ')
-  if (row.method === 'mixed') {
-    // TODO(i18n): not yet translated — folded into the shared copy registry in P2.
-    return `API ${date(row.apiCoveredThrough)} · statement ${date(row.statementCoveredThrough)}`
-  }
+  if (row.method === 'mixed') return c.mixed(date(row.apiCoveredThrough), date(row.statementCoveredThrough))
   return date(row.coveredThrough)
 }
 
-function coverageLagLabel(row: AccountCoverage, language: string): string {
-  const days = (value: number | null) => value == null ? (language === 'ko' ? '기준일 없음' : 'No cutoff') : language === 'ko' ? `${fmtNumber(value)}일 전` : `${fmtNumber(value)}d ago`
+type QueueRow = DataOpsReview['actionQueue'][number]
+
+function coverageLagLabel(row: AccountCoverage, c: CoverageCopy): string {
+  const days = (value: number | null) => value == null ? c.noCutoff : c.daysAgo(fmtNumber(value))
   if (row.sources.length > 1) return row.sources.map((source) => `${source.label} ${days(source.lagDays)}`).join(' · ')
-  if (row.method === 'mixed') {
-    // TODO(i18n): not yet translated — folded into the shared copy registry in P2.
-    return `API ${days(row.apiLagDays)} · statement ${days(row.statementLagDays)}`
-  }
+  if (row.method === 'mixed') return c.mixed(days(row.apiLagDays), days(row.statementLagDays))
   return days(row.lagDays)
 }
 
@@ -59,43 +63,7 @@ export default async function DataOpsPage() {
   const coverage = getAccountCoverage()
   const supplementary = getSupplementaryCoverage()
   const issueCount = ops.actionQueue.reduce((sum, item) => sum + item.count, 0)
-  const coverageCopy = language === 'ko'
-    ? {
-        title: '증권·가상자산 계좌 업데이트',
-        info: '파일 무결성(Fresh)과 별도로, 각 계좌의 자료가 어느 날짜까지 반영되었는지와 다음 다운로드 시작일을 보여줍니다. 시작일은 누락 방지를 위해 기존 기준일보다 하루 빠릅니다.',
-        action: '지금 필요한 계좌',
-        due: '곧 필요한 계좌',
-        current: '현재 기준 계좌',
-        status: { unconfirmed: updatesCopy.statuses.unconfirmed, action_needed: '업데이트 필요', missing: '자료 없음', due_soon: '곧 필요', current: '현재 기준' },
-        account: '계좌',
-        coverage: '반영 기준일',
-        lag: '지연',
-        artifact: '받을 자료',
-        method: '방식',
-        destination: '넣을 위치',
-        detail: '설명',
-        days: (value: number | null) => value == null ? '기준일 없음' : `${fmtNumber(value)}일 전`,
-        methodLabel: { inbox: 'inbox', manual: '직접 저장', api: '자동 API', mcp: 'MCP', mixed: 'API + 파일' },
-        none: '모든 계좌가 허용 범위 안에 있습니다.',
-      }
-    : {
-        title: 'Investment account updates',
-        info: 'Separate from file integrity: this shows the actual cutoff and the next download start date. The start date is one day before the cutoff to guarantee overlap.',
-        action: 'Review / update',
-        due: 'Due soon',
-        current: 'Current',
-        status: { unconfirmed: updatesCopy.statuses.unconfirmed, action_needed: 'Update needed', missing: 'No data', due_soon: 'Due soon', current: 'Current' },
-        account: 'Account',
-        coverage: 'Covered through',
-        lag: 'Lag',
-        artifact: 'Get this',
-        method: 'Method',
-        destination: 'Destination',
-        detail: 'Detail',
-        days: (value: number | null) => value == null ? 'No cutoff' : `${fmtNumber(value)}d ago`,
-        methodLabel: { inbox: 'inbox', manual: 'by hand', api: 'API', mcp: 'MCP', mixed: 'API + file' },
-        none: 'All accounts are within their configured coverage window.',
-      }
+  const coverageCopy = copy.coverage
 
   return (
     <>
@@ -107,10 +75,10 @@ export default async function DataOpsPage() {
         action={issueCount ? <Badge tone="warning">{copy.needsReview(fmtNumber(issueCount))}</Badge> : <Badge tone="success">{copy.noPending}</Badge>}
       />
 
-      <Card title={coverageCopy.title} info={coverageCopy.info} accent={coverage.actionNeeded > 0} className="mb-5" action={<TextLink href="#account-coverage">{language === 'ko' ? '전체 보기' : 'View all'}</TextLink>}>
+      <Card title={coverageCopy.title} info={coverageCopy.info} accent={coverage.actionNeeded > 0} className="mb-5" action={<TextLink href="#account-coverage">{coverageCopy.viewAll}</TextLink>}>
         <div className="mb-4 grid grid-cols-3 gap-3">
-          <MetricField label={coverageCopy.action} value={fmtNumber(coverage.actionNeeded)} tone={coverage.actionNeeded ? 'danger' : 'success'} valueClassName="text-title" />
-          <MetricField label={coverageCopy.due} value={fmtNumber(coverage.dueSoon)} tone={coverage.dueSoon ? 'warning' : 'success'} valueClassName="text-title" />
+          <MetricField label={coverageCopy.actionNeeded} value={fmtNumber(coverage.actionNeeded)} tone={coverage.actionNeeded ? 'danger' : 'success'} valueClassName="text-title" />
+          <MetricField label={coverageCopy.dueSoon} value={fmtNumber(coverage.dueSoon)} tone={coverage.dueSoon ? 'warning' : 'success'} valueClassName="text-title" />
           <MetricField label={coverageCopy.current} value={fmtNumber(coverage.current)} tone="success" valueClassName="text-title" />
         </div>
         <div id="account-coverage">
@@ -122,7 +90,7 @@ export default async function DataOpsPage() {
             columns={[
               {
                 key: 'account',
-                label: coverageCopy.account,
+                label: coverageCopy.columns.account,
                 render: (row: AccountCoverage) => (
                   <>
                     <div className="flex items-center gap-2">
@@ -133,14 +101,14 @@ export default async function DataOpsPage() {
                   </>
                 ),
               },
-              { key: 'coverage', label: coverageCopy.coverage, nowrap: true, render: (row: AccountCoverage) => <span className="tabular-nums">{coverageDateLabel(row)}</span> },
+              { key: 'coverage', label: coverageCopy.columns.coverage, nowrap: true, render: (row: AccountCoverage) => <span className="tabular-nums">{coverageDateLabel(row, coverageCopy)}</span> },
               {
                 key: 'lag',
-                label: coverageCopy.lag,
+                label: coverageCopy.columns.lag,
                 nowrap: true,
                 render: (row: AccountCoverage) => (
                   <span className="tabular-nums">
-                    {coverageLagLabel(row, language)}
+                    {coverageLagLabel(row, coverageCopy)}
                     {row.method !== 'mixed' && row.sources.length <= 1 && row.overdueDays ? <span className="ml-1 text-danger">(+{row.overdueDays})</span> : null}
                   </span>
                 ),
@@ -152,15 +120,22 @@ export default async function DataOpsPage() {
                   <div className="max-w-[24rem]"><InvestmentUpdateAction row={row} language={language} /></div>
                 ),
               },
-              { key: 'method', label: coverageCopy.method, nowrap: true, priority: 'secondary', render: (row: AccountCoverage) => ['current','due_soon','unconfirmed'].includes(row.status) ? updatesCopy.none : coverageCopy.methodLabel[row.method] },
+              { key: 'method', label: coverageCopy.columns.method, nowrap: true, priority: 'secondary', render: (row: AccountCoverage) => ['current','due_soon','unconfirmed'].includes(row.status) ? updatesCopy.none : coverageCopy.methodLabel[row.method] },
               {
                 key: 'destination',
-                label: coverageCopy.destination,
+                label: coverageCopy.columns.destination,
                 priority: 'tertiary',
                 render: (row: AccountCoverage) => ['current','due_soon','unconfirmed'].includes(row.status) ? updatesCopy.none : (
                   <>
                     <code className="text-label text-ink-3">{row.sources.length > 1 ? row.sources.filter(source => ['action_needed','missing'].includes(source.status)).map(source => source.destination).join(' · ') : row.destination}</code>
-                    {row.sources.length <= 1 ? <div className="mt-1 max-w-[15rem] text-label leading-relaxed text-ink-3">{row.detail}</div> : null}
+                    {row.sources.length <= 1 ? (
+                      <div
+                        className="mt-1 max-w-[15rem] text-label leading-relaxed text-ink-3"
+                        title={'checkDetail' in row.detail ? row.detail.checkDetail : undefined}
+                      >
+                        {coverageDetailLabel(row.detail, coverageCopy)}
+                      </div>
+                    ) : null}
                   </>
                 ),
               },
@@ -242,10 +217,10 @@ export default async function DataOpsPage() {
             rows={ops.actionQueue}
             caption={copy.priorityCaption}
             columns={[
-              { key: 'priority', label: copy.columns.priority, render: (r) => <Badge tone={priorityTone(r.priority)}>{priorityLabels[r.priority as keyof typeof priorityLabels] ?? r.priority}</Badge> },
-              { key: 'area', label: copy.columns.area },
+              { key: 'priority', label: copy.columns.priority, render: (r: QueueRow) => <Badge tone={priorityTone(r.priority)}>{priorityLabels[r.priority] ?? r.priority}</Badge> },
+              { key: 'area', label: copy.columns.area, render: (r: QueueRow) => copy.queue[r.kind]?.area ?? r.kind },
               { key: 'count', label: copy.columns.count, align: 'right', render: (r) => fmtNumber(r.count) },
-              { key: 'action', label: copy.columns.action, render: (r) => <span className="text-caption text-ink-2">{r.action}</span> },
+              { key: 'action', label: copy.columns.action, render: (r: QueueRow) => <span className="text-caption text-ink-2">{copy.queue[r.kind]?.action ?? r.kind}</span> },
               {
                 key: 'href',
                 label: copy.columns.open,
@@ -331,8 +306,8 @@ export default async function DataOpsPage() {
                     </Link>
                   ),
                 },
-                { key: 'reason', label: copy.columns.reason },
-                { key: 'suggestion', label: copy.columns.suggestion, render: (r) => <span className="text-caption text-ink-2">{r.suggestion}</span> },
+                { key: 'reason', label: copy.columns.reason, render: (r: { reason: ValuationReason }) => copy.valuationReason[r.reason] ?? r.reason },
+                { key: 'suggestion', label: copy.columns.suggestion, render: (r: { reason: ValuationReason }) => <span className="text-caption text-ink-2">{copy.valuationSuggestion[r.reason] ?? r.reason}</span> },
               ]}
             />
           )}
@@ -354,7 +329,7 @@ export default async function DataOpsPage() {
               { key: 'row_count', label: copy.columns.rows, align: 'right', render: (r) => fmtNumber(r.row_count) },
               { key: 'native_income', label: copy.columns.native, align: 'right', render: (r) => money(r.native_income, r.currency) },
               { key: 'base_income', label: copy.columns.base, align: 'right', render: (r) => money(r.base_income) },
-              { key: 'suggestion', label: copy.columns.suggestion },
+              { key: 'suggestion', label: copy.columns.suggestion, render: (r: { suggestion: TickerlessSuggestion }) => copy.tickerlessSuggestion[r.suggestion] ?? r.suggestion },
               { key: 'suggestedRule', label: copy.columns.rule, render: (r) => <code className="block max-w-[18rem] whitespace-pre-wrap font-mono text-label text-ink-3">{r.suggestedRule}</code> },
             ]}
           />
@@ -383,8 +358,8 @@ export default async function DataOpsPage() {
                 { key: 'account', label: copy.columns.account, render: (r) => maskAccountLabel(r.account) },
                 { key: 'native_cost', label: copy.columns.nativeCost, align: 'right', render: (r) => money(r.native_cost, r.currency) },
                 { key: 'base_cost', label: copy.columns.baseCost, align: 'right', render: (r) => (r.base_cost == null ? 'n/a' : money(r.base_cost)) },
-                { key: 'reason', label: copy.columns.reason },
-                { key: 'suggestion', label: copy.columns.suggestion },
+                { key: 'reason', label: copy.columns.reason, render: (r: { reason: ValuationReason }) => copy.valuationReason[r.reason] ?? r.reason },
+                { key: 'suggestion', label: copy.columns.suggestion, render: (r: { reason: ValuationReason }) => copy.valuationSuggestion[r.reason] ?? r.reason },
               ]}
             />
           )}
