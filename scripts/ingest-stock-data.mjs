@@ -7,7 +7,8 @@ import Database from 'better-sqlite3'
 import { replayPensionHistory } from './pension-replay.mjs'
 import { STOCK_WRAPPERS, activePensionEntries, assetClassFor, loadAccountMap, ownerFor, tagRows, wrapperFor } from './account-map.mjs'
 import { loadLocalEnv } from './env.mjs'
-import { portfolioDate, valuePortfolio } from './portfolio-snapshot.mjs'
+import { portfolioDate, priceDatesByMarket, valuePortfolio } from './portfolio-snapshot.mjs'
+import { repriceFromQuote } from './broker-quote-reprice.mjs'
 import { resolveCryptoFiles, resolveUsHoldingFiles, resolveUsTransactionFiles, robinhoodStrategyLabel } from './source-files.mjs'
 import { DECIDABLE_WRAPPERS, resolveWrapperTreatment } from './wrapper-treatment.mjs'
 import { pensionProductId } from './pension-ids.mjs'
@@ -1461,7 +1462,15 @@ create table portfolio_snapshots (
   dividends_krw real not null,
   dividends_usd real not null,
   holding_count integer not null,
-  share_count real not null
+  share_count real not null,
+  -- Market dates of the prices the row was valued with; null on month-end
+  -- backfill rows, which are valued at historical closes for their own date.
+  kr_price_date_newest text,
+  kr_price_date_oldest text,
+  us_price_date_newest text,
+  us_price_date_oldest text,
+  crypto_price_date_newest text,
+  crypto_price_date_oldest text
 );
 
 create index idx_portfolio_snapshots_date on portfolio_snapshots(snapshot_date);
@@ -1552,6 +1561,12 @@ insertMany(db, 'portfolio_snapshots', previousPortfolioSnapshots.filter((row) =>
   'dividends_usd',
   'holding_count',
   'share_count',
+  'kr_price_date_newest',
+  'kr_price_date_oldest',
+  'us_price_date_newest',
+  'us_price_date_oldest',
+  'crypto_price_date_newest',
+  'crypto_price_date_oldest',
 ])
 
 const historicalPriceDocument = fs.existsSync(historicalPricesPath)
@@ -2443,6 +2458,8 @@ const MERRILL_NON_POSITION_ROWS = new Set([
 // whole cell to be one, or the annotated position vanishes.
 const TICKER_CELL = /^([A-Z][A-Z0-9.-]{0,11})\b/
 
+const usCsvHoldingStart = holdingRows.length
+const usCsvLotStart = taxLotRows.length
 for (const source of usHoldingFiles) {
   if (!fs.existsSync(source.filename)) continue
   if (source.brokerage === 'Chase') {
@@ -2752,6 +2769,16 @@ for (const source of usHoldingFiles) {
   }
 }
 
+// Every position and lot a broker CSV just gave carries the price of the day
+// it was downloaded, which no refresh moves. Revalue each at its us-prices.json
+// quote when that quote is newer (scripts/broker-quote-reprice.mjs), before the
+// Chase lots are rolled up into holdings below so the two agree.
+let usCsvRepriced = 0
+for (const row of [...holdingRows.slice(usCsvHoldingStart), ...taxLotRows.slice(usCsvLotStart)]) {
+  if (row.market === 'US' && repriceFromQuote(row, usPricesByTicker.get(row.ticker), toBase)) usCsvRepriced += 1
+}
+if (usCsvRepriced) console.error(`[us-holdings] revalued ${usCsvRepriced} broker-CSV row(s) at a newer us-prices.json quote`)
+
 // Robinhood lots straight from the broker's MCP, replacing three Gain/Loss PDFs
 // that arrived only because the account holder emailed customer support and
 // waited. That is not a refresh path: it has no cadence, no credential and no
@@ -2981,6 +3008,8 @@ for (const lot of chaseLotsByKey.values()) {
     account_type: lot.account_type,
     source_system: lot.source_system,
     as_of_date: lot.as_of_date,
+    // Every lot of one ticker shares its quote, so the first lot's date holds for all.
+    price_as_of: lot.price_as_of ?? null,
     account: lot.account,
     ticker: lot.ticker,
     name: lot.name,
@@ -3032,6 +3061,9 @@ for (const lot of robinhoodLotsByKey.values()) {
     account_type: lot.account_type,
     source_system: lot.source_system,
     as_of_date: lot.as_of_date,
+    // The row is dated by its lot snapshot; the price is us-prices.json's.
+    // Not a holdings column: only the snapshot's price dates read it.
+    price_as_of: priceSnapshot?.asOfDate ?? null,
     account: lot.account,
     ticker: lot.ticker,
     name: lot.name,
@@ -7917,6 +7949,7 @@ const currentValuation = valuePortfolio(
     marketValue: row.base_market_value,
   }))
 )
+const currentPriceDates = priceDatesByMarket(stockHoldingRows)
 const nativeKrwCost = stockHoldingRows
   .filter((row) => row.currency === 'KRW')
   .reduce((sum, row) => sum + Number(row.native_cost || 0), 0)
@@ -7940,8 +7973,10 @@ db.prepare(`
     kr_cost_basis, us_cost_basis_base, crypto_cost_basis_base,
     kr_unrealized_gl, us_unrealized_gl_base, crypto_unrealized_gl_base,
     kr_return_pct, us_return_pct, crypto_return_pct,
-    krw_cost, usd_cost, dividends_krw, dividends_usd, holding_count, share_count
-  ) values (${Array.from({ length: 30 }, () => '?').join(', ')})
+    krw_cost, usd_cost, dividends_krw, dividends_usd, holding_count, share_count,
+    kr_price_date_newest, kr_price_date_oldest, us_price_date_newest,
+    us_price_date_oldest, crypto_price_date_newest, crypto_price_date_oldest
+  ) values (${Array.from({ length: 36 }, () => '?').join(', ')})
 `).run(
   snapshotDate, now,
   currentValuation.global.totalCost, currentValuation.global.partialMarketValue,
@@ -7957,7 +7992,10 @@ db.prepare(`
   currentValuation.US.returnPct, currentValuation.CRYPTO.returnPct,
   nativeKrwCost, nativeUsdCost, dividendsKrw, dividendsUsd,
   currentValuation.global.positionCount,
-  stockHoldingRows.reduce((sum, row) => sum + Number(row.quantity || 0), 0)
+  stockHoldingRows.reduce((sum, row) => sum + Number(row.quantity || 0), 0),
+  currentPriceDates.KR.newest, currentPriceDates.KR.oldest,
+  currentPriceDates.US.newest, currentPriceDates.US.oldest,
+  currentPriceDates.CRYPTO.newest, currentPriceDates.CRYPTO.oldest
 )
 
 db.exec(`
