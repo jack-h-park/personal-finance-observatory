@@ -82,4 +82,4 @@ The shared input-only eligibility gate is reused without clearing source-readine
 
 ## Composition/comparison review contract
 
-The additive [US 2025 review contract](annual-composition-contract.md) validates supplied bridge/coverage and history-mapping metadata and recomputes component readiness. It returns contract readiness only: annualTotal/difference remain null and comparisonEligible false. Actual composition arithmetic, verified history selection and a numerical comparison remain later increments; the existing component preview and history helper are unchanged.
+The additive [US 2025 review contract](annual-composition-contract.md) validates supplied bridge/coverage and history-mapping metadata and recomputes component readiness. It returns contract readiness only: annualTotal/difference remain null and comparisonEligible false. The separate [composition library](annual-composition.md) now implements arithmetic and a supplied-metadata signed difference with explicit calculation approval. Verified private history selection and interface integration remain later work; the existing component preview and history helper are unchanged.
