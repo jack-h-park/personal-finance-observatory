@@ -48,6 +48,7 @@ test('every freshness detail code has a Korean sentence without English words', 
     { code: 'SOURCE_CHANGED', recordedBytes: 10, currentBytes: 12 },
     { code: 'SOURCE_MTIME_ONLY' },
     { code: 'SOURCE_MATCHES' },
+    { code: 'SNAPSHOT_PRICE_DATES', markets: [{ market: 'KR', newest: '2020-01-02', oldest: '2019-12-30' }, { market: 'CRYPTO', newest: '2020-01-02', oldest: null }] },
   ]
   const allowed = new Set(['FX', 'SHA', 'USD', 'KRW'])
   const codes = new Set<string>()
@@ -59,5 +60,5 @@ test('every freshness detail code has a Korean sentence without English words', 
     const words = (text.match(/[A-Za-z]+/g) ?? []).filter((word) => !allowed.has(word))
     assert.deepEqual(words, [], `${detail.code}: ${text}`)
   }
-  assert.equal(codes.size, 8)
+  assert.equal(codes.size, 9)
 })

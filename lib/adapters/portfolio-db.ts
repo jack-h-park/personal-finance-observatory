@@ -305,8 +305,9 @@ export type FreshnessDetail =
   | { code: 'SOURCE_CHANGED'; recordedBytes: number; currentBytes: number }
   | { code: 'SOURCE_MTIME_ONLY' }
   | { code: 'SOURCE_MATCHES' }
+  | { code: 'SNAPSHOT_PRICE_DATES'; markets: { market: 'KR' | 'US' | 'CRYPTO'; newest: string; oldest: string | null }[] }
 
-export type FreshnessSnapshotKey = 'kr_prices' | 'us_prices' | 'crypto_prices' | 'fx_rates'
+export type FreshnessSnapshotKey = 'kr_prices' | 'us_prices' | 'crypto_prices' | 'fx_rates' | 'snapshot_prices'
 
 export type FreshnessItem = {
   key: string
@@ -2665,24 +2666,22 @@ function snapshotPriceFreshness(conn: Database.Database, thresholdMs: number): F
     .prepare(`select captured_at, ${PRICE_DATE_COLUMNS.join(', ')} from portfolio_snapshots order by snapshot_date desc limit 1`)
     .get() as (Record<(typeof PRICE_DATE_COLUMNS)[number], string | null> & { captured_at: string }) | undefined
   if (!row) return []
-  const markets = [
-    ['KR', row.kr_price_date_newest, row.kr_price_date_oldest],
-    ['US', row.us_price_date_newest, row.us_price_date_oldest],
-    ['Crypto', row.crypto_price_date_newest, row.crypto_price_date_oldest],
-  ] as const
-  const parts = markets
-    .filter(([, newest]) => newest)
-    .map(([label, newest, oldest]) => `${label} ${newest}${oldest && oldest < newest! ? ` (oldest ${oldest})` : ''}`)
-  if (parts.length === 0) return []
+  const markets = (
+    [
+      ['KR', row.kr_price_date_newest, row.kr_price_date_oldest],
+      ['US', row.us_price_date_newest, row.us_price_date_oldest],
+      ['CRYPTO', row.crypto_price_date_newest, row.crypto_price_date_oldest],
+    ] as const
+  ).flatMap(([market, newest, oldest]) => (newest ? [{ market, newest, oldest: oldest && oldest < newest ? oldest : null }] : []))
+  if (markets.length === 0) return []
   return [
     snapshotFreshness({
       key: 'snapshot_prices',
-      label: 'Prices in figures',
       category: 'price',
       path: config.stockDbPath,
       observedAt: row.captured_at,
       thresholdMs,
-      detail: `market date ${parts.join(' · ')}`,
+      detail: { code: 'SNAPSHOT_PRICE_DATES', markets },
     }),
   ]
 }
