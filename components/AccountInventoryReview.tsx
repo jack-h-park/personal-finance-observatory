@@ -1,5 +1,5 @@
 import React from 'react'
-import { Card, Badge, MetricField, TextLink } from '@/components/ui'
+import { Card, Badge, MetricField, TextLink, Note } from '@/components/ui'
 import { KpiBand } from '@/components/layout'
 import { DataTable } from '@/components/DataTable'
 import { getPageCopy } from '@/lib/ui-copy'
@@ -22,7 +22,7 @@ export function AccountInventoryReview({ review, language }: { review: AccountIn
         <MetricField label={copy.expected} value={projection.counts.expected === null ? copy.unknown : fmtNumber(projection.counts.expected)} />
         <MetricField label={copy.observed} value={fmtNumber(projection.counts.observedOnly)} />
       </KpiBand>
-      <p className="mb-3 text-label text-ink-3">{fmtDate(projection.asOfDate, language)} · {copy.recorded}</p>
+      <Note spacing="below-3">{fmtDate(projection.asOfDate, language)} · {copy.recorded}</Note>
       {review.readIssues.length ? <div className="mb-3 text-label text-warning"><p>{copy.partial}</p><ul>{[...new Set(review.readIssues.map(code => copy.readIssues[inventoryReadIssueCategory(code)]))].map(reason => <li key={reason}>{reason}</li>)}</ul></div> : null}
       <DataTable caption={copy.title} rows={projection.rows} getRowKey={(row: InventoryRow) => row.key} emptyMessage={projection.review.state === 'reviewed' && projection.counts.confirmedExpected === 0 ? copy.emptyReviewed : copy.empty} columns={[
         { key: 'account', label: copy.account, render: (row: InventoryRow) => <div className="min-w-40">
@@ -56,7 +56,7 @@ export function AccountInventoryReview({ review, language }: { review: AccountIn
         } },
       ]} />
       <div className="mt-3 flex flex-wrap gap-4 text-label"><TextLink href="/data-map">{copy.sourcesLink}</TextLink><TextLink href="/data-ops#account-coverage">{copy.details}</TextLink></div>
-      {projection.laterObservations.length ? <p className="mt-2 text-label text-ink-3">{copy.later}</p> : null}
+      {projection.laterObservations.length ? <Note spacing="above-2">{copy.later}</Note> : null}
     </Card>
   </section>
 }

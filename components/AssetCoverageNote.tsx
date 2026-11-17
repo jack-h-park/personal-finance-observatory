@@ -1,4 +1,5 @@
 import React from 'react'
+import { Note } from '@/components/ui'
 import Link from 'next/link'
 import { CardRow } from '@/components/layout'
 import type { NetWorth } from '@/lib/net-worth'
@@ -31,11 +32,11 @@ export function AssetCoverageNote({ summary, language, review }: { summary: NetW
             <dl className="space-y-2">
               {fields.map(([label, value]) => <div key={label}><dt className="text-label text-ink-3">{label}</dt><dd className="tabular-nums">{value}</dd></div>)}
             </dl>
-            {review ? <p className="text-label text-ink-3">{copy.cashCounts(review.cash.nonzero, review.cash.zero)}</p> : null}
+            {review ? <Note>{copy.cashCounts(review.cash.nonzero, review.cash.zero)}</Note> : null}
           </div>
           <div className="space-y-2">
             <h3 className="text-caption font-medium">{copy.source}</h3>
-            <p className="text-label text-ink-3">{copy.scope}</p>
+            <Note>{copy.scope}</Note>
             <dl className="space-y-2">
               <div><dt className="text-label text-ink-3">{copy.accounts}</dt><dd>{statuses(review?.accounts ?? null)}</dd></div>
               <div><dt className="text-label text-ink-3">{copy.supplementary}</dt><dd>{statuses(review?.supplementary ?? null)}</dd></div>
@@ -43,10 +44,10 @@ export function AssetCoverageNote({ summary, language, review }: { summary: NetW
               <div><dt className="text-label text-ink-3">{copy.checks}</dt><dd>{review?.failedChecks ?? copy.unknown}</dd></div>
               <div><dt className="text-label text-ink-3">{copy.files}</dt><dd>{review?.files ? copy.fileCounts(review.files.fresh, review.files.stale, review.files.drift, review.files.missing) : copy.unknown}</dd></div>
             </dl>
-            <p className="text-label text-ink-3">{copy.periodHint}</p>
+            <Note>{copy.periodHint}</Note>
             {review?.statementEvidence?.length ? <details className="mt-2">
               <summary className="cursor-pointer text-label font-medium">{copy.evidenceTitle}</summary>
-              <p className="mt-2 text-label text-ink-3">{copy.evidenceHint}</p>
+              <Note spacing="above-2">{copy.evidenceHint}</Note>
               <ul className="mt-2 space-y-2">
                 {review.statementEvidence.map((entry, index) => <li key={index} className="text-label break-words">
                   <span className="font-medium">{entry.account ?? copy.unknown}</span>{' · '}{copy.periodState(entry.state)}
@@ -58,8 +59,8 @@ export function AssetCoverageNote({ summary, language, review }: { summary: NetW
             </details> : null}
           </div>
         </CardRow>
-        <p className="mt-3 text-label text-ink-3">{copy.freshnessHint}</p>
-        <p className="mt-2 text-label text-ink-3">{copy.history}</p>
+        <Note spacing="above-3">{copy.freshnessHint}</Note>
+        <Note spacing="above-2">{copy.history}</Note>
         <nav aria-label={copy.title} className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-label">
           {([['/health', copy.healthLink], ['/accounts', copy.accountsLink], ['/data-ops', copy.dataLink], ['/reconciliation', copy.reconciliationLink]] as const).map(([href, label]) => <Link key={href} href={href} className="underline underline-offset-4">{label}</Link>)}
         </nav>

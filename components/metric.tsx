@@ -1,5 +1,5 @@
 import { clsx } from 'clsx'
-import { createElement, type ReactNode } from 'react'
+import React, { createElement, type ReactNode } from 'react'
 import { HelpPopover } from '@/components/HelpPopover'
 import { EMPTY_VALUE, fmtSigned } from '@/lib/format'
 import type { Tone } from '@/lib/tone'
