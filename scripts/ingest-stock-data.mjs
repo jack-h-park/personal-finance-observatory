@@ -8,6 +8,7 @@ import { replayPensionHistory } from './pension-replay.mjs'
 import { STOCK_WRAPPERS, activePensionEntries, assetClassFor, loadAccountMap, ownerFor, tagRows, wrapperFor } from './account-map.mjs'
 import { loadLocalEnv } from './env.mjs'
 import { portfolioDate, priceDatesByMarket, valuePortfolio } from './portfolio-snapshot.mjs'
+import { repriceFromQuote } from './broker-quote-reprice.mjs'
 import { resolveCryptoFiles, resolveUsHoldingFiles, resolveUsTransactionFiles, robinhoodStrategyLabel } from './source-files.mjs'
 import { DECIDABLE_WRAPPERS, resolveWrapperTreatment } from './wrapper-treatment.mjs'
 import { pensionProductId } from './pension-ids.mjs'
@@ -2457,6 +2458,8 @@ const MERRILL_NON_POSITION_ROWS = new Set([
 // whole cell to be one, or the annotated position vanishes.
 const TICKER_CELL = /^([A-Z][A-Z0-9.-]{0,11})\b/
 
+const usCsvHoldingStart = holdingRows.length
+const usCsvLotStart = taxLotRows.length
 for (const source of usHoldingFiles) {
   if (!fs.existsSync(source.filename)) continue
   if (source.brokerage === 'Chase') {
@@ -2766,6 +2769,16 @@ for (const source of usHoldingFiles) {
   }
 }
 
+// Every position and lot a broker CSV just gave carries the price of the day
+// it was downloaded, which no refresh moves. Revalue each at its us-prices.json
+// quote when that quote is newer (scripts/broker-quote-reprice.mjs), before the
+// Chase lots are rolled up into holdings below so the two agree.
+let usCsvRepriced = 0
+for (const row of [...holdingRows.slice(usCsvHoldingStart), ...taxLotRows.slice(usCsvLotStart)]) {
+  if (row.market === 'US' && repriceFromQuote(row, usPricesByTicker.get(row.ticker), toBase)) usCsvRepriced += 1
+}
+if (usCsvRepriced) console.error(`[us-holdings] revalued ${usCsvRepriced} broker-CSV row(s) at a newer us-prices.json quote`)
+
 // Robinhood lots straight from the broker's MCP, replacing three Gain/Loss PDFs
 // that arrived only because the account holder emailed customer support and
 // waited. That is not a refresh path: it has no cadence, no credential and no
@@ -2995,6 +3008,8 @@ for (const lot of chaseLotsByKey.values()) {
     account_type: lot.account_type,
     source_system: lot.source_system,
     as_of_date: lot.as_of_date,
+    // Every lot of one ticker shares its quote, so the first lot's date holds for all.
+    price_as_of: lot.price_as_of ?? null,
     account: lot.account,
     ticker: lot.ticker,
     name: lot.name,
