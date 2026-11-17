@@ -128,3 +128,38 @@ export function combinedTrendPoints(snapshots: PortfolioSnapshot[], scope: Trend
     realized_gl: read(snapshot, 'realized_gl', false),
   }))
 }
+
+/** Same threshold the freshness card applies to equity prices: refresh runs every six hours. */
+export const SNAPSHOT_STALE_AFTER_MS = 36 * 60 * 60 * 1000
+
+export type SnapshotPriceDate = { market: 'KR' | 'US' | 'CRYPTO'; newest: string; oldest: string | null }
+
+const PRICE_DATE_FIELDS = {
+  KR: ['kr_price_date_newest', 'kr_price_date_oldest'],
+  US: ['us_price_date_newest', 'us_price_date_oldest'],
+  CRYPTO: ['crypto_price_date_newest', 'crypto_price_date_oldest'],
+} as const
+
+/**
+ * The price dates behind a snapshot's numbers, for the markets the scope
+ * covers. `oldest` is set only when it differs from `newest`. Empty for the
+ * gold scope (KRX gold prices are dated per point in lib/gold-trend.ts) and for
+ * rows written before the ingest recorded price dates.
+ */
+export function snapshotPriceDates(snapshot: PortfolioSnapshot | undefined, scope: TrendScopeKey): SnapshotPriceDate[] {
+  if (!snapshot || scope === 'GOLD') return []
+  const markets = scope === 'global' ? (['KR', 'US', 'CRYPTO'] as const) : [scope]
+  return markets.flatMap((market) => {
+    const [newestField, oldestField] = PRICE_DATE_FIELDS[market]
+    const newest = snapshot[newestField] ?? null
+    if (!newest) return []
+    const oldest = snapshot[oldestField] ?? null
+    return [{ market, newest, oldest: oldest && oldest < newest ? oldest : null }]
+  })
+}
+
+/** True when the snapshot was written longer ago than a working refresh allows. */
+export function isSnapshotStale(capturedAt: string | undefined, now: number = Date.now()): boolean {
+  const written = capturedAt ? Date.parse(capturedAt) : NaN
+  return Number.isFinite(written) && now - written > SNAPSHOT_STALE_AFTER_MS
+}
