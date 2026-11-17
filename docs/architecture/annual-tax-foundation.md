@@ -79,3 +79,7 @@ Every worksheet line appears in the deterministic trace, alongside branch input 
 The Korean reference increment exposes exact rate arithmetic only. Its scope is `rate-schedule-reference`, with a rational numerator/denominator rather than a reported Money value. `reportedAmountMinor` and `annualTotal` are null and comparison eligibility is false, including for integer-valued references. It is deliberately not an `AnnualEstimateResult` and cannot be passed to the annual result validator as one.
 
 The shared input-only eligibility gate is reused without clearing source-readiness gates. `calculateAnnualComponents` still returns blocked Korean components and `getAnnualRuleStatus` still reports calculation unavailable in v1/v2. No pack bytes, schema, operational writer or public interface of the existing investment planner changes. [Required evidence](korean-tax-reference.md#required-next-evidence) remains unresolved; implementation of the reference does not establish filing-grade national/local calculations.
+
+## Composition/comparison review contract
+
+The additive [US 2025 review contract](annual-composition-contract.md) validates supplied bridge/coverage and history-mapping metadata and recomputes component readiness. It returns contract readiness only: annualTotal/difference remain null and comparisonEligible false. Actual composition arithmetic, verified history selection and a numerical comparison remain later increments; the existing component preview and history helper are unchanged.
