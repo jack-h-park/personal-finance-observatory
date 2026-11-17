@@ -1,3 +1,4 @@
+import { verifiedSourceConfirmations, fidelitySnapshotFacts } from './source-confirmations.mjs'
 import { financeFile, resolveFinancePaths } from './finance-paths.mjs'
 import crypto from 'node:crypto'
 import fs from 'node:fs'
@@ -13,6 +14,7 @@ import { pensionProductId } from './pension-ids.mjs'
 import { matchGoldLots } from './gold-lots.mjs'
 import { buildPathFor, publishBuiltDb, removeAbandonedBuilds, removeDbFiles } from './db-swap.mjs'
 import { BANK_INFLOW_BOUND_KEYS, BANK_INFLOW_CATEGORIES, BANK_INFLOW_MATCH_KEYS } from './bank-inflow-rules.mjs'
+import { loadConnectorShadow, compareConnectorPositions } from './connector-import.mjs'
 
 loadLocalEnv()
 
@@ -190,7 +192,13 @@ function normalizeBankBalances(raw) {
       ownTransfer: Boolean(f.ownTransfer),
     })
   })
-  return { doc: { accounts, estimatedAccounts, externalInflows, findings, notes, inflows }, problems }
+  const coverage = []
+  if (raw.coverage != null && !Array.isArray(raw.coverage)) problems.push('coverage is not an array')
+  for (const row of Array.isArray(raw.coverage) ? raw.coverage : []) {
+    if (isObject(row)) coverage.push(row)
+    else problems.push('coverage entry is not an object')
+  }
+  return { doc: { accounts, estimatedAccounts, externalInflows, findings, notes, inflows, coverage }, problems }
 }
 let bankBalancesProblems = []
 const bankBalances = (() => {
@@ -754,6 +762,57 @@ const cashRows = [
     derived: 0,
   })),
 ]
+const sourceConfirmationResult = verifiedSourceConfirmations(accountMap.sourceConfirmations, dataDir)
+const confirmedSources = []
+for (const receipt of sourceConfirmationResult.accepted) {
+  try {
+    if (receipt.scope === 'investment') {
+      const selected = receipt.kind === 'holdings' ? usHoldingFiles : usTransactionFiles
+      const consumed = selected.some(source => source.brokerage === receipt.institution && fs.realpathSync(source.filename) === receipt.path)
+      // A prior holdings receipt becomes historical when a newer snapshot supersedes it.
+      if (!consumed && receipt.kind === 'holdings') continue
+      if (!consumed) throw new Error('confirmed transaction source is not selected for ingestion')
+      if (receipt.kind === 'transactions') {
+        const rows = parseCsv(fs.readFileSync(receipt.path, 'utf8').replace(/^\uFEFF/, ''))
+        if (receipt.institution === 'Merrill') {
+          const header = rows.find(row => row.map(closeSlashes).includes('Symbol/CUSIP') && (row.includes('Trade Date') || row.includes('Settlement date')))
+          const accountLine = rows.find(row => row.some(cell => text(cell).toLowerCase().startsWith('selected account')))
+          const account = accountLine ? `Merrill ${accountLine.join(' ').split(':').slice(1).join(':').trim()}` : ''
+          if (!header || account !== receipt.account) throw new Error('confirmed Merrill transaction header or account does not match')
+        } else if (receipt.institution === 'Chase') {
+          const headerAt = rows.findIndex(row => row.includes('Trade Date') && row.includes('Account Name') && row.includes('Account Number'))
+          const header = rows[headerAt]
+          const accounts = new Set(header ? rows.slice(headerAt + 1).filter(row => row[header.indexOf('Trade Date')]).map(row => `Chase ${text(row[header.indexOf('Account Name')])} ${text(row[header.indexOf('Account Number')])}`.trim()) : [])
+          if (headerAt < 0 || (!(accounts.size === 1 && accounts.has(receipt.account)) && !(accounts.size === 0 && receipt.emptyTransactions === true && rows.slice(headerAt+1).every(row => row.every(cell => !text(cell)))))) throw new Error('confirmed Chase transaction header or account does not match')
+        } else if (!rows.some(row => row.includes('Run Date') && row.includes('Action'))) throw new Error('confirmed file has no Fidelity transaction header')
+      }
+    } else if (receipt.kind === 'transactions') {
+      const consumed = bankBalances.accounts.some(account => account.institution === receipt.institution && account.account === receipt.account && account.sources.includes(path.basename(receipt.source)))
+      if (!consumed) {
+        const entry = accountMap.bankAccounts?.find(entry => entry.institution === receipt.institution && entry.alias === receipt.account)
+        const rows = parseCsv(fs.readFileSync(receipt.path,'utf8').replace(/^\uFEFF/,''))
+        const matchesAmex = entry?.kind === 'savings' && path.basename(receipt.source).match(/^amex-savings-(\d{4})-/)?.[1] === String(entry.last4 ?? String(entry.accountNumber ?? '').slice(-4))
+        const knownEmpty = receipt.institution === 'amex' ? matchesAmex && rows.every(row => row.every(cell => !text(cell))) : rows.some(row => row.includes('Run Date') && row.includes('Action')) && !rows.some(row => /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(text(row[0])))
+        const expectedPrefix = receipt.institution === 'amex' ? 'amex-savings-' : 'fidelity-cma-'
+        if (receipt.emptyTransactions !== true || !entry || (receipt.institution === 'fidelity' && entry.kind !== 'cma') || !knownEmpty || !path.basename(receipt.source).startsWith(expectedPrefix)) throw new Error('confirmed bank history is not present in the parsed account sources')
+      }
+    }
+    if (receipt.institution === 'Chase' && receipt.kind === 'holdings') {
+      const rows = parseCsv(fs.readFileSync(receipt.path,'utf8').replace(/^\uFEFF/,''))
+      const headerAt = rows.findIndex(row => row.includes('Account name') && row.includes('Account number') && row.includes('Ticker'))
+      const header = rows[headerAt]
+      const accounts = new Set(header ? rows.slice(headerAt+1).filter(row => text(row[header.indexOf('Ticker')]) && text(row[header.indexOf('Account name')]) && text(row[header.indexOf('Account number')])).map(row => `Chase ${text(row[header.indexOf('Account name')])} ${text(row[header.indexOf('Account number')])}`.trim()) : [])
+      if (headerAt < 0 || accounts.size !== 1 || !accounts.has(receipt.account)) throw new Error('confirmed Chase holdings header or account does not match')
+    }
+    const facts = receipt.kind === 'holdings' && receipt.institution !== 'Chase' ? fidelitySnapshotFacts(parseCsv(fs.readFileSync(receipt.path, 'utf8').replace(/^\uFEFF/, '')), receipt, accountMap) : null
+    if (receipt.scope === 'bank' && facts) cashRows.push({
+      institution: receipt.institution, account: receipt.account, owner: 'self', kind: 'cma', currency: 'USD',
+      as_of_date: receipt.through, balance: facts.balance, day_max_balance: null,
+      source: path.basename(receipt.source), derived: 0,
+    })
+    confirmedSources.push(receipt)
+  } catch (error) { sourceConfirmationResult.problems.push(`${path.basename(receipt.source)}: ${error.message}`) }
+}
 const manualMappings = loadManualMappings()
 // Loaded before the first normalizeTicker call: every ticker in this ingest,
 // from any source, is read through the rename table so the old and new symbol
@@ -887,9 +946,9 @@ const statementAccounts = new Set((krStatements.transactions?.rows ?? []).map((r
 // are always empty and it would otherwise be invisible to any freshness check
 // built off them. See `samsung_statement_fresh` below.
 const krAsOfPath = path.join(krStatementsDir, 'as-of.json')
-const krAsOfByAccount = fs.existsSync(krAsOfPath)
-  ? JSON.parse(fs.readFileSync(krAsOfPath, 'utf8'))?.accounts ?? {}
-  : {}
+const krStatementMetadata = fs.existsSync(krAsOfPath)
+  ? JSON.parse(fs.readFileSync(krAsOfPath, 'utf8'))
+  : null
 
 // What the statement parser could not handle, written beside the TSVs.
 //
@@ -927,6 +986,17 @@ db.exec(`
 create table meta (
   key text primary key,
   value text not null
+);
+
+create table source_coverage_confirmations (
+  scope text not null, institution text not null, account text not null, kind text not null,
+  through_date text not null, source text not null, sha256 text not null, empty_holdings integer not null
+);
+
+create table bank_statement_coverage (
+ institution text not null, account text not null, source text not null,
+ period_start text, period_end text not null, sha256 text not null,
+ primary key(institution,account,source)
 );
 
 create table source_files (
@@ -1652,6 +1722,28 @@ if (fs.existsSync(accountMapPath)) {
   db.prepare(
     'insert into source_files (name, filename, path, bytes, mtime_ms, sha256, row_count) values (?, ?, ?, ?, ?, ?, ?)'
   ).run('account_map', fp.basename, fp.path, fp.bytes, fp.mtimeMs, fp.sha256, Object.keys(accountMap.accounts).length)
+}
+// Parser-declared periods, independent of transaction/balance observations.
+const validCoverageDate = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0,10) === value
+const bankCoverageProblems = []
+const declaredBankCoverage = [...(bankBalances.coverage ?? [])]
+for (const source of fxLedger.sources ?? []) {
+  if (source.snapshotDate && source.snapshotBalanceUsd != null) declaredBankCoverage.push({institution:'Hana Bank',account:'USD account',source:source.filename,periodStart:null,periodEnd:source.snapshotDate,basis:'declared-period',sha256:source.sha256,path:source.path})
+}
+for (const receipt of declaredBankCoverage) {
+  try {
+    if (receipt.basis !== 'declared-period' || !String(receipt.institution ?? '').trim() || !String(receipt.account ?? '').trim() ||
+        !validCoverageDate(receipt.periodEnd) || receipt.periodEnd > now.slice(0,10) ||
+        (receipt.periodStart != null && (!validCoverageDate(receipt.periodStart) || receipt.periodStart > receipt.periodEnd)) ||
+        typeof receipt.source !== 'string' || path.basename(receipt.source) !== receipt.source) throw new Error('invalid declared period')
+    const original = fs.realpathSync(receipt.path ?? path.join(dataDir,'bank-statements',receipt.source))
+    if (!original.startsWith(fs.realpathSync(dataDir) + path.sep) || fingerprint(original).sha256 !== receipt.sha256) throw new Error('declared source bytes changed')
+    db.prepare('insert or replace into bank_statement_coverage values (?,?,?,?,?,?)').run(receipt.institution,receipt.account,receipt.source,receipt.periodStart,receipt.periodEnd,receipt.sha256)
+  } catch(error) { bankCoverageProblems.push(`${receipt.source ?? 'unknown'}: ${error.message}`) }
+}
+for (const receipt of confirmedSources) {
+  db.prepare('insert into source_coverage_confirmations values (?, ?, ?, ?, ?, ?, ?, ?)')
+    .run(receipt.scope, receipt.institution, receipt.account, receipt.kind, receipt.through, receipt.source, receipt.sha256, receipt.emptyHoldings === true ? 1 : 0)
 }
 if (fs.existsSync(bankBalancesPath)) {
   const fp = fingerprint(bankBalancesPath)
@@ -2796,11 +2888,12 @@ if (robinhoodSnapshot?.accounts?.length) {
       const symbol = normalizeTicker(text(firstOf(position, ['symbol', 'instrument_symbol', 'ticker'])))
       if (!symbol) continue
       const tally = lotTallyBySymbol.get(symbol)
+      const held = number(firstOf(position, ['quantity', 'open_quantity', 'units']))
       if (!tally) {
+        if (held === 0) continue
         robinhoodSymbolsWithoutLots.push(`${label} ${symbol}`)
         continue
       }
-      const held = number(firstOf(position, ['quantity', 'open_quantity', 'units']))
       if (held == null) continue
       // One millionth of slack per lot, which is more rounding than six-decimal
       // input can produce and still orders of magnitude below the smallest lot
@@ -5909,8 +6002,36 @@ insertMany(
 // for total assets (deposits, pensions, physical gold); they are stored and
 // printed on their own line, and fail the run only as an error, like any other.
 const checks = []
+check('bank_statement_coverage_valid', !bankCoverageProblems.length, bankCoverageProblems.length ? bankCoverageProblems.join('; ') : `${declaredBankCoverage.length} declared bank periods verified`, 'warning', 'supplementary')
+check('source_confirmations_valid', !sourceConfirmationResult.problems.length,
+  sourceConfirmationResult.problems.length ? sourceConfirmationResult.problems.join('; ') : `${confirmedSources.length} exact-source owner confirmations verified`)
+
 function check(name, ok, detail, severity = 'error', scope = 'stock') {
   checks.push({ name, status: ok ? 'pass' : 'fail', detail, severity, scope })
+}
+
+// Opt-in shadow observations never enter economic rows or tax state.
+const connectorShadow = loadConnectorShadow()
+if (connectorShadow) {
+  check('connector_shadow_valid', connectorShadow.ok,
+    connectorShadow.ok ? 'Verified connector export in shadow mode; economic records unchanged' : `Connector shadow unavailable: ${connectorShadow.errorCode}`, 'warning')
+  if (connectorShadow.ok) {
+    check('connector_shadow_fresh', connectorShadow.freshness === 'fresh', `Shadow export fetch age: ${Math.floor(connectorShadow.ageHours)}h; provider data can be older`, 'warning')
+    check('connector_last_collection', connectorShadow.latestStatus.status === 'success', 'Last connector collection status; last-good export is preserved independently', 'warning')
+    let connectorMappings = {}
+    try {
+      const mapPath = financeFile('STOCK_CONNECTOR_ACCOUNT_MAP_PATH')
+      if (fs.existsSync(mapPath)) {
+        const raw = JSON.parse(fs.readFileSync(mapPath, 'utf8'))
+        if (raw.schemaVersion !== 1 || !raw.accounts || Array.isArray(raw.accounts) || typeof raw.accounts !== 'object') throw new Error('Invalid map')
+        connectorMappings = raw.accounts
+      }
+      const findings = compareConnectorPositions(connectorShadow.data.positions, holdingRows, connectorMappings)
+      check('connector_shadow_positions', findings.length === 0, findings.length ? `Shadow findings: ${[...new Set(findings.map(x => x.code))].join(', ')}` : 'Mapped position quantities match; shadow only', 'warning')
+    } catch {
+      check('connector_shadow_positions', false, 'Connector account map is invalid; no automatic account matching performed', 'warning')
+    }
+  }
 }
 
 // A wrapper outside the known four is what a typo in the account map looks like
@@ -6679,7 +6800,12 @@ check(
 // Aug, Nov, Apr, Jul) and vests are rarer, so a threshold tuned to catch a
 // missed quarter's dividend catches a missed vest for free.
 const samsungAccountLabel = '삼성증권(주식보상)'
-const samsungAsOf = krAsOfByAccount[samsungAccountLabel] || null
+const samsungPeriod = krStatementMetadata?.statementPeriods?.schemaVersion === 1 ? krStatementMetadata.statementPeriods.accounts?.[samsungAccountLabel] : null
+const samsungPeriodSources = samsungPeriod?.state === 'declared' && Array.isArray(samsungPeriod.sources) ? samsungPeriod.sources : []
+const samsungAsOf = samsungPeriodSources.length && samsungPeriodSources.every(source =>
+  source && typeof source.source === 'string' && /^[^/\\]+\.pdf$/i.test(source.source) && /^[a-f0-9]{64}$/.test(source.sha256 ?? '') && source.page === 1 &&
+  validCoverageDate(source.start) && validCoverageDate(source.end) && source.start <= source.end && source.end <= now.slice(0,10))
+  ? samsungPeriodSources.map(source => source.end).sort().at(-1) : null
 const samsungAgeDays = daysSince(samsungAsOf)
 const samsungStatementMaxDays = Number(process.env.STOCK_SAMSUNG_STATEMENT_MAX_DAYS || 120)
 check(

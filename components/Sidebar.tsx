@@ -100,9 +100,10 @@ export function Sidebar({
         </button>
 
         <div className="flex items-center gap-2.5 px-1">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-line-subtle bg-surface text-caption font-semibold text-ink">
-            PF
-          </div>
+          {/* The JHP mark in the brand slot, as on the other Studio surfaces; the
+              browser tab carries this app's own icon. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/brand/jhp-mark.png" alt="Jack H. Park Studio" width={40} height={40} className="h-10 w-10 shrink-0" />
           <div className="min-w-0">
             <div className="truncate text-body font-medium leading-tight text-ink">{BRAND.short}</div>
             <div className="mt-0.5 text-micro font-medium tracking-[0.08em] text-ink-3">{copy.tagline}</div>

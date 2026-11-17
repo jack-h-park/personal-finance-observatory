@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
@@ -24,6 +24,8 @@ const mapPath = path.join(dir, 'accounts.local.json')
 
 const db = new Database(dbPath)
 db.exec(`
+create table bank_statement_coverage(institution text,account text,source text,period_start text,period_end text,sha256 text);
+create table source_coverage_confirmations (scope text, institution text, account text, kind text, through_date text, source text, sha256 text, empty_holdings integer);
 create table cash_balances (id integer primary key, institution text, account text, owner text, kind text, currency text, as_of_date text, balance real, source text, derived integer);
 create table holdings_all (id integer primary key, account text, account_wrapper text, asset_class text, as_of_date text, base_market_value real);
 create table transactions_all (id integer primary key, account text, account_wrapper text, asset_class text, type text, date text);
@@ -34,6 +36,8 @@ const cash = db.prepare('insert into cash_balances (institution, account, owner,
 cash.run('Example Bank', '••1234', 'self', 'deposit', 'KRW', daysAgo(200), 1, 'x')
 cash.run('Example Bank', '••1234', 'self', 'deposit', 'KRW', daysAgo(100), 2, 'x')
 cash.run('Sample Securities', 'CMA ••5678', 'self', 'cma', 'KRW', daysAgo(10), 3, 'x')
+cash.run('fidelity', 'Sample CMA', 'self', 'cma', 'USD', daysAgo(100), 1, 'sample.csv')
+db.prepare('insert into source_coverage_confirmations values (?, ?, ?, ?, ?, ?, ?, ?)').run('bank','fidelity','Sample CMA','transactions',daysAgo(0),'sample.csv','0'.repeat(64),0)
 const holding = db.prepare('insert into holdings_all (account, account_wrapper, asset_class, as_of_date, base_market_value) values (?, ?, ?, ?, ?)')
 holding.run('Sample(IRP)', 'irp', 'security', daysAgo(200), 1)
 holding.run('Sample(IRP)', 'irp', 'security', daysAgo(200), 1)
@@ -50,12 +54,18 @@ const checkRow = db.prepare("insert into validation_checks (name, status, detail
 checkRow.run('cash_balance_continuity', 'fail', 'supplementary')
 checkRow.run('gold_priced', 'pass', 'supplementary')
 checkRow.run('toss_positions_fresh', 'fail', 'stock')
+const declared = db.prepare('insert into bank_statement_coverage values (?,?,?,?,?,?)')
+declared.run('Example Bank','••1234','sample.pdf',daysAgo(200),daysAgo(100),'a'.repeat(64))
+declared.run('Sample Securities','CMA ••5678','sample.pdf',daysAgo(200),daysAgo(10),'a'.repeat(64))
+writeFileSync(path.join(dir,'as-of.json'),JSON.stringify({statementPeriods:{schemaVersion:1,accounts:{'Sample(금현물)':{state:'declared',sources:[{source:'gold.pdf',sha256:'a'.repeat(64),page:1,start:daysAgo(120),end:daysAgo(30)}]}}}}))
+process.env.STOCK_KR_STATEMENTS_DIR=dir
 db.close()
 
 writeFileSync(
   mapPath,
   JSON.stringify({
     accounts: {},
+    bankAccounts: [{ institution: "New Bank", kind: "savings", alias: "Savings ••9876" }],
     pensionAccounts: [
       { token: 'irp', account: 'Sample(IRP)', wrapper: 'irp', institution: 'Sample' },
       // Listed in the map, nothing filed yet.
@@ -77,9 +87,9 @@ test('one row per cash account, pension token, gold account and the gold price, 
     label: 'Example Bank ••1234',
     latestDate: daysAgo(100),
     lagDays: 100,
-    maxLagDays: 90,
+    maxLagDays: 30,
     status: 'action_needed',
-    action: `Example Bank ••1234 거래내역을 ${daysAgo(100)}부터 받아 inbox에 넣으세요`,
+    action: `Example Bank ••1234 거래내역을 ${daysAgo(100)} ~ ${new Intl.DateTimeFormat('en-CA',{timeZone:'America/Los_Angeles',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date())} 기간으로 받아 inbox에 넣으세요`,
   })
   assert.equal(byLabel['Sample Securities CMA ••5678'].kind, 'cma')
   assert.equal(byLabel['Sample Securities CMA ••5678'].status, 'current')
@@ -102,16 +112,47 @@ test('one row per cash account, pension token, gold account and the gold price, 
   assert.equal(gold.latestDate, daysAgo(30))
   assert.equal(gold.maxLagDays, 90)
   assert.equal(gold.status, 'current')
-  assert.match(gold.action, /금현물/)
+  assert.equal(gold.action, '추가 자료 필요 없음')
 
   const goldPrice = rows.find((row) => row.kind === 'gold_price')!
   assert.equal(goldPrice.latestDate, daysAgo(2))
   assert.equal(goldPrice.maxLagDays, 7)
   assert.equal(goldPrice.status, 'current')
 
-  assert.equal(rows.length, 6)
+  assert.equal(rows.length, 8)
   // Supplementary checks only.
   assert.deepEqual(failingChecks, ['cash_balance_continuity'])
+})
+
+test('a fresh bank statement still requests an uncovered opening period', async () => {
+  const map = JSON.parse(readFileSync(mapPath, 'utf8'))
+  map.bankAccounts.push({ institution: 'Example Bank', kind: 'checking', alias: '••1234', historyFrom: '2024-01-01' })
+  writeFileSync(mapPath, JSON.stringify(map))
+  const conn = new Database(dbPath)
+  conn.prepare('insert into bank_statement_coverage values (?,?,?,?,?,?)').run('Example Bank','••1234','recent.pdf','2025-01-01',daysAgo(0),'a'.repeat(64))
+  conn.close()
+  try {
+    const { getSupplementaryCoverage } = await import('../lib/adapters/portfolio-db')
+    const row = getSupplementaryCoverage().rows.find(r => r.label === 'Example Bank ••1234')!
+    assert.equal(row.status, 'action_needed')
+    assert.match(row.action, /2024-01-01.*2024-12-31/)
+  } finally {
+    map.bankAccounts.pop(); writeFileSync(mapPath, JSON.stringify(map))
+    const cleanup = new Database(dbPath); cleanup.prepare("delete from bank_statement_coverage where source='recent.pdf'").run(); cleanup.close()
+  }
+})
+
+test('a historical gap does not hide a separately stale bank update', async () => {
+  const map = JSON.parse(readFileSync(mapPath, 'utf8'))
+  map.bankAccounts.push({ institution: 'Example Bank', kind: 'checking', alias: '••1234', historyFrom: '2020-01-01' })
+  writeFileSync(mapPath, JSON.stringify(map))
+  try {
+    const { getSupplementaryCoverage } = await import('../lib/adapters/portfolio-db')
+    const row = getSupplementaryCoverage().rows.find(r => r.label === 'Example Bank ••1234')!
+    assert.equal(row.status, 'action_needed')
+    assert.match(row.action, /2020-01-01/)
+    assert.match(row.action, new RegExp(daysAgo(100)))
+  } finally { map.bankAccounts.pop(); writeFileSync(mapPath, JSON.stringify(map)) }
 })
 
 test('an empty or older database gives no rows rather than an error', async () => {
@@ -342,4 +383,21 @@ test('a closed multi-currency account, filed as one series per currency, is not 
   } finally {
     config.stockAccountMapPath = saved
   }
+})
+
+
+test('a mapped bank account with no ingested balances is visible as missing', async () => {
+  const { getSupplementaryCoverage } = await import('../lib/adapters/portfolio-db')
+  const row = getSupplementaryCoverage().rows.find(row => row.label === 'New Bank Savings ••9876')
+  assert.equal(row?.status, 'missing')
+  assert.equal(row?.latestDate, null)
+  assert.match(row?.action ?? '', /전체/)
+})
+
+
+test('CMA confirmed query end is independent of its last cash movement', async () => {
+ const {getSupplementaryCoverage}=await import('../lib/adapters/portfolio-db')
+ const row=getSupplementaryCoverage().rows.find(row=>row.label==='fidelity Sample CMA')!
+ assert.equal(row.latestDate,daysAgo(0))
+ assert.equal(row.status,'current')
 })

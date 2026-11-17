@@ -1,3 +1,6 @@
+import { accountInventory } from '@/lib/ui-copy/pages/accountInventory'
+import { annualTaxSummary } from '@/lib/ui-copy/pages/annualTaxSummary'
+import { assetCoverage } from '@/lib/ui-copy/pages/assetCoverage'
 import { taxSettings } from '@/lib/ui-copy/pages/taxSettings'
 import { taxHistory } from '@/lib/ui-copy/pages/taxHistory'
 import { taxPlanning } from '@/lib/ui-copy/pages/taxPlanning'
@@ -23,6 +26,7 @@ import { cryptoPremium } from '@/lib/ui-copy/pages/cryptoPremium'
 import { positionDetail } from '@/lib/ui-copy/pages/positionDetail'
 import { dailyBriefing } from '@/lib/ui-copy/pages/dailyBriefing'
 import { health } from '@/lib/ui-copy/pages/health'
+import { accountUpdates } from '@/lib/ui-copy/pages/accountUpdates'
 import { accounts } from '@/lib/ui-copy/pages/accounts'
 import { netWorth } from '@/lib/ui-copy/pages/netWorth'
 import { pension } from '@/lib/ui-copy/pages/pension'
@@ -30,6 +34,9 @@ import { assetEvents } from '@/lib/ui-copy/pages/assetEvents'
 import { washSale } from '@/lib/ui-copy/pages/washSale'
 
 export const PAGE_COPY = {
+  accountInventory,
+  annualTaxSummary,
+  assetCoverage,
   taxHistory,
   taxSettings,
   taxPlanning,
@@ -56,6 +63,7 @@ export const PAGE_COPY = {
   dailyBriefing,
   health,
   accounts,
+  accountUpdates,
   netWorth,
   pension,
   assetEvents,

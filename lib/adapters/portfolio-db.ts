@@ -1,6 +1,8 @@
+import { cryptoStatementCoverageEnd, strictIsoDate } from '@/lib/domain/assets/query-coverage'
+import { readStatementPeriodEvidence, type StatementPeriodEvidence } from '@/lib/domain/assets/statement-periods'
+import { collectAssetCoverage, dateRange } from '@/lib/application/asset-coverage'
 import { getFinanceOverview } from '@/lib/application/finance-overview'
 import fs from 'node:fs'
-import { periodEndFromSource } from '@/lib/supplementary'
 import path from 'node:path'
 import { createHash } from 'node:crypto'
 import Database from 'better-sqlite3'
@@ -12,15 +14,16 @@ import { allocateTax, buildInvestmentEpisodes, mergeAssetEvents, type AssetEvent
 import { getRebalancePolicy, marketTargetsFor } from '@/lib/rebalance-policy'
 import { deriveUsTargetPct, getAllocationPolicy } from '@/lib/rebalance/allocation-policy'
 import { getTaxPolicyState, usTaxableWrappers, wrapperTreatment, type TaxPolicy, type WrapperTreatment } from '@/lib/tax-policy'
-import { ASSET_CLASSES, depositsSeries, totalAssetsSeries, type CashBalanceRow, type NetWorth, type TotalAssetsSeries } from '@/lib/net-worth'
+import { ASSET_CLASSES, depositsSeries, totalAssetsSeries, type CashBalanceRow, type HistoricalGoldTrade, type NetWorth, type TotalAssetsSeries } from '@/lib/net-worth'
 import type { PensionContributionYear } from '@/lib/pension'
 import { summarizeAllocation, type AssetAllocation } from '@/lib/asset-allocation'
 import { getInstrumentClasses } from '@/lib/rebalance/instrument-classes'
+import { maskAccountLabel } from '@/lib/account-label'
 import { groupAccountRanges, type AccountDataRange, type AssetType, type RangeKind, type RangeRow } from '@/lib/account-ranges'
 import { foreignAccountMaxima, isUsBrokerage, isUsCashInstitution, maxBalance, treasuryRateFor, type BalancePoint, type ForeignAccountInput, type ForeignAccountMaxima } from '@/lib/fbar'
 import treasuryRates from '@/data/treasury-reporting-rates.json'
 import { isActivePensionEntry, loadAccountMap } from '@/scripts/account-map.mjs'
-import { bankAccountGroup, retiredBankAccounts, retiredBrokerageAccounts, type BankAccountEntry } from '@/lib/bank-accounts'
+import { bankAccountGroup, bankAccountName, brokerageAccountLabel, retiredBankAccounts, retiredBrokerageAccounts, type BankAccountEntry } from '@/lib/bank-accounts'
 import { createLotValuer } from '@/scripts/lot-valuation.mjs'
 import { buildWashSaleWindows, type WashSaleBuy, type WashSaleLot, type WashSaleWindow } from '@/lib/wash-sale'
 import {
@@ -333,7 +336,7 @@ export type OperationalHealth = {
   }
 }
 
-export type AccountCoverageStatus = 'current' | 'due_soon' | 'action_needed' | 'missing'
+export type AccountCoverageStatus = 'current' | 'due_soon' | 'action_needed' | 'missing' | 'unconfirmed'
 
 /** What an account's coverage needs, as a code the page renders through its copy module. */
 export type CoverageArtifact =
@@ -358,6 +361,9 @@ export type CoverageAction =
   | { code: 'ROBINHOOD_SNAPSHOT_AND_CSV' }
   | { code: 'BITHUMB_SAME_PERIOD' }
   | { code: 'CRYPTO_MONTHLY_STATEMENT' }
+  | { code: 'NONE_NEEDED' }
+  | { code: 'NONE_NEEDED_DUE_SOON' }
+  | { code: 'CONFIRM_QUERY_END' }
 
 /**
  * How the coverage date is computed. `checkDetail` carries the validation
@@ -368,9 +374,11 @@ export type CoverageDetail =
   | { code: 'ROBINHOOD_OLDER_OF_TWO' }
   | { code: 'ROBINHOOD_SNAPSHOT_FETCHED_AT'; checkDetail?: string }
   | { code: 'OLDER_OF_TWO_CSVS' }
-  | { code: 'BITHUMB_PDF_IS_LEDGER' }
+  | { code: 'USER_CONFIRMED_QUERY_END' }
+  | { code: 'BITHUMB_DECLARED_PERIODS' }
   | { code: 'MONTHLY_STATEMENT_CONTINUITY' }
   | { code: 'TOSS_STATEMENT_AND_API'; checkDetail?: string }
+  | { code: 'UNCONFIRMED_PERIOD'; lastTransaction: string | null }
 
 /**
  * One of the separate artifacts an account's coverage is made of, when there is
@@ -411,6 +419,9 @@ export type AccountCoverage = {
   lagDays: number | null
   apiCoveredThrough: string | null
   apiLagDays: number | null
+  /** Only a declared statement period end; never inferred from lots or transactions. */
+  statementPeriodEnd?: string | null
+  statementPeriodEvidence?: StatementPeriodEvidence
   statementCoveredThrough: string | null
   statementLagDays: number | null
   maxLagDays: number
@@ -1395,22 +1406,27 @@ export function getTotalAssetsSeries(dates: string[], precomputed?: NetWorth): T
           .prepare(`select account, date, value_krw as valueKrw from pension_points where 1 = 1${selfOnlyAnd(conn, 'pension_points')} order by date, id`)
           .all() as { account: string; date: string; valueKrw: number }[])
       : []
-    // Gold BUY rows carry grams as quantity and the purchase amount in KRW. No
-    // gold sale is on file; the holding itself (getNetWorth) handles one.
-    const goldBuys =
-      hasTable('transactions_all') && columnsOf('transactions_all').has('asset_class')
-        ? (
-            conn
-              .prepare(
-                `select substr(date, 1, 10) as date, abs(coalesce(quantity, 0)) as grams, abs(coalesce(amount_krw, settlement_krw, 0)) as costKrw
-                   from transactions_all where asset_class = 'gold' and type = 'BUY' order by date, id`
-              )
-              .all() as { date: string; grams: number; costKrw: number }[]
-          ).filter((buy) => buy.grams > 0)
-        : []
+    // Preserve account identities and self-owner scope while replaying both sides.
+    // Older synthetic/legacy tables may not have fees or account metadata.
+    const goldColumns = hasTable('transactions_all') ? columnsOf('transactions_all') : new Set<string>()
+    const goldTrades: HistoricalGoldTrade[] = goldColumns.has('asset_class')
+      ? (conn.prepare(`select substr(date, 1, 10) as date, type, quantity, amount_krw, settlement_krw,
+            ${goldColumns.has('fee') ? 'fee' : '0'} as fee, ${goldColumns.has('tax') ? 'tax' : '0'} as tax,
+            ${goldColumns.has('brokerage') ? 'brokerage' : "''"} as institution,
+            ${goldColumns.has('account') ? 'account' : "''"} as account
+          from transactions_all where asset_class = 'gold' and type in ('BUY', 'SELL')${selfOnlyAnd(conn, 'transactions_all')}
+          order by date, id`).all() as { date: string | null; type: 'BUY' | 'SELL'; quantity: number | null;
+            amount_krw: number | null; settlement_krw: number | null; fee: number | null; tax: number | null;
+            institution: string | null; account: string | null }[]).map(row => ({
+              date: row.date ?? '', type: row.type, accountId: JSON.stringify([row.institution ?? '', row.account ?? '']),
+              grams: row.quantity == null ? null : Math.abs(Number(row.quantity)),
+              costKrw: row.amount_krw == null && row.settlement_krw == null ? null : Math.abs(Number(row.amount_krw ?? row.settlement_krw)),
+              feeKrw: Math.abs(Number(row.fee ?? 0)) + Math.abs(Number(row.tax ?? 0)),
+            }))
+      : []
     const goldPrices = hasTable('gold_prices') ? (conn.prepare('select date, price from gold_prices order by date').all() as { date: string; price: number }[]) : []
 
-    const history = totalAssetsSeries({ dates: past, stocks, crypto, cash, pensionPoints, gold: { buys: goldBuys, prices: goldPrices } })
+    const history = totalAssetsSeries({ dates: past, stocks, crypto, cash, pensionPoints, gold: { trades: goldTrades, prices: goldPrices } })
     // Today, from the card's own figures. A class that is zero today and never
     // had data stays null, so it does not "start" on the last point.
     const latest = { date: today, total: netWorth.totalKrw } as TotalAssetsSeries['points'][number]
@@ -1433,11 +1449,13 @@ export function getNetWorth(precomputed?: ReturnType<typeof getOverview>): NetWo
   const summary = getFinanceOverview()
   const dated = summary.included.filter(row => row.assetClass !== 'cash' && row.asOf && ['snapshot', 'cost'].includes(row.method))
   const notes = [...new Map(dated.map(row => [JSON.stringify([row.assetClass, row.account, row.asOf]), { assetClass: row.assetClass, label: row.account ?? row.accountId, asOf: row.asOf! }])).values()].sort((a,b) => a.label.localeCompare(b.label) || a.asOf.localeCompare(b.asOf))
-  const oldestCash = summary.included.filter(row => row.assetClass === 'cash' && row.asOf).sort((a,b) => a.asOf!.localeCompare(b.asOf!))[0]
+  const oldestCash = summary.included.filter(row => row.assetClass === 'cash' && row.valueKrw !== 0 && row.asOf).sort((a,b) => a.asOf!.localeCompare(b.asOf!))[0]
   if (oldestCash) notes.push({ assetClass: 'cash', label: oldestCash.account ?? oldestCash.accountId, asOf: oldestCash.asOf! })
   return {
     totalKrw: summary.totalKrw,
     byClass: summary.byClass,
+    valuationDates: Object.fromEntries(['market', 'snapshot', 'cost'].map(method => [method, dateRange(summary.included.filter(row => row.assetClass !== 'cash' && row.valueKrw !== 0 && row.method === method).map(row => row.asOf))])),
+    fxAsOf: summary.fxAsOf,
     asOfNotes: notes,
     cash: summary.included.filter(row => row.assetClass === 'cash' && row.nativeAmount != null && (row.currency === 'USD' || row.currency === 'KRW')).map(row => ({ institution: row.institution ?? '', account: row.account ?? row.accountId, kind: row.cashKind ?? 'cash', currency: row.currency as 'USD' | 'KRW', asOfDate: row.asOf ?? '', balance: row.nativeAmount!, derived: row.derived ?? false, krw: row.valueKrw })),
     unpricedCash: summary.omissions.filter(row => row.assetKey.startsWith('cash:')).map(row => row.accountId),
@@ -3004,13 +3022,14 @@ export function getIncomeReview(display: DisplayCurrency): IncomeReview {
   }
 }
 
-export type CashInflowCategory = 'salary' | 'dividend' | 'interest' | 'other' | 'unclassified'
+export type CashInflowCategory = 'salary' | 'dividend' | 'interest' | 'other' | 'reimbursement' | 'unclassified'
 export type CashInflowPeriod = {
   period: string
   salary: number
   dividend: number
   interest: number
   other: number
+  reimbursement: number
   unclassified: number
   total: number
   /** Yearly view only: the year before's total under the same filter and scope, or null when there is none.
@@ -3067,8 +3086,8 @@ export type CashInflowRow = {
 }
 
 /** What the page's category filter selects. `investment` is dividends plus interest. */
-export type CashInflowFilter = 'All' | 'salary' | 'investment' | 'dividend' | 'interest' | 'other' | 'unclassified'
-export const CASH_INFLOW_FILTERS: CashInflowFilter[] = ['All', 'salary', 'investment', 'dividend', 'interest', 'other', 'unclassified']
+export type CashInflowFilter = 'All' | 'salary' | 'investment' | 'dividend' | 'interest' | 'other' | 'reimbursement' | 'unclassified'
+export const CASH_INFLOW_FILTERS: CashInflowFilter[] = ['All', 'salary', 'investment', 'dividend', 'interest', 'other', 'reimbursement', 'unclassified']
 /** Bank is bank_inflows; broker is the dividends table. */
 export type CashInflowSource = 'All' | 'bank' | 'broker'
 export const CASH_INFLOW_SOURCES: CashInflowSource[] = ['All', 'bank', 'broker']
@@ -3134,7 +3153,7 @@ function cashInflowWhere(scope: CashInflowScope) {
   }
 }
 
-const CASH_INFLOW_CATEGORIES = ['salary', 'dividend', 'interest', 'other', 'unclassified'] as const
+const CASH_INFLOW_CATEGORIES = ['salary', 'dividend', 'interest', 'other', 'reimbursement', 'unclassified'] as const
 
 function cashInflowPeriods(
   conn: Database.Database,
@@ -3275,7 +3294,7 @@ export function getCashInflow(
 export function getCashInflowRows(period: string, display: DisplayCurrency, categories?: CashInflowCategory[], scope: CashInflowScope = {}): CashInflowRow[] {
   const conn = db()
   try {
-    const wanted = categories ?? [...CASH_INFLOW_CATEGORIES]
+    const wanted = categories ?? CASH_INFLOW_CATEGORIES.filter((category) => category !== 'reimbursement')
     const placeholders = wanted.map(() => '?').join(', ')
     const where = cashInflowWhere(scope)
     const rows = conn
@@ -3685,7 +3704,7 @@ function latestSourceFilename(sourceRows: any[], needles: string[]) {
 
 type CoverageDbRow = { market: string; brokerage: string; account: string; account_type: string | null; covered_through: string | null }
 
-const COVERAGE_STATUS_RANK: Record<AccountCoverageStatus, number> = { missing: 0, action_needed: 1, due_soon: 2, current: 3 }
+const COVERAGE_STATUS_RANK: Record<AccountCoverageStatus, number> = { unconfirmed: 0, missing: 0, action_needed: 1, due_soon: 2, current: 3 }
 
 function coverageSource(
   input: Pick<AccountCoverageSource, 'label' | 'method' | 'coveredThrough' | 'maxLagDays' | 'requiredArtifact' | 'artifact' | 'destination'>
@@ -3732,7 +3751,7 @@ function robinhoodAccountResolver(snapshot: any, transactionRows: CoverageDbRow[
     const nickname = String(account?.nickname ?? '').trim()
     const hint = String(account?.accountNumber ?? account?.account_number ?? '').slice(-4)
     const label = String(account?.account ?? '').trim() || `Robinhood ${hint}`.trim()
-    if (nickname && strategies.has(nickname)) strategyByLabel.set(label, nickname)
+    if (nickname) { strategies.add(nickname); strategyByLabel.set(label, nickname) }
   }
   return (row: CoverageDbRow) => {
     const accountType = String(row.account_type ?? '')
@@ -3752,6 +3771,8 @@ export function robinhoodCsvPeriodEnd(filename: string): { account: string; end:
   const period = match[2]
   const ymd = (value: string) => `${value.slice(0, 4)}-${value.slice(4, 6)}-${value.slice(6, 8)}`
   const end = /^\d{8}-\d{8}$/.test(period) ? ymd(period.slice(9)) : /^\d{4}-\d{4}$/.test(period) ? `${period.slice(5)}-12-31` : ymd(period)
+  const start = /^\d{8}-\d{8}$/.test(period) ? strictIsoDate(ymd(period.slice(0,8))) : null
+  if (!strictIsoDate(end) || (/^\d{8}-\d{8}$/.test(period) && (!start || start > end))) return null
   return { account: match[1].toLowerCase(), end }
 }
 
@@ -3759,8 +3780,8 @@ export function robinhoodCsvPeriodEnd(filename: string): { account: string; end:
  * How far each Robinhood account's transaction CSVs reach, keyed by the
  * strategy name the CSVs are filed under ("Mid-term").
  *
- * The later of two dates: the newest row a CSV holds, and the newest period a
- * CSV's NAME declares. The row alone understated a quiet account: an export
+ * Only the query period deliberately recorded in a
+ * CSV's name establishes coverage. The row alone understated a quiet account: an export
  * asked for through 10-09 whose last trade was 09-23 read as covering 09-23,
  * and the reminder kept asking for a file that had already been downloaded.
  * The name is what says which days the export answers for, and the ingest's
@@ -3770,7 +3791,7 @@ export function robinhoodCsvPeriodEnd(filename: string): { account: string; end:
  * same account, and counting them made a two-week-old CSV read current for as
  * long as the account kept trading.
  */
-function robinhoodCsvCoverage(conn: Database.Database, sourceRows: any[]) {
+function robinhoodCsvCoverage(conn: Database.Database, sourceRows: any[], snapshot: any) {
   const through = new Map<string, string>()
   const raise = (account: string, date: string | null) => {
     if (date && date > (through.get(account) ?? '')) through.set(account, date)
@@ -3786,7 +3807,10 @@ function robinhoodCsvCoverage(conn: Database.Database, sourceRows: any[]) {
   for (const row of rows) {
     if (!row.account_type) continue
     byToken.set(row.account_type.toLowerCase().replace(/[^a-z]/g, ''), row.account_type)
-    raise(row.account_type, isoDate(row.last))
+
+  }
+  for (const account of snapshot?.accounts ?? []) {
+    if (account.nickname) byToken.set(String(account.nickname).toLowerCase().replace(/[^a-z]/g,''), String(account.nickname))
   }
   // A period ending after today is a typo in a hand-typed name, not coverage;
   // trusting it would mark the account current until that day arrives.
@@ -3817,10 +3841,31 @@ function robinhoodAccountLabel(key: string, names: string[]) {
  * the operator's separate question: “how far through the account's activity
  * have the numbers actually reached, and what should I obtain next?”
  */
+export function getBrokerageAccountHints(): Map<string, { suffix: string | null; retired: boolean }> {
+  const map = loadAccountMap(config.stockAccountMapPath)
+  const retired = retiredBrokerageAccounts(map.brokerageAccounts)
+  const hints = new Map<string, { suffix: string | null; retired: boolean }>()
+  for (const entry of map.brokerageAccounts ?? []) {
+    const label = brokerageAccountLabel(entry)
+    if (!label) continue
+    const number = String(entry.accountNumber ?? '').replace(/[^A-Za-z0-9]/g, '')
+    hints.set(label, { suffix: number.length >= 4 ? `…${number.slice(-4)}` : null, retired: retired.has(label) })
+  }
+  return hints
+}
+
+type ConfirmedSourceCoverage = { scope: string; institution: string; account: string; kind: string; through_date: string; empty_holdings: number }
+
+function confirmedSourceCoverage(conn: Database.Database): ConfirmedSourceCoverage[] {
+  if (!conn.prepare("select 1 from sqlite_master where type = 'table' and name = 'source_coverage_confirmations'").get()) return []
+  return conn.prepare('select scope, institution, account, kind, through_date, empty_holdings from source_coverage_confirmations').all() as ConfirmedSourceCoverage[]
+}
+
 export function getAccountCoverage(): AccountCoverageSummary {
   const conn = db()
   try {
     const sourceRows = conn.prepare('select * from source_files order by name').all() as any[]
+    const confirmations = confirmedSourceCoverage(conn)
     const holdingRows = conn
       .prepare(`select market, coalesce(brokerage, 'Unknown') as brokerage, account, account_type, max(as_of_date) as covered_through
                 from holdings where ${STOCK_WRAPPER_SQL} group by market, brokerage, account, account_type`)
@@ -3836,16 +3881,13 @@ export function getAccountCoverage(): AccountCoverageSummary {
     // so its coverage read as its last vest, weeks before the statement's own
     // end; and 토스증권's lots include fills bridged from the Open API, so its
     // "statement" date ran ahead of the statement.
-    const krStatementAsOf: Record<string, string> = readJson(path.join(config.stockKrStatementsDir, 'as-of.json'))?.accounts ?? {}
-    const statementRows = conn
-      .prepare(`select market, coalesce(brokerage, 'Unknown') as brokerage, account, account_type, max(as_of_date) as covered_through
-                from tax_lots group by market, brokerage, account, account_type`)
-      .all() as CoverageDbRow[]
+    const krStatementMetadata = readJson(path.join(config.stockKrStatementsDir, 'as-of.json'))
+    const cryptoActivity = readJson(config.stockCryptoActivityPath)
     const checkRows = conn.prepare('select name, detail, status from validation_checks').all() as { name: string; detail: string; status: string }[]
     const checks = new Map(checkRows.map((row) => [row.name, row]))
     const robinhoodSnapshot = readJson(config.stockRobinhoodSnapshotPath)
     const robinhoodAccount = robinhoodAccountResolver(robinhoodSnapshot, transactionRows)
-    const robinhoodCsvThrough = robinhoodCsvCoverage(conn, sourceRows)
+    const robinhoodCsvThrough = robinhoodCsvCoverage(conn, sourceRows, robinhoodSnapshot)
     // Written by the ingest per account (the strategy name, which is the
     // Robinhood coverage key). Absent from a database older than the table.
     const missingDisposalsByAccount = new Map<string, string[]>()
@@ -3859,11 +3901,10 @@ export function getAccountCoverage(): AccountCoverageSummary {
     }
     const coverageKey = (row: CoverageDbRow) => {
       if (row.market === 'US' && row.brokerage === 'Robinhood') return `US|Robinhood|${robinhoodAccount(row)}`
-      return row.market === 'US' ? `${row.market}|${row.brokerage}|${row.brokerage}` : `${row.market}|${row.brokerage}|${row.account}`
+      return `${row.market}|${row.brokerage}|${row.account}`
     }
     const holdingsByKey = new Map<string, (typeof holdingRows)[number]>()
     const txByKey = new Map<string, (typeof transactionRows)[number]>()
-    const statementByKey = new Map<string, (typeof statementRows)[number]>()
     const accountNames = new Map<string, Set<string>>()
     for (const row of holdingRows) {
       const key = coverageKey(row)
@@ -3877,26 +3918,37 @@ export function getAccountCoverage(): AccountCoverageSummary {
       const previous = txByKey.get(key)
       if (!previous || String(row.covered_through ?? '') > String(previous.covered_through ?? '')) txByKey.set(key, row)
     }
-    for (const row of statementRows) {
-      const key = coverageKey(row)
-      const previous = statementByKey.get(key)
-      if (!previous || String(row.covered_through ?? '') > String(previous.covered_through ?? '')) statementByKey.set(key, row)
+    const accountHints = getBrokerageAccountHints()
+    // Declared quiet statements and registered accounts remain visible without rows.
+    const registered = [...accountHints.keys(), ...Object.keys(krStatementMetadata?.statementPeriods?.accounts ?? {})]
+      .filter(account => !/IRP|연금|금현물/.test(account))
+      .map(account => ({ market: 'KR', brokerage: account.includes('미래에셋') ? '미래에셋증권' : account.includes('삼성') ? '삼성증권' : account.includes('토스') ? '토스증권' : '', account, account_type: null, covered_through: null }))
+      .filter(row => row.brokerage)
+    for (const entry of robinhoodSnapshot?.accounts ?? []) {
+      if (entry.nickname) registered.push({market:'US',brokerage:'Robinhood',account:`Robinhood ${entry.nickname}`,account_type:entry.nickname,covered_through:null})
     }
-    const keys = new Set([...holdingRows, ...transactionRows].map(coverageKey))
+    for (const receipt of confirmations.filter(row => row.scope === 'investment')) registered.push({market:'US',brokerage:receipt.institution,account:receipt.account,account_type:null,covered_through:null})
+    for (const doc of cryptoActivity?.documents ?? []) {
+      if (['bithumb_statement','robinhood_crypto_statement'].includes(doc.category) && doc.venue && doc.account) registered.push({market:'CRYPTO',brokerage:doc.venue,account:doc.account,account_type:null,covered_through:null})
+    }
+    for (const row of registered) accountNames.set(coverageKey(row), (accountNames.get(coverageKey(row)) ?? new Set()).add(row.account))
+    const keys = new Set([...holdingRows, ...transactionRows, ...registered].map(coverageKey))
     const rows: AccountCoverage[] = []
 
     for (const key of keys) {
       const [market, brokerage, rawAccount] = key.split('|')
       const holding = holdingsByKey.get(key)
       const transaction = txByKey.get(key)
-      const statement = statementByKey.get(key)
       const names = [...(accountNames.get(key) ?? new Set<string>())]
       const account = (market === 'US' && brokerage === 'Robinhood' ? robinhoodAccountLabel(rawAccount, names) : names.join(' / ')) || rawAccount || brokerage
+      const hint = accountHints.get(account)
+      if (hint?.retired) continue
       let sources: AccountCoverageSource[] = []
       let missingDisposals: string[] = []
       let coveredThrough = isoDate(holding?.covered_through ?? transaction?.covered_through)
       let apiCoveredThrough: string | null = null
-      const statementCoveredThrough = isoDate(market === 'KR' ? krStatementAsOf[account] ?? statement?.covered_through : statement?.covered_through)
+      const statementPeriodEvidence = readStatementPeriodEvidence(market === 'KR' ? krStatementMetadata : null, account)
+      const statementCoveredThrough = market === 'KR' && statementPeriodEvidence.periodEnd && statementPeriodEvidence.periodEnd <= new Date().toISOString().slice(0,10) ? statementPeriodEvidence.periodEnd : null
       let maxLagDays = market === 'US' ? 14 : market === 'CRYPTO' ? 35 : 35
       let method: AccountCoverage['method'] = 'inbox'
       let requiredArtifact = '최근 거래내역서'
@@ -3907,7 +3959,7 @@ export function getAccountCoverage(): AccountCoverageSummary {
       let detail: CoverageDetail = { code: 'STATEMENT_PERIOD_END' }
       const brokerLower = brokerage.toLowerCase()
 
-      if (market === 'KR' && statementCoveredThrough) coveredThrough = statementCoveredThrough
+      if (market === 'KR') coveredThrough = statementCoveredThrough
 
       if (market === 'US' && brokerLower === 'robinhood') {
         // Two artifacts, aging separately. The snapshot gives positions and lots;
@@ -3916,9 +3968,8 @@ export function getAccountCoverage(): AccountCoverageSummary {
         // its CSVs stopped two months earlier, and the ingest failed on sales
         // with no disposal behind them — so the account is only as current as
         // the older of the two, and each says what to do about itself.
-        const snapshotRow = sourceRows.find((row) => row.name === 'robinhood_snapshot')
         const snapshotDate =
-          isoDate(robinhoodSnapshot?.fetchedAt) ?? (snapshotRow?.mtime_ms ? isoDate(new Date(Number(snapshotRow.mtime_ms)).toISOString()) : null)
+          strictIsoDate(String(robinhoodSnapshot?.fetchedAt ?? '').slice(0,10))
         sources = [coverageSource({
           label: 'MCP',
           method: 'mcp',
@@ -3931,7 +3982,7 @@ export function getAccountCoverage(): AccountCoverageSummary {
         // An account the CSVs do not know by name (a holdings label with no
         // snapshot to translate it) keeps the snapshot alone, as before, rather
         // than reporting transactions it may well have under another label.
-        if (transaction) {
+        if (transaction || robinhoodCsvThrough.has(rawAccount) || robinhoodSnapshot?.accounts?.some((entry:any) => entry.nickname === rawAccount)) {
           const token = rawAccount.toLowerCase().replace(/[^a-z]/g, '')
           const csv = coverageSource({
             label: 'CSV',
@@ -3945,7 +3996,7 @@ export function getAccountCoverage(): AccountCoverageSummary {
             destination: `us-transactions/robinhood-transactions-${token}-YYYYMMDD-YYYYMMDD.csv`,
           })
           missingDisposals = missingDisposalsByAccount.get(`${brokerage}|${rawAccount}`) ?? []
-          sources.push(missingDisposals.length ? { ...csv, status: 'action_needed', missingDisposals } : csv)
+          sources.push(missingDisposals.length ? { ...csv, status: 'action_needed', missingDisposals } : !csv.coveredThrough ? {...csv,status:'unconfirmed'} : csv)
         }
         const behind = worstSource(sources)
         method = behind.method
@@ -3967,8 +4018,11 @@ export function getAccountCoverage(): AccountCoverageSummary {
         destination = 'us-holdings/ + us-transactions/'
         action = { code: 'US_HOLDINGS_AND_TRANSACTIONS', brokerage }
         detail = { code: 'OLDER_OF_TWO_CSVS' }
-        const dates = [holding?.covered_through, transaction?.covered_through].filter(Boolean) as string[]
-        coveredThrough = dates.length ? dates.sort()[0] : null
+        const confirmed = confirmations.filter(row => row.scope === 'investment' && row.institution === brokerage && names.includes(row.account))
+        const confirmedDate = (kind: string) => confirmed.filter(row => row.kind === kind).map(row => row.through_date).sort().at(-1)
+        const dates = [latestOf(confirmedDate('holdings'), holding?.covered_through), confirmedDate('transactions')]
+        if (confirmed.length) detail = { code: 'USER_CONFIRMED_QUERY_END' }
+        coveredThrough = dates.every(Boolean) ? (dates as string[]).sort()[0] : null
       } else if (market === 'CRYPTO' && brokerLower === 'bithumb') {
         requiredArtifact = '빗썸 거래내역확인서 PDF + 기간별 거래내역 XLSX'
         artifacts = [{ code: 'BITHUMB_PDF_AND_XLSX' }]
@@ -3976,17 +4030,17 @@ export function getAccountCoverage(): AccountCoverageSummary {
         destination = 'crypto-bithumb/'
         maxLagDays = 14
         // Crypto holdings are derived with a quote's as-of date, which can be
-        // today even when the statement activity stops earlier. The statement
-        // transaction cutoff is the authoritative coverage date here.
-        coveredThrough = isoDate(transaction?.covered_through)
+        // today even when no recent activity occurred. The PDF's declared
+        // full-scope, contiguous query periods establish coverage instead.
+        coveredThrough = cryptoStatementCoverageEnd(cryptoActivity, {venue: brokerage, account: rawAccount, category: 'bithumb_statement', today: new Date().toISOString().slice(0, 10)})
         action = { code: 'BITHUMB_SAME_PERIOD' }
-        detail = { code: 'BITHUMB_PDF_IS_LEDGER' }
+        detail = { code: 'BITHUMB_DECLARED_PERIODS' }
       } else if (market === 'CRYPTO') {
         requiredArtifact = 'Robinhood Crypto monthly statement'
         artifacts = [{ code: 'ROBINHOOD_CRYPTO_STATEMENT' }]
         format = 'PDF'
         destination = 'crypto-robinhood/'
-        coveredThrough = isoDate(transaction?.covered_through)
+        coveredThrough = cryptoStatementCoverageEnd(cryptoActivity, {venue: brokerage, account: rawAccount, category: 'robinhood_crypto_statement', today: new Date().toISOString().slice(0, 10)})
         action = { code: 'CRYPTO_MONTHLY_STATEMENT' }
         detail = { code: 'MONTHLY_STATEMENT_CONTINUITY' }
       } else if (market === 'KR' && (brokerLower.includes('toss') || brokerLower.includes('토스'))) {
@@ -3996,12 +4050,8 @@ export function getAccountCoverage(): AccountCoverageSummary {
         maxLagDays = 35
         action = { code: 'TOSS_API_OR_STATEMENT' }
         detail = { code: 'TOSS_STATEMENT_AND_API', checkDetail: checks.get('toss_positions_fresh')?.detail }
-        apiCoveredThrough = [holding?.covered_through, transaction?.covered_through]
-          .filter(Boolean)
-          .map((date) => isoDate(date))
-          .filter(Boolean)
-          .sort()
-          .at(-1) ?? null
+        const api = readJson(config.stockTossSnapshotPath)
+        apiCoveredThrough = api?.accounts?.length ? strictIsoDate(String(api.fetchedAt ?? '').slice(0, 10)) : null
         // The API fills the days after the statement, so the account is as current
         // as the newer of the two. The download range below still starts from the
         // statement, since a 거래내역서 is what a download would replace.
@@ -4013,10 +4063,12 @@ export function getAccountCoverage(): AccountCoverageSummary {
         action = { code: 'SAMSUNG_STOCK_COMP' }
         detail = { code: 'STATEMENT_PERIOD_END', checkDetail: checks.get('samsung_statement_fresh')?.detail }
       } else if (market === 'KR') {
-        requiredArtifact = `${brokerage} ${account} 거래내역증명서`
+        // This text leaves the machine (briefing summary, Telegram reminder, CLI),
+        // so it names the account masked; the typed codes keep the raw label.
+        requiredArtifact = `${brokerage} ${maskAccountLabel(account)} 거래내역증명서`
         artifacts = [{ code: 'KR_CERTIFICATE', brokerage, account }]
         action = { code: 'KR_CERTIFICATE', brokerage, account }
-        coveredThrough = statementCoveredThrough ?? coveredThrough
+        coveredThrough = statementCoveredThrough
       }
 
       const lagDays = calendarAgeDays(coveredThrough)
@@ -4029,19 +4081,30 @@ export function getAccountCoverage(): AccountCoverageSummary {
       const apiLagDays = calendarAgeDays(apiCoveredThrough)
       const statementLagDays = calendarAgeDays(statementCoveredThrough)
       const overdueDays = lagDays == null ? null : Math.max(0, lagDays - maxLagDays)
-      const status = sources.length ? worstSource(sources).status : coverageStatus(lagDays, maxLagDays)
+      const status = sources.length ? worstSource(sources).status : coveredThrough ? coverageStatus(lagDays, maxLagDays) : (holding || transaction ? 'unconfirmed' : 'missing')
+      if (status === 'current') action = { code: 'NONE_NEEDED' }
+      if (status === 'due_soon') action = { code: 'NONE_NEEDED_DUE_SOON' }
+      if (status === 'unconfirmed') {
+        detail = { code: 'UNCONFIRMED_PERIOD', lastTransaction: isoDate(transaction?.covered_through) }
+        action = { code: 'CONFIRM_QUERY_END' }
+        // Read by the reminder and the CLI only; the page renders `action`.
+        requiredArtifact = '조회기간 확인'
+      }
       const sourceNeedles = [brokerLower.replace(/증권|\s+/g, ''), account.toLowerCase().replace(/\s+/g, '')]
       rows.push({
         id: key,
         market,
         brokerage,
-        account,
+        account: hint?.suffix ? `${account} · ${hint.suffix}` : account,
         coveredThrough,
         downloadFrom,
         lagDays,
         apiCoveredThrough,
         apiLagDays,
         statementCoveredThrough,
+        // Only parser-recorded receipts; legacy as-of pins/transaction fallbacks are independent.
+        statementPeriodEnd: statementPeriodEvidence.periodEnd,
+        statementPeriodEvidence,
         statementLagDays,
         maxLagDays,
         overdueDays,
@@ -4060,12 +4123,12 @@ export function getAccountCoverage(): AccountCoverageSummary {
     }
 
     rows.sort((a, b) => {
-      const score = { action_needed: 0, missing: 1, due_soon: 2, current: 3 }
+      const score = { action_needed: 0, missing: 1, unconfirmed: 1, due_soon: 2, current: 3 }
       return score[a.status] - score[b.status] || (b.lagDays ?? 999) - (a.lagDays ?? 999) || a.brokerage.localeCompare(b.brokerage)
     })
     return {
       rows,
-      actionNeeded: rows.filter((row) => row.status === 'action_needed' || row.status === 'missing').length,
+      actionNeeded: rows.filter((row) => row.status === 'action_needed' || row.status === 'missing' || row.status === 'unconfirmed').length,
       dueSoon: rows.filter((row) => row.status === 'due_soon').length,
       current: rows.filter((row) => row.status === 'current').length,
       generatedAt: new Date().toISOString(),
@@ -4142,6 +4205,11 @@ export function getAccountDataRanges(): AccountDataRange[] {
     for (const row of balanceSpans) {
       rows.push({ kind: 'balances', market: row.market, brokerage: row.brokerage, account: row.account, accountType: row.account_type, start: isoDate(row.start), end: isoDate(row.end), count: row.count })
     }
+    for (const receipt of confirmedSourceCoverage(conn)) {
+      if (receipt.scope !== 'investment' || receipt.kind !== 'holdings' || !receipt.empty_holdings) continue
+      if (rows.some(row => row.kind === 'holdings' && row.market === 'US' && row.brokerage === receipt.institution && row.count > 0 && String(row.end) >= receipt.through_date)) continue
+      rows.push({kind:'holdings',market:'US',brokerage:receipt.institution,account:receipt.account,accountType:null,start:receipt.through_date,end:receipt.through_date,count:0})
+    }
     return groupAccountRanges(rows)
   } finally {
     conn.close()
@@ -4159,6 +4227,8 @@ export type SupplementaryCoverageRow = {
   status: AccountCoverageStatus
   /** What to file next, in the reminder's words. */
   action: string
+  historyGap?: { from: string; to: string }
+  staleWithHistoryGap?: boolean
 }
 
 export type SupplementaryCoverage = {
@@ -4169,8 +4239,8 @@ export type SupplementaryCoverage = {
 
 /** Days each kind may go without a newer file before the reminder names it. */
 const SUPPLEMENTARY_MAX_LAG_DAYS: Record<SupplementaryCoverageKind, number> = {
-  deposit: 90,
-  cma: 90,
+  deposit: 30,
+  cma: 30,
   pension: 180,
   gold: 90,
   gold_price: 7,
@@ -4198,11 +4268,12 @@ export function getSupplementaryCoverage(): SupplementaryCoverage {
     const hasColumn = (table: string, column: string) =>
       (conn.prepare(`pragma table_info(${table})`).all() as { name: string }[]).some((c) => c.name === column)
     const rows: SupplementaryCoverageRow[] = []
-    const push = (kind: SupplementaryCoverageKind, label: string, latest: string | null, action: string) => {
+    const push = (kind: SupplementaryCoverageKind, label: string, latest: string | null, action: string, unconfirmed = false) => {
       const latestDate = isoDate(latest)
       const lagDays = calendarAgeDays(latestDate)
       const maxLagDays = SUPPLEMENTARY_MAX_LAG_DAYS[kind]
-      rows.push({ kind, label, latestDate, lagDays, maxLagDays, status: coverageStatus(lagDays, maxLagDays), action })
+      const status = unconfirmed && !latestDate ? 'unconfirmed' : coverageStatus(lagDays, maxLagDays)
+      rows.push({ kind, label, latestDate, lagDays, maxLagDays, status, action: status === 'current' ? '추가 자료 필요 없음' : status === 'due_soon' ? '현재 추가 자료 필요 없음 · 곧 갱신 예정' : action })
     }
 
     // The map's retired accounts, and its pension list. An unreadable map is the
@@ -4214,6 +4285,13 @@ export function getSupplementaryCoverage(): SupplementaryCoverage {
       accountMap = null
     }
     const retired = retiredBankAccounts(accountMap?.bankAccounts)
+    const seenBanks = new Set<string>()
+    const confirmations = confirmedSourceCoverage(conn)
+    const declaredBanks = hasTable('bank_statement_coverage') ? conn.prepare('select institution,account,period_start,period_end from bank_statement_coverage').all() as {institution:string;account:string;period_start:string|null;period_end:string}[] : []
+    const bankEnd = (institution:string,account:string) => latestOf(
+      ...declaredBanks.filter(row => row.institution === institution && bankAccountGroup(accountMap?.bankAccounts,institution,row.account) === bankAccountGroup(accountMap?.bankAccounts,institution,account)).map(row => row.period_end),
+      ...confirmations.filter(row => row.scope === 'bank' && row.kind === 'transactions' && row.institution === institution && row.account === account).map(row => row.through_date))
+    const bankAction = (label:string,latest:string|null) => latest ? `${label} 거래내역을 ${latest} ~ ${portfolioToday()} 기간으로 받아 inbox에 넣으세요` : `${label} 기존 자료의 조회 종료일을 확인해주세요. 마지막 거래일로 다운로드 필요 여부를 판단하지 않습니다.`
 
     if (hasTable('cash_balances')) {
       const cash = conn
@@ -4227,12 +4305,59 @@ export function getSupplementaryCoverage(): SupplementaryCoverage {
         // A closed account has nothing more to download. A multi-currency account's
         // per-currency series are retired by its one entry.
         if (retired.has(`${row.institution}|${bankAccountGroup(accountMap?.bankAccounts, row.institution, row.account)}`)) continue
+        seenBanks.add(`${row.institution}|${bankAccountGroup(accountMap?.bankAccounts, row.institution, row.account)}`)
         const label = `${row.institution} ${row.account}`
-        // A quiet account has no balance row near its statement's end, so the
-        // statement's own period end counts too; otherwise a fresh download of a
-        // dormant account would never clear the reminder.
-        const latest = latestOf(row.latest, ...String(row.sources ?? '').split(',').map(periodEndFromSource))
-        push(row.isCma ? 'cma' : 'deposit', label, latest, `${label} 거래내역을 ${isoDate(latest)}부터 받아 inbox에 넣으세요`)
+        // Neither a balance observation nor a row-derived filename proves a query end.
+        const latest = bankEnd(row.institution,row.account)
+        push(row.isCma ? 'cma' : 'deposit', label, latest, bankAction(label,latest), true)
+      }
+    }
+
+    // Empty but successfully parsed statements still establish query coverage.
+    for (const row of [...declaredBanks,...confirmations.filter(row => row.scope === 'bank' && row.kind === 'transactions').map(row => ({institution:row.institution,account:row.account,period_end:row.through_date}))]) {
+      const key = `${row.institution}|${bankAccountGroup(accountMap?.bankAccounts,row.institution,row.account)}`
+      if (retired.has(key) || seenBanks.has(key)) continue
+      const label = `${row.institution} ${row.account}`
+      const entry = accountMap?.bankAccounts?.find((entry: BankAccountEntry) => entry.institution === row.institution && bankAccountGroup(accountMap?.bankAccounts,row.institution,row.account) === bankAccountName(entry))
+      const latest = bankEnd(row.institution,row.account)
+      push(entry?.kind === 'cma' ? 'cma' : 'deposit',label,latest,bankAction(label,latest),true)
+      seenBanks.add(key)
+    }
+
+    for (const entry of accountMap?.bankAccounts ?? []) {
+      if (!entry?.institution) continue
+      const name = bankAccountName(entry)
+      const key = `${entry.institution}|${name}`
+      const hanaLedgerKey = entry.institution === 'hana' && entry.kind === 'fx' ? 'Hana Bank|USD account' : null
+      if (retired.has(key) || seenBanks.has(key) || (hanaLedgerKey && seenBanks.has(hanaLedgerKey))) continue
+      const label = `${entry.institution} ${name}`
+      push(entry.kind === 'cma' ? 'cma' : 'deposit', label, null, `${label} 거래내역을 가능한 전체 기간 ~ ${portfolioToday()}까지 받아 inbox에 넣으세요`)
+      seenBanks.add(key)
+    }
+
+    // Explicitly requested historical coverage is separate from freshness.
+    for (const entry of accountMap?.bankAccounts ?? []) {
+      const start = strictIsoDate(entry.historyFrom)
+      if (!start || !entry.institution) continue
+      const institution = String(entry.institution)
+      const name = bankAccountName(entry)
+      const row = rows.find(item => item.label === `${institution} ${name}`)
+      if (!row) continue
+      const periods = declaredBanks.filter(item => item.institution === institution && bankAccountGroup(accountMap?.bankAccounts, institution, item.account) === name && strictIsoDate(item.period_start) && strictIsoDate(item.period_end)).sort((a,b) => String(a.period_start).localeCompare(String(b.period_start)))
+      if (!periods.length) continue
+      let cursor = start
+      for (const period of periods) {
+        if (period.period_end < cursor) continue
+        if (period.period_start! > cursor) {
+          const before = new Date(`${period.period_start}T00:00:00Z`); before.setUTCDate(before.getUTCDate() - 1)
+          row.historyGap = { from: cursor, to: before.toISOString().slice(0,10) }
+          row.staleWithHistoryGap = row.status === 'action_needed'
+          const freshnessAction = row.staleWithHistoryGap ? ` ${row.action}` : ''
+          row.status = 'action_needed'
+          row.action = `${row.label} 거래내역을 ${row.historyGap.from} ~ ${row.historyGap.to} 기간으로 받아 inbox에 넣으세요.${freshnessAction}`
+          break
+        }
+        const next = new Date(`${period.period_end}T00:00:00Z`); next.setUTCDate(next.getUTCDate() + 1); cursor = next.toISOString().slice(0,10)
       }
     }
 
@@ -4253,27 +4378,27 @@ export function getSupplementaryCoverage(): SupplementaryCoverage {
       const account = String(entry?.account ?? '').trim()
       if (!token || !account) continue
       const wrapper = String(entry?.wrapper ?? '').trim() || null
-      const latest = (snapshotStmt?.get(account, wrapper, wrapper) as { latest: string | null } | undefined)?.latest ?? null
+      const snapshotSources = hasTable('source_files') ? conn.prepare('select filename from source_files where name like ?').all(`pension:${token}-holdings-%`) as {filename:string}[] : []
+      const snapshotDates = snapshotSources.flatMap(row => {
+        const match = row.filename.match(/-holdings-(\d{4})(\d{2})(\d{2})\.csv$/)
+        const day = match && strictIsoDate(`${match[1]}-${match[2]}-${match[3]}`)
+        return day && day <= new Date().toISOString().slice(0,10) ? [day] : []
+      })
+      const latest = latestOf((snapshotStmt?.get(account, wrapper, wrapper) as { latest: string | null } | undefined)?.latest, ...snapshotDates)
       const owner = String(entry?.owner ?? '').trim()
       const ownerLabel = String(entry?.ownerLabel ?? '').trim()
       const label = owner && owner !== 'self' ? `${ownerLabel || owner} ${account}` : account
       push('pension', label, latest, `${label} 보유 현황을 캡처해 pension/${token}-holdings-YYYYMMDD.csv로 넣으세요`)
     }
 
-    // Gold: how far each account's 금현물 statement reaches, and how old the price is.
-    if (hasTable('transactions_all')) {
-      const gold = conn
-        .prepare(
-          `select account, max(date) as latest, ${hasColumn('transactions_all', 'source') ? 'group_concat(distinct source)' : 'null'} as sources
-             from transactions_all where ${GOLD_ROW_SQL} group by account order by account`
-        )
-        .all() as { account: string; latest: string | null; sources: string | null }[]
-      for (const row of gold) {
-        // The certificate's period end, not the last purchase: months without a
-        // trade must not keep the reminder open after a fresh certificate is filed.
-        const latest = latestOf(row.latest, ...String(row.sources ?? '').split(',').map(periodEndFromSource))
-        push('gold', row.account, latest, `${row.account} 금현물 거래내역증명서를 ${isoDate(latest)}부터 새로 받아 inbox에 넣으세요`)
-      }
+    // Gold certificate periods are independent of whether any trade occurred.
+    const krMetadata = hasTable('transactions_all') ? readJson(path.join(config.stockKrStatementsDir,'as-of.json')) : null
+    const goldAccounts = new Set(Object.keys(krMetadata?.statementPeriods?.accounts ?? {}).filter(account => account.includes('금현물')))
+    if (hasTable('transactions_all')) for (const row of conn.prepare(`select distinct account from transactions_all where ${GOLD_ROW_SQL}`).all() as {account:string}[]) goldAccounts.add(row.account)
+    for (const account of goldAccounts) {
+      const declaredEnd = readStatementPeriodEvidence(krMetadata,account).periodEnd
+      const latest = declaredEnd && declaredEnd <= new Date().toISOString().slice(0,10) ? declaredEnd : null
+      push('gold',account,latest,latest ? `${account} 금현물 거래내역증명서를 ${latest} ~ ${portfolioToday()} 기간으로 받아 inbox에 넣으세요` : `${account} 기존 증명서의 조회 종료일을 확인해주세요`,true)
     }
     const holdsGold = hasTable('holdings_all') && Boolean(conn.prepare(`select 1 from holdings_all where ${GOLD_ROW_SQL} limit 1`).get())
     if (holdsGold) {
@@ -5608,4 +5733,12 @@ export function getWashSaleReview(today: string = portfolioToday(), dbPath?: str
 function latestUsTransaction(conn: Database.Database): string | null {
   const row = conn.prepare("select max(date) as date from transactions where market = 'US'").get() as { date: string | null } | undefined
   return row?.date ?? null
+}
+
+/** Configured-account diagnostics can include other owners; totals remain self-only. */
+export function getAssetCoverageReview(summary: NetWorth) {
+  return collectAssetCoverage(summary, {
+    accounts: getAccountCoverage, supplementary: getSupplementaryCoverage,
+    checks: getValidationChecks, files: getOperationalHealth,
+  })
 }

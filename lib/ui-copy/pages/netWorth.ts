@@ -6,8 +6,6 @@ export const netWorth = defineCopy({
     emphasis: 'Assets',
     subtitle: (asOf: string) => `Securities, crypto, bank deposits, pensions and gold in one KRW figure. Portfolio data as of ${asOf}.`,
     total: 'Covered total assets',
-    coverageNote: (count: number) =>
-      `Covered assets owned by self. ${count} missing, unpriced or conflicting asset record(s) are excluded; overall source coverage is unconfirmed. Liabilities are excluded, so this is not complete net worth. Review each balance date. Historical cash coverage can differ from current balances.`,
     byClass: 'By asset class',
     classes: { stocks: 'Stocks', crypto: 'Crypto', cash: 'Cash', pensions: 'Pensions', gold: 'Gold' },
     asOfNotesHint: "A dated class is valued from a snapshot, at cost, or from a balance older than today, not from today's price.",
@@ -31,7 +29,7 @@ export const netWorth = defineCopy({
     trendStarts: (parts: string[]) => (parts.length ? `Each class starts on its first data: ${parts.join(' · ')}` : 'No asset class has data yet.'),
     classSince: (label: string, date: string) => `${label} from ${date}`,
     trendNote:
-      'Cash includes estimated balances of accounts with no statement on file (a parking account, a matured term deposit, a closed CMA), traced from the transfers the statements show. Pensions move only on certificate and snapshot dates, and hold the last value between them. Gold is grams held times the KRX price on or before each date, at cost where no price is stored. Before a class starts it adds nothing. The last point is today.',
+      'Cash includes estimated balances of accounts with no statement on file (a parking account, a matured term deposit, a closed CMA), traced from the transfers the statements show. Pensions move only on certificate and snapshot dates, and hold the last value between them. Gold uses remaining grams after purchases and sales, valued at the KRX price on or before each date, or remaining purchase cost including purchase fees when no price is stored. Dates with unresolved gold quantities, or neither a price nor known remaining cost, are excluded from historical gold totals. Before a class starts it adds nothing. The last point is today.',
     chartAxisKrw: 'KRW million',
     chartAxisUsd: 'USD million',
     balances: 'Deposit balances',
@@ -90,8 +88,6 @@ export const netWorth = defineCopy({
     emphasis: '총자산',
     subtitle: (asOf: string) => `증권, 암호화폐, 은행 예금, 연금, 금을 원화 한 숫자로 보여줍니다. 포트폴리오 기준일: ${asOf}.`,
     total: '확인 가능한 총자산',
-    coverageNote: (count: number) =>
-      `본인 소유의 확인 가능한 자산 합계입니다. 누락·평가 불가·출처 충돌 ${count}건은 제외했으며, 원본 커버리지는 전체 확인 전입니다. 부채를 반영한 순자산이 아닙니다. 각 잔액의 기준일을 확인하세요. 과거 추세의 현금 커버리지는 현재 잔액과 다를 수 있습니다.`,
     byClass: '자산군별',
     classes: { stocks: '주식', crypto: '암호화폐', cash: '현금', pensions: '연금', gold: '금' },
     asOfNotesHint: '날짜가 붙은 자산군은 오늘 시세가 아니라 snapshot, 취득원가 또는 오늘 이전 잔고 기준입니다.',
@@ -115,7 +111,7 @@ export const netWorth = defineCopy({
     trendStarts: (parts: string[]) => (parts.length ? `자산군별 데이터 시작일: ${parts.join(' · ')}` : '아직 데이터가 있는 자산군이 없습니다.'),
     classSince: (label: string, date: string) => `${label} ${date}부터`,
     trendNote:
-      '현금에는 거래내역이 없는 계좌(파킹통장, 만기된 예적금, 해지된 CMA)의 추정 잔액이 포함되며, 다른 계좌 거래내역에 나온 이체로 계산합니다. 연금은 증명서와 snapshot 날짜에만 바뀌고, 그 사이에는 마지막 값을 유지합니다. 금은 보유 그램 × 해당 날짜 이전 최신 KRX 시세이며, 시세가 없으면 취득원가입니다. 데이터가 시작되기 전의 자산군은 더하지 않습니다. 마지막 점은 오늘입니다.',
+      '현금에는 거래내역이 없는 계좌(파킹통장, 만기된 예적금, 해지된 CMA)의 추정 잔액이 포함되며, 다른 계좌 거래내역에 나온 이체로 계산합니다. 연금은 증명서와 snapshot 날짜에만 바뀌고, 그 사이에는 마지막 값을 유지합니다. 금은 매수·매도 후 남은 그램 × 해당 날짜 이전 최신 KRX 시세이며, 시세가 없으면 매입수수료를 포함한 잔여 취득원가입니다. 과거 금 보유량을 확인할 수 없거나 시세와 잔여 원가가 모두 없는 날짜는 과거 금 합계에서 제외합니다. 데이터가 시작되기 전의 자산군은 더하지 않습니다. 마지막 점은 오늘입니다.',
     chartAxisKrw: '백만 원',
     chartAxisUsd: '백만 달러',
     balances: '예금 잔고',

@@ -118,10 +118,10 @@ export const dataOps = defineCopy({
       source_missing_market_value: 'Review source valuation fields; tax-lot-only sources may need external price enrichment.',
     },
     coverage: {
-      title: 'Account data updates',
+      title: 'Investment account updates',
       info: 'Separate from file integrity: this shows the actual cutoff and the next download start date. The start date is one day before the cutoff to guarantee overlap.',
       viewAll: 'View all',
-      actionNeeded: 'Action needed',
+      actionNeeded: 'Review / update',
       dueSoon: 'Due soon',
       current: 'Current',
       none: 'All accounts are within their configured coverage window.',
@@ -132,7 +132,7 @@ export const dataOps = defineCopy({
       noExistingCutoff: 'No existing cutoff — download the full available period',
       downloadFrom: (date: string) => `From ${date} (1-day overlap)`,
       mixed: (api: string, statement: string) => `API ${api} · statement ${statement}`,
-      status: { action_needed: 'Update needed', missing: 'No data', due_soon: 'Due soon', current: 'Current' } satisfies Record<AccountCoverageStatus, string>,
+      status: { unconfirmed: 'Confirm query period', action_needed: 'Update needed', missing: 'No data', due_soon: 'Due soon', current: 'Current' } satisfies Record<AccountCoverageStatus, string>,
       methodLabel: { inbox: 'inbox', manual: 'by hand', api: 'API', mcp: 'MCP', mixed: 'API + file' } satisfies Record<AccountCoverage['method'], string>,
       columns: {
         account: 'Account',
@@ -167,16 +167,23 @@ export const dataOps = defineCopy({
           "Regenerate the snapshot from the Robinhood MCP, and download each account's transactions CSV, name it and drop it in us-transactions/. The older of the two is the account cutoff.",
         BITHUMB_SAME_PERIOD: 'Download both the PDF and the XLSX for the same period and drop them in the inbox.',
         CRYPTO_MONTHLY_STATEMENT: 'Download the missing latest monthly crypto statement PDF and drop it in the inbox.',
+        NONE_NEEDED: 'No additional data needed',
+        NONE_NEEDED_DUE_SOON: 'No additional data needed now · renewal due soon',
+        CONFIRM_QUERY_END: 'Confirm the query end date of the existing data. Whether a new download is needed is not decided until then.',
       } satisfies CodeCopy<CoverageAction>,
       detail: {
         STATEMENT_PERIOD_END: 'Computed from the last day of the period the document declares.',
         ROBINHOOD_OLDER_OF_TWO:
-          'Computed from the older of the MCP snapshot fetch time and the last day the transactions CSV covers (the period end in the file name, or a later trade date).',
+          'Computed from the older of the MCP snapshot fetch time and the last day the transactions CSV covers (the query end, confirmed and recorded in the file name).',
         ROBINHOOD_SNAPSHOT_FETCHED_AT: 'Computed from the MCP snapshot fetch time.',
         OLDER_OF_TWO_CSVS: 'The older cutoff of the two CSVs is the account coverage.',
-        BITHUMB_PDF_IS_LEDGER: 'The PDF is the trade ledger; the XLSX supplements deposit and withdrawal reasons.',
+        USER_CONFIRMED_QUERY_END: 'Uses the query end and holdings date you confirmed, judged apart from the last trade date.',
+        BITHUMB_DECLARED_PERIODS:
+          'Computed from the contiguous query periods the PDF declares for all assets and all transaction types. The XLSX supplements deposit and withdrawal reasons.',
         MONTHLY_STATEMENT_CONTINUITY: 'Checks that the monthly statements run without a gap.',
         TOSS_STATEMENT_AND_API: 'Shows the statement and the Open API snapshot together.',
+        UNCONFIRMED_PERIOD: (lastTransaction: string | null) =>
+          `No evidence of the query period has been confirmed. The last trade date (${lastTransaction ?? 'none'}) is not the query end date.`,
       } satisfies CodeCopy<CoverageDetail>,
       missingDisposals: (count: number, tickers: readonly string[]) =>
         `Missing sale records for ${count} ticker(s) (${tickers.join(', ')}): realized gains for this account appear only once its transactions CSV arrives.`,
@@ -289,7 +296,7 @@ export const dataOps = defineCopy({
       source_missing_market_value: '원본의 평가 필드를 검토하세요. 세금 단위만 있는 원본은 외부 가격 보강이 필요할 수 있습니다.',
     },
     coverage: {
-      title: '계좌 데이터 업데이트',
+      title: '증권·가상자산 계좌 업데이트',
       info: '파일 무결성과 별도로, 각 계좌의 자료가 어느 날짜까지 반영되었는지와 다음 다운로드 시작일을 보여줍니다. 시작일은 누락 방지를 위해 기존 기준일보다 하루 빠릅니다.',
       viewAll: '전체 보기',
       actionNeeded: '지금 필요한 계좌',
@@ -303,7 +310,7 @@ export const dataOps = defineCopy({
       noExistingCutoff: '기존 기준일 없음 — 가능한 전체 기간',
       downloadFrom: (date: string) => `${date}부터 (기존 자료와 1일 겹침)`,
       mixed: (api: string, statement: string) => `API ${api} · 명세서 ${statement}`,
-      status: { action_needed: '업데이트 필요', missing: '자료 없음', due_soon: '곧 필요', current: '현재 기준' },
+      status: { unconfirmed: '조회기간 확인 필요', action_needed: '업데이트 필요', missing: '자료 없음', due_soon: '곧 필요', current: '현재 기준' },
       methodLabel: { inbox: '인박스', manual: '직접 저장', api: '자동 API', mcp: 'MCP', mixed: 'API + 파일' },
       columns: {
         account: '계좌',
@@ -336,16 +343,22 @@ export const dataOps = defineCopy({
           '스냅샷은 로빈후드 MCP에서 다시 생성하고, 거래 CSV는 계좌별로 다운로드해 이름을 붙여 us-transactions/에 넣으세요. 둘 중 오래된 쪽이 계좌 기준일입니다.',
         BITHUMB_SAME_PERIOD: '같은 조회기간의 PDF와 XLSX를 모두 다운로드해 인박스 폴더에 넣으세요.',
         CRYPTO_MONTHLY_STATEMENT: '누락된 최신 월의 크립토 명세서 PDF를 다운로드해 인박스 폴더에 넣으세요.',
+        NONE_NEEDED: '추가 자료 필요 없음',
+        NONE_NEEDED_DUE_SOON: '현재 추가 자료 필요 없음 · 곧 갱신 예정',
+        CONFIRM_QUERY_END: '기존 자료의 조회 종료일을 확인해주세요. 확인 전에는 새 다운로드가 필요한지 판단하지 않습니다.',
       },
       detail: {
         STATEMENT_PERIOD_END: '문서가 선언한 조회기간의 마지막 날짜를 기준으로 계산합니다.',
         ROBINHOOD_OLDER_OF_TWO:
-          'MCP 스냅샷을 가져온 시각과 거래 CSV가 다루는 마지막 날(파일 이름의 기간 끝, 또는 그보다 늦은 거래일) 중 오래된 쪽을 기준으로 계산합니다.',
+          'MCP 스냅샷을 가져온 시각과 거래 CSV가 다루는 마지막 날(파일 이름에 확인하여 기록한 조회 종료일) 중 오래된 쪽을 기준으로 계산합니다.',
         ROBINHOOD_SNAPSHOT_FETCHED_AT: 'MCP 스냅샷을 가져온 시각을 기준으로 계산합니다.',
         OLDER_OF_TWO_CSVS: '두 CSV 중 더 오래된 기준일을 계좌 반영 기준일로 사용합니다.',
-        BITHUMB_PDF_IS_LEDGER: 'PDF가 거래 원장이고 XLSX는 입출금 사유 보강용입니다.',
+        USER_CONFIRMED_QUERY_END: '사용자가 확인한 조회 종료일과 보유 기준일을 반영합니다. 마지막 거래일과는 별도로 판단합니다.',
+        BITHUMB_DECLARED_PERIODS: 'PDF가 선언한 전체 자산·전체 거래유형의 연속 조회기간을 기준으로 계산합니다. XLSX는 입출금 사유 보강용입니다.',
         MONTHLY_STATEMENT_CONTINUITY: '월별 명세서가 끊기지 않는지 기준일을 계산합니다.',
         TOSS_STATEMENT_AND_API: '명세서와 오픈 API 스냅샷을 함께 표시합니다.',
+        UNCONFIRMED_PERIOD: (lastTransaction: string | null) =>
+          `조회기간 근거가 확인되지 않았습니다. 마지막 거래일 ${lastTransaction ?? '없음'}은 조회 종료일이 아닙니다.`,
       },
       missingDisposals: (count: number, tickers: readonly string[]) =>
         `매도 기록 누락 ${count}종목(${tickers.join(', ')}): 이 계좌의 거래내역 CSV가 들어와야 실현 손익이 잡힙니다.`,
