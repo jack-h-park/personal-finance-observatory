@@ -76,7 +76,13 @@ export const positionDetail = defineCopy({
     linkStatus: { linked: 'linked', unlinked: 'unlinked' } as Record<LinkStatus, string>,
     buckets: { long: 'long', short: 'short' } as Record<HoldingBucket, string>,
     terms: { 'Long-term': 'Long-term', 'Short-term': 'Short-term' } as Record<string, string>,
-    transactionTypes: { BUY: 'BUY', SELL: 'SELL', DIVIDEND: 'DIVIDEND' } as Record<string, string>,
+    transactionTypes: {
+      BUY: 'BUY', SELL: 'SELL', DIVIDEND: 'DIVIDEND', REINVEST: 'REINVEST', INTEREST: 'INTEREST', FEE: 'FEE',
+      TRANSFER_IN: 'TRANSFER IN', TRANSFER_OUT: 'TRANSFER OUT', INTERNAL_TRANSFER: 'INTERNAL TRANSFER', JOURNAL: 'JOURNAL',
+      STOCK_SPLIT: 'STOCK SPLIT', CORPORATE_ACTION: 'CORPORATE ACTION', CASH_SWEEP: 'CASH SWEEP', OTHER_INCOME: 'OTHER INCOME',
+      STAKING_REWARD: 'STAKING REWARD', STOCK_LENDING_INCOME: 'STOCK LENDING',
+    } as Record<string, string>,
+    sourceUsages: { snapshot: 'snapshot', 'tax lots': 'tax lots', transactions: 'transactions', dividends: 'dividends' } as Record<string, string>,
     columns: {
       broker: 'Broker',
       account: 'Account',
@@ -179,7 +185,13 @@ export const positionDetail = defineCopy({
     linkStatus: { linked: '연결됨', unlinked: '연결 안 됨' } as Record<LinkStatus, string>,
     buckets: { long: '장기', short: '단기' } as Record<HoldingBucket, string>,
     terms: { 'Long-term': '장기', 'Short-term': '단기' } as Record<string, string>,
-    transactionTypes: { BUY: '매수', SELL: '매도', DIVIDEND: '배당' } as Record<string, string>,
+    transactionTypes: {
+      BUY: '매수', SELL: '매도', DIVIDEND: '배당', REINVEST: '재투자', INTEREST: '이자', FEE: '수수료',
+      TRANSFER_IN: '입고', TRANSFER_OUT: '출고', INTERNAL_TRANSFER: '본인 계좌 간 이동', JOURNAL: '계좌 대체',
+      STOCK_SPLIT: '주식 분할', CORPORATE_ACTION: '권리 변동', CASH_SWEEP: '예수금 이동', OTHER_INCOME: '기타 수익',
+      STAKING_REWARD: '스테이킹 보상', STOCK_LENDING_INCOME: '주식 대여 수익',
+    } as Record<string, string>,
+    sourceUsages: { snapshot: '스냅샷', 'tax lots': '세금 단위', transactions: '거래', dividends: '배당' } as Record<string, string>,
     columns: {
       broker: '증권사',
       account: '계좌',
