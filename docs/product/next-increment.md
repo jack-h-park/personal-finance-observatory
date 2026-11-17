@@ -1,10 +1,10 @@
 # Next Personal Finance Observatory increments
 
-Updated November 15, 2026 (America/Los_Angeles). The original program is still the [master plan](../superpowers/plans/2026-11-10-personal-finance-observatory.md): public reusable code, private sources/state, evidence-linked financial visibility and bounded tax planning. Foundation/branding, all-assets entry and historical-tax adoption are implemented. Historical gold, date/coverage disclosure and the recorded-tax summary have prior operating acceptance. The first expanded custodian backup now also has separate-location recovery evidence. These completed increments should not remain the next implementation tasks.
+Updated November 17, 2026 (America/Los_Angeles). The original program is still the [master plan](../superpowers/plans/2026-11-10-personal-finance-observatory.md): public reusable code, private sources/state, evidence-linked financial visibility and bounded tax planning. Foundation/branding, all-assets entry and historical-tax adoption are implemented. Historical gold, date/coverage disclosure and the recorded-tax summary have prior operating acceptance. The expanded custodian backup and the later briefing/operator financial scope now have bounded separate-location recovery evidence. These completed increments should not remain the next implementation tasks.
 
 The [implementation status](implementation-status.md) and [installation observation](../operations/installation-status.md) separate source, installation, historical acceptance and current gaps. Hometax remains held; further deployments require separate authorization. This document authorizes no implementation, merge, private-data mutation or operating change.
 
-The [November 15 plan review](plan-review-2026-11-15.md) confirms the original direction and separates source completion, local observation, actual job-context verification and operating adoption. The recorded foundation #324 is merged; the [local observer](../architecture/finance-preflight-observer.md) is the next source package. Pending account/curator decisions do not block archive-only or synthetic work.
+The [November 15 plan review](plan-review-2026-11-15.md) confirms the original direction and separates source completion, local observation, actual job-context verification and operating adoption. The recorded foundation #324 and [local observer](../architecture/finance-preflight-observer.md) #325 are merged. Producer #75/#76 are installed with matching archive bindings and the automatic job paused. The applied backup expansion and scoped isolated restore are recorded in the [November 17 acceptance](../operations/finance-state-backup-and-restore.md#briefing-scope-activation-and-isolated-recovery-november-17-2026). Pending account/curator decisions do not block independent synthetic contract work. The original direction remains appropriate; close completed operational gates and return to product coverage/planning rather than repeat backup or historical-return investigation.
 
 ## Completed security prerequisite and bounded maintenance
 
@@ -34,35 +34,33 @@ Adapter/display acceptance scope; remaining unsupported bridges must stay explic
 
 Exit: a reviewer can trace a supported total and an actionable gap to existing evidence without a refresh, importer, provider call or write surface. Where existing contracts cannot establish an authoritative inventory, produce the small contract/design decision first rather than creating guessed records. Private acceptance later uses an explicitly authorized read-only review; deployment remains held.
 
-## Priority 2: complete operating ownership and recovery boundaries
+## Priority 2: scoped annual composition as the next independent source package
 
-The [curated-input and archive contract design](../superpowers/specs/2026-11-15-finance-authority-path-design.md) proposes the next bounded source work: typed read-only endpoint/authority checks, followed separately by producer integration. The [recorded-observation foundation](../architecture/finance-preflight.md) is merged in #324. The [local metadata/settings observer](../architecture/finance-preflight-observer.md) adds explicit endpoint collection in source review; actual scheduler/job-context binding, producer integration, human curator appointment and operating setting changes are not included. Unanswered account decisions remain pending.
+The [2025-first design](../superpowers/specs/2026-11-12-annual-tax-estimation-mvp-design.md), #296 contracts, #297 ordinary/NIIT, #298 eligible QDCG, #299 Korean exact reference and #300 component preview already exist. Do not implement those components again or treat source presence as a complete annual-tax workflow.
 
-The wider durable-state inventory and first expanded MacBook snapshot recovery are done for their documented scope. Do not repeat that same restore merely to generate another success receipt.
+The recommended next source-only PR refines the existing composition/comparison bridge: reviewed inputs, permitted US component combinations, explicit jurisdiction/method/coverage limits and a strict mapping to the recorded-history basis. Start with contract/design and synthetic cases for missing input coverage, unsupported applicable methods/credits, double-counting and mismatched history scope. Independent component outputs must not become an unlabeled annual total or be compared to an incompatible historical liability. Implementation follows the reviewed contract; private inputs, history writes and deployment remain outside this package.
 
-Remaining work:
+This work can proceed without resolving pending account ownership or Hometax. Korean reported amounts remain blocked on line-specific quantization; California, cross-border methods and a later read-only estimate UI need their own supported scope. The accepted final historical return is not reopened. This is the next executable product-source recommendation, while Priority 1 remains the coverage acceptance objective with unresolved owner inputs preserved.
 
-- Clarify the editing authority for curated FX/evidence inputs. The files are runtime-owned and present in the operating-host snapshot, but filesystem ownership and reader paths do not prove an authorized logical curator.
-- Reconcile the briefing producer's effective archive paths. The application archive and its existing entries are present in the latest operating-host snapshot; the producer now exists, but its default archive path differs and is absent. Historical publish logs refer to the legacy destination; they do not prove that the next job will write the current application archive. No producer replay, path correction or archive rewrite was performed.
-- Document targeted backup installation versus the shared runtime checkout's auto-update behavior, preserving the held monthly drill. Broader runtime updates must not unintentionally activate its new marker namespace.
-- If authorized later, select compatible pinned stock-management/ops-runtime snapshots and validate policies, proposals/events and delivery deduplication/thread state alongside the recovered sources. Never infer an atomic recovery set from nearby timestamps.
-- Preserve the November 15 ordinary daily backup evidence: scheduler/log timing and later dated repository snapshots now corroborate the custodian and operating-host daily captures. This closes that observation item for those captures, not future reliability or a new restore.
-- Reconcile shared-runtime update drift: automatic pulls fail on retained local changes, while the approved installed daily scope still matches its receipt and backups succeed using last-good code. Any repair must preserve the held monthly drill; do not broadly update or discard runtime changes during a read-only audit.
-- Decide retention/cleanup for the private decrypted recovery specimen; keep receipts if its payload is removed. No automatic deletion or production promotion is proposed.
+## Priority 3: remaining logical authority and controlled operational acceptance
 
-Exit: explicit authority/consumer boundaries and bounded cross-repository recovery evidence, with no notification replay, live-path overwrite or web-write activation. Any execution beyond documentation/read-only inspection needs its own scope and authorization.
+The [authority/path design](../superpowers/specs/2026-11-15-finance-authority-path-design.md), preflight #324/#325 and installed two-stage producer establish contracts and inactive paths. Do not list the old absent archive default, producer installation, first expanded capture or scoped financial/selected-fleet restore as unfinished. Their [accepted boundaries](../operations/finance-state-backup-and-restore.md#briefing-scope-activation-and-isolated-recovery-november-17-2026) own the evidence; no full host recovery is implied.
 
-## Priority 3: expand recorded-tax usefulness only with available evidence
+Remaining bounded decisions:
+
+- Name the authorized logical curator/committer for FX and curated evidence. Filesystem ownership and recovery do not appoint a person or authorize a write.
+- If separately authorized, perform one reviewed generation/archive stage and then a separately reviewed static publication. Generation writes can already become visible to the finance archive reader before static publication; this is not draft-to-canonical promotion. Keep the automatic job paused until a later explicit schedule decision, and treat a missing publication receipt as unknown delivery state.
+- Observe a later ordinary scheduled capture of the newly expanded scope. A manual first capture and existing daily schedule are not proof of its next scheduled result; do not trigger another backup just to claim observation.
+- Decide local retention for private recovery specimens and future full publication work, preserving manifests/receipts. No cleanup, expiry or remote pruning is authorized. Future records that do not exist yet have not been restored.
+- Retain wider interruption/restart, full host/application and delivery-deduplication recovery as separate packages when justified. Nearby snapshot times do not make an atomic pair. The older custodian shared-runtime/monthly-drill gate is distinct from the completed operating-host two-script update; do not broadly update or reset that runtime incidentally.
+
+These are conditional operational work, not prerequisites for the source-only Priority 2 contract. Current authorization is documentation only; actual generation, archive writes, publication, automatic resume, retention changes and Hometax remain held.
+
+## Priority 4: expand recorded-tax usefulness only with available evidence
 
 The annual summary already operates in #290. A later bounded change may model return-reported prepayments and requested refunds separately from actual payment/refund settlement events. Requested refunds must never appear as received cash; missing settlement proof remains unknown.
 
-Design the fields and synthetic projection tests before importing anything. Add a historical fact only from available reviewed evidence and applicable write authorization. The accepted final historical return is not reopened, and no tax-document investigation is a prerequisite for Priority1. Further years or settlement completeness are not established by the existing minimal-year adoption.
-
-## Priority 4: advance the annual estimate MVP within explicit scope
-
-The [2025-first design](../superpowers/specs/2026-11-12-annual-tax-estimation-mvp-design.md), #296 contracts, #297 ordinary/NIIT, #298 eligible QDCG, #299 Korean exact reference and #300 component preview CLI are merged and present in observed installed source. They are not a complete annual return calculator or a newly accepted operating tax workflow.
-
-A separately approved next design can define reviewed annual inputs and permitted US component composition, retaining unsupported-method/credit/coverage blocks. It must not sum independent component outputs into an unlabeled annual total or compare them with recorded liability at a different scope. Korean reported amounts remain blocked; Hometax is held. California, special-rate methods and a read-only estimate UI retain separate designs/gates. Keep real input entry, state mutation and deployment out of a synthetic calculator PR.
+Design the fields and synthetic projection tests before importing anything. Add historical facts only from available reviewed evidence and separate write authorization. Further years or settlement completeness are not established by the existing minimal-year adoption. Do not reopen the accepted 2025 final return or make more tax-document investigation a dependency for account coverage or the composition contract.
 
 ## Later: liabilities, extraction and naming
 
@@ -72,4 +70,4 @@ Connector exports remain shadow-only. Seven distinct successful daily observatio
 
 ## Preserved gates
 
-Keep actual financial records, original evidence, approved-device access and private web-write prohibition unchanged. Hometax remains held; further deployments require separate authorization. Source PRs, merge, installation, scheduled observation, private operating acceptance and recovery/promotion are separate outcomes. No recommendation above authorizes those later actions.
+Keep actual financial records, original evidence, approved-device access and private web-write prohibition unchanged. Automatic briefing publication remains paused. Actual generation/archive writes, web publication, Hometax and further deployments remain held. Source PRs, merge, installation, scheduled observation, private operating acceptance and recovery/promotion are separate outcomes. No recommendation above authorizes those later actions.

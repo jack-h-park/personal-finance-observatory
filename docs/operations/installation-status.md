@@ -1,6 +1,6 @@
 # Owner installation observation
 
-Updated November 15, 2026 (America/Los_Angeles). This documentation task records the separately authorized #311 security release and the current read-only installation observation. It performs no deployment or new browser acceptance.
+Updated November 17, 2026 (America/Los_Angeles). This documentation update records the separately authorized security release and later scoped backup/recovery acceptance. The preceding table and November 15 section are dated historical observations; the latest observation is below. This task performs no deployment or new browser acceptance.
 
 | Layer | Verified state | Interpretation |
 | --- | --- | --- |
@@ -28,3 +28,14 @@ Hometax remains held; Korean line-specific reporting quantization is unresolved.
 ## Later design-time observation: November 15, 2026
 
 During the authority/path design, a fresh read-only observation found operating source `9c5e82adeaf09c87c4e2fc6a8b1df2639714f5e3` (#321) and build `XcfRnEjcmKuRsif7tYO7e`, unchanged across that design task. This source includes the #318/#320 commits by ancestry, unlike the preceding audit table. Neither the #322 documentation merge nor the design task installed or deployed that change. Source/build presence is not new browser acceptance of the account review surface or adoption of the private account proposal. Current repository main at the design branch base is #322, `fcf663ba352a469f4f71f27f4e15d10fcc6070be`; it is distinct from the observed operating source. The table above retains the preceding audit as historical evidence rather than attributing its checks to this later build. No additional deployment is authorized.
+
+
+## Latest read-only observation and recovery checkpoint: November 17, 2026
+
+A fresh read-only observation found application source `7b46b45b490679108efe4b00ef05185ea286decc` and build `owQLFmVlvOWHfurSJq_Jt`. These identify the observed installation, not a deployment performed or a browser workflow accepted by this documentation task. Earlier security and account-review acceptance retains its recorded scope.
+
+The briefing producer is installed at the merged #76 source, with reviewed producer/consumer archive bindings. Its automatic job is disabled/paused and web financial writes remain disabled. The [November 17 backup/recovery acceptance](finance-state-backup-and-restore.md#briefing-scope-activation-and-isolated-recovery-november-17-2026) closes the newly identified operator-root gap through the applied #1924 backup scripts, actual expanded capture and scoped isolated restore. Do not list that path reconciliation or restore as unstarted work.
+
+No real generation, archive record write, static publication or application restart was performed by those acceptance tasks. A concurrent gateway edit was observed during recovery; the pre-edit backup matched the baseline hash and the finance route was identical in pre-edit, post-edit and live configuration. This is finance-route preservation, not a claim that the entire gateway was unchanged. Original financial material, account maps and web-write prohibition were retained.
+
+Actual generation and later publication remain separately held. A future scheduled run, future output custody, retention/cleanup, full fleet recovery and full application failover are not established by source installation or this scoped restore. Hometax remains held. Exact private evidence stays outside this repository.
