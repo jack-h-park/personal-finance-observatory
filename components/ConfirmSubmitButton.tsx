@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import type { MouseEvent, ReactNode } from 'react'
+import type { MouseEvent, ReactNode, Ref } from 'react'
 import { useFormStatus } from 'react-dom'
 import { Button } from '@/components/ui'
 import { usePageLanguage } from '@/components/LanguageProvider'
@@ -13,14 +13,28 @@ type ConfirmEvent = 'press' | 'timeout' | 'blur'
 /** How long an armed button waits for the second press before it gives up. */
 const ARMED_MS = 6000
 
+/** A press this soon after arming is the same gesture (a double-click, a held key), not a confirmation. */
+export const MIN_CONFIRM_MS = 400
+
 /**
  * The confirmation state machine, kept pure so it can be tested on its own.
  * The first press arms; only a press on an armed button submits. Running out of
  * time or losing focus puts it back to idle without submitting.
+ *
+ * A press on an armed button is ignored (it stays armed, nothing submits) when
+ * it is the second click of a multi-click (`clickCount > 1`) or lands within
+ * MIN_CONFIRM_MS of arming, so a double-click or key repeat cannot arm and
+ * confirm before the reader has seen the confirm label.
  */
-export function confirmStep(state: ConfirmState, event: ConfirmEvent): { state: ConfirmState; submit: boolean } {
-  if (event === 'press') return state === 'idle' ? { state: 'armed', submit: false } : { state: 'idle', submit: true }
-  return { state: 'idle', submit: false }
+export function confirmStep(
+  state: ConfirmState,
+  event: ConfirmEvent,
+  press: { clickCount?: number; msSinceArmed?: number } = {}
+): { state: ConfirmState; submit: boolean } {
+  if (event !== 'press') return { state: 'idle', submit: false }
+  if (state === 'idle') return { state: 'armed', submit: false }
+  const hasty = (press.clickCount ?? 1) > 1 || (press.msSinceArmed ?? Infinity) < MIN_CONFIRM_MS
+  return hasty ? { state: 'armed', submit: false } : { state: 'idle', submit: true }
 }
 
 /**
@@ -46,6 +60,11 @@ export function confirmStep(state: ConfirmState, event: ConfirmEvent): { state: 
  *   click's default action, so the state change that turns the button back into
  *   `type="button"` cannot race the browser's activation behaviour, and the
  *   server action still receives the button's own name/value/formAction.
+ * - The form guard cancels every submitter-less submission in a form holding this button.
+ *
+ * The click, timer, blur and Enter wiring has no DOM test environment here; it
+ * is covered by the browser hand check. The reducer and the rendered markup of
+ * both states are unit-tested.
  */
 export function ConfirmSubmitButton({
   children,
@@ -63,9 +82,9 @@ export function ConfirmSubmitButton({
   size?: 'sm' | 'md'
 }) {
   const { pending } = useFormStatus()
-  const copy = getUiCopy(usePageLanguage()).form
   const [state, setState] = useState<ConfirmState>('idle')
   const ref = useRef<HTMLButtonElement>(null)
+  const armedAt = useRef(0)
   const armed = state === 'armed'
 
   // Disarm after the timeout; the cleanup clears the timer on disarm and unmount.
@@ -97,20 +116,68 @@ export function ConfirmSubmitButton({
       setState((s) => confirmStep(s, 'blur').state)
       return
     }
-    const next = confirmStep(state, 'press')
+    const now = Date.now()
+    const next = confirmStep(state, 'press', { clickCount: event.detail, msSinceArmed: now - armedAt.current })
+    if (state === 'idle' && next.state === 'armed') armedAt.current = now
     if (next.submit) button.form?.requestSubmit(button)
     setState(next.state)
   }
 
   return (
+    <ConfirmSubmitButtonView
+      buttonRef={ref}
+      armed={armed}
+      pending={pending}
+      confirmLabel={confirmLabel}
+      pendingLabel={pendingLabel}
+      variant={variant}
+      size={size}
+      onClick={onClick}
+      onBlur={() => setState((s) => confirmStep(s, 'blur').state)}
+    >
+      {children}
+    </ConfirmSubmitButtonView>
+  )
+}
+
+/**
+ * The markup of ConfirmSubmitButton for a given state, with no state of its own,
+ * so both states can be rendered in a test. Idle it is `type="button"` with the
+ * caller's label; armed it is `type="submit"` with the confirm label.
+ */
+export function ConfirmSubmitButtonView({
+  armed,
+  pending,
+  children,
+  confirmLabel,
+  pendingLabel,
+  variant = 'outline',
+  size = 'sm',
+  buttonRef,
+  onClick,
+  onBlur,
+}: {
+  armed: boolean
+  pending: boolean
+  children: ReactNode
+  confirmLabel?: ReactNode
+  pendingLabel?: string
+  variant?: 'solid' | 'outline' | 'ghost'
+  size?: 'sm' | 'md'
+  buttonRef?: Ref<HTMLButtonElement>
+  onClick?: (event: MouseEvent<HTMLButtonElement>) => void
+  onBlur?: () => void
+}) {
+  const copy = getUiCopy(usePageLanguage()).form
+  return (
     <Button
-      ref={ref}
+      ref={buttonRef}
       type={armed ? 'submit' : 'button'}
       variant={variant}
       size={size}
       loading={pending}
       onClick={onClick}
-      onBlur={() => setState((s) => confirmStep(s, 'blur').state)}
+      onBlur={onBlur}
     >
       <span aria-live="polite">{pending ? (pendingLabel ?? copy.saving) : armed ? (confirmLabel ?? copy.confirm) : children}</span>
     </Button>
