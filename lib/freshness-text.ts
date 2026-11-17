@@ -23,6 +23,8 @@ export function freshnessDetailText(detail: FreshnessDetail, language: Language)
       return sentences.FX_RATE(detail)
     case 'SOURCE_CHANGED':
       return sentences.SOURCE_CHANGED(detail)
+    case 'SNAPSHOT_PRICE_DATES':
+      return sentences.SNAPSHOT_PRICE_DATES(detail)
     default:
       return sentences[detail.code]?.() ?? detail.code
   }
