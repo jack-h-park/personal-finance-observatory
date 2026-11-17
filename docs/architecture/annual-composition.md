@@ -1,6 +1,6 @@
 # US 2025 annual liability composition and signed difference
 
-Status: implemented pure source library with synthetic validation; no CLI/route/history-store adapter, private scenario adoption or deployment.
+Status: implemented pure source library with synthetic validation; a separate [read-only history adapter](annual-comparison-adapter.md) now checks selected history/evidence/review pins. No CLI/route activation, private scenario adoption or deployment.
 
 ## Scope and ordering
 
@@ -48,4 +48,4 @@ The recorded selection, current/evidenced flags, review and approval are caller-
 
 [Tests](../../tests/annual-composition.test.ts) anchor ordinary Single/MFJ and eligible QDCG amounts independently of this composer, then check fixed bridge arithmetic, credit-floor equality/excess, NIIT added once, explicit zero, large exact amounts, recorded cents, signed/zero differences, stale calculation/history/review identities, malformed approval, blocked methods/unknowns and input preservation. Existing annual and history contracts retain regression coverage. No private return is a fixture or input.
 
-The next boundary is a separately reviewed read-only interface/verified history-selection adapter, not broader unsupported tax methods. No private input, original evidence, account mapping, state writer, route, CLI or environment is changed here. KR reported-tax/Hometax, CA, actual generation, web publication and deployment remain held/outside this library; automatic briefing publication remains paused and web financial editing stays disabled.
+The separate [read-only adapter](annual-comparison-adapter.md) now verifies current selected history, related evidence and explicit review pins in source/synthetic tests. A separately authorized caller/private preview remains the next boundary, not broader unsupported tax methods. No private input, original evidence, account mapping, state writer, route, CLI or environment is changed here. KR reported-tax/Hometax, CA, actual generation, web publication and deployment remain held/outside this library; automatic briefing publication remains paused and web financial editing stays disabled.

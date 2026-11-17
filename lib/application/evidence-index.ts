@@ -8,7 +8,10 @@ const inside = (root: string, target: string) => {
   const relative = path.relative(root, target)
   return relative !== '' && relative !== '..' && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative)
 }
-export function resolveTaxEvidence(evidence: Evidence, roots: EvidenceRoots) {
+export function resolveTaxEvidence(evidence: Evidence, roots: EvidenceRoots, limits: { maxBytes?: number } = {}) {
+  const requestedLimit = limits.maxBytes ?? 32 * 1024 * 1024
+  if (!Number.isSafeInteger(requestedLimit) || requestedLimit < 0) throw new Error('Invalid evidence byte limit')
+  const maxBytes = Math.min(requestedLimit, 32 * 1024 * 1024)
   const configured = roots[evidence.root]
   if (!configured || evidence.deleted) throw new Error('Evidence root unavailable')
   const relative = evidence.relativePath
@@ -37,15 +40,26 @@ export function resolveTaxEvidence(evidence: Evidence, roots: EvidenceRoots) {
   }
   let fd: number
   try {
-    fd = fs.openSync(real, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW)
+    fd = fs.openSync(real, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK)
   } catch {
     throw new Error('Evidence unavailable')
   }
   try {
     const stat = fs.fstatSync(fd)
-    if (!stat.isFile() || stat.size > 32 * 1024 * 1024)
+    if (!stat.isFile() || stat.size > maxBytes)
       throw new Error('Evidence unavailable or exceeds preview size limit')
-    const bytes = fs.readFileSync(fd)
+    // A FIFO replacement must not block open; a growing regular file must not
+    // escape the preview/caller budget between fstat and read.
+    const chunks: Buffer[] = []
+    let size = 0
+    while (size <= maxBytes) {
+      const chunk = Buffer.alloc(Math.min(65536, maxBytes + 1 - size))
+      const n = fs.readSync(fd, chunk, 0, chunk.length, null)
+      if (!n) break
+      chunks.push(chunk.subarray(0, n)); size += n
+    }
+    if (size > maxBytes) throw new Error('Evidence exceeds preview size limit')
+    const bytes = Buffer.concat(chunks)
     if (createHash('sha256').update(bytes).digest('hex') !== evidence.sha256)
       throw new Error('Evidence changed; expected document hash does not match')
     return { bytes, filename: path.basename(relative) }
