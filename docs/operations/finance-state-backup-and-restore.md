@@ -48,3 +48,26 @@ Unanswered private account-holder, co-owner, lifecycle and inclusion decisions r
 
 
 The follow-up [authority/path design](../superpowers/specs/2026-11-15-finance-authority-path-design.md) defines proposed editing roles, one archive identity and a future read-only preflight. It does not resolve pending human assignments, change backup targets, invoke a producer or authorize configuration changes.
+
+
+## Briefing scope activation and isolated recovery: November 17, 2026
+
+The application-host briefing/operator gap identified after the November 15 audit is closed for the inspected captures. This acceptance supplements the earlier custodian recovery; it does not replace that evidence or establish complete host recovery.
+
+| Stage | Accepted evidence | Boundary |
+| --- | --- | --- |
+| Producer source and inactive installation | Briefing producer [#75](https://github.com/jack-h-park/stock-portfolio-briefing/pull/75) and [#76](https://github.com/jack-h-park/stock-portfolio-briefing/pull/76) merged; the two-stage producer is installed with reviewed host/archive bindings | Generation/archive writes and reviewed static publication are separate stages; neither has run under this rollout |
+| Backup source and installation | Control-plane [#1924](https://github.com/jack-h-park/hermes-control-plane/pull/1924) merged after CI success; both installed financial backup/drill scripts match the approved source | Existing targets, credentials, schedules and retention retained; the drill was updated but not executed |
+| First expanded financial capture | New pinned snapshot includes the complete operator-state root, existing financial/application targets and empty review/work directories; selected capture hashes match independent source hashes | The existing same-day marker was retained; a direct exact-scope capture avoided a wrapper no-op. No future review/receipt/run is invented |
+| Selected fleet controls | A separately pinned existing fleet snapshot contains the current held launcher and disabled/paused job; generation manifest/checksum and selected control hashes verified | Only four fleet files were restored; this is not a full fleet/credential-store recovery or an atomic financial/fleet snapshot pair |
+| Separate-location restore | Complete financial snapshot restored outside operating paths; all 664 regular-file hashes/sizes/original modes and two literal link targets matched the independent capture baseline | Links remain quarantined. No restored launcher, scheduler or application entry point ran; no input was promoted |
+| Isolated data reading | Network, all writes and live-home reads were blocked and probed; credential-free trusted reader parsed archive/app JSON and passed the primary SQLite integrity check with a zero-byte captured WAL | Read-only data checks are not web-app startup, browser acceptance, provider reauthentication or full failover |
+| Preservation | Financial contents, maps, app data, credentials metadata, backup settings and publication pause retained; restored inputs reverified after reading | An existing SQLite SHM mtime-only difference retained identical bytes. A concurrent gateway edit changed whole-file hashes; exact before/after/live finance-route equality was verified without reverting that edit |
+
+The operator root now has demonstrated encrypted custody and isolated recovery. It currently contains only reviewed nonsecret bindings; future private review manifests, nested publication receipts and full run payloads remain in the full backup scope. No cleanup or expiry policy was applied. Decrypted recovery material remains private/read-only pending an explicit retention decision.
+
+The application and producer archive bindings now agree. The former absent legacy default is a historical audit finding, not the next unresolved installation task. The held default entry cannot dispatch real stages; the target job remains disabled/paused. Source/host checks do not prove a future scheduled child, generation result, archive write or web publication. Generation/archive writes can become visible to the finance reader before static publication; separating those stages is not a draft-to-canonical promotion system. A missing publication receipt also does not prove that a transfer never happened.
+
+Remaining durability work is bounded: later ordinary scheduled capture evidence for the expanded scope, an explicit retention decision, and separately scoped wider host/delivery-state or interruption recovery if needed. Do not repeat the completed first capture/restore as pending or label the wider Task 6 recovery program complete. The older custodian shared-runtime/monthly-drill gate remains distinct from this operating-host two-script rollout.
+
+Snapshot IDs, source inventories, paths, configuration hashes, manifests, timings and detailed acceptance receipts remain private. Financial originals, account decisions/mappings, owner-device access and disabled web editing are preserved. Actual generation, web publication, Hometax and automatic briefing resume remain held.
