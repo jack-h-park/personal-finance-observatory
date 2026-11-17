@@ -19,6 +19,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { loadLocalEnv } from './env.mjs'
 import { summarizeFills } from './toss-orders.mjs'
+import { runShadowHandoff, claimShadowRequest, recordShadowResult } from './toss-shadow-handoff.mjs'
 
 loadLocalEnv()
 
@@ -135,6 +136,16 @@ for (const account of list) {
 fs.mkdirSync(path.dirname(OUT_PATH), { recursive: true })
 fs.writeFileSync(OUT_PATH, `${JSON.stringify(snapshot, null, 2)}\n`)
 console.log(`Wrote ${OUT_PATH} (${snapshot.accounts.length} account(s))`)
+// A private, approved request is consumed once during this existing fetch.
+if (process.env.STOCK_TOSS_SHADOW_ENABLED === '1' && process.env.STOCK_TOSS_SHADOW_REQUEST_FILE) {
+  let result = { status: 'absent' }, request
+  try {
+    request = BASE === 'https://openapi.tossinvest.com' ? claimShadowRequest(process.env) : { status: 'invalid_configuration' }
+    result = request.status === 'claimed' ? await runShadowHandoff(token) : request
+  } catch { result = { status: 'failed' } }
+  if (request?.status === 'claimed' && recordShadowResult(request.claimedPath, result.status).status !== 'recorded') console.error('[toss-shadow] result_write_failed')
+  if (result.status !== 'absent') console.error(`[toss-shadow] ${result.status}`)
+}
 }
 
 // A rejected top-level await is a module-evaluation failure, not an unhandled
