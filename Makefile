@@ -1,4 +1,4 @@
-# Stock Observatory macOS launchd deployment flow.
+# Personal Finance Observatory macOS launchd deployment flow.
 PLIST_LABEL := com.jackpark.stock-observatory
 PLIST_SRC   := deploy/$(PLIST_LABEL).plist
 PLIST_DST   := $(HOME)/Library/LaunchAgents/$(PLIST_LABEL).plist
