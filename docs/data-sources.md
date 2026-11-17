@@ -39,6 +39,7 @@ the same naming grammar as the other source files:
 | Bank of America checking | `boa-checking-<from>-<to>.csv` |
 | American Express checking | `amex-checking-<last4>-<from>-<to>.pdf`: the monthly Rewards Checking statement (a text PDF with an empty password). The last four digits come from `Account Ending: *NNNN` and the window from the summary's `Beginning Balance as of` / `Ending Balance as of` dates. The map's `bankAccounts` entry `{ "institution": "amex", "last4": "<last4>", "kind": "checking", "alias": "..." }` supplies the alias (without it the account is `amex <last4>`); an entry of another `kind` refuses the file, as does an `Account Name` that is not a checking account. The extractor skips, with a finding, a statement whose rows disagree with its own summary (opening + credits + debits, the credit and debit totals, the interest earned) or whose file name carries other last four digits than it prints. The account is domestic, so it counts in total assets and is not in the FBAR table |
 | Robinhood bank | `robinhood-bank-<checking\|savings>-<from>-<to>.csv` |
+| Hana KRW / KB checking | `hana-deposit-<last4>-<from>-<to>.xls` / `kb-deposit-<last4>-<from>-<to>.xls`. The filer checks the workbook's account number against a KRW checking entry in the private map, validates its printed query period and transaction rows, leaves unknown accounts unidentified and refuses ambiguous accounts. Existing files named without the last four remain readable. Legacy XLS conversion requires the configured LibreOffice/soffice executable. |
 | MG Community Credit Cooperative deposit | `mg-deposit-<from>-<to>.xls`: a 거래내역조회. With an account map, the 계좌번호 it prints must be a `{ "institution": "mg" }` entry under `bankAccounts` with that full `accountNumber`; the filer refuses an unmapped number (showing its last four digits) and the extractor names the account by the entry's `alias`. With no numbered mg entry in the map, every export is the one account, as before |
 | MG closed term deposit (정기예탁금) | `mg-term-<last4>-<개설일>-<해지일>.xls`: a 해지계좌 거래내역조회, one closed deposit per file; see [Closed 새마을금고 term deposits](#closed-새마을금고-term-deposits) |
 | Toss Bank | `tossbank-<last4>-<from>-<to>.xlsx`, filed decrypted; the last 4 digits and the period come from the workbook's own header block, one account per last4 |
@@ -233,7 +234,7 @@ own money; its interest and any other credit are not. The ingest loads them into
 5. Otherwise `unclassified`.
 
 A `bankInflowRules` entry is `{ "id", "match", "category", "note" }`. `category`
-is `salary`, `dividend`, `interest`, `other` or `transfer`. `match` may combine
+is `salary`, `dividend`, `interest`, `other`, `reimbursement` or `transfer`. `reimbursement` records repayment of purchases made for others and is shown separately from transfers and excluded from income totals. `match` may combine
 `institution`, `accountIncludes`, `descriptionIncludes`, `counterpartyIncludes`
 and `currency`; every key given must hit, and at least one must have a non-empty
 value after trimming (an empty or blank needle matches everything, so a rule with
@@ -1128,6 +1129,7 @@ was confirmed against the files already on disk.
 | 미래에셋 잔고증명서 | `잔 고 증 명 서` + a full 계좌번호 the account map lists under `brokerageAccounts` as `isa` or `general` | `kr-statements/mirae-<isa\|general>-balance-<기준일자>-<발급번호>` |
 | 토스 거래내역서 | `거래내역서` + `발급번호` + 계좌 `137-…` | `kr-statements/toss-transactions-<period>[-NofM]` |
 | Hana USD account history PDF/XLS | PDF: a USD account number the account map lists under `bankAccounts` (`institution: "hana"`); both: USD rows, printed query window | `fx-statements/hana-usd-history-<period>` |
+| Hana KRW / KB checking XLS | bank-specific header layout, mapped full account number, valid transaction rows and printed query window | `bank-statements/<hana\|kb>-deposit-<last4>-<from>-<to>.xls` |
 | 삼성 주식보상 | `계좌거래내역` + `종합(주식보상)` | `kr-statements/samsung-rsu-transactions-<계좌 last 5>` |
 | Robinhood Crypto 명세서 | first line `Crypto Statement` + `MM-YYYY` | `crypto-robinhood/robinhood-crypto-statement-<YYYYMM>` |
 | Robinhood Gain/Loss | `OPEN LONGS` + `WS Cost Adj`; account and as-of from the PDF **title** | `us-holdings/robinhood-holdings-<acct>-<asof>` |
@@ -1434,3 +1436,11 @@ Each gap that the system can see is a named check rather than a silence. That is
 deliberate: the failures this project keeps rediscovering are not crashes but
 plausible wrong numbers, and the only defence is a source that has to answer for
 itself and a check that says when it did not.
+
+### Owner-confirmed query ends and empty Fidelity positions
+
+A last transaction is an observation, and `Date downloaded` is an export timestamp; neither declares a history query's end. When the owner confirms a query end or identifies an otherwise anonymous empty positions export, the private account map may carry `sourceConfirmations`. Each receipt names `scope` (`investment` or `bank`), `institution`, exact account label, `kind` (`transactions` or `holdings`), a records-root-relative `source`, SHA-256, `through`, `basis: "owner-confirmed"`, and `confirmedAt`. An empty investment positions receipt additionally requires `emptyHoldings: true`. Confirmation of an end does not establish an unknown query start or lifetime completeness.
+
+The ingest validates dates, owning directory, current original bytes and source selection, then records accepted receipts in `source_coverage_confirmations`. Pages read that table without reopening originals. A changed original loses its receipt; a superseded holdings receipt remains historical in the map but no longer controls current holdings. Newer observations can advance the cutoff. Invalid transaction confirmations fail `source_confirmations_valid` instead of silently making an unconsumed source current.
+
+A mapped Fidelity CMA positions CSV may be retained as `bank-statements/fidelity-positions-cma-YYYYMMDD.csv` with a matching holdings receipt. The ingest accepts only the mapped CMA identity and supported core cash/money-market symbols, adds a dated USD balance observation, and creates no inflow transaction. An anonymous empty investment export requires explicit owner identity confirmation before filing it under `us-holdings/fidelity-holdings-YYYYMMDD.csv`; an empty snapshot establishes no positions on that date and never means missing evidence. Generic inbox detection continues to refuse ambiguous files.

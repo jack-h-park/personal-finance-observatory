@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { mkdtempSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
@@ -13,6 +13,14 @@ import Database from 'better-sqlite3'
 const dir = mkdtempSync(path.join(tmpdir(), 'account-coverage-'))
 const dbPath = path.join(dir, 'portfolio.db')
 const snapshotPath = path.join(dir, 'robinhood-snapshot.json')
+const mapPath = path.join(dir, 'accounts.local.json')
+const cryptoPath = path.join(dir, 'crypto-activity.json')
+process.env.STOCK_CRYPTO_ACTIVITY_PATH = cryptoPath
+writeFileSync(mapPath, JSON.stringify({ brokerageAccounts: [
+  {institution:'mirae',kind:'general',accountNumber:'000000001234'},
+  {institution:'mirae',kind:'general',label:'Sample second',accountNumber:'000000005678',retiredOn:'2024-01-01'}
+] }))
+process.env.STOCK_ACCOUNT_MAP_PATH = mapPath
 
 const daysAgo = (days: number) => {
   const date = new Date()
@@ -22,6 +30,7 @@ const daysAgo = (days: number) => {
 
 const db = new Database(dbPath)
 db.exec(`
+create table source_coverage_confirmations (scope text, institution text, account text, kind text, through_date text, source text, sha256 text, empty_holdings integer);
 create table source_files (name text primary key, filename text not null, mtime_ms integer not null);
 create table holdings (market text, brokerage text, account_type text, account text, as_of_date text, account_wrapper text not null default 'taxable');
 create table transactions (market text, brokerage text, account_type text, account text, date text, source_system text);
@@ -37,11 +46,34 @@ transaction.run('US', 'Robinhood', 'Agentic', 'Robinhood Agentic', daysAgo(57))
 transaction.run('US', 'Robinhood', 'Mid-term', 'Robinhood Mid-term', daysAgo(59))
 // Long-term has trades but nothing open: no holdings row, still one account.
 transaction.run('US', 'Robinhood', 'Long-term', 'Robinhood Long-term', daysAgo(3))
+transaction.run('KR', '미래에셋증권', 'General', 'Sample second', daysAgo(200))
+transaction.run('KR', '미래에셋증권', 'General', '미래에셋증권(종합)', daysAgo(200))
+for (const [strategy, age] of [['Mid-term',59],['Long-term',3]] as const) {
+ const end=daysAgo(age).replaceAll('-','')
+ db.prepare('insert into source_files values (?,?,0)').run(strategy,`robinhood-transactions-${strategy.toLowerCase().replaceAll('-','')}-${end}.csv`)
+}
+transaction.run('US', 'Fidelity', 'Cash', 'Sample Fidelity', daysAgo(100))
+const confirmation = db.prepare('insert into source_coverage_confirmations values (?, ?, ?, ?, ?, ?, ?, ?)')
+for (const kind of ['holdings','transactions']) confirmation.run('investment','Fidelity','Sample Fidelity',kind,daysAgo(0),'sample.csv','0'.repeat(64),kind === 'holdings' ? 1 : 0)
 // A Korean account outside the named brokerages, filed under a label that carries
-// a full (made-up) account number: the certificate branch.
+// a full (made-up) account number, with a stale declared statement period: the
+// certificate branch, whose text names the account.
 const KR_RAW_ACCOUNT = 'Example Securities AB-12345678'
-holding.run('KR', 'Example Securities', null, KR_RAW_ACCOUNT, daysAgo(10))
+transaction.run('KR', 'Example Securities', 'General', KR_RAW_ACCOUNT, daysAgo(100))
 db.close()
+const krStatementsDir = path.join(dir, 'kr-statements')
+mkdirSync(krStatementsDir)
+writeFileSync(
+  path.join(krStatementsDir, 'as-of.json'),
+  JSON.stringify({
+    statementPeriods: {
+      schemaVersion: 1,
+      accounts: {
+        [KR_RAW_ACCOUNT]: { state: 'declared', sources: [{ source: 'example.pdf', sha256: 'a'.repeat(64), page: 1, start: daysAgo(400), end: daysAgo(100) }] },
+      },
+    },
+  })
+)
 
 writeFileSync(
   snapshotPath,
@@ -57,7 +89,7 @@ writeFileSync(
 
 process.env.STOCK_DB_PATH = dbPath
 process.env.STOCK_ROBINHOOD_SNAPSHOT_PATH = snapshotPath
-process.env.STOCK_KR_STATEMENTS_DIR = path.join(dir, 'absent')
+process.env.STOCK_KR_STATEMENTS_DIR = krStatementsDir
 
 test('one Robinhood row per account, as stale as its transaction CSVs even when the snapshot is fresh', async () => {
   const { getAccountCoverage } = await import('../lib/adapters/portfolio-db')
@@ -118,20 +150,6 @@ test('a missing disposal marks only its own account, even when that account\'s C
   }
 })
 
-test('a Korean certificate row names its account only masked in the text that leaves the machine', async () => {
-  const { getAccountCoverage } = await import('../lib/adapters/portfolio-db')
-  const row = getAccountCoverage().rows.find((r) => r.market === 'KR' && r.brokerage === 'Example Securities')
-  assert.ok(row, 'the certificate row is present')
-  assert.equal(row.artifacts[0]?.code, 'KR_CERTIFICATE')
-  // The account itself stays raw: identity, keys and the typed codes need it.
-  assert.equal(row.account, KR_RAW_ACCOUNT)
-  // The printed text is what the summary, the reminder and the CLI carry.
-  assert.ok(!row.requiredArtifact.includes('12345678'), row.requiredArtifact)
-  assert.ok(!row.requiredArtifact.includes(KR_RAW_ACCOUNT), row.requiredArtifact)
-  assert.match(row.requiredArtifact, /…5678/)
-  for (const source of row.sources) assert.ok(!source.requiredArtifact.includes('12345678'))
-})
-
 test('without a snapshot to tie them, holdings and transaction labels stay apart rather than being guessed together', async () => {
   writeFileSync(snapshotPath, 'not json')
   const holdingsOnly = new Database(dbPath)
@@ -142,4 +160,118 @@ test('without a snapshot to tie them, holdings and transaction labels stay apart
   const rows = getAccountCoverage().rows.filter((row) => row.brokerage === 'Robinhood')
   assert.ok(rows.some((row) => row.account === 'Robinhood 1111' && row.sources.length === 1))
   assert.ok(rows.some((row) => row.account === 'Robinhood Agentic' && row.sources.length === 2))
+})
+
+
+test('closed explicitly labelled brokerage accounts are excluded while the active account displays a masked number', async () => {
+  const { getAccountCoverage, getBrokerageAccountHints } = await import('../lib/adapters/portfolio-db')
+  const rows = getAccountCoverage().rows
+  assert(!rows.some(row => row.account.startsWith('Sample second')))
+  assert(rows.some(row => row.account === '미래에셋증권(종합) · …1234'))
+  assert.deepEqual(getBrokerageAccountHints().get('Sample second'), { suffix: '…5678', retired: true })
+})
+
+
+test('a Korean certificate row names its account only masked in the text that leaves the machine', async () => {
+  const { getAccountCoverage } = await import('../lib/adapters/portfolio-db')
+  const row = getAccountCoverage().rows.find((r) => r.market === 'KR' && r.brokerage === 'Example Securities')
+  assert.ok(row, 'the certificate row is present')
+  assert.equal(row.status, 'action_needed')
+  assert.equal(row.artifacts[0]?.code, 'KR_CERTIFICATE')
+  // The account itself stays raw: identity, keys and the typed codes need it.
+  assert.equal(row.account, KR_RAW_ACCOUNT)
+  // The artifact text reaches the briefing summary, the Telegram reminder and the CLI.
+  assert.ok(!row.requiredArtifact.includes('12345678'), row.requiredArtifact)
+  assert.match(row.requiredArtifact, /…5678/)
+  for (const source of row.sources) assert.ok(!source.requiredArtifact.includes('12345678'))
+  // The typed codes keep the raw label; /data-ops masks it when it renders them.
+  assert.deepEqual(row.action, { code: 'KR_CERTIFICATE', brokerage: 'Example Securities', account: KR_RAW_ACCOUNT })
+  const { coverageActionLabel, coverageArtifactLabel } = await import('../components/AccountUpdateAction')
+  const { getPageCopy } = await import('../lib/ui-copy')
+  for (const language of ['ko', 'en'] as const) {
+    const copy = getPageCopy('dataOps', language).coverage
+    for (const text of [coverageActionLabel(row.action, copy), ...row.artifacts.map((artifact) => coverageArtifactLabel(artifact, copy))]) {
+      assert.ok(!text.includes('12345678'), text)
+      assert.match(text, /…5678/)
+    }
+  }
+})
+
+
+test('confirmed Fidelity query and empty snapshot dates replace last-transaction freshness', async () => {
+ const {getAccountCoverage}=await import('../lib/adapters/portfolio-db')
+ const row=getAccountCoverage().rows.find(row=>row.brokerage==='Fidelity')!
+ assert.equal(row.coveredThrough,daysAgo(0))
+ assert.equal(row.status,'current')
+ assert.equal(row.detail.code,'USER_CONFIRMED_QUERY_END')
+})
+
+
+test('newer Fidelity trades do not extend a retained query confirmation', async () => {
+ const db=new Database(dbPath)
+ db.prepare("update source_coverage_confirmations set through_date = ? where institution = 'Fidelity'").run(daysAgo(5))
+ db.prepare('insert into holdings (market, brokerage, account_type, account, as_of_date) values (?,?,?,?,?)').run('US','Fidelity','Cash','Sample Fidelity',daysAgo(0))
+ db.prepare('insert into transactions (market, brokerage, account_type, account, date) values (?,?,?,?,?)').run('US','Fidelity','Cash','Sample Fidelity',daysAgo(0))
+ try {
+  const {getAccountCoverage}=await import('../lib/adapters/portfolio-db')
+  assert.equal(getAccountCoverage().rows.find(row=>row.brokerage==='Fidelity')?.coveredThrough,daysAgo(5))
+ } finally {
+  db.prepare("delete from holdings where brokerage = 'Fidelity'").run()
+  db.prepare("delete from transactions where brokerage = 'Fidelity' and date = ?").run(daysAgo(0))
+  db.prepare("update source_coverage_confirmations set through_date = ? where institution = 'Fidelity'").run(daysAgo(0))
+  db.close()
+ }
+})
+
+
+test('Bithumb uses declared full-scope PDF periods even with no recent activity', async () => {
+  const db = new Database(dbPath)
+  db.prepare('insert into transactions (market, brokerage, account_type, account, date) values (?,?,?,?,?)').run('CRYPTO', 'Bithumb', 'Crypto', 'Bithumb', daysAgo(32))
+  db.close()
+  const { getAccountCoverage } = await import('../lib/adapters/portfolio-db')
+  const document = (start: string, end: string) => ({ category: 'bithumb_statement', venue: 'Bithumb', account: 'Bithumb', filename: 'statement.pdf', metrics: { periodStart: start, periodEnd: end, scopeAssets: '전체', scopeTypes: '매수/매도/입금/출금' } })
+  const row = () => getAccountCoverage().rows.find(row => row.brokerage === 'Bithumb')!
+  const first = document(daysAgo(60), daysAgo(32))
+  const recent = document(daysAgo(33), daysAgo(0))
+  writeFileSync(cryptoPath, JSON.stringify({ documents: [first, recent] }))
+  assert.equal(row().coveredThrough, daysAgo(0))
+  assert.equal(row().status, 'current')
+  for (const invalid of [
+    { ...recent, account: 'Another account' },
+    { ...recent, category: 'bithumb_ledger' },
+    { ...recent, metrics: { ...recent.metrics, scopeAssets: 'BTC' } },
+    { ...recent, metrics: { ...recent.metrics, scopeTypes: '매도' } },
+    document(daysAgo(30), daysAgo(0)), // a missing day between statements
+    document(daysAgo(33), '2099-01-01'),
+    document('2026-02-30', daysAgo(0)),
+  ]) {
+    writeFileSync(cryptoPath, JSON.stringify({ documents: [first, invalid] }))
+    assert.equal(row().coveredThrough, invalid.account === 'Another account' || invalid.category === 'bithumb_ledger' ? daysAgo(32) : null)
+    assert.equal(row().status, invalid.account === 'Another account' || invalid.category === 'bithumb_ledger' ? 'action_needed' : 'unconfirmed')
+  }
+})
+
+
+test('Merrill confirmed query end keeps a quiet account current',async()=>{
+ const db=new Database(dbPath)
+ db.prepare('insert into transactions (market,brokerage,account_type,account,date) values (?,?,?,?,?)').run('US','Merrill','Cash','Merrill SAMPLE',daysAgo(10))
+ db.prepare('insert into holdings (market,brokerage,account_type,account,as_of_date) values (?,?,?,?,?)').run('US','Merrill','Cash','Merrill SAMPLE',daysAgo(0))
+ db.prepare('insert into source_coverage_confirmations values (?,?,?,?,?,?,?,?)').run('investment','Merrill','Merrill SAMPLE','transactions',daysAgo(0),'sample.csv','0'.repeat(64),0)
+ db.close()
+ const {getAccountCoverage}=await import('../lib/adapters/portfolio-db')
+ const row=getAccountCoverage().rows.find(row=>row.brokerage==='Merrill')!
+ assert.equal(row.coveredThrough,daysAgo(0));assert.equal(row.status,'current')
+})
+
+
+test('row-only US transactions do not establish query coverage', async()=>{
+ const db=new Database(dbPath)
+ db.prepare('insert into transactions (market,brokerage,account_type,account,date) values (?,?,?,?,?)').run('US','Chase','Cash','Chase UNKNOWN',daysAgo(0))
+ db.prepare('insert into holdings (market,brokerage,account_type,account,as_of_date) values (?,?,?,?,?)').run('US','Chase','Cash','Chase UNKNOWN',daysAgo(0))
+ db.close()
+ const {getAccountCoverage}=await import('../lib/adapters/portfolio-db')
+ const row=getAccountCoverage().rows.find(row=>row.brokerage==='Chase')!
+ assert.equal(row.coveredThrough,null);assert.equal(row.status,'unconfirmed')
+ assert.equal(row.action.code,'CONFIRM_QUERY_END')
+ assert.deepEqual(row.detail,{code:'UNCONFIRMED_PERIOD',lastTransaction:daysAgo(0)})
 })

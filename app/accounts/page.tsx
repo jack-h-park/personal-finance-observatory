@@ -1,9 +1,12 @@
+import { AccountInventoryReview } from '@/components/AccountInventoryReview'
+import { getAccountInventoryReview } from '@/lib/adapters/account-inventory'
 import { AccountTimeline, TimelineLegend, TimelineScale, timelineAxis } from '@/components/AccountTimeline'
+import { SupplementaryCoverageTable } from '@/components/SupplementaryCoverageTable'
 import { DataTable } from '@/components/DataTable'
 import { PageHeader } from '@/components/PageHeader'
 import { Badge, Card, MetricField, TextLink, marketTone } from '@/components/ui'
 import { CardRow } from '@/components/layout'
-import { getAccountDataRanges, getMeta } from '@/lib/adapters/portfolio-db'
+import { getAccountDataRanges, getMeta, getSupplementaryCoverage, getBrokerageAccountHints } from '@/lib/adapters/portfolio-db'
 import { maskAccountLabel } from '@/lib/account-label'
 import { summarizeAccountRanges, type AccountDataRange, type DateRange } from '@/lib/account-ranges'
 import { fmtDate, fmtDateTime, fmtNumber } from '@/lib/format'
@@ -18,7 +21,12 @@ export default async function AccountsPage() {
   const language = await getLanguage()
   const copy = getPageCopy('accounts', language)
   const meta = getMeta()
+  const inventoryReview = getAccountInventoryReview()
   const accounts = getAccountDataRanges()
+  const hints = getBrokerageAccountHints()
+  const supplementary = getSupplementaryCoverage()
+  const bankAccounts = accounts.filter(account => account.assetType === 'cash')
+  const investments = accounts.filter(account => account.assetType !== 'cash')
   const summary = summarizeAccountRanges(accounts)
   const axis = timelineAxis(summary.firstDate, summary.lastDate)
 
@@ -36,7 +44,7 @@ export default async function AccountsPage() {
             </>
           ) : null}
         </div>
-        <div className="text-label tabular-nums text-ink-3">{copy.rows(range.count, fmtNumber(range.count))}</div>
+        <div className="text-label tabular-nums text-ink-3">{range.count === 0 ? copy.noHoldings : copy.rows(range.count, fmtNumber(range.count))}</div>
       </>
     ) : (
       <span className="text-ink-3">{copy.none}</span>
@@ -50,6 +58,8 @@ export default async function AccountsPage() {
         emphasis={copy.emphasis}
         subtitle={copy.subtitle(fmtDateTime(meta.ingested_at, language))}
       />
+
+      <AccountInventoryReview review={inventoryReview} language={language} />
 
       <CardRow columns={3}>
         <Card>
@@ -69,7 +79,7 @@ export default async function AccountsPage() {
       </CardRow>
 
       <Card
-        title={copy.tableTitle}
+        title={copy.investmentsTitle}
         info={copy.tableInfo}
         accent
         action={<TextLink href="/data-ops#account-coverage">{copy.nextDownloads}</TextLink>}
@@ -80,8 +90,8 @@ export default async function AccountsPage() {
           </div>
         ) : null}
         <DataTable
-          caption={copy.tableTitle}
-          rows={accounts}
+          caption={copy.investmentsTitle}
+          rows={investments}
           getRowKey={(row: AccountDataRange) => row.id}
           emptyMessage={copy.empty}
           columns={[
@@ -95,14 +105,15 @@ export default async function AccountsPage() {
                     <span className="font-medium text-ink">{row.brokerage}</span>
                   </div>
                   <div className="mt-1 text-label text-ink-2">
-                    {maskAccountLabel(row.name)}
+                    {maskAccountLabel(row.name)}{hints.get(row.name)?.suffix ? ` · ${hints.get(row.name)!.suffix}` : null}
+                    {hints.get(row.name)?.retired ? <span className="ml-2 text-ink-3">{copy.closed}</span> : null}
                     {row.accountType && !row.name.includes(row.accountType) ? <span className="text-ink-3"> · {row.accountType}</span> : null}
                   </div>
                   {row.aliases.length ? <div className="text-label text-ink-3">{copy.alsoStoredAs(row.aliases.map(maskAccountLabel).join(', '))}</div> : null}
                 </div>
               ),
             },
-            { key: 'assetType', label: copy.columns.assetType, nowrap: true, render: (row: AccountDataRange) => copy.assetTypes[row.assetType] },
+            { key: 'assetType', label: copy.columns.assetType, nowrap: true, render: (row: AccountDataRange) => row.market === 'CRYPTO' ? copy.crypto : copy.assetTypes[row.assetType] },
             ...(axis
               ? [
                   {
@@ -139,10 +150,12 @@ export default async function AccountsPage() {
                   <span className="text-ink-3">{copy.none}</span>
                 ),
             },
-            { key: 'balances', label: copy.columns.balances, priority: 'secondary', render: (row: AccountDataRange) => span(row.ranges.balances) },
             { key: 'realized', label: copy.columns.realized, priority: 'tertiary', render: (row: AccountDataRange) => span(row.ranges.realized) },
           ]}
         />
+      </Card>
+      <Card className="mt-5" title={copy.banksTitle} info={copy.banksInfo} action={<TextLink href="/data-ops#supplementary-coverage">{copy.nextDownloads}</TextLink>}>
+        <SupplementaryCoverageTable language={language} accounts={bankAccounts} rows={supplementary.rows.filter(row => row.kind === 'deposit' || row.kind === 'cma')} />
       </Card>
     </>
   )
