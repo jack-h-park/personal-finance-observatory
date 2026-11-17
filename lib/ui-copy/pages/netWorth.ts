@@ -45,6 +45,7 @@ export const netWorth = defineCopy({
     empty: 'No deposit balances collected yet',
     children: {
       toggle: 'Include children',
+      toggleAria: (included: boolean) => (included ? 'Include children: included' : 'Include children: excluded'),
       toggleHint: "Off: every figure is the maintainer's own. On: the children's accounts are added beside them, never inside a total.",
       title: "Children's accounts",
       note: "Each child's own accounts, held for them. They are not in Covered total assets, the class totals or FBAR above.",
@@ -126,6 +127,7 @@ export const netWorth = defineCopy({
     empty: '아직 수집된 예금 잔고가 없습니다',
     children: {
       toggle: '자녀 포함',
+      toggleAria: (included: boolean) => (included ? '자녀 포함: 포함됨' : '자녀 포함: 제외됨'),
       toggleHint: '끄면 모든 숫자가 본인 것만입니다. 켜면 자녀 계좌를 옆에 따로 보여주며, 어떤 합계에도 더하지 않습니다.',
       title: '자녀 계좌',
       note: '자녀 명의로 보유한 계좌입니다. 위의 확인 가능한 총자산, 자산군 합계, FBAR에는 포함되지 않습니다.',

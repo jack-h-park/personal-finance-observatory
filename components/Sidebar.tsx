@@ -10,6 +10,7 @@ import type { DisplayCurrency } from '@/lib/currency'
 import type { Language } from '@/lib/i18n'
 import { Label } from '@/components/ui'
 import { getPageCopy } from '@/lib/ui-copy'
+import { BRAND } from '@/lib/brand'
 
 
 export function Sidebar({
@@ -66,12 +67,12 @@ export function Sidebar({
           </svg>
         </button>
         <div className="flex min-w-0 items-baseline gap-1.5">
-          <Label as="span" size="micro" variant="eyebrow">Personal</Label>
+          <Label as="span" size="micro" variant="eyebrow">{BRAND.eyebrow}</Label>
           <span
             className="bg-clip-text text-body-lg font-semibold leading-tight tracking-tight text-transparent"
             style={{ backgroundImage: 'var(--gradient-text)' }}
           >
-            Finance Observatory
+            {BRAND.wordmark}
           </span>
         </div>
       </header>
@@ -104,18 +105,18 @@ export function Sidebar({
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/brand/jhp-mark.png" alt="Jack H. Park Studio" width={40} height={40} className="h-10 w-10 shrink-0" />
           <div className="min-w-0">
-            <div className="truncate text-body font-medium leading-tight text-ink">Personal Finance</div>
+            <div className="truncate text-body font-medium leading-tight text-ink">{BRAND.short}</div>
             <div className="mt-0.5 text-micro font-medium tracking-[0.08em] text-ink-3">{copy.tagline}</div>
           </div>
         </div>
 
         <div className="mt-3 px-1">
-          <Label size="micro" variant="eyebrow">Personal</Label>
+          <Label size="micro" variant="eyebrow">{BRAND.eyebrow}</Label>
           <div
             className="bg-clip-text text-title font-semibold leading-tight tracking-tight text-transparent"
             style={{ backgroundImage: 'var(--gradient-text)' }}
           >
-            Finance Observatory
+            {BRAND.wordmark}
           </div>
         </div>
 
