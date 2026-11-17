@@ -22,7 +22,7 @@ export function AccountInventoryReview({ review, language }: { review: AccountIn
         <MetricField label={copy.expected} value={projection.counts.expected === null ? copy.unknown : fmtNumber(projection.counts.expected)} />
         <MetricField label={copy.observed} value={fmtNumber(projection.counts.observedOnly)} />
       </KpiBand>
-      <p className="mb-3 text-label text-ink-3">{fmtDate(projection.asOfDate)} · {copy.recorded}</p>
+      <p className="mb-3 text-label text-ink-3">{fmtDate(projection.asOfDate, language)} · {copy.recorded}</p>
       {review.readIssues.length ? <div className="mb-3 text-label text-warning"><p>{copy.partial}</p><ul>{[...new Set(review.readIssues.map(code => copy.readIssues[inventoryReadIssueCategory(code)]))].map(reason => <li key={reason}>{reason}</li>)}</ul></div> : null}
       <DataTable caption={copy.title} rows={projection.rows} getRowKey={(row: InventoryRow) => row.key} emptyMessage={projection.review.state === 'reviewed' && projection.counts.confirmedExpected === 0 ? copy.emptyReviewed : copy.empty} columns={[
         { key: 'account', label: copy.account, render: (row: InventoryRow) => <div className="min-w-40">
@@ -41,9 +41,9 @@ export function AccountInventoryReview({ review, language }: { review: AccountIn
           return <div className="min-w-56 text-label">
             {row.sources.length ? row.sources.map(s => <div key={s.kind} className="mb-2">
               <div>{copy.kinds[s.kind]} · {copy.sources[s.state]}</div>
-              <div className="text-ink-3">{fmtDate(s.throughDate)} · {copy.history[s.history.state]}</div>
+              <div className="text-ink-3">{fmtDate(s.throughDate, language)} · {copy.history[s.history.state]}</div>
             </div>) : <div className="mb-2 text-ink-3">{copy.noRequirements}</div>}
-            {recorded.map(s => <div key={s.observationKey} className="text-ink-3">{copy.kinds[s.kind]} · {fmtDate(s.throughDate)}</div>)}
+            {recorded.map(s => <div key={s.observationKey} className="text-ink-3">{copy.kinds[s.kind]} · {fmtDate(s.throughDate, language)}</div>)}
             {refs.length ? <details className="mt-2"><summary className="cursor-pointer text-info">{copy.references} ({fmtNumber(refs.length)})</summary>
               <ul className="mt-1 space-y-1">{refs.map(r => <li key={r} className="break-all text-ink-3">{maskAccountLabel(r)}</li>)}</ul>
             </details> : null}

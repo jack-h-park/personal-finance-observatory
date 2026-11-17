@@ -14,11 +14,12 @@ import {
   type TickerlessSuggestion,
   type ValuationReason,
 } from '@/lib/adapters/portfolio-db'
-import { fmtDate, fmtNumber } from '@/lib/format'
+import { EMPTY_VALUE, fmtDate, fmtNumber } from '@/lib/format'
 import { createMoneyFormatter } from '@/lib/currency'
 import { getCurrencyPreferences } from '@/lib/currency-server'
 import { getGlossary } from '@/lib/glossary'
 import { getLanguage } from '@/lib/i18n-server'
+import type { Language } from '@/lib/i18n'
 import { positionHref } from '@/lib/position-url'
 import { getPageCopy, getUiCopy } from '@/lib/ui-copy'
 import { priorityTone } from '@/lib/tone'
@@ -36,8 +37,8 @@ function coverageTone(status: AccountCoverage['status']): Tone {
   return 'success'
 }
 
-function coverageDateLabel(row: AccountCoverage, c: CoverageCopy): string {
-  const date = (value: string | null) => value ? fmtDate(value) : 'n/a'
+function coverageDateLabel(row: AccountCoverage, c: CoverageCopy, language: Language): string {
+  const date = (value: string | null) => value ? fmtDate(value, language) : EMPTY_VALUE
   if (row.sources.length > 1) return row.sources.map((source) => `${source.label} ${date(source.coveredThrough)}`).join(' · ')
   if (row.method === 'mixed') return c.mixed(date(row.apiCoveredThrough), date(row.statementCoveredThrough))
   return date(row.coveredThrough)
@@ -101,7 +102,7 @@ export default async function DataOpsPage() {
                   </>
                 ),
               },
-              { key: 'coverage', label: coverageCopy.columns.coverage, nowrap: true, render: (row: AccountCoverage) => <span className="tabular-nums">{coverageDateLabel(row, coverageCopy)}</span> },
+              { key: 'coverage', label: coverageCopy.columns.coverage, nowrap: true, render: (row: AccountCoverage) => <span className="tabular-nums">{coverageDateLabel(row, coverageCopy, language)}</span> },
               {
                 key: 'lag',
                 label: coverageCopy.columns.lag,
@@ -133,7 +134,7 @@ export default async function DataOpsPage() {
                         className="mt-1 max-w-[15rem] text-label leading-relaxed text-ink-3"
                         title={'checkDetail' in row.detail ? row.detail.checkDetail : undefined}
                       >
-                        {coverageDetailLabel(row.detail, coverageCopy)}
+                        {coverageDetailLabel(row.detail, coverageCopy, language)}
                       </div>
                     ) : null}
                   </>
@@ -357,7 +358,7 @@ export default async function DataOpsPage() {
                 { key: 'name', label: copy.columns.name },
                 { key: 'account', label: copy.columns.account, render: (r) => maskAccountLabel(r.account) },
                 { key: 'native_cost', label: copy.columns.nativeCost, align: 'right', render: (r) => money(r.native_cost, r.currency) },
-                { key: 'base_cost', label: copy.columns.baseCost, align: 'right', render: (r) => (r.base_cost == null ? 'n/a' : money(r.base_cost)) },
+                { key: 'base_cost', label: copy.columns.baseCost, align: 'right', render: (r) => (r.base_cost == null ? EMPTY_VALUE : money(r.base_cost)) },
                 { key: 'reason', label: copy.columns.reason, render: (r: { reason: ValuationReason }) => copy.valuationReason[r.reason] ?? r.reason },
                 { key: 'suggestion', label: copy.columns.suggestion, render: (r: { reason: ValuationReason }) => copy.valuationSuggestion[r.reason] ?? r.reason },
               ]}

@@ -16,8 +16,8 @@ export function SupplementaryCoverageTable({ rows, language, accounts }: {
   accounts?: AccountDataRange[]
 }) {
   const copy = getPageCopy('accountUpdates', language)
-  const nextAction = (coverage: SupplementaryCoverageRow) => coverage.historyGap ? <>{copy.historyGap(fmtDate(coverage.historyGap.from), fmtDate(coverage.historyGap.to))}{coverage.staleWithHistoryGap ? <> {copy.action(coverage.kind, coverage.latestDate ? fmtDate(coverage.latestDate) : null, coverage.action, fmtDate(portfolioToday()))}</> : null}</> : maskAccountLabel(copy.action(
-    coverage.kind, coverage.latestDate ? fmtDate(coverage.latestDate) : null, coverage.action, fmtDate(portfolioToday()),
+  const nextAction = (coverage: SupplementaryCoverageRow) => coverage.historyGap ? <>{copy.historyGap(fmtDate(coverage.historyGap.from, language), fmtDate(coverage.historyGap.to, language))}{coverage.staleWithHistoryGap ? <> {copy.action(coverage.kind, coverage.latestDate ? fmtDate(coverage.latestDate, language) : null, coverage.action, fmtDate(portfolioToday(), language))}</> : null}</> : maskAccountLabel(copy.action(
+    coverage.kind, coverage.latestDate ? fmtDate(coverage.latestDate, language) : null, coverage.action, fmtDate(portfolioToday(), language),
   ))
   const data = rows.map(coverage => ({
     label: coverage.label,
@@ -38,12 +38,12 @@ export function SupplementaryCoverageTable({ rows, language, accounts }: {
       ...(accounts ? [{ key: 'range', label: copy.range, render: (row: typeof data[number]) => {
         const range = row.account?.ranges.balances
         return range?.start && range.end ? <>
-          <div className="tabular-nums"><span className="whitespace-nowrap">{fmtDate(range.start)}</span>{range.end !== range.start ? <> ~ <span className="whitespace-nowrap">{fmtDate(range.end)}</span></> : null}</div>
+          <div className="tabular-nums"><span className="whitespace-nowrap">{fmtDate(range.start, language)}</span>{range.end !== range.start ? <> ~ <span className="whitespace-nowrap">{fmtDate(range.end, language)}</span></> : null}</div>
           <div className="text-label text-ink-3">{copy.rows(fmtNumber(range.count))}</div>
         </> : copy.none
       } }] : []),
       { key: 'coverage', label: copy.coverage, render: (row: typeof data[number]) => <>
-        <div className="whitespace-nowrap tabular-nums">{fmtDate(row.coverage?.latestDate)}</div>
+        <div className="whitespace-nowrap tabular-nums">{fmtDate(row.coverage?.latestDate, language)}</div>
         {row.coverage ? <div className="text-label text-ink-3">{copy.kinds[row.coverage.kind]} · {copy.window(row.coverage.maxLagDays)}</div> : null}
       </> },
       { key: 'status', label: copy.status, render: (row: typeof data[number]) => row.coverage

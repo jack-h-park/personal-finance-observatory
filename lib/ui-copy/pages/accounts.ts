@@ -61,7 +61,7 @@ export const accounts = defineCopy({
     noHoldings: '기준일 현재 보유 종목 없음',
     crypto: '가상자산',
     tableInfo:
-      '자료별 첫 날짜와 마지막 날짜입니다. Tax lot은 남아 있는 lot 중 가장 오래된 취득일부터 그 lot을 읽은 시점까지입니다. 보유 기준일은 보유내역을 마지막으로 읽은 날이며, 거래내역서가 그 날짜까지 있다는 뜻은 아닙니다.',
+      '자료별 첫 날짜와 마지막 날짜입니다. 세금 단위는 남아 있는 것 중 가장 오래된 취득일부터 읽은 시점까지입니다. 보유 기준일은 보유내역을 마지막으로 읽은 날이며, 거래내역서가 그 날짜까지 있다는 뜻은 아닙니다.',
     nextDownloads: '다음 다운로드',
     columns: {
       account: '계좌',
@@ -70,7 +70,7 @@ export const accounts = defineCopy({
       transactions: '거래내역',
       dividends: '배당·분배',
       holdings: '보유 기준일',
-      lots: 'Tax lot',
+      lots: '세금 단위',
       realized: '실현손익',
       balances: '잔고 기록 기간',
     },

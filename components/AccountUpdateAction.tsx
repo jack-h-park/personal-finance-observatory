@@ -37,10 +37,10 @@ export function coverageActionLabel(action: CoverageAction, c: CoverageCopy): st
   }
 }
 
-export function coverageDetailLabel(detail: CoverageDetail, c: CoverageCopy): string {
+export function coverageDetailLabel(detail: CoverageDetail, c: CoverageCopy, language: Language): string {
   switch (detail.code) {
     case 'UNCONFIRMED_PERIOD':
-      return c.detail.UNCONFIRMED_PERIOD(detail.lastTransaction ? fmtDate(detail.lastTransaction) : null)
+      return c.detail.UNCONFIRMED_PERIOD(detail.lastTransaction ? fmtDate(detail.lastTransaction, language) : null)
     default:
       return c.detail[detail.code] ?? detail.code
   }
@@ -76,7 +76,7 @@ export function InvestmentUpdateAction({row, language}: {row: AccountCoverage; l
       {source.status === 'unconfirmed' ? <div>{copy.confirmPeriod}</div> : source.method === 'mcp' || source.method === 'api'
         ? <div className="mt-1 text-label text-ink-3">{copy.regenerate(source.artifactText)}</div>
         : <>
-          <div className="mt-1 text-label text-info">{copy.downloadRange(source.downloadFrom ? fmtDate(source.downloadFrom) : null, fmtDate(portfolioToday()))}</div>
+          <div className="mt-1 text-label text-info">{copy.downloadRange(source.downloadFrom ? fmtDate(source.downloadFrom, language) : null, fmtDate(portfolioToday(), language))}</div>
           <div className="mt-1 text-label text-ink-3">{source.method === 'manual' ? copy.saveAction(source.destination) : copy.inboxAction}</div>
         </>}
       {source.missingDisposals?.length ? <div className="mt-1 text-label text-danger">{copy.missingDisposals(source.missingDisposals.join(', '))}</div> : null}

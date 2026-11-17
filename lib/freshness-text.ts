@@ -26,6 +26,6 @@ export function freshnessDetailText(detail: FreshnessDetail, language: Language)
     case 'SNAPSHOT_PRICE_DATES':
       return sentences.SNAPSHOT_PRICE_DATES(detail)
     default:
-      return sentences[detail.code]()
+      return sentences[detail.code]?.() ?? detail.code
   }
 }

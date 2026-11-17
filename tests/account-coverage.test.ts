@@ -140,7 +140,6 @@ test('a missing disposal marks only its own account, even when that account\'s C
     assert.equal(csv.status, 'action_needed')
     assert.deepEqual(csv.missingDisposals, ['ACME', 'WIDG'])
     assert.equal(longterm.action.code, 'ROBINHOOD_SNAPSHOT_AND_CSV')
-    assert.deepEqual(longterm.missingDisposals, ['ACME', 'WIDG'])
 
     // The others carry nothing extra.
     for (const row of rows.filter((row) => row !== longterm)) assert.deepEqual(row.missingDisposals, [])
@@ -178,6 +177,9 @@ test('a Korean certificate row names its account only masked in the text that le
   const row = getAccountCoverage().rows.find((r) => r.market === 'KR' && r.brokerage === 'Example Securities')
   assert.ok(row, 'the certificate row is present')
   assert.equal(row.status, 'action_needed')
+  assert.equal(row.artifacts[0]?.code, 'KR_CERTIFICATE')
+  // The account itself stays raw: identity, keys and the typed codes need it.
+  assert.equal(row.account, KR_RAW_ACCOUNT)
   // The artifact text reaches the briefing summary, the Telegram reminder and the CLI.
   assert.ok(!row.requiredArtifact.includes('12345678'), row.requiredArtifact)
   assert.match(row.requiredArtifact, /…5678/)

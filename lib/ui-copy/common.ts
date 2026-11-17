@@ -1,6 +1,7 @@
+import { EMPTY_VALUE } from '@/lib/format'
+
 /** Mirrors the SNAPSHOT_PRICE_DATES freshness detail in lib/adapters/portfolio-db.ts. */
 type SnapshotPriceDates = { market: 'KR' | 'US' | 'CRYPTO'; newest: string; oldest: string | null }[]
-
 
 export const UI_COPY_BY_LANG = {
   en: {
@@ -15,7 +16,7 @@ export const UI_COPY_BY_LANG = {
       details: 'Details',
       clearFilters: 'Clear filters',
       filters: 'Filters',
-      noValue: 'No value',
+      noValue: EMPTY_VALUE,
       noRows: 'No rows to display.',
       help: 'Show explanation',
       helpFor: (label: string) => `${label} explanation`,
@@ -128,7 +129,7 @@ export const UI_COPY_BY_LANG = {
       details: '상세 보기',
       clearFilters: '필터 초기화',
       filters: '필터',
-      noValue: '값 없음',
+      noValue: EMPTY_VALUE,
       noRows: '표시할 데이터가 없습니다.',
       help: '설명 보기',
       helpFor: (label: string) => `${label} 설명`,
