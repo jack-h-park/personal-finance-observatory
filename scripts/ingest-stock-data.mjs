@@ -2990,11 +2990,16 @@ for (const report of robinhoodSnapshotLotCount > 0 ? [] : usPdfEvidence.reports 
 const chaseLotsByKey = new Map()
 for (const lot of taxLotRows.filter((r) => r.market === 'US' && r.brokerage === 'Chase')) {
   const key = `${lot.account}\t${lot.ticker}`
-  const cur = chaseLotsByKey.get(key) || { ...lot, quantity: 0, cost: 0, marketValue: 0, unrealized: 0, lotCount: 0 }
+  const cur = chaseLotsByKey.get(key) || { ...lot, quantity: 0, cost: 0, marketValue: 0, unrealized: 0, longQty: 0, shortQty: 0, lotCount: 0 }
   cur.quantity += lot.open_quantity
   cur.cost += lot.native_cost_basis
   cur.marketValue += lot.native_market_value ?? 0
   cur.unrealized += lot.native_unrealized_gl ?? 0
+  // Every Chase lot carries its own `Tax term`. Leaving the split null made a
+  // ticker held at Chase and Robinhood show long + short equal to the
+  // Robinhood lots alone, while the lot count beside it included Chase's.
+  if (lot.tax_term === 'Long-term') cur.longQty += lot.open_quantity
+  if (lot.tax_term === 'Short-term') cur.shortQty += lot.open_quantity
   cur.lotCount += 1
   chaseLotsByKey.set(key, cur)
 }
@@ -3030,10 +3035,38 @@ for (const lot of chaseLotsByKey.values()) {
     eps: null,
     unrealized_gl_krw: null,
     unrealized_gl_pct: null,
-    long_term_qty: null,
-    short_term_qty: null,
+    long_term_qty: lot.longQty,
+    short_term_qty: lot.shortQty,
     lot_count: lot.lotCount,
   })
+}
+
+// The other broker CSVs build a position row first and, when the export has
+// lots under it (Merrill's per-lot layout), lots beside it. The position row
+// never carried the term split the lots hold, so fill it from them — but only
+// when the lots account for the whole position. A positions-only export (or a
+// lot set that does not add up) keeps null: "no split known" is honest, a
+// split of part of the position is not.
+{
+  const lotsByKey = new Map()
+  for (const lot of taxLotRows.slice(usCsvLotStart)) {
+    if (lot.market !== 'US' || !(lot.open_quantity > 0)) continue
+    const key = `${lot.account}\t${lot.ticker}`
+    const cur = lotsByKey.get(key) ?? { quantity: 0, long: 0, short: 0, lots: 0 }
+    cur.quantity += lot.open_quantity
+    if (lot.tax_term === 'Long-term') cur.long += lot.open_quantity
+    if (lot.tax_term === 'Short-term') cur.short += lot.open_quantity
+    cur.lots += 1
+    lotsByKey.set(key, cur)
+  }
+  for (const row of holdingRows.slice(usCsvHoldingStart)) {
+    if (row.market !== 'US' || row.long_term_qty != null || row.short_term_qty != null) continue
+    const lots = lotsByKey.get(`${row.account}\t${row.ticker}`)
+    if (!lots || Math.abs(lots.quantity - (row.quantity ?? 0)) > 1e-6) continue
+    row.long_term_qty = lots.long
+    row.short_term_qty = lots.short
+    row.lot_count ??= lots.lots
+  }
 }
 
 const robinhoodLotsByKey = new Map()

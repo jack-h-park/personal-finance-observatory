@@ -1,6 +1,6 @@
 # US 2025 federal composition and comparison review contract
 
-Status: source-only review contract and synthetic validation. No annual composer, numerical comparison, CLI/route integration, private input adoption or deployment.
+Status: source-only review contract and synthetic validation. This module remains nonnumeric; the separate [composition library](annual-composition.md) now implements pure arithmetic under its gates. No CLI/route integration, private input adoption or deployment.
 
 ## Delivered boundary
 
@@ -15,7 +15,7 @@ line24 = max(0, line16 + reviewedLine17 - reviewedLine21)
          + computedNiit + reviewedOtherLine23ExcludingNiit
 ```
 
-This expression defines the future arithmetic; this increment does not execute it or test its numeric floor/aggregation behavior. It does execute its prerequisite and exclusion checks. Withholding, estimated payments, refundable payment-side credits, requested/received refunds and payment penalties are outside this liability boundary and cannot be additional contract fields. A component-only result is not relabeled annual-total.
+This expression defines the arithmetic contract. This review module checks prerequisites/exclusions; the separate [composition library](annual-composition.md) executes and tests the numeric floor/aggregation behavior. Withholding, estimated payments, refundable payment-side credits, requested/received refunds and payment penalties are outside this liability boundary and cannot be additional contract fields. A component-only result is not relabeled annual-total.
 
 ## Supplied review metadata
 
@@ -40,4 +40,4 @@ This is a contract for a future verified caller: it does not inspect the live st
 
 [The synthetic tests](../../tests/annual-composition-contract.test.ts) exercise valid review metadata, malformed/unknown values, explicit zero, stale review/mapping identities, NIIT inclusion, missing/unsupported components, assumptions, eligible v2 QDCG versus blocked v1, mismatched history boundary/profile and input preservation. They use public invented scenarios only. Existing annual components, rule packs, preview CLI and history projections retain their contracts.
 
-A later separately scoped increment can implement actual line-by-line composition, credit-floor/NIIT reconciliation traces and numerical comparison behind these gates, including independently anchored arithmetic cases. It must establish a verified history selection and mapping before enabling any numerical comparison. No web surface, real scenario, state writer, scheduler or deployment follows from this PR. KR reported-tax/Hometax, CA and unsupported methods remain blocked or outside this federal contract. Actual financial records, originals, maps, access rules and disabled web editing are untouched; automatic briefing publication remains paused and actual generation/publication remains held.
+The separate [composition library](annual-composition.md) now implements line-by-line arithmetic and a signed liability difference, with an additional explicit approval digest of the actual calculation. It does not change this module's null-output readiness contract. The separate [read-only adapter](annual-comparison-adapter.md) checks current selected history/evidence and review pins; a later private interface must establish authorized inputs before enabling an operating comparison. No web surface, real scenario, state writer, scheduler or deployment follows from source library completion. KR reported-tax/Hometax, CA and unsupported methods remain blocked or outside this federal contract. Actual financial records, originals, maps, access rules and disabled web editing are untouched; automatic briefing publication remains paused and actual generation/publication remains held.

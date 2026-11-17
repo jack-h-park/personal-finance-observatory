@@ -10,7 +10,7 @@ import {
   type BriefingPosition,
   type BriefingSessionMove,
 } from '@/lib/adapters/briefing-archive'
-import { EMPTY_VALUE, fmtNumber, fmtPct, fmtQuantity } from '@/lib/format'
+import { EMPTY_VALUE, fmtDate, fmtDateShort, fmtDateTime, fmtNumber, fmtPct, fmtQuantity } from '@/lib/format'
 import { getGlossary } from '@/lib/glossary'
 import { positionHref } from '@/lib/position-url'
 import { BRIEFING_SEVERITY, TRADE_SIDE_TONE, categoryTone, signTone, statusTone } from '@/lib/tone'
@@ -221,6 +221,8 @@ export default async function DailyBriefingPage({ searchParams }: { searchParams
   // US and Korean figures are never combined: different currencies, different
   // trading sessions, and no FX snapshot in the briefing to bridge them honestly.
   const markets = doc.markets.filter((m) => m.aggregates)
+  // The archive stores an English market label; the page names the market in its own language.
+  const marketName = (m: { id: string; label: string }) => copy.marketNames[m.id] ?? m.label
 
   return (
     <>
@@ -228,7 +230,7 @@ export default async function DailyBriefingPage({ searchParams }: { searchParams
         eyebrow={routeSection('/daily-briefing', language)}
         title={copy.title}
         emphasis={copy.emphasis}
-        subtitle={copy.docSubtitle(doc.dateLabel, doc.generatedAt.slice(0, 10))}
+        subtitle={copy.docSubtitle(fmtDateShort(doc.date, language), fmtDate(doc.generatedAt, language))}
         action={
           <div className="flex items-center gap-2">
             {isLatest ? <Badge tone="success">{copy.latest}</Badge> : <Badge tone="neutral">{copy.archived}</Badge>}
@@ -265,20 +267,20 @@ export default async function DailyBriefingPage({ searchParams }: { searchParams
               layout="band"
               subtitle={`${session ? copy.bandSince(session.previousDate) : copy.bandDayOverDay} · ${m.currency}`}
             >
-              {`${m.flag} ${m.label}`}
+              {`${m.flag} ${marketName(m)}`}
             </SectionHeading>
 
             {session?.marketClosed && (
               <Card className="mb-3">
                 <EmptyState hint={copy.sessionZero}>
-                  {copy.marketClosed(m.label, session.previousDate)}
+                  {copy.marketClosed(marketName(m), session.previousDate)}
                 </EmptyState>
               </Card>
             )}
             {!session && (
               <Card className="mb-3">
                 <EmptyState hint={sessionExplain(copy)[m.session?.reason ?? ''] ?? copy.noPriorSnapshot}>
-                  {copy.noComparison(m.label)}
+                  {copy.noComparison(marketName(m))}
                 </EmptyState>
               </Card>
             )}
@@ -320,7 +322,7 @@ export default async function DailyBriefingPage({ searchParams }: { searchParams
               <HeroAside title={copy.readOrder} info={copy.readOrderInfo} note={copy.readOrderNote}>
                 <MetricField
                   label={copy.market}
-                  value={m.label}
+                  value={marketName(m)}
                   hint={copy.reportingCurrency(m.currency)}
                   size="metric"
                 />
@@ -364,7 +366,7 @@ export default async function DailyBriefingPage({ searchParams }: { searchParams
             )}
 
             <SectionHeading size="section" tracking layout="band" subtitle={copy.cumulativeNote}>
-              {copy.standingBand(m.flag, m.label)}
+              {copy.standingBand(m.flag, marketName(m))}
             </SectionHeading>
 
             <CardRow>
@@ -452,7 +454,7 @@ export default async function DailyBriefingPage({ searchParams }: { searchParams
 
       <MetaRow>
         <MetaItem label={copy.briefingDate}>{doc.date}</MetaItem>
-        <MetaItem label={copy.documentBuilt}>{doc.generatedAt}</MetaItem>
+        <MetaItem label={copy.documentBuilt}>{fmtDateTime(doc.generatedAt, language)}</MetaItem>
         <MetaItem label={copy.markets}>{markets.map((m) => m.id).join(', ') || copy.noMarkets}</MetaItem>
         <MetaItem label={copy.archive}>{archive.dir}</MetaItem>
       </MetaRow>

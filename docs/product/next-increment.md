@@ -34,13 +34,17 @@ Adapter/display acceptance scope; remaining unsupported bridges must stay explic
 
 Exit: a reviewer can trace a supported total and an actionable gap to existing evidence without a refresh, importer, provider call or write surface. Where existing contracts cannot establish an authoritative inventory, produce the small contract/design decision first rather than creating guessed records. Private acceptance later uses an explicitly authorized read-only review; deployment remains held.
 
-## Priority 2: scoped annual composition as the next independent source package
+## Priority 2: reviewed read-only interface after federal composition
 
 The [2025-first design](../superpowers/specs/2026-11-12-annual-tax-estimation-mvp-design.md), #296 contracts, #297 ordinary/NIIT, #298 eligible QDCG, #299 Korean exact reference and #300 component preview already exist. Do not implement those components again or treat source presence as a complete annual-tax workflow.
 
-The [source-only review contract](../architecture/annual-composition-contract.md) now supplies strict bridge/coverage metadata, recomputed component readiness and digest-bound comparison mapping, with synthetic missing/unsupported/double-counting/stale-scope cases. It never emits an annual sum or difference. The next implementation package is actual line-by-line composition and numerical comparison after independently anchored floor/aggregation tests and a verified history selection; private inputs, history writes and deployment remain outside that source package. Independent component outputs must not become an unlabeled annual total or be compared to an incompatible historical liability.
+The [review contract](../architecture/annual-composition-contract.md) is merged in #332. The [pure composition library](../architecture/annual-composition.md) now applies the staged credit floor/NIIT arithmetic and calculates a signed difference only with a mapping and explicit digest approval of the calculation. Both remain supplied-metadata boundaries; the existing component CLI and history helper are unchanged. Do not repeat the contract or arithmetic as unfinished.
 
-This work can proceed without resolving pending account ownership or Hometax. Korean reported amounts remain blocked on line-specific quantization; California, cross-border methods and a later read-only estimate UI need their own supported scope. The accepted final historical return is not reopened. The contract is source-only and awaits its own merge; the later arithmetic package is the next product-source recommendation, while Priority 1 remains the coverage acceptance objective with unresolved owner inputs preserved.
+The [read-only comparison adapter](../architecture/annual-comparison-adapter.md) now derives the explicit current basis, verifies related evidence bytes and pins history/review/calculation identities. It has synthetic-only acceptance; no actual review file, canonical path or private comparison was adopted. Do not repeat the selector/adapter as missing source work.
+
+The next caller package should expose this explicit-file, pinned-review flow read-only, without defaulting to private roots or persisting a review. Any owner-reviewed private preview, approved review location/authority, CLI/web activation or deployment needs its own scope. Review and source observations must be refreshed at use; neither a liability delta nor verified file bytes establish payment/refund settlement. Unresolved account and Hometax decisions do not block synthetic interface work.
+
+Korean reported amounts remain blocked on line-specific quantization; California, cross-border methods and a later estimate UI need their own supported scope. The accepted final historical return is not reopened. Priority 1 remains the coverage acceptance objective with unresolved owner inputs preserved.
 
 ## Priority 3: remaining logical authority and controlled operational acceptance
 
@@ -54,7 +58,7 @@ Remaining bounded decisions:
 - Decide local retention for private recovery specimens and future full publication work, preserving manifests/receipts. No cleanup, expiry or remote pruning is authorized. Future records that do not exist yet have not been restored.
 - Retain wider interruption/restart, full host/application and delivery-deduplication recovery as separate packages when justified. Nearby snapshot times do not make an atomic pair. The older custodian shared-runtime/monthly-drill gate is distinct from the completed operating-host two-script update; do not broadly update or reset that runtime incidentally.
 
-These are conditional operational work, not prerequisites for the source-only Priority 2 contract. Current authorization is documentation only; actual generation, archive writes, publication, automatic resume, retention changes and Hometax remain held.
+These are conditional operational work, not prerequisites for the source-only Priority 2 interface design. Current authorization is documentation only; actual generation, archive writes, publication, automatic resume, retention changes and Hometax remain held.
 
 ## Priority 4: expand recorded-tax usefulness only with available evidence
 
