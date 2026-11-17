@@ -31,7 +31,9 @@ import {
   TREND_METRICS,
   TREND_SCOPES,
   combinedTrendPoints,
+  isSnapshotStale,
   resolveTrendScope,
+  snapshotPriceDates,
   singleTrendPoints,
   type TrendMetricKey,
 } from '@/lib/overview-trend'
@@ -231,6 +233,10 @@ export default async function OverviewPage({
   const latestTrendCoverage = latestSnapshot?.[selectedCoverageField] ?? null
   const latestPositionCoverage = selectedScope === 'global' ? latestSnapshot?.position_coverage ?? null : null
   const missingTrendPoints = trendData.length - valuedTrendData.length
+  // Which prices the latest point was valued at, and whether the ingest that
+  // wrote it is recent: a failed refresh leaves the last good snapshot in place.
+  const latestPriceDates = snapshotPriceDates(latestSnapshot, selectedScope)
+  const latestSnapshotStale = isSnapshotStale(latestSnapshot?.captured_at)
   const trendValueLabel = (value: number) => selectedMetric.key === 'return_pct' ? `${fmtNumber(value, 1)}%` : money(value * 1_000_000, currencyPreferences.displayCurrency)
   const trendChangeLabel = selectedMetric.key === 'return_pct'
     ? `${trendChange >= 0 ? '+' : ''}${fmtNumber(trendChange, 1)}%p`
@@ -518,6 +524,23 @@ export default async function OverviewPage({
           </div>
           {selectedView === 'single' && <div className={`text-right text-caption tabular-nums ${signClass(trendChange)}`}>{valuedTrendData.length > 1 ? <>{trendChangeLabel}<div className="text-micro font-normal text-ink-3">{copy.since(firstTrendPoint.date)}</div></> : copy.needTwoSnapshots}</div>}
         </div>
+        {latestSnapshot ? (
+          <div className={`-mt-1 mb-3 text-label tabular-nums ${latestSnapshotStale ? 'text-warning' : 'text-ink-3'}`}>
+            {latestPriceDates.length ? (
+              <>
+                {copy.priceBasis}{' '}
+                {latestPriceDates.map((item, index) => (
+                  <span key={item.market}>
+                    {index ? ' · ' : ''}{copy.scopeLabels[item.market]} {item.newest}{item.oldest ? ` (${copy.priceOldest(item.oldest)})` : ''}
+                  </span>
+                ))}
+                {' · '}
+              </>
+            ) : null}
+            {copy.snapshotWritten(fmtDateTime(latestSnapshot.captured_at))}
+            {latestSnapshotStale ? <div>{copy.snapshotStale}</div> : null}
+          </div>
+        ) : null}
         <div className="mb-3 flex flex-wrap items-center gap-1">
           <Link
             href={`/?trend=${selectedRange.key}&scope=${selectedScope}&metric=${selectedMetric.key}&view=single${childQuery}`}

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { portfolioDate, valuePortfolio } from '../scripts/portfolio-snapshot.mjs'
+import { portfolioDate, priceDatesByMarket, valuePortfolio } from '../scripts/portfolio-snapshot.mjs'
 
 test('coverage is cost-weighted rather than distorted by incompatible quantities', () => {
   const valuation = valuePortfolio([
@@ -30,4 +30,19 @@ test('snapshot date uses the portfolio timezone instead of UTC day', () => {
 
   assert.equal(portfolioDate(afterPacificFivePm, 'America/Los_Angeles'), '2026-07-31')
   assert.equal(portfolioDate(afterPacificFivePm, 'UTC'), '2026-08-01')
+})
+
+test('price dates come from priced rows only, preferring the price date over the row date', () => {
+  const dates = priceDatesByMarket([
+    { market: 'KR', base_market_value: 100, as_of_date: '2026-11-14' },
+    { market: 'KR', base_market_value: 50, as_of_date: '2026-11-03' },
+    { market: 'KR', base_market_value: null, as_of_date: '2026-07-15' },
+    { market: 'US', base_market_value: 10, as_of_date: '2026-10-01', price_as_of: '2026-11-13' },
+    { market: 'GOLD', base_market_value: 10, as_of_date: '2026-11-16' },
+  ])
+
+  assert.deepEqual(dates.KR, { newest: '2026-11-14', oldest: '2026-11-03' })
+  assert.deepEqual(dates.US, { newest: '2026-11-13', oldest: '2026-11-13' })
+  assert.deepEqual(dates.CRYPTO, { newest: null, oldest: null })
+  assert.equal('GOLD' in dates, false)
 })
