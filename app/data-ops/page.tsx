@@ -1,9 +1,11 @@
+import {InvestmentUpdateAction} from '@/components/AccountUpdateAction'
 import Link from 'next/link'
+import { SupplementaryCoverageTable } from '@/components/SupplementaryCoverageTable'
 import { DataTable } from '@/components/DataTable'
 import { FreshnessRows } from '@/components/Freshness'
 import { PageHeader } from '@/components/PageHeader'
 import { Badge, Card, EmptyState, MetricField, MetricHeroCard, TextLink, marketTone, type Tone } from '@/components/ui'
-import { getAccountCoverage, getDataOpsReview, type AccountCoverage } from '@/lib/adapters/portfolio-db'
+import { getAccountCoverage, getSupplementaryCoverage, getDataOpsReview, type AccountCoverage } from '@/lib/adapters/portfolio-db'
 import { fmtDate, fmtNumber } from '@/lib/format'
 import { createMoneyFormatter } from '@/lib/currency'
 import { getCurrencyPreferences } from '@/lib/currency-server'
@@ -20,6 +22,7 @@ export const dynamic = 'force-dynamic'
 export const generateMetadata = routeMetadata('/data-ops')
 
 function coverageTone(status: AccountCoverage['status']): Tone {
+  if (status === 'unconfirmed') return 'warning'
   if (status === 'action_needed' || status === 'missing') return 'danger'
   if (status === 'due_soon') return 'warning'
   return 'success'
@@ -45,31 +48,25 @@ function coverageLagLabel(row: AccountCoverage, language: string): string {
   return days(row.lagDays)
 }
 
-function coverageDownloadLabel(row: AccountCoverage, language: string): string {
-  if (!row.downloadFrom) return language === 'ko' ? '기존 기준일 없음 — 가능한 전체 기간' : 'No existing cutoff — download the full available period'
-  return language === 'ko'
-    ? `${fmtDate(row.downloadFrom)}부터 (기존 자료와 1일 overlap)`
-    : `From ${fmtDate(row.downloadFrom)} (1-day overlap)`
-}
-
-
 export default async function DataOpsPage() {
   const language = await getLanguage()
   const money = createMoneyFormatter(await getCurrencyPreferences())
   const copy = getPageCopy('dataOps', language)
+  const updatesCopy = getPageCopy('accountUpdates', language)
   const glossary = getGlossary(language)
   const priorityLabels = getUiCopy(language).priority
   const ops = getDataOpsReview()
   const coverage = getAccountCoverage()
+  const supplementary = getSupplementaryCoverage()
   const issueCount = ops.actionQueue.reduce((sum, item) => sum + item.count, 0)
   const coverageCopy = language === 'ko'
     ? {
-        title: '계좌 데이터 업데이트',
+        title: '증권·가상자산 계좌 업데이트',
         info: '파일 무결성(Fresh)과 별도로, 각 계좌의 자료가 어느 날짜까지 반영되었는지와 다음 다운로드 시작일을 보여줍니다. 시작일은 누락 방지를 위해 기존 기준일보다 하루 빠릅니다.',
         action: '지금 필요한 계좌',
         due: '곧 필요한 계좌',
         current: '현재 기준 계좌',
-        status: { action_needed: '업데이트 필요', missing: '자료 없음', due_soon: '곧 필요', current: '현재 기준' },
+        status: { unconfirmed: updatesCopy.statuses.unconfirmed, action_needed: '업데이트 필요', missing: '자료 없음', due_soon: '곧 필요', current: '현재 기준' },
         account: '계좌',
         coverage: '반영 기준일',
         lag: '지연',
@@ -82,12 +79,12 @@ export default async function DataOpsPage() {
         none: '모든 계좌가 허용 범위 안에 있습니다.',
       }
     : {
-        title: 'Account data updates',
+        title: 'Investment account updates',
         info: 'Separate from file integrity: this shows the actual cutoff and the next download start date. The start date is one day before the cutoff to guarantee overlap.',
-        action: 'Action needed',
+        action: 'Review / update',
         due: 'Due soon',
         current: 'Current',
-        status: { action_needed: 'Update needed', missing: 'No data', due_soon: 'Due soon', current: 'Current' },
+        status: { unconfirmed: updatesCopy.statuses.unconfirmed, action_needed: 'Update needed', missing: 'No data', due_soon: 'Due soon', current: 'Current' },
         account: 'Account',
         coverage: 'Covered through',
         lag: 'Lag',
@@ -150,32 +147,20 @@ export default async function DataOpsPage() {
               },
               {
                 key: 'artifact',
-                label: coverageCopy.artifact,
+                label: updatesCopy.next,
                 render: (row: AccountCoverage) => (
-                  <div className="max-w-[24rem]">
-                    <div className="font-medium text-ink">{row.requiredArtifact}</div>
-                    <div className="mt-1 text-label text-ink-3">{row.format}</div>
-                    <div className="mt-1 text-label font-medium leading-relaxed text-info">
-                      {language === 'ko' ? '추가 다운로드' : 'Download range'}: {coverageDownloadLabel(row, language)}
-                    </div>
-                    <div className="mt-1 text-label leading-relaxed text-ink-3">{row.action}</div>
-                    {row.lastFile ? (
-                      <code className="mt-1 block truncate text-micro text-ink-3" title={row.lastFile}>
-                        last: {row.lastFile}
-                      </code>
-                    ) : null}
-                  </div>
+                  <div className="max-w-[24rem]"><InvestmentUpdateAction row={row} language={language} /></div>
                 ),
               },
-              { key: 'method', label: coverageCopy.method, nowrap: true, priority: 'secondary', render: (row: AccountCoverage) => coverageCopy.methodLabel[row.method] },
+              { key: 'method', label: coverageCopy.method, nowrap: true, priority: 'secondary', render: (row: AccountCoverage) => ['current','due_soon','unconfirmed'].includes(row.status) ? updatesCopy.none : coverageCopy.methodLabel[row.method] },
               {
                 key: 'destination',
                 label: coverageCopy.destination,
                 priority: 'tertiary',
-                render: (row: AccountCoverage) => (
+                render: (row: AccountCoverage) => ['current','due_soon','unconfirmed'].includes(row.status) ? updatesCopy.none : (
                   <>
-                    <code className="text-label text-ink-3">{row.destination}</code>
-                    <div className="mt-1 max-w-[15rem] text-label leading-relaxed text-ink-3">{row.detail}</div>
+                    <code className="text-label text-ink-3">{row.sources.length > 1 ? row.sources.filter(source => ['action_needed','missing'].includes(source.status)).map(source => source.destination).join(' · ') : row.destination}</code>
+                    {row.sources.length <= 1 ? <div className="mt-1 max-w-[15rem] text-label leading-relaxed text-ink-3">{row.detail}</div> : null}
                   </>
                 ),
               },
@@ -183,6 +168,13 @@ export default async function DataOpsPage() {
           />
         </div>
       </Card>
+
+      <div id="supplementary-coverage" className="mb-5">
+        <Card title={updatesCopy.title}
+          info={updatesCopy.info}>
+          <SupplementaryCoverageTable language={language} rows={supplementary.rows} />
+        </Card>
+      </div>
 
       <CardRow columns="hero">
         <MetricHeroCard
