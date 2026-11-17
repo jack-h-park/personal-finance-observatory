@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { DataTable } from '@/components/DataTable'
 import { PageHeader } from '@/components/PageHeader'
-import { Badge, Card, EmptyState, HeroAside, MetricField, MetricHeroCard, TextLink, marketTone, type Tone } from '@/components/ui'
+import { Badge, Card, EmptyState, HeroAside, MetricField, MetricHeroCard, TextLink, marketTone } from '@/components/ui'
 import { getReconciliationReview, type ReconciliationReview } from '@/lib/adapters/portfolio-db'
 import { EMPTY_VALUE, fmtNumber, fmtQuantity } from '@/lib/format'
 import { createMoneyFormatter } from '@/lib/currency'
@@ -11,7 +11,7 @@ import { getLanguage } from '@/lib/i18n-server'
 import { positionHref } from '@/lib/position-url'
 import { getPageCopy, getUiCopy } from '@/lib/ui-copy'
 import { formatSort, parseSort, sortRows, type TableSort } from '@/lib/table-sort'
-import { priorityTone } from '@/lib/tone'
+import { RECONCILIATION_STATUS_TONE, categoryTone, priorityTone, reconciliationStatusKey } from '@/lib/tone'
 import { routeMetadata, routeSection } from '@/lib/page-names'
 import { CardRow, KpiBand } from '@/components/layout'
 
@@ -20,12 +20,6 @@ export const generateMetadata = routeMetadata('/reconciliation')
 
 type QueueRow = ReconciliationReview['actionQueue'][number]
 type BreakRow = ReconciliationReview['positionBreaks'][number]
-
-function statusTone(status: string): Tone {
-  if (status.includes('only')) return 'warning'
-  if (status === 'quantity_break') return 'danger'
-  return 'info'
-}
 
 
 export default async function ReconciliationPage({
@@ -153,7 +147,7 @@ export default async function ReconciliationPage({
             sortHref={sortHref}
             rows={sortRows(review.positionBreaks, sort, (row, key) => (row as Record<string, any>)[key])}
             columns={[
-              { key: 'status', label: copy.columns.status, sortable: true, sortFirst: 'asc', render: (r: BreakRow) => <Badge tone={statusTone(r.status)}>{copy.breakStatus[r.status] ?? r.status}</Badge> },
+              { key: 'status', label: copy.columns.status, sortable: true, sortFirst: 'asc', render: (r: BreakRow) => <Badge tone={categoryTone(RECONCILIATION_STATUS_TONE, reconciliationStatusKey(r.status), 'info')}>{copy.breakStatus[r.status] ?? r.status}</Badge> },
               { key: 'market', label: copy.columns.market, sortable: true, sortFirst: 'asc', render: (r) => <Badge tone={marketTone(r.market)}>{r.market}</Badge> },
               { key: 'brokerage', label: copy.columns.brokerage, sortable: true, sortFirst: 'asc' },
               {

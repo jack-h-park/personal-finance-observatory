@@ -1,22 +1,16 @@
-import { Badge, type Tone } from '@/components/ui'
+import { Badge } from '@/components/ui'
 import { fmtDateTime, fmtDuration } from '@/lib/format'
 import type { FreshnessItem, FreshnessStatus } from '@/lib/adapters/portfolio-db'
 import { freshnessDetailText, freshnessLabel } from '@/lib/freshness-text'
 import type { Language } from '@/lib/i18n'
 import { getUiCopy } from '@/lib/ui-copy'
-
-const STATUS_TONE: Record<FreshnessStatus, Tone> = {
-  fresh: 'success',
-  stale: 'warning',
-  drift: 'warning',
-  missing: 'danger',
-}
+import { FRESHNESS_SEVERITY, statusTone } from '@/lib/tone'
 
 export function FreshnessBadge({ status, language }: { status: FreshnessStatus; language: Language }) {
   const copy = getUiCopy(language).freshness
   return (
     <span title={copy.descriptions[status]} aria-label={`${copy.labels[status]}: ${copy.descriptions[status]}`}>
-      <Badge tone={STATUS_TONE[status]}>{copy.labels[status]}</Badge>
+      <Badge tone={statusTone(FRESHNESS_SEVERITY, status)}>{copy.labels[status]}</Badge>
     </span>
   )
 }

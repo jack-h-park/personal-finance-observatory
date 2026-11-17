@@ -10,7 +10,7 @@ import { getLanguage } from '@/lib/i18n-server'
 import { getPageCopy, getUiCopy } from '@/lib/ui-copy'
 import { applyFilters, applySearch, filterOptions, readFilters, withParam, type FilterGroup } from '@/lib/table-filter'
 import { formatSort, parseSort, sortRows, type TableSort } from '@/lib/table-sort'
-import type { Tone } from '@/lib/tone'
+import { TRANSACTION_TYPE_TONE, categoryTone } from '@/lib/tone'
 import { routeMetadata, routeSection } from '@/lib/page-names'
 import { maskAccountLabel } from '@/lib/account-label'
 
@@ -24,13 +24,6 @@ const GROUPS: FilterGroup<any>[] = [
   { key: 'brokerage', label: 'broker' },
   { key: 'type', label: 'type' },
 ]
-
-/** A ledger row's kind: money in, money out, everything else. */
-function typeTone(type: string): Tone {
-  if (type === 'DIVIDEND') return 'success'
-  if (type === 'SELL') return 'warning'
-  return 'info'
-}
 
 export default async function TransactionsPage({
   searchParams,
@@ -85,7 +78,7 @@ export default async function TransactionsPage({
               { key: 'date', label: copy.columns.date, sortable: true, nowrap: true },
               { key: 'brokerage', label: copy.columns.broker, sortable: true, sortFirst: 'asc' },
               { key: 'account', label: copy.columns.account, sortable: true, sortFirst: 'asc', priority: 'secondary', render: (r) => maskAccountLabel(r.account) },
-              { key: 'type', label: copy.columns.type, sortable: true, sortFirst: 'asc', render: (r) => <Badge tone={typeTone(r.type)}>{r.type}</Badge> },
+              { key: 'type', label: copy.columns.type, sortable: true, sortFirst: 'asc', render: (r) => <Badge tone={categoryTone(TRANSACTION_TYPE_TONE, r.type, 'info')}>{r.type}</Badge> },
               { key: 'ticker', label: copy.columns.ticker, sortable: true, sortFirst: 'asc' },
               { key: 'name', label: copy.columns.name, sortable: true, sortFirst: 'asc' },
               { key: 'quantity', label: copy.columns.quantity, align: 'right', sortable: true, render: (r) => fmtQuantity(r.quantity, 2) },

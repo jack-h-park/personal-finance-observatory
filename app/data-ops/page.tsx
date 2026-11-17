@@ -3,7 +3,7 @@ import { SupplementaryCoverageTable } from '@/components/SupplementaryCoverageTa
 import { DataTable } from '@/components/DataTable'
 import { FreshnessRows } from '@/components/Freshness'
 import { PageHeader } from '@/components/PageHeader'
-import { Badge, Card, EmptyState, HeroAside, MetricField, MetricHeroCard, TextLink, marketTone, type Tone } from '@/components/ui'
+import { Badge, Card, EmptyState, HeroAside, MetricField, MetricHeroCard, TextLink, marketTone } from '@/components/ui'
 import {
   getAccountCoverage,
   getDataOpsReview,
@@ -20,7 +20,7 @@ import { getGlossary } from '@/lib/glossary'
 import { getLanguage } from '@/lib/i18n-server'
 import type { Language } from '@/lib/i18n'
 import { getPageCopy, getUiCopy } from '@/lib/ui-copy'
-import { priorityTone } from '@/lib/tone'
+import { COVERAGE_SEVERITY, priorityTone, statusTone } from '@/lib/tone'
 import { routeMetadata, routeSection } from '@/lib/page-names'
 import { CardRow, KpiBand } from '@/components/layout'
 import { PositionCell } from '@/components/PositionCell'
@@ -28,13 +28,6 @@ import { maskAccountLabel } from '@/lib/account-label'
 
 export const dynamic = 'force-dynamic'
 export const generateMetadata = routeMetadata('/data-ops')
-
-function coverageTone(status: AccountCoverage['status']): Tone {
-  if (status === 'unconfirmed') return 'warning'
-  if (status === 'action_needed' || status === 'missing') return 'danger'
-  if (status === 'due_soon') return 'warning'
-  return 'success'
-}
 
 function coverageDateLabel(row: AccountCoverage, c: CoverageCopy, language: Language): string {
   const date = (value: string | null) => value ? fmtDate(value, language) : EMPTY_VALUE
@@ -94,7 +87,7 @@ export default async function DataOpsPage() {
                 render: (row: AccountCoverage) => (
                   <>
                     <div className="flex items-center gap-2">
-                      <Badge tone={coverageTone(row.status)}>{coverageCopy.status[row.status]}</Badge>
+                      <Badge tone={statusTone(COVERAGE_SEVERITY, row.status)}>{coverageCopy.status[row.status]}</Badge>
                       <span className="font-medium text-ink">{row.brokerage}</span>
                     </div>
                     <div className="mt-1 text-label text-ink-3">{maskAccountLabel(row.account)}</div>

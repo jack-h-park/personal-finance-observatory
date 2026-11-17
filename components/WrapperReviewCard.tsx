@@ -1,18 +1,12 @@
-import { Badge, Card, Note, Signed, TextLink, type Tone } from '@/components/ui'
+import { Badge, Card, Note, Signed, TextLink } from '@/components/ui'
 import { DataTable } from '@/components/DataTable'
 import type { WrapperReviewRow } from '@/lib/adapters/portfolio-db'
 import { fmtKrw, fmtNumber } from '@/lib/format'
 import type { getPageCopy } from '@/lib/ui-copy'
 import { maskAccountLabel } from '@/lib/account-label'
+import { WRAPPER_TREATMENT_TONE, categoryTone } from '@/lib/tone'
 
 type WrapperReviewCopy = ReturnType<typeof getPageCopy<'taxPlanning'>>['wrapperReview']
-
-const TREATMENT_TONE: Record<string, Tone> = {
-  taxable: 'info',
-  undecided: 'warning',
-  deferred: 'neutral',
-  exempt_within_limit: 'neutral',
-}
 
 /**
  * The tax pages' pointer to /pension: one line counting the accounts the US
@@ -52,7 +46,7 @@ export function WrapperReviewCard({ rows, copy }: { rows: WrapperReviewRow[]; co
             label: copy.treatment,
             nowrap: true,
             render: (row: WrapperReviewRow) => (
-              <Badge tone={TREATMENT_TONE[row.usTreatment] ?? 'neutral'}>{copy.treatments[row.usTreatment] ?? row.usTreatment}</Badge>
+              <Badge tone={categoryTone(WRAPPER_TREATMENT_TONE, row.usTreatment)}>{copy.treatments[row.usTreatment] ?? row.usTreatment}</Badge>
             ),
           },
           {

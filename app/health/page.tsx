@@ -9,6 +9,7 @@ import { getPageCopy, getUiCopy } from '@/lib/ui-copy'
 type HealthCopy = ReturnType<typeof getPageCopy<'health'>>
 import { routeMetadata, routeSection } from '@/lib/page-names'
 import { CardRow, MiniStat, MiniStatGrid } from '@/components/layout'
+import { RUN_SEVERITY, statusTone } from '@/lib/tone'
 
 export const dynamic = 'force-dynamic'
 export const generateMetadata = routeMetadata('/health')
@@ -20,13 +21,6 @@ function parseMetrics(value: string | null) {
   } catch {
     return {} as Record<string, any>
   }
-}
-
-function statusTone(status: string): Tone {
-  if (status === 'success') return 'success'
-  if (status === 'degraded') return 'warning'
-  if (status === 'running') return 'info'
-  return 'danger'
 }
 
 /**
@@ -162,7 +156,7 @@ export default async function HealthPage() {
         accent={latestRefresh?.status === 'failed'}
         action={
           latestRefresh ? (
-            <Badge tone={statusTone(runStatusLabel(latestRefresh))}>{displayRunStatus(runStatusLabel(latestRefresh), runStatusLabels)}</Badge>
+            <Badge tone={statusTone(RUN_SEVERITY, runStatusLabel(latestRefresh))}>{displayRunStatus(runStatusLabel(latestRefresh), runStatusLabels)}</Badge>
           ) : undefined
         }
       >
@@ -198,7 +192,7 @@ export default async function HealthPage() {
             <ul className="divide-y divide-line-subtle">
               {latestRefresh.steps.map((step) => (
                 <li key={`${latestRefresh.id}:${step.name}`} className="flex flex-col gap-1 py-2.5 lg:flex-row lg:items-center lg:gap-3">
-                  <Badge tone={statusTone(step.status)}>{displayRunStatus(step.status, runStatusLabels)}</Badge>
+                  <Badge tone={statusTone(RUN_SEVERITY, step.status)}>{displayRunStatus(step.status, runStatusLabels)}</Badge>
                   <span className="min-w-0 flex-1 truncate text-body font-medium text-ink">{step.name}</span>
                   <span className="text-caption tabular-nums text-ink-3">{fmtDuration(step.durationMs, language)}</span>
                   <code className="font-mono text-label text-ink-3">{step.command}</code>
