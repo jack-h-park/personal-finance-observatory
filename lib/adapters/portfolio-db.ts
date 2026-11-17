@@ -1036,7 +1036,25 @@ export type PortfolioSnapshot = {
   dividends_usd: number
   holding_count: number
   share_count: number
+  // Market dates of the prices the row was valued with (newest and oldest per
+  // market). Null on month-end backfill rows and on rows written before the
+  // columns existed.
+  kr_price_date_newest: string | null
+  kr_price_date_oldest: string | null
+  us_price_date_newest: string | null
+  us_price_date_oldest: string | null
+  crypto_price_date_newest: string | null
+  crypto_price_date_oldest: string | null
 }
+
+const PRICE_DATE_COLUMNS = [
+  'kr_price_date_newest',
+  'kr_price_date_oldest',
+  'us_price_date_newest',
+  'us_price_date_oldest',
+  'crypto_price_date_newest',
+  'crypto_price_date_oldest',
+] as const
 
 export function getPortfolioSnapshots(days = 3650): PortfolioSnapshot[] {
   const conn = db()
@@ -1062,7 +1080,8 @@ export function getPortfolioSnapshots(days = 3650): PortfolioSnapshot[] {
           kr_cost_basis, us_cost_basis_base, crypto_cost_basis_base,
           kr_unrealized_gl, us_unrealized_gl_base, crypto_unrealized_gl_base,
           kr_return_pct, us_return_pct, crypto_return_pct,
-          krw_cost, usd_cost, dividends_krw, dividends_usd, holding_count, share_count
+          krw_cost, usd_cost, dividends_krw, dividends_usd, holding_count, share_count,
+          ${PRICE_DATE_COLUMNS.map((name) => optional(name)).join(', ')}
          from portfolio_snapshots
          where snapshot_date >= date('now', ?)
          order by snapshot_date`
@@ -2629,6 +2648,45 @@ function untrackedInventoryItem(dataDir: string, filePath: string): SourceInvent
   }
 }
 
+/**
+ * The prices the figures on the pages were actually valued with: the latest
+ * snapshot row's price dates, aged by when the ingest wrote it. The file entries
+ * above say what was last fetched; this one says what reached the database. A
+ * refresh that fetched prices and then failed at the ingest leaves the files
+ * fresh and this entry stale, which is the case the file entries cannot show.
+ * Absent when no snapshot row carries price dates yet.
+ */
+function snapshotPriceFreshness(conn: Database.Database, thresholdMs: number): FreshnessItem[] {
+  const table = conn.prepare("select 1 from sqlite_master where type = 'table' and name = 'portfolio_snapshots'").get()
+  if (!table) return []
+  const columns = new Set((conn.prepare('pragma table_info(portfolio_snapshots)').all() as { name: string }[]).map((column) => column.name))
+  if (!PRICE_DATE_COLUMNS.every((name) => columns.has(name))) return []
+  const row = conn
+    .prepare(`select captured_at, ${PRICE_DATE_COLUMNS.join(', ')} from portfolio_snapshots order by snapshot_date desc limit 1`)
+    .get() as (Record<(typeof PRICE_DATE_COLUMNS)[number], string | null> & { captured_at: string }) | undefined
+  if (!row) return []
+  const markets = [
+    ['KR', row.kr_price_date_newest, row.kr_price_date_oldest],
+    ['US', row.us_price_date_newest, row.us_price_date_oldest],
+    ['Crypto', row.crypto_price_date_newest, row.crypto_price_date_oldest],
+  ] as const
+  const parts = markets
+    .filter(([, newest]) => newest)
+    .map(([label, newest, oldest]) => `${label} ${newest}${oldest && oldest < newest! ? ` (oldest ${oldest})` : ''}`)
+  if (parts.length === 0) return []
+  return [
+    snapshotFreshness({
+      key: 'snapshot_prices',
+      label: 'Prices in figures',
+      category: 'price',
+      path: config.stockDbPath,
+      observedAt: row.captured_at,
+      thresholdMs,
+      detail: `market date ${parts.join(' · ')}`,
+    }),
+  ]
+}
+
 export function getOperationalHealth(): OperationalHealth {
   const conn = db()
   try {
@@ -2692,6 +2750,7 @@ export function getOperationalHealth(): OperationalHealth {
           ? { code: 'FX_RATE', rate: fxRate.rate, source: fxRate.source }
           : { code: 'FX_RATE_MISSING' },
       }),
+      ...snapshotPriceFreshness(conn, priceThresholdMs),
     ]
     const sourceDrift = sourceRows.map(sourceFreshness)
     const items = [...snapshots, ...sourceDrift]
