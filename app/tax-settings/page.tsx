@@ -1,5 +1,5 @@
 import { PageHeader } from '@/components/PageHeader'
-import { Badge, Card, HeroAside, Label, MetricField, MetricHeroCard, Panel, TextLink } from '@/components/ui'
+import { Card, FormSaved, HeroAside, Label, MetricField, MetricHeroCard, Panel, TextLink } from '@/components/ui'
 import { fmtDate, fmtNumber } from '@/lib/format'
 import { dbAvailable, getMeta, getWrapperReview } from '@/lib/adapters/portfolio-db'
 import { WrapperEstimateNote } from '@/components/WrapperReviewCard'
@@ -82,7 +82,7 @@ export default async function TaxSettingsPage({ searchParams }: { searchParams: 
         subtitle={copy.page.subtitle}
         action={
           <div className="flex items-center gap-2">
-            {params.saved === '1' && <Badge tone="success">{copy.page.saved}</Badge>}
+            {params.saved === '1' && <FormSaved>{copy.page.saved}</FormSaved>}
             <TextLink href="/tax-planning">
               {copy.page.openPlanner}
             </TextLink>

@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { PageHeader } from '@/components/PageHeader'
-import { Card, TextLink } from '@/components/ui'
+import { Card, FormError, TextLink } from '@/components/ui'
 import { config } from '@/config'
 import { readTaxHistory } from '@/lib/adapters/tax-history-store'
 import { indexEvidenceRoot, resolveTaxEvidence } from '@/lib/application/evidence-index'
@@ -56,15 +56,11 @@ export default async function TaxRecordPage({
         subtitle={`${obligation.authority} · ${obligation.taxYear} · ${obligation.taxUnitId}`}
         autoRefresh={false}
       />
+      {typeof search.error === 'string' && <FormError messages={[search.error]} />}
       <TextLink href="/taxes/history">{copy.back}</TextLink>
       <p className="my-4 text-body text-ink-2">
         {copy.revision}: {store.revision} · {row.status === 'confirmed' ? copy.confirmed : copy.provisional}
       </p>
-      {typeof search.error === 'string' && (
-        <p role="alert" className="mb-4 text-body">
-          {search.error}
-        </p>
-      )}
       {!config.finance.stateWritable && <p className="mb-4 text-body">{copy.readOnly}</p>}
       <Card title={copy.basis}>
         <dl className="grid gap-3 p-4 text-body sm:grid-cols-3">

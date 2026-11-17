@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { DataTable } from '@/components/DataTable'
 import { PageHeader } from '@/components/PageHeader'
-import { Badge, Card, EmptyState, HeroAside, MetricField, MetricHeroCard, Note, Panel, Signed, TextLink, marketTone } from '@/components/ui'
+import { Badge, Card, EmptyState, FormError, FormSaved, HeroAside, MetricField, MetricHeroCard, Note, Panel, Signed, TextLink, marketTone } from '@/components/ui'
 import { getOperationalHealth, getRebalanceReview } from '@/lib/adapters/portfolio-db'
 import { EMPTY_VALUE, fmtNumber, fmtPct, fmtPctRange } from '@/lib/format'
 import { createMoneyFormatter } from '@/lib/currency'
@@ -102,11 +102,8 @@ export default async function RebalancePage({ searchParams }: { searchParams: Pr
         }
       />
 
-      {errorMessage && (
-        <Card title={proposalCopy.errorTitle} className="mb-5">
-          <p className="text-caption text-warning">{errorMessage}</p>
-        </Card>
-      )}
+      {errorMessage && <FormError title={proposalCopy.errorTitle} messages={[errorMessage]} />}
+      {params.target === 'invalid' && <FormError messages={[editor.invalid]} />}
 
       <CardRow>
         <Card
@@ -294,8 +291,7 @@ export default async function RebalancePage({ searchParams }: { searchParams: Pr
             </Note>
             <div className="flex items-center gap-3">
               <SubmitButton>{editor.save}</SubmitButton>
-              {params.target === 'saved' && <Badge tone="success">{editor.saved}</Badge>}
-              {params.target === 'invalid' && <Badge tone="warning">{editor.invalid}</Badge>}
+              {params.target === 'saved' && <FormSaved>{editor.saved}</FormSaved>}
             </div>
           </form>
           )}

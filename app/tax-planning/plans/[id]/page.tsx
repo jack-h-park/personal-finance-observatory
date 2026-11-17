@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import { getTaxPlanningLots } from '@/lib/adapters/portfolio-db'
 import { PageHeader } from '@/components/PageHeader'
 import { TaxPlanTimeline } from '@/components/TaxPlanTimeline'
-import { Badge, Card, Panel, TextLink } from '@/components/ui'
+import { Badge, Card, FormSaved, Panel, TextLink } from '@/components/ui'
 import { Split, Stat, StatStrip } from '@/components/layout'
 import { ProgressBar } from '@/components/bars'
 import { fmtDateShort, fmtDateTime, fmtKrw, fmtNumber, fmtPct, fmtSigned } from '@/lib/format'
@@ -83,7 +83,7 @@ export default async function SavedTaxPlanPage({
           <span className="flex items-center gap-3">
             {/* createSavedTaxPlanAction has always redirected here with ?saved=1;
                 until now nothing read it, so saving a plan ended in silence. */}
-            {query.saved === '1' ? <Badge tone="success">{labels.form.saved}</Badge> : null}
+            {query.saved === '1' ? <FormSaved>{labels.form.saved}</FormSaved> : null}
             <TextLink href="/tax-planning">
               {copy.backToPlanner}
             </TextLink>

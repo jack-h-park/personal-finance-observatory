@@ -6,7 +6,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { CardRow, MiniStat, MiniStatGrid, Split, Stat, StatStrip, Total, TotalsStrip } from '@/components/layout'
 import { ProgressBar, ShareBar } from '@/components/bars'
 import { PositionCell } from '@/components/PositionCell'
-import { Badge, Callout, Card, HeroAside, MetricField, Note, Panel, SectionHeading } from '@/components/ui'
+import { Badge, Callout, Card, FormError, FormSaved, HeroAside, MetricField, Note, Panel, SectionHeading } from '@/components/ui'
 import { LinkChip, LinkChips } from '@/components/LinkChips'
 import { Tabs } from '@/components/Tabs'
 
@@ -668,4 +668,37 @@ test('Card issues needs a title', () => {
   // @ts-expect-error a count badge renders only in the header, so it needs a title
   const props: React.ComponentProps<typeof Card> = { issues: { count: 1 }, children: 'x' }
   assert.ok(props)
+})
+
+const FORM_ERROR_OPEN =
+  '<div class="mb-4 rounded-md border px-3 py-2 border-danger/30 bg-danger/10 text-danger" role="alert">'
+
+test('FormError with two messages is a danger alert Callout with a two-item list', () => {
+  const html = renderToStaticMarkup(h(FormError, { title: 'T', messages: ['first', 'second'] }))
+  assert.ok(html.startsWith(FORM_ERROR_OPEN), html)
+  assert.ok(html.includes('<div class="font-medium">T</div>'), html)
+  assert.equal((html.match(/<li>/g) ?? []).length, 2)
+  assert.ok(html.indexOf('>T<') < html.indexOf('<ul'), 'the title leads the list')
+})
+
+test('FormError with one message renders no list and needs no title', () => {
+  const html = renderToStaticMarkup(h(FormError, { messages: ['only'] }))
+  assert.ok(html.startsWith(FORM_ERROR_OPEN), html)
+  assert.ok(!html.includes('<ul'), html)
+  assert.ok(!html.includes('<li'), html)
+  assert.ok(!html.includes('font-medium'), html)
+  assert.ok(html.includes('only'), html)
+})
+
+test('FormSaved renders the success Badge', () => {
+  assert.equal(
+    renderToStaticMarkup(h(FormSaved, { children: 'Saved' })),
+    renderToStaticMarkup(h(Badge, { tone: 'success', children: 'Saved' })),
+  )
+  assert.match(renderToStaticMarkup(h(FormSaved, { children: 'Saved' })), /border-success\/30 bg-success\/10 text-success/)
+})
+
+test('FormError with no messages renders the title alone', () => {
+  const html = renderToStaticMarkup(h(FormError, { title: 'T', messages: [] }))
+  assert.equal(html, `${FORM_ERROR_OPEN}<div class="font-medium">T</div></div>`)
 })

@@ -1,6 +1,6 @@
 import { PageHeader } from '@/components/PageHeader'
 import { TaxPlanTimeline } from '@/components/TaxPlanTimeline'
-import { Badge, Button, Card, EmptyState, HelpPopover, Label, Panel, SectionHeading, Signed, TextLink, marketTone } from '@/components/ui'
+import { Badge, Button, Card, EmptyState, FormError, HelpPopover, Label, Panel, SectionHeading, Signed, TextLink, marketTone } from '@/components/ui'
 import { getOperationalHealth, getOverview, getTaxPlanningLots, getWashSaleReview, getWrapperReview } from '@/lib/adapters/portfolio-db'
 import { WrapperEstimateNote } from '@/components/WrapperReviewCard'
 import { WashSaleBanner } from '@/components/WashSaleBanner'
@@ -148,10 +148,6 @@ export default async function TaxPlanningPage({
         subtitle={copy.page.subtitle}
         action={
           <div className="flex items-center gap-2">
-            {/* The only way to land here with error=name is a form posted without
-                one, which the browser normally blocks. Saying so beats bouncing
-                the reader back to an unchanged page with no explanation. */}
-            {params.error === 'name' && <Badge tone="danger">{getUiCopy(language).form.nameRequired}</Badge>}
             {taxPolicy.source === 'example' && <Badge tone="warning">{copy.page.usingExampleAssumptions}</Badge>}
             <TextLink href="/tax-settings">
               {copy.page.editAssumptions}
@@ -159,6 +155,11 @@ export default async function TaxPlanningPage({
           </div>
         }
       />
+
+      {/* The only way to land here with error=name is a form posted without
+          one, which the browser normally blocks. Saying so beats bouncing
+          the reader back to an unchanged page with no explanation. */}
+      {params.error === 'name' && <FormError messages={[getUiCopy(language).form.nameRequired]} />}
 
       <WashSaleBanner review={getWashSaleReview()} copy={getPageCopy('washSale', language)} />
 

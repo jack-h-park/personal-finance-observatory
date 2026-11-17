@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { DataTable } from '@/components/DataTable'
 import { PageHeader } from '@/components/PageHeader'
 import { SubmitButton } from '@/components/SubmitButton'
-import { Badge, Card, EmptyState, Note, TextLink } from '@/components/ui'
+import { Badge, Card, EmptyState, FormError, FormSaved, Note, TextLink } from '@/components/ui'
 import { Checkbox, Field, Input, Select } from '@/components/form'
 import { CardRow } from '@/components/layout'
 import { dbAvailable, portfolioToday } from '@/lib/adapters/portfolio-db'
@@ -113,21 +113,17 @@ export default async function RebalanceSettingsPage({ searchParams }: { searchPa
         subtitle={copy.subtitle}
         action={
           <div className="flex items-center gap-2">
-            {params.saved && <Badge tone="success">{copy.saved}</Badge>}
+            {params.saved && <FormSaved>{copy.saved}</FormSaved>}
             <TextLink href="/rebalance">{copy.back}</TextLink>
           </div>
         }
       />
 
       {params.error && (
-        <Card title={copy.errorsTitle}>
-          <ul className="list-disc space-y-1 pl-5 text-caption text-warning">
-            {messages.map((message) => (
-              <li key={message}>{message}</li>
-            ))}
-          </ul>
-          <Note spacing="above-2">{copy.errorsNote}</Note>
-        </Card>
+        <>
+          <FormError title={copy.errorsTitle} messages={messages} />
+          <Note size="caption" spacing="below-4">{copy.errorsNote}</Note>
+        </>
       )}
       {state.error && <p className="mb-4 text-caption text-warning">{copy.policyInvalid}</p>}
       {!state.policy && !state.error && <Note size="caption" spacing="below-4">{copy.policyMissing}</Note>}
