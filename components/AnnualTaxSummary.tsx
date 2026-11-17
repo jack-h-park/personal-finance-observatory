@@ -1,4 +1,5 @@
 import React from 'react'
+import { Note } from '@/components/ui'
 import Link from 'next/link'
 import type { AnnualTaxSummaryData } from '@/lib/application/annual-tax-summary'
 import { formatMoney } from '@/lib/domain/taxes/reconcile'
@@ -11,7 +12,7 @@ export function AnnualTaxSummary({ summary, language }: { summary: AnnualTaxSumm
   return <div className="mb-4 space-y-4">
     {!summary.years.length ? <p className="text-body text-ink-2">{copy.empty}</p> : null}
     <p className="text-body text-ink-2">{copy.subtitle}</p>
-    <p className="text-label text-ink-3">{copy.revision(summary.stateRevision)}</p>
+    <Note>{copy.revision(summary.stateRevision)}</Note>
     {summary.years.map(year => <section key={year.year} aria-label={copy.year(year.year)} className="space-y-3">
       <h3 className="text-caption font-medium text-ink">{copy.year(year.year)}</h3>
       {year.rows.map(row => {
@@ -24,17 +25,17 @@ export function AnnualTaxSummary({ summary, language }: { summary: AnnualTaxSumm
           [copy.penalty, row.penaltyMinor], [copy.adjustments, row.adjustmentMinor], [copy.balance, row.outstandingMinor],
         ] as const
         return <article key={row.id} className="rounded-md border border-line-subtle p-3">
-          <p className="text-label text-ink-3">{copy.identity}</p>
+          <Note>{copy.identity}</Note>
           <p className="text-body font-medium">{row.taxUnitId} · {row.authority} · {row.taxType} · {row.currency}</p>
-          <p className="mt-1 text-label text-ink-3">{row.status === 'confirmed' ? copy.confirmed : copy.provisional}</p>
+          <Note spacing="above-1">{row.status === 'confirmed' ? copy.confirmed : copy.provisional}</Note>
           <dl className="mt-3 flex flex-wrap gap-x-6 gap-y-3">
             {fields.map(([label, minor]) => <div key={label} className="min-w-0 flex-1 basis-48">
               <dt className="text-label text-ink-3">{label}</dt><dd className="break-words text-body tabular-nums">{amount(minor)}</dd>
             </div>)}
           </dl>
-          {row.excludedAllocations > 0 ? <p className="mt-2 text-label text-ink-3">{copy.excluded(row.excludedAllocations)}</p> : null}
-          {row.excludedAdjustments > 0 ? <p className="mt-2 text-label text-ink-3">{copy.excludedAdjustments(row.excludedAdjustments)}</p> : null}
-          {row.undatedAllocations > 0 ? <p className="mt-2 text-label text-ink-3">{copy.undated(row.undatedAllocations)}</p> : null}
+          {row.excludedAllocations > 0 ? <Note spacing="above-2">{copy.excluded(row.excludedAllocations)}</Note> : null}
+          {row.excludedAdjustments > 0 ? <Note spacing="above-2">{copy.excludedAdjustments(row.excludedAdjustments)}</Note> : null}
+          {row.undatedAllocations > 0 ? <Note spacing="above-2">{copy.undated(row.undatedAllocations)}</Note> : null}
           <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-label">
             <Link className="underline underline-offset-4" href={`/taxes/records/${encodeURIComponent(row.id)}`}>{copy.details}</Link>
             <Link className="underline underline-offset-4" href={`/taxes?${filter}`}>{copy.yearLink}</Link>
@@ -43,9 +44,9 @@ export function AnnualTaxSummary({ summary, language }: { summary: AnnualTaxSumm
         </article>
       })}
     </section>)}
-    {summary.unallocatedEventCount > 0 ? <p className="text-label text-ink-3">{copy.unallocated(summary.unallocatedEventCount)}{' '}<Link className="underline" href="/taxes/history?unit=__all__">{copy.allCash}</Link></p> : null}
-    <p className="text-label text-ink-3">{copy.scopeNote}</p>
-    <p className="text-label text-ink-3">{copy.evidenceNote}</p>
-    <p className="text-label text-ink-3">{copy.limits}</p>
+    {summary.unallocatedEventCount > 0 ? <Note>{copy.unallocated(summary.unallocatedEventCount)}{' '}<Link className="underline" href="/taxes/history?unit=__all__">{copy.allCash}</Link></Note> : null}
+    <Note>{copy.scopeNote}</Note>
+    <Note>{copy.evidenceNote}</Note>
+    <Note>{copy.limits}</Note>
   </div>
 }
