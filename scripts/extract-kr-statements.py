@@ -1084,6 +1084,12 @@ def amount_of(row_a, row_b, row_c):
     krw = number(row_a[6])
     native_krw_raw = nfc(row_a[6]).strip()
     foreign_raw = nfc(row_a[8]).strip()
+    # A fractional foreign security transfer has no cash leg, but its unit
+    # price is denominated in the explicit currency printed on the record.
+    currency_code = nfc(row_b[10]).strip()
+    if (nfc(row_a[1]).strip() == "소수해외대체입고" and not native_krw_raw
+            and not foreign_raw and currency_code and currency_code != "KRW"):
+        return currency_code, 0, "", ""
     if native_krw_raw or not foreign_raw:
         return "KRW", krw, "", krw
     currency = nfc(row_b[10]).strip() or "USD"
