@@ -12,7 +12,7 @@ import type { Language } from '@/lib/i18n'
 import { positionHref } from '@/lib/position-url'
 import type { MasterPlanMonth, MonthlySaleMasterPlan } from '@/lib/tax-planning'
 import type { SavedInstructionExecution, SavedInstructionStatus } from '@/lib/tax-plan-store'
-import { bucketTone, signTone } from '@/lib/tone'
+import { FILING_PROFILE_TONE, PLAN_ROLE_TONE, bucketTone, categoryTone, signTone } from '@/lib/tone'
 import { Input, Select } from '@/components/form'
 import { DataTable } from '@/components/DataTable'
 import { SubmitButton } from '@/components/SubmitButton'
@@ -235,7 +235,7 @@ export function TaxPlanTimeline({
                 >
                   <div className="mb-2 flex items-center justify-between gap-4">
                     <div className="text-body font-medium text-ink">{group.year}</div>
-                    <Badge tone={group.profile === 'US_AND_KR' ? 'warning' : 'info'}>
+                    <Badge tone={categoryTone(FILING_PROFILE_TONE, group.profile, 'info')}>
                       {profileLabel(group.profile, copy)}
                     </Badge>
                   </div>
@@ -368,7 +368,7 @@ export function TaxPlanTimeline({
                     render: (row: any) => (
                       <div className="flex flex-col items-start gap-1">
                         <Badge tone={bucketTone(row.holdingBucket)}>{row.holdingBucket}</Badge>
-                        <Badge tone={row.role === 'loss' ? 'danger' : row.role === 'gain' ? 'info' : row.role === 'mixed' ? 'warning' : 'neutral'}>
+                        <Badge tone={categoryTone(PLAN_ROLE_TONE, row.role)}>
                           {row.role === 'loss' ? copy.lossOffset : row.role === 'gain' ? copy.gainSale : row.role === 'mixed' ? copy.mixedByReturn : copy.neutral}
                         </Badge>
                       </div>

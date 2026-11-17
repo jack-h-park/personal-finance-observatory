@@ -209,10 +209,35 @@ test('G5 catches a gain/loss colour chosen by an inline ternary', () => {
   assert.equal(findInlineSignTone("const c = v >= 0 ? 'text-success' : 'text-danger'").length, 1)
   assert.equal(findInlineSignTone('const t = broken ? "danger" : "warning"').length, 1)
   assert.equal(findInlineSignTone("const t = ok ? 'success' : 'danger'").length, 1)
-  // The shared helper, and a ternary between unrelated tones.
+  // The shared helper, and a commented-out ternary.
   assert.deepEqual(findInlineSignTone('const c = signTone(value)'), [])
-  assert.deepEqual(findInlineSignTone("const t = open ? 'info' : 'neutral'"), [])
   assert.deepEqual(findInlineSignTone("// ok ? 'text-success' : 'text-danger'"), [])
+})
+
+// R2 shipped a status whose ternary had its two tones the wrong way round:
+// any pair of tones can be flipped, not just success and danger.
+test('G5 catches a ternary between any two tones, in either order', () => {
+  assert.equal(findInlineSignTone("const t = x ? 'warning' : 'success'").length, 1)
+  assert.equal(findInlineSignTone("const t = x ? 'info' : 'neutral'").length, 1)
+  assert.equal(findInlineSignTone("const c = x ? 'text-neutral' : 'text-info'").length, 1)
+  // A chained ternary is one hit per ternary whose branches are both tones.
+  assert.equal(findInlineSignTone("const t = a ? 'danger' : b ? 'info' : 'neutral'").length, 2)
+  const chained = "const t = a\n  ? 'danger'\n  : b\n    ? 'info'\n    : 'neutral'"
+  assert.deepEqual(findInlineSignTone(chained).map((h) => h.line), [2, 4])
+  // A ternary ending one statement is not chained to the next statement's.
+  const twoStatements = "const a = x ? 'danger' : y\nconst b = z ? 'info' : 'neutral'"
+  assert.deepEqual(findInlineSignTone(twoStatements).map((h) => h.line), [2])
+  // Split over lines, as prettier writes a long one; reported at its first branch.
+  const split = findInlineSignTone("const t = isOpen\n  ? 'warning'\n  : 'success'")
+  assert.equal(split.length, 1)
+  assert.equal(split[0].line, 2)
+  // One branch is not a tone, or neither is.
+  assert.deepEqual(findInlineSignTone("const c = x ? 'text-warning' : 'text-ink-3'"), [])
+  assert.deepEqual(findInlineSignTone('const s = cond ? copy.a : copy.b'), [])
+  assert.deepEqual(findInlineSignTone("const t = x ? 'danger' : fallbackTone"), [])
+  // A bare tone passed to a function, and a map entry, are not ternaries.
+  assert.deepEqual(findInlineSignTone("categoryTone(MAP, v, 'danger')"), [])
+  assert.deepEqual(findInlineSignTone("const m = { 'info': 'neutral' }"), [])
 })
 
 test('G6 catches a missing value written by hand', () => {

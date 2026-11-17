@@ -11,7 +11,7 @@ import { getLanguage } from '@/lib/i18n-server'
 import { getPageCopy } from '@/lib/ui-copy'
 import { routeMetadata, routeSection } from '@/lib/page-names'
 import { CardRow, KpiBand } from '@/components/layout'
-import { INVENTORY_STATUS_TONE, RETENTION_TONE, categoryTone } from '@/lib/tone'
+import { FAULT_SEVERITY, INVENTORY_STATUS_TONE, RETENTION_TONE, TO_REVIEW_SEVERITY, categoryTone, countTone } from '@/lib/tone'
 
 export const dynamic = 'force-dynamic'
 export const generateMetadata = routeMetadata('/data-map')
@@ -70,13 +70,13 @@ export default async function DataMapPage({
               value={fmtNumber(inventory.summary.drift)}
               info={glossary.drift.description}
               hint={copy.driftHint}
-              tone={inventory.summary.drift ? 'warning' : 'success'}
+              tone={countTone(TO_REVIEW_SEVERITY, inventory.summary.drift)}
             />
             <MetricField
               label={copy.missing}
               value={fmtNumber(inventory.summary.missing)}
               hint={copy.missingHint}
-              tone={inventory.summary.missing ? 'danger' : 'success'}
+              tone={countTone(FAULT_SEVERITY, inventory.summary.missing)}
             />
           </KpiBand>
         </MetricHeroCard>

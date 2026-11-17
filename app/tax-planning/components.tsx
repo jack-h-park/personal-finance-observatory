@@ -7,7 +7,7 @@ import { fmtDateShort, fmtDateTime, fmtDurationDays, fmtNumber, fmtPct, fmtQuant
 import type { Language } from '@/lib/i18n'
 import type { MonthlySaleMasterPlan, MonthlySalePlanSet, TaxPlanCandidate, MasterPlanStrategyKey } from '@/lib/tax-planning'
 import { savedTaxPlanProgress, type SavedTaxPlan } from '@/lib/tax-plan-store'
-import { bucketTone, signClass } from '@/lib/tone'
+import { TAX_DUE_SEVERITY, TAX_PLAN_STATUS_SEVERITY, TO_REVIEW_SEVERITY, bucketTone, countTone, signClass, statusTone } from '@/lib/tone'
 import type { getPageCopy } from '@/lib/ui-copy'
 
 type TaxPlanningCopy = ReturnType<typeof getPageCopy<'taxPlanning'>>
@@ -127,7 +127,7 @@ export function MasterPlanOverview({
           label={copy.overview.estimatedTax}
           value={money(plan.summary.estimatedTaxKrw)}
           hint={copy.overview.longTermPct(fmtNumber(plan.summary.longTermSalePct, 1))}
-          tone={plan.summary.estimatedTaxKrw > 0 ? 'warning' : 'success'}
+          tone={countTone(TAX_DUE_SEVERITY, plan.summary.estimatedTaxKrw)}
         />
         <PlanMetric
           label={copy.overview.afterTaxCash}
@@ -140,7 +140,7 @@ export function MasterPlanOverview({
           value={fmtPct(coveragePct, { digits: 1 })}
           hint={copy.overview.coverageHint(fmtNumber(inputIssueCount), fmtNumber(planSet.coverage.missingValuationCount))}
           info={copy.overview.inputCoverageInfo}
-          tone={inputIssueCount ? 'warning' : 'success'}
+          tone={countTone(TO_REVIEW_SEVERITY, inputIssueCount)}
         />
       </div>
 
@@ -342,7 +342,7 @@ export function SavedPlansPanel({
                         <Link href={`/tax-planning/plans/${saved.id}`} className="inline-flex min-h-6 items-center text-body font-medium text-info hover:underline">
                           {saved.name}
                         </Link>
-                        <Badge tone={saved.status === 'active' ? 'warning' : saved.status === 'completed' ? 'success' : saved.status === 'reviewed' ? 'info' : 'neutral'}>
+                        <Badge tone={statusTone(TAX_PLAN_STATUS_SEVERITY, saved.status)}>
                           {saved.status}
                         </Badge>
                       </div>

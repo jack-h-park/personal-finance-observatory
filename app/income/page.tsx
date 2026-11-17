@@ -12,6 +12,7 @@ import { getPageCopy } from '@/lib/ui-copy'
 import { routeMetadata, routeSection } from '@/lib/page-names'
 import { CardRow, KpiBand } from '@/components/layout'
 import { PositionCell } from '@/components/PositionCell'
+import { TO_REVIEW_SEVERITY, countTone } from '@/lib/tone'
 
 export const dynamic = 'force-dynamic'
 export const generateMetadata = routeMetadata('/income')
@@ -87,7 +88,7 @@ export default async function IncomePage() {
             value={fmtNumber(income.totals.tickerless_count)}
             info={glossary.tickerless.description}
             hint={copy.tickerlessHint}
-            tone={income.totals.tickerless_count ? 'warning' : 'success'}
+            tone={countTone(TO_REVIEW_SEVERITY, income.totals.tickerless_count)}
             size="metric"
           />
         </HeroAside>

@@ -4,6 +4,7 @@ import { EMPTY_VALUE, fmtMoney } from '@/lib/format'
 import type { getPageCopy } from '@/lib/ui-copy'
 import type { WashSaleMatchedBuy } from '@/lib/wash-sale'
 import { maskAccountLabel } from '@/lib/account-label'
+import { WASH_SALE_SEVERITY, statusTone } from '@/lib/tone'
 
 type WashSaleCopy = ReturnType<typeof getPageCopy<'washSale'>>
 
@@ -56,7 +57,7 @@ export function WashSaleBanner({ review, copy }: { review: WashSaleReview; copy:
                       <span className="text-ink-3">{copy.columns.until} </span>
                       {copy.untilDate(w.blockedThrough)}
                     </span>
-                    <Badge tone={w.daysLeft <= 3 ? 'warning' : 'danger'}>{copy.daysLeft(w.daysLeft)}</Badge>
+                    <Badge tone={statusTone(WASH_SALE_SEVERITY, w.daysLeft <= 3 ? 'ending' : 'blocked')}>{copy.daysLeft(w.daysLeft)}</Badge>
                   </div>
                   <div className="text-label text-ink-3">{copy.clearFrom(w.clearFrom)}</div>
                 </div>

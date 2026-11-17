@@ -49,7 +49,7 @@ import { getCurrencyPreferences } from '@/lib/currency-server'
 import { getGlossary } from '@/lib/glossary'
 import { getLanguage } from '@/lib/i18n-server'
 import { positionHref } from '@/lib/position-url'
-import { signClass, signTone } from '@/lib/tone'
+import { TRANSACTION_TYPE_TONE, categoryTone, signClass, signTone } from '@/lib/tone'
 import { getPageCopy } from '@/lib/ui-copy'
 import { routeMetadata, routeSection } from '@/lib/page-names'
 import { CardRow, KpiBand, MiniStat, MiniStatGrid } from '@/components/layout'
@@ -723,7 +723,7 @@ export default async function OverviewPage({
               <li key={`${t.market}:${t.type}`} className="flex items-center justify-between gap-3 py-2">
                 <div className="flex min-w-0 items-center gap-2">
                   <Badge tone={marketTone(t.market)}>{t.market}</Badge>
-                  <Badge tone={t.type === 'DIVIDEND' ? 'success' : t.type === 'SELL' ? 'warning' : 'info'}>
+                  <Badge tone={categoryTone(TRANSACTION_TYPE_TONE, t.type, 'info')}>
                     {t.type}
                   </Badge>
                 </div>

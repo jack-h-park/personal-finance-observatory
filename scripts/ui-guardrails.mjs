@@ -419,24 +419,57 @@ export function findHandWrittenGrid(source, file = '<source>') {
 }
 
 /**
- * G5. A gain/loss colour picked by an inline ternary
- * (`x > 0 ? 'text-success' : 'text-danger'`) instead of `signTone` from
- * lib/tone.ts or `Signed` from components/ui.tsx. Each copy decides zero,
- * null and the threshold its own way, so the same number can read green on one
- * page and grey on another. It type-checks either way.
+ * G5. A colour picked by a ternary between two tones
+ * (`x > 0 ? 'text-success' : 'text-danger'`, `ok ? 'success' : 'warning'`)
+ * instead of `signTone` or a severity table or named map in lib/tone.ts. A
+ * ternary decides zero, null and the threshold its own way, so the same number
+ * can read green on one page and grey on another; and either branch can be
+ * flipped without anything objecting. R2 shipped exactly that: a status whose
+ * two tones were the wrong way round, which type-checked and looked
+ * deliberate. So any two tone names (or any two `text-<tone>` classes) count,
+ * in either order and over line breaks, and a chained ternary counts once per
+ * link whose two branches are both tones. A bare tone passed to a function or
+ * written as a map value is not a ternary and is not a hit. Reported at the
+ * line of the first branch.
  */
-const INLINE_SIGN_TONE = [
-  /['"]text-(?:success|danger)['"]\s*:\s*['"]text-(?:danger|success)['"]/g,
-  /['"](?:success|danger)['"]\s*:\s*['"](?:danger|warning|success)['"]/g,
-]
+const TONE_NAME = '(?:neutral|info|success|warning|danger)'
+
+/** `? 'tone' :` or `? 'text-tone' :`, the `?` being a ternary (not `?.` or `??`). */
+const TONE_THEN = new RegExp(`(?<!\\?)\\?(?![.?])\\s*(['"])(text-)?${TONE_NAME}\\1\\s*:\\s*`, 'g')
+
+/**
+ * The else branch: a tone literal, or `cond ? 'tone'` opening the next link of
+ * a chain. The condition stays on one line (the next `?` may start the line
+ * after it, as prettier writes a chain), so a statement that merely ends in a
+ * ternary is not joined to the next one.
+ */
+function toneElse(prefix) {
+  const literal = `(['"])${prefix}${TONE_NAME}\\1`
+  return [
+    new RegExp(literal, 'y'),
+    new RegExp(`(?:[^?:;,{}\\n]|\\?\\.|\\?\\?)+?\\s*(?<!\\?)\\?(?![.?])\\s*${literal}`, 'y'),
+  ]
+}
+
+const TONE_ELSE = { bare: toneElse(''), text: toneElse('text-') }
 
 export function findInlineSignTone(source, file = '<source>') {
+  const code = stripComments(source)
   const hits = []
-  eachLine(source, (text, line) => {
-    for (const re of INLINE_SIGN_TONE) {
-      for (const match of text.matchAll(re)) hits.push(hit(file, line, match[0]))
-    }
-  })
+  for (const match of code.matchAll(TONE_THEN)) {
+    const after = match.index + match[0].length
+    const elseMatch = TONE_ELSE[match[2] ? 'text' : 'bare']
+      .map((re) => {
+        re.lastIndex = after
+        return re.exec(code)
+      })
+      .find(Boolean)
+    if (!elseMatch) continue
+    const branch = match.index + match[0].indexOf(match[1])
+    const line = code.slice(0, branch).split('\n').length
+    const snippet = code.slice(match.index, after + elseMatch[0].length).replace(/\s+/g, ' ')
+    hits.push(hit(file, line, snippet))
+  }
   return hits
 }
 
@@ -702,7 +735,7 @@ export const CHECKS = [
   {
     code: 'G5',
     id: 'inline-sign-tone',
-    title: 'gain/loss colour chosen inline instead of with signTone or Signed',
+    title: 'tone chosen by a ternary instead of from lib/tone',
     find: findInlineSignTone,
   },
   {

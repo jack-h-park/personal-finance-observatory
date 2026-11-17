@@ -173,6 +173,134 @@ export const COVERAGE_SEVERITY: Record<string, Severity> = {
 }
 
 /**
+ * How many of something there is, as a named state: `some` above zero, `none`
+ * otherwise (zero, a negative, null or NaN). A count, or an amount such as tax
+ * due, reads its colour through one of the `Record<CountState, Severity>`
+ * tables below with `countTone`, so no page writes `count ? 'warning' :
+ * 'success'` and no two pages can disagree on which way round it goes.
+ */
+export type CountState = 'none' | 'some'
+
+export function countState(count: number | null | undefined): CountState {
+  return Number(count ?? 0) > 0 ? 'some' : 'none'
+}
+
+export function countTone(table: Record<CountState, Severity>, count: number | null | undefined): Tone {
+  return severityTone(table[countState(count)])
+}
+
+/** Items waiting for a look (suggestions, drift, stale inputs): none is fine, any needs attention. */
+export const TO_REVIEW_SEVERITY: Record<CountState, Severity> = { none: 'ok', some: 'attention' }
+
+/** Items that are wrong (missing files, missing cost, accounts needing action): any is a problem. */
+export const FAULT_SEVERITY: Record<CountState, Severity> = { none: 'ok', some: 'problem' }
+
+/** Values standing on an estimate: none is unremarkable, not good news; any needs attention. */
+export const CAVEAT_SEVERITY: Record<CountState, Severity> = { none: 'quiet', some: 'attention' }
+
+/** Tax a plan or scenario would owe: none is the outcome worth having. */
+export const TAX_DUE_SEVERITY: Record<CountState, Severity> = { none: 'ok', some: 'attention' }
+
+/**
+ * A yes/no check, keyed by what it found rather than by the boolean, so the
+ * call site names the state (`ok ? 'clear' : 'needs_review'`) and a flipped
+ * branch reads wrong in words, not only in colour.
+ */
+export const REVIEW_SEVERITY: Record<'clear' | 'needs_review', Severity> = {
+  clear: 'ok',
+  needs_review: 'attention',
+}
+
+/** A figure that moved since a saved plan: a change wants attention, no change is quiet. */
+export const CHANGE_SEVERITY: Record<'changed' | 'unchanged', Severity> = {
+  changed: 'attention',
+  unchanged: 'quiet',
+}
+
+/** An open wash-sale window: ending soon (three days or fewer) or still blocking a buy. */
+export const WASH_SALE_SEVERITY: Record<'ending' | 'blocked', Severity> = {
+  ending: 'attention',
+  blocked: 'problem',
+}
+
+/** An inventory account's identity: expected and included is informational, anything else needs a look. */
+export const INVENTORY_IDENTITY_SEVERITY: Record<'expected' | 'unexpected', Severity> = {
+  expected: 'info',
+  unexpected: 'attention',
+}
+
+/**
+ * A validation check's result: a pass, or a failure read by its severity.
+ * Look a check up through `checkResultKey`; a bare severity (a listed issue,
+ * which has already failed) can be looked up as it is.
+ */
+export const CHECK_RESULT_SEVERITY: Record<string, Severity> = {
+  pass: 'ok',
+  warning: 'attention',
+  error: 'problem',
+}
+
+/** The `CHECK_RESULT_SEVERITY` key for a check. */
+export function checkResultKey(check: { status: string; severity: string }): string {
+  return check.status === 'pass' ? 'pass' : check.severity
+}
+
+/**
+ * An income row's ticker mapping. Look a status up through
+ * `mappingStatusKey`, which folds every status naming `tickerless` into one.
+ */
+export const MAPPING_STATUS_SEVERITY: Record<string, Severity> = {
+  tickerless: 'attention',
+  mapped: 'ok',
+}
+
+/** The `MAPPING_STATUS_SEVERITY` key for a mapping status. */
+export function mappingStatusKey(status: string): string {
+  return status.includes('tickerless') ? 'tickerless' : 'mapped'
+}
+
+/** Whether a position's evidence file is linked to a lot. */
+export const EVIDENCE_LINK_SEVERITY: Record<string, Severity> = {
+  linked: 'ok',
+  unlinked: 'attention',
+}
+
+/** Where an asset class sits against its rebalance band. */
+export const DRIFT_BAND_SEVERITY: Record<string, Severity> = {
+  within: 'ok',
+  below: 'attention',
+  above: 'attention',
+}
+
+/** A proposal instruction's recorded fill. Skipped is a decision, not a fault. */
+export const FILL_STATUS_SEVERITY: Record<string, Severity> = {
+  executed: 'ok',
+  skipped: 'quiet',
+}
+
+/** A tax year's profile: confirmed, or still an assumption to check. */
+export const TAX_PROFILE_STATUS_SEVERITY: Record<string, Severity> = {
+  confirmed: 'ok',
+  assumed: 'attention',
+}
+
+/** The tax-planning decision card: no target set yet, a tie between scenarios, or a recommendation. */
+export const TAX_DECISION_SEVERITY: Record<string, Severity> = {
+  explore: 'attention',
+  tie: 'quiet',
+  recommendation: 'ok',
+}
+
+/** A saved tax plan. An active plan is the one with sales still to make. Draft and archived are quiet. */
+export const TAX_PLAN_STATUS_SEVERITY: Record<string, Severity> = {
+  active: 'attention',
+  completed: 'ok',
+  reviewed: 'info',
+  draft: 'quiet',
+  archived: 'quiet',
+}
+
+/**
  * Category colours.
  *
  * These are not severities: a sell is not worse than a dividend. They are named
@@ -250,6 +378,57 @@ export const RECONCILIATION_STATUS_TONE: Record<string, Tone> = {
 /** The `RECONCILIATION_STATUS_TONE` key for a break status. */
 export function reconciliationStatusKey(status: string): string {
   return status.includes('only') ? 'one_sided' : status
+}
+
+/** A tax-evidence report on /health. Fallback `success` (the 1099s). */
+export const TAX_REPORT_TONE: Record<string, Tone> = {
+  us_gain_loss_pdf: 'info',
+}
+
+/** A rebalance row's suggested action. Fallback `warning` (Add or Reduce: something to do). */
+export const REBALANCE_ACTION_TONE: Record<string, Tone> = {
+  Hold: 'success',
+}
+
+/** A proposal instruction's kind. `transfer` falls through to the default `neutral`. */
+export const INSTRUCTION_KIND_TONE: Record<string, Tone> = {
+  sell: 'warning',
+  buy: 'info',
+}
+
+/** The tax tier a sell was picked from. The other tiers fall through to the default `neutral`. */
+export const SELL_TIER_TONE: Record<string, Tone> = {
+  loss: 'success',
+  short_term: 'warning',
+}
+
+/** A sale year's filing profile. Fallback `info` (one jurisdiction). */
+export const FILING_PROFILE_TONE: Record<string, Tone> = {
+  US_AND_KR: 'warning',
+}
+
+/** A planned sale's role in the plan. Fallback `neutral`. */
+export const PLAN_ROLE_TONE: Record<string, Tone> = {
+  loss: 'danger',
+  gain: 'info',
+  mixed: 'warning',
+  neutral: 'neutral',
+}
+
+/**
+ * The tax-opportunity panel shows a scenario's input and result when a target
+ * is set, and the loss-harvest inventory when it is not. These two maps are
+ * keyed by that mode; the result splits a target scenario by whether it owes tax.
+ */
+export const PLANNING_INPUT_TONE: Record<string, Tone> = {
+  target: 'neutral',
+  harvest: 'success',
+}
+
+export const PLANNING_RESULT_TONE: Record<string, Tone> = {
+  harvest: 'info',
+  tax_due: 'warning',
+  no_tax: 'success',
 }
 
 /**

@@ -52,18 +52,5 @@
     "app/tax-settings/page.tsx": 5,
     "app/taxes/records/[id]/page.tsx": 1,
     "components/WashSaleBanner.tsx": 1
-  },
-  "inline-sign-tone": {
-    "app/cost-basis/page.tsx": 1,
-    "app/data-map/page.tsx": 1,
-    "app/data-ops/page.tsx": 2,
-    "app/health/page.tsx": 2,
-    "app/positions/[market]/[ticker]/page.tsx": 2,
-    "app/rebalance/page.tsx": 1,
-    "app/rebalance/proposals/[id]/page.tsx": 2,
-    "app/rebalance/settings/page.tsx": 1,
-    "app/reconciliation/page.tsx": 1,
-    "app/tax-planning/page.tsx": 1,
-    "components/metric.tsx": 1
   }
 }

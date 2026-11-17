@@ -35,6 +35,7 @@ import { DataTable } from '@/components/DataTable'
 import { getPageCopy, getUiCopy } from '@/lib/ui-copy'
 import { routeMetadata, routeSection } from '@/lib/page-names'
 import { CardRow, Split } from '@/components/layout'
+import { TAX_DUE_SEVERITY, TAX_PROFILE_STATUS_SEVERITY, countTone, statusTone } from '@/lib/tone'
 
 export const dynamic = 'force-dynamic'
 export const generateMetadata = routeMetadata('/tax-planning')
@@ -322,7 +323,7 @@ export default async function TaxPlanningPage({
                     <Badge>{copy.page.off}</Badge>
                   ),
               },
-              { key: 'status', label: copy.page.status, render: (p: TaxYearProfile) => <Badge tone={p.status === 'confirmed' ? 'success' : 'warning'}>{p.status}</Badge> },
+              { key: 'status', label: copy.page.status, render: (p: TaxYearProfile) => <Badge tone={statusTone(TAX_PROFILE_STATUS_SEVERITY, p.status)}>{p.status}</Badge> },
             ]}
           />
         </Card>
@@ -466,7 +467,7 @@ export default async function TaxPlanningPage({
 
 function ScenarioTimeline({ scenario, copy }: { scenario: MultiYearTaxScenario; copy: ReturnType<typeof getPageCopy<'taxPlanning'>> }) {
   return (
-    <Card title={scenario.label} action={<Badge tone={scenario.summary.taxKrw > 0 ? 'warning' : 'success'}>{fmtKrw(scenario.summary.taxKrw)}</Badge>}>
+    <Card title={scenario.label} action={<Badge tone={countTone(TAX_DUE_SEVERITY, scenario.summary.taxKrw)}>{fmtKrw(scenario.summary.taxKrw)}</Badge>}>
       <div className="space-y-3">
         {scenario.years.map((year) => (
           <Panel key={year.year} pad="md">

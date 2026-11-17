@@ -12,7 +12,7 @@ import { getLanguage } from '@/lib/i18n-server'
 import { getPageCopy, getUiCopy } from '@/lib/ui-copy'
 import { applyFilters, applySearch, filterOptions, readFilters, withParam, type FilterGroup } from '@/lib/table-filter'
 import { formatSort, parseSort, sortRows, type TableSort } from '@/lib/table-sort'
-import { COST_BASIS_STATUS_TONE } from '@/lib/tone'
+import { CAVEAT_SEVERITY, COST_BASIS_STATUS_TONE, FAULT_SEVERITY, countTone } from '@/lib/tone'
 import { routeMetadata, routeSection } from '@/lib/page-names'
 import { maskAccountLabel } from '@/lib/account-label'
 
@@ -122,8 +122,8 @@ export default async function CostBasisPage({
               value={singleCurrency ? money(totals.value, singleCurrency) : money(totals.baseValue, 'KRW')}
             />
             <Total label={copy.totalCost} value={singleCurrency ? money(totals.cost, singleCurrency) : copy.mixedCurrencies} />
-            <Total label={copy.missingCost} value={fmtNumber(totals.missing)} tone={totals.missing > 0 ? 'danger' : 'success'} />
-            <Total label={copy.estimated} value={fmtNumber(totals.estimated)} tone={totals.estimated > 0 ? 'warning' : 'neutral'} />
+            <Total label={copy.missingCost} value={fmtNumber(totals.missing)} tone={countTone(FAULT_SEVERITY, totals.missing)} />
+            <Total label={copy.estimated} value={fmtNumber(totals.estimated)} tone={countTone(CAVEAT_SEVERITY, totals.estimated)} />
           </TotalsStrip>
           <DataTable
             rows={filtered}

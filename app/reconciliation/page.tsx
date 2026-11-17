@@ -11,7 +11,7 @@ import { getLanguage } from '@/lib/i18n-server'
 import { positionHref } from '@/lib/position-url'
 import { getPageCopy, getUiCopy } from '@/lib/ui-copy'
 import { formatSort, parseSort, sortRows, type TableSort } from '@/lib/table-sort'
-import { RECONCILIATION_STATUS_TONE, categoryTone, priorityTone, reconciliationStatusKey } from '@/lib/tone'
+import { FAULT_SEVERITY, RECONCILIATION_STATUS_TONE, TO_REVIEW_SEVERITY, categoryTone, countTone, priorityTone, reconciliationStatusKey } from '@/lib/tone'
 import { routeMetadata, routeSection } from '@/lib/page-names'
 import { CardRow, KpiBand } from '@/components/layout'
 
@@ -69,14 +69,14 @@ export default async function ReconciliationPage({
               value={fmtNumber(review.totals.tickerless_income_count)}
               info={glossary.tickerless.description}
               hint={copy.tickerlessHint}
-              tone={review.totals.tickerless_income_count ? 'warning' : 'success'}
+              tone={countTone(TO_REVIEW_SEVERITY, review.totals.tickerless_income_count)}
             />
             <MetricField
               label={copy.sourceIssues}
               value={fmtNumber(sourceIssueCount)}
               info={glossary.inputIssues.description}
               hint={copy.sourceIssuesHint}
-              tone={sourceIssueCount ? 'danger' : 'success'}
+              tone={countTone(FAULT_SEVERITY, sourceIssueCount)}
             />
           </KpiBand>
         </MetricHeroCard>

@@ -10,6 +10,7 @@ import { scenarioFromTaxYearProfile, type FilingScenario, type TaxPolicy, type T
 import { DataTable } from '@/components/DataTable'
 import { Split } from '@/components/layout'
 import type { getPageCopy } from '@/lib/ui-copy'
+import { PLANNING_INPUT_TONE, PLANNING_RESULT_TONE, TAX_DECISION_SEVERITY, TO_REVIEW_SEVERITY, categoryTone, countTone, statusTone } from '@/lib/tone'
 
 type TaxPlanningCopy = ReturnType<typeof getPageCopy<'taxPlanning'>>
 import { marketAmount, sameKrw } from './view-utils'
@@ -273,7 +274,7 @@ export function DecisionSummary({
       <Split side="26rem" at="xl" gap={4}>
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <Badge tone={!hasPlanningTarget ? 'warning' : tiedTax ? 'neutral' : 'success'}>
+            <Badge tone={statusTone(TAX_DECISION_SEVERITY, !hasPlanningTarget ? 'explore' : tiedTax ? 'tie' : 'recommendation')}>
               {!hasPlanningTarget ? copy.opportunity.explore : tiedTax ? copy.opportunity.tie : copy.opportunity.recommendation}
             </Badge>
             <SectionHeading size="page" tight tracking>
@@ -308,19 +309,19 @@ export function DecisionSummary({
               value={fmtNumber(inputIssueCount)}
               info={copy.opportunity.inputIssuesInfo}
               hint={copy.opportunity.inputIssuesHint}
-              tone={inputIssueCount ? 'warning' : 'success'}
+              tone={countTone(TO_REVIEW_SEVERITY, inputIssueCount)}
             />
             <MetricField
               label={hasPlanningTarget ? copy.opportunity.annualTest : copy.opportunity.lossLotProceeds}
               value={hasPlanningTarget ? fmtKrw(bestScenario?.years[0]?.targetCashKrw ?? 0) : fmtKrw(opportunities.lossLotProceedsKrw)}
               hint={!hasPlanningTarget && opportunities.bestLoss ? `${opportunities.bestLoss.year} ${opportunities.bestLoss.market}` : copy.opportunity.scenarioInputAmount}
-              tone={hasPlanningTarget ? 'neutral' : 'success'}
+              tone={categoryTone(PLANNING_INPUT_TONE, hasPlanningTarget ? 'target' : 'harvest')}
             />
             <MetricField
               label={hasPlanningTarget ? copy.opportunity.estimatedTax : copy.opportunity.lossHarvest}
               value={hasPlanningTarget ? fmtKrw(bestScenario?.summary.taxKrw ?? 0) : fmtKrw(opportunities.lossHarvestKrw)}
               hint={hasPlanningTarget ? fmtPct(bestScenario?.summary.effectiveTaxRatePct) : opportunities.bestLoss ? `${opportunities.bestLoss.year} ${opportunities.bestLoss.market}` : copy.opportunity.modeledLossInventory}
-              tone={!hasPlanningTarget ? 'info' : (bestScenario?.summary.taxKrw ?? 0) > 0 ? 'warning' : 'success'}
+              tone={categoryTone(PLANNING_RESULT_TONE, !hasPlanningTarget ? 'harvest' : (bestScenario?.summary.taxKrw ?? 0) > 0 ? 'tax_due' : 'no_tax')}
             />
           </div>
         </Panel>

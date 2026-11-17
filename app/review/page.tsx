@@ -9,7 +9,7 @@ import { getCurrencyPreferences } from '@/lib/currency-server'
 import { getGlossary } from '@/lib/glossary'
 import { getLanguage } from '@/lib/i18n-server'
 import { getPageCopy } from '@/lib/ui-copy'
-import { signTone } from '@/lib/tone'
+import { TO_REVIEW_SEVERITY, countTone, signTone } from '@/lib/tone'
 import { routeMetadata, routeSection } from '@/lib/page-names'
 import { CardRow } from '@/components/layout'
 import { ProgressBar } from '@/components/bars'
@@ -106,7 +106,7 @@ export default async function ReviewPage() {
           value={fmtNumber(issueCount)}
           info={glossary.freshness.description}
           hint={copy.inputsNeedingReview}
-          tone={issueCount > 0 ? 'warning' : 'success'}
+          tone={countTone(TO_REVIEW_SEVERITY, issueCount)}
         />
       </div>
 

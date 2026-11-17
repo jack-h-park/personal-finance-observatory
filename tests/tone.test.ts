@@ -3,24 +3,53 @@ import { test } from 'node:test'
 
 import {
   BRIEFING_SEVERITY,
+  CAVEAT_SEVERITY,
+  CHANGE_SEVERITY,
+  CHECK_RESULT_SEVERITY,
   COVERAGE_SEVERITY,
+  DRIFT_BAND_SEVERITY,
+  EVIDENCE_LINK_SEVERITY,
+  FAULT_SEVERITY,
+  FILING_PROFILE_TONE,
+  FILL_STATUS_SEVERITY,
   FRESHNESS_SEVERITY,
+  INSTRUCTION_KIND_TONE,
+  INVENTORY_IDENTITY_SEVERITY,
   INVENTORY_STATUS_TONE,
+  MAPPING_STATUS_SEVERITY,
+  PLAN_ROLE_TONE,
+  PLANNING_INPUT_TONE,
+  PLANNING_RESULT_TONE,
   POSITION_EVENT_TONE,
   PRIORITY_SEVERITY,
+  REBALANCE_ACTION_TONE,
   RECONCILIATION_STATUS_TONE,
   RETENTION_TONE,
+  REVIEW_SEVERITY,
   RUN_SEVERITY,
+  SELL_TIER_TONE,
   SEVERITIES,
+  TAX_DECISION_SEVERITY,
+  TAX_DUE_SEVERITY,
+  TAX_PLAN_STATUS_SEVERITY,
+  TAX_PROFILE_STATUS_SEVERITY,
+  TAX_REPORT_TONE,
+  TO_REVIEW_SEVERITY,
   TRADE_SIDE_TONE,
   TRANSACTION_TYPE_TONE,
+  WASH_SALE_SEVERITY,
   WRAPPER_TREATMENT_TONE,
   bucketTone,
   categoryTone,
+  checkResultKey,
+  countState,
+  countTone,
+  mappingStatusKey,
   priorityTone,
   reconciliationStatusKey,
   severityOf,
   severityTone,
+  signClass,
   statusTone,
 } from '@/lib/tone'
 
@@ -157,4 +186,116 @@ test('RECONCILIATION_STATUS_TONE matches the replaced reconciliation statusTone'
   assert.equal(tone('some_new_only'), 'warning')
   assert.equal(tone('quantity_break'), 'danger')
   assert.equal(tone('cost_break'), 'info')
+})
+
+// Each case below is a page-local ternary this replaced, with the colour it
+// drew in each branch. The colours must not move.
+test('countState reads none for zero, a negative, null or NaN, and some above zero', () => {
+  assert.equal(countState(0), 'none')
+  assert.equal(countState(-3), 'none')
+  assert.equal(countState(null), 'none')
+  assert.equal(countState(undefined), 'none')
+  assert.equal(countState(Number.NaN), 'none')
+  assert.equal(countState(1), 'some')
+  assert.equal(countState(0.5), 'some')
+})
+
+test('the count tables keep the colours of the ternaries they replace', () => {
+  // `count ? 'warning' : 'success'`
+  assert.equal(countTone(TO_REVIEW_SEVERITY, 0), 'success')
+  assert.equal(countTone(TO_REVIEW_SEVERITY, 2), 'warning')
+  // `count ? 'danger' : 'success'`
+  assert.equal(countTone(FAULT_SEVERITY, 0), 'success')
+  assert.equal(countTone(FAULT_SEVERITY, 2), 'danger')
+  // `count > 0 ? 'warning' : 'neutral'`
+  assert.equal(countTone(CAVEAT_SEVERITY, 0), 'neutral')
+  assert.equal(countTone(CAVEAT_SEVERITY, 2), 'warning')
+  // `taxKrw > 0 ? 'warning' : 'success'`
+  assert.equal(countTone(TAX_DUE_SEVERITY, 0), 'success')
+  assert.equal(countTone(TAX_DUE_SEVERITY, -10), 'success')
+  assert.equal(countTone(TAX_DUE_SEVERITY, 10), 'warning')
+})
+
+test('the two-state tables keep the colours of the boolean ternaries they replace', () => {
+  assert.equal(statusTone(REVIEW_SEVERITY, 'clear'), 'success')
+  assert.equal(statusTone(REVIEW_SEVERITY, 'needs_review'), 'warning')
+  assert.equal(statusTone(CHANGE_SEVERITY, 'changed'), 'warning')
+  assert.equal(statusTone(CHANGE_SEVERITY, 'unchanged'), 'neutral')
+  assert.equal(statusTone(WASH_SALE_SEVERITY, 'ending'), 'warning')
+  assert.equal(statusTone(WASH_SALE_SEVERITY, 'blocked'), 'danger')
+  assert.equal(statusTone(INVENTORY_IDENTITY_SEVERITY, 'expected'), 'info')
+  assert.equal(statusTone(INVENTORY_IDENTITY_SEVERITY, 'unexpected'), 'warning')
+})
+
+test('CHECK_RESULT_SEVERITY: a pass, then the failed check by its severity', () => {
+  const tone = (status: 'pass' | 'fail', severity: 'error' | 'warning') =>
+    statusTone(CHECK_RESULT_SEVERITY, checkResultKey({ status, severity }))
+  assert.equal(tone('pass', 'error'), 'success')
+  assert.equal(tone('pass', 'warning'), 'success')
+  assert.equal(tone('fail', 'warning'), 'warning')
+  assert.equal(tone('fail', 'error'), 'danger')
+  // data-ops reads a validation issue by its severity alone.
+  assert.equal(statusTone(CHECK_RESULT_SEVERITY, 'error'), 'danger')
+  assert.equal(statusTone(CHECK_RESULT_SEVERITY, 'warning'), 'warning')
+})
+
+test('MAPPING_STATUS_SEVERITY: anything tickerless is to review, the rest mapped', () => {
+  const tone = (status: string) => statusTone(MAPPING_STATUS_SEVERITY, mappingStatusKey(status))
+  assert.equal(tone('tickerless'), 'warning')
+  assert.equal(tone('tickerless_income'), 'warning')
+  assert.equal(tone('mapped'), 'success')
+  assert.equal(tone('unknown'), 'success')
+})
+
+test('the status tables keep the colours of the ternaries they replace', () => {
+  assert.equal(statusTone(EVIDENCE_LINK_SEVERITY, 'linked'), 'success')
+  assert.equal(statusTone(EVIDENCE_LINK_SEVERITY, 'unlinked'), 'warning')
+  assert.equal(statusTone(DRIFT_BAND_SEVERITY, 'within'), 'success')
+  assert.equal(statusTone(DRIFT_BAND_SEVERITY, 'below'), 'warning')
+  assert.equal(statusTone(DRIFT_BAND_SEVERITY, 'above'), 'warning')
+  assert.equal(statusTone(FILL_STATUS_SEVERITY, 'executed'), 'success')
+  assert.equal(statusTone(FILL_STATUS_SEVERITY, 'skipped'), 'neutral')
+  assert.equal(statusTone(TAX_PROFILE_STATUS_SEVERITY, 'confirmed'), 'success')
+  assert.equal(statusTone(TAX_PROFILE_STATUS_SEVERITY, 'assumed'), 'warning')
+  assert.equal(statusTone(TAX_DECISION_SEVERITY, 'explore'), 'warning')
+  assert.equal(statusTone(TAX_DECISION_SEVERITY, 'tie'), 'neutral')
+  assert.equal(statusTone(TAX_DECISION_SEVERITY, 'recommendation'), 'success')
+  // Was active warning, completed success, reviewed info, anything else neutral.
+  assert.equal(statusTone(TAX_PLAN_STATUS_SEVERITY, 'active'), 'warning')
+  assert.equal(statusTone(TAX_PLAN_STATUS_SEVERITY, 'completed'), 'success')
+  assert.equal(statusTone(TAX_PLAN_STATUS_SEVERITY, 'reviewed'), 'info')
+  assert.equal(statusTone(TAX_PLAN_STATUS_SEVERITY, 'draft'), 'neutral')
+  assert.equal(statusTone(TAX_PLAN_STATUS_SEVERITY, 'archived'), 'neutral')
+})
+
+test('the category maps keep the colours of the ternaries they replace', () => {
+  assert.equal(categoryTone(TAX_REPORT_TONE, 'us_gain_loss_pdf', 'success'), 'info')
+  assert.equal(categoryTone(TAX_REPORT_TONE, 'other_report', 'success'), 'success')
+  assert.equal(categoryTone(REBALANCE_ACTION_TONE, 'Hold', 'warning'), 'success')
+  assert.equal(categoryTone(REBALANCE_ACTION_TONE, 'Add', 'warning'), 'warning')
+  assert.equal(categoryTone(REBALANCE_ACTION_TONE, 'Reduce', 'warning'), 'warning')
+  assert.equal(categoryTone(INSTRUCTION_KIND_TONE, 'sell'), 'warning')
+  assert.equal(categoryTone(INSTRUCTION_KIND_TONE, 'buy'), 'info')
+  assert.equal(categoryTone(INSTRUCTION_KIND_TONE, 'transfer'), 'neutral')
+  assert.equal(categoryTone(SELL_TIER_TONE, 'loss'), 'success')
+  assert.equal(categoryTone(SELL_TIER_TONE, 'short_term'), 'warning')
+  assert.equal(categoryTone(SELL_TIER_TONE, 'us_long'), 'neutral')
+  assert.equal(categoryTone(SELL_TIER_TONE, 'kr_deduction'), 'neutral')
+  assert.equal(categoryTone(FILING_PROFILE_TONE, 'US_AND_KR', 'info'), 'warning')
+  assert.equal(categoryTone(FILING_PROFILE_TONE, 'US_ONLY', 'info'), 'info')
+  assert.equal(categoryTone(FILING_PROFILE_TONE, 'KR_ONLY', 'info'), 'info')
+  assert.equal(categoryTone(PLAN_ROLE_TONE, 'loss'), 'danger')
+  assert.equal(categoryTone(PLAN_ROLE_TONE, 'gain'), 'info')
+  assert.equal(categoryTone(PLAN_ROLE_TONE, 'mixed'), 'warning')
+  assert.equal(categoryTone(PLAN_ROLE_TONE, 'neutral'), 'neutral')
+  assert.equal(categoryTone(PLANNING_INPUT_TONE, 'target'), 'neutral')
+  assert.equal(categoryTone(PLANNING_INPUT_TONE, 'harvest'), 'success')
+  assert.equal(categoryTone(PLANNING_RESULT_TONE, 'harvest'), 'info')
+  assert.equal(categoryTone(PLANNING_RESULT_TONE, 'tax_due'), 'warning')
+  assert.equal(categoryTone(PLANNING_RESULT_TONE, 'no_tax'), 'success')
+})
+
+test('signClass gives the class Signed drew for each sign', () => {
+  assert.equal(signClass(-1), 'text-danger')
+  assert.equal(signClass(1), 'text-success')
 })

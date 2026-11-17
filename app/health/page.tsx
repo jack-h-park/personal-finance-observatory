@@ -9,7 +9,7 @@ import { getPageCopy, getUiCopy } from '@/lib/ui-copy'
 type HealthCopy = ReturnType<typeof getPageCopy<'health'>>
 import { routeMetadata, routeSection } from '@/lib/page-names'
 import { CardRow, MiniStat, MiniStatGrid } from '@/components/layout'
-import { RUN_SEVERITY, statusTone } from '@/lib/tone'
+import { CHECK_RESULT_SEVERITY, RUN_SEVERITY, TAX_REPORT_TONE, categoryTone, checkResultKey, statusTone } from '@/lib/tone'
 
 export const dynamic = 'force-dynamic'
 export const generateMetadata = routeMetadata('/health')
@@ -68,7 +68,7 @@ function reconciliationRows(review: ReconciliationReview, copy: HealthCopy): Rec
       const key = `${c.market}:${c.brokerage}`
       if (c.lot_positions === 0) return { key, market: c.market, brokerage: c.brokerage, tone: 'warning', label: copy.noLotDetail }
       if (breaks.length === 0) return { key, market: c.market, brokerage: c.brokerage, tone: 'success', label: copy.matched }
-      const tone: Tone = breaks.some((b) => b.status === 'quantity_break') ? 'danger' : 'warning'
+      const tone: Tone = statusTone(CHECK_RESULT_SEVERITY, breaks.some((b) => b.status === 'quantity_break') ? 'error' : 'warning')
       return { key, market: c.market, brokerage: c.brokerage, tone, label: copy.breaks(breaks.length, capped) }
     })
 }
@@ -100,7 +100,7 @@ export default async function HealthPage() {
         title={copy.title}
         emphasis={copy.emphasis}
         subtitle={copy.subtitle(fmtDateTime(meta.ingested_at, language))}
-        action={issueCount ? <Badge tone={errors.length || operational.summary.missing ? 'danger' : 'warning'}>{copy.needsReview(fmtNumber(issueCount))}</Badge> : <Badge tone="success">{copy.allChecksPassed}</Badge>}
+        action={issueCount ? <Badge tone={statusTone(CHECK_RESULT_SEVERITY, errors.length || operational.summary.missing ? 'error' : 'warning')}>{copy.needsReview(fmtNumber(issueCount))}</Badge> : <Badge tone="success">{copy.allChecksPassed}</Badge>}
       />
 
       <CardRow columns={3}>
@@ -251,7 +251,7 @@ export default async function HealthPage() {
           <ul className="divide-y divide-line-subtle">
             {checks.map((check) => (
               <li key={check.id} className="flex flex-col gap-1 py-2.5 sm:flex-row sm:items-center sm:gap-3">
-                <Badge tone={check.status === 'pass' ? 'success' : check.severity === 'warning' ? 'warning' : 'danger'}>
+                <Badge tone={statusTone(CHECK_RESULT_SEVERITY, checkResultKey(check))}>
                   {displayRunStatus(check.status, runStatusLabels)}
                 </Badge>
                 <span className="min-w-0 flex-1 text-body font-medium text-ink">
@@ -276,7 +276,7 @@ export default async function HealthPage() {
               const metrics = parseMetrics(report.metrics_json)
               return (
                 <li key={report.id} className="flex flex-col gap-1 py-2.5 lg:flex-row lg:items-center lg:gap-3">
-                  <Badge tone={report.category === 'us_gain_loss_pdf' ? 'info' : 'success'}>
+                  <Badge tone={categoryTone(TAX_REPORT_TONE, report.category, 'success')}>
                     {report.category === 'us_gain_loss_pdf' ? copy.gainLoss : '1099'}
                   </Badge>
                   <span className="min-w-0 flex-1 truncate text-body font-medium text-ink">{report.filename}</span>

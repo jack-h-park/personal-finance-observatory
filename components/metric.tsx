@@ -2,7 +2,7 @@ import { clsx } from 'clsx'
 import React, { createElement, type ReactNode } from 'react'
 import { HelpPopover } from '@/components/HelpPopover'
 import { EMPTY_VALUE, fmtSigned } from '@/lib/format'
-import type { Tone } from '@/lib/tone'
+import { signClass, type Tone } from '@/lib/tone'
 
 const NOTE_SIZE = { label: 'text-label', caption: 'text-caption', body: 'text-body', micro: 'text-micro', inherit: '' } as const
 
@@ -225,11 +225,11 @@ export function Signed({
 }) {
   if (value == null || Number.isNaN(Number(value))) return <span className={clsx('text-ink-3', className)}>{nullText}</span>
   const text = fmtSigned(Number(value), format)
-  // fmtSigned prints "-" only for a loss that survives rounding, so a value that
-  // rounds away to zero keeps the gain tone.
-  const negative = text.startsWith('-')
+  // fmtSigned prints "-" only for a loss that survives rounding, so the sign is
+  // read from the text: a value that rounds away to zero keeps the gain tone.
+  const sign = text.startsWith('-') ? -1 : 1
   return (
-    <span className={clsx(negative ? 'text-danger' : 'text-success', 'tabular-nums', className)}>
+    <span className={clsx(signClass(sign), 'tabular-nums', className)}>
       {text}
     </span>
   )

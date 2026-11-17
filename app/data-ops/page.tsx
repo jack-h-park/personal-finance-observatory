@@ -20,7 +20,7 @@ import { getGlossary } from '@/lib/glossary'
 import { getLanguage } from '@/lib/i18n-server'
 import type { Language } from '@/lib/i18n'
 import { getPageCopy, getUiCopy } from '@/lib/ui-copy'
-import { COVERAGE_SEVERITY, priorityTone, statusTone } from '@/lib/tone'
+import { CHECK_RESULT_SEVERITY, COVERAGE_SEVERITY, FAULT_SEVERITY, MAPPING_STATUS_SEVERITY, TO_REVIEW_SEVERITY, countTone, mappingStatusKey, priorityTone, statusTone } from '@/lib/tone'
 import { routeMetadata, routeSection } from '@/lib/page-names'
 import { CardRow, KpiBand } from '@/components/layout'
 import { PositionCell } from '@/components/PositionCell'
@@ -70,8 +70,8 @@ export default async function DataOpsPage() {
 
       <Card title={coverageCopy.title} info={coverageCopy.info} accent={coverage.actionNeeded > 0} className="mb-5" action={<TextLink href="#account-coverage">{coverageCopy.viewAll}</TextLink>}>
         <div className="mb-4 grid grid-cols-3 gap-3">
-          <MetricField label={coverageCopy.actionNeeded} value={fmtNumber(coverage.actionNeeded)} tone={coverage.actionNeeded ? 'danger' : 'success'} />
-          <MetricField label={coverageCopy.dueSoon} value={fmtNumber(coverage.dueSoon)} tone={coverage.dueSoon ? 'warning' : 'success'} />
+          <MetricField label={coverageCopy.actionNeeded} value={fmtNumber(coverage.actionNeeded)} tone={countTone(FAULT_SEVERITY, coverage.actionNeeded)} />
+          <MetricField label={coverageCopy.dueSoon} value={fmtNumber(coverage.dueSoon)} tone={countTone(TO_REVIEW_SEVERITY, coverage.dueSoon)} />
           <MetricField label={coverageCopy.current} value={fmtNumber(coverage.current)} tone="success" />
         </div>
         <div id="account-coverage">
@@ -157,20 +157,20 @@ export default async function DataOpsPage() {
               label={copy.mappingSuggestions}
               value={fmtNumber(ops.mappingSuggestions.length)}
               hint={copy.mappingSuggestionsHint}
-              tone={ops.mappingSuggestions.length ? 'warning' : 'success'}
+              tone={countTone(TO_REVIEW_SEVERITY, ops.mappingSuggestions.length)}
             />
             <MetricField
               label={copy.valuationFixes}
               value={fmtNumber(ops.valuationFixes.length)}
               hint={copy.valuationFixesHint}
-              tone={ops.valuationFixes.length ? 'warning' : 'success'}
+              tone={countTone(TO_REVIEW_SEVERITY, ops.valuationFixes.length)}
             />
             <MetricField
               label={copy.sourceCheckIssues}
               value={fmtNumber(ops.sourceIssues.length + ops.validationIssues.length)}
               info={glossary.inputIssues.description}
               hint={copy.sourceCheckIssuesHint}
-              tone={ops.sourceIssues.length + ops.validationIssues.length ? 'warning' : 'success'}
+              tone={countTone(TO_REVIEW_SEVERITY, ops.sourceIssues.length + ops.validationIssues.length)}
             />
           </KpiBand>
         </MetricHeroCard>
@@ -242,7 +242,7 @@ export default async function DataOpsPage() {
             rows={ops.mappingSummary}
             caption={copy.mappingStatusCaption}
             columns={[
-              { key: 'mapping_status', label: copy.columns.status, render: (r) => <Badge tone={r.mapping_status.includes('tickerless') ? 'warning' : 'success'}>{r.mapping_status}</Badge> },
+              { key: 'mapping_status', label: copy.columns.status, render: (r) => <Badge tone={statusTone(MAPPING_STATUS_SEVERITY, mappingStatusKey(r.mapping_status))}>{r.mapping_status}</Badge> },
               { key: 'income_category', label: copy.columns.category },
               { key: 'row_count', label: copy.columns.rows, align: 'right', render: (r) => fmtNumber(r.row_count) },
               { key: 'base_income', label: copy.columns.baseIncome, align: 'right', render: (r) => money(r.base_income) },
@@ -348,7 +348,7 @@ export default async function DataOpsPage() {
                 <ul className="divide-y divide-line-subtle">
                   {ops.validationIssues.map((issue) => (
                     <li key={issue.id} className="flex flex-col gap-1 py-2.5 lg:flex-row lg:items-center lg:gap-3">
-                      <Badge tone={issue.severity === 'error' ? 'danger' : 'warning'}>{issue.status}</Badge>
+                      <Badge tone={statusTone(CHECK_RESULT_SEVERITY, issue.severity)}>{issue.status}</Badge>
                       <span className="min-w-0 flex-1 text-body font-medium text-ink">{issue.name}</span>
                       <span className="text-caption text-ink-3">{issue.detail}</span>
                     </li>

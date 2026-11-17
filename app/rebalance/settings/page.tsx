@@ -22,6 +22,7 @@ import {
   saveInstrumentClassesAction,
   saveLimits,
 } from './actions'
+import { REVIEW_SEVERITY, statusTone } from '@/lib/tone'
 
 export const dynamic = 'force-dynamic'
 
@@ -147,7 +148,7 @@ export default async function RebalanceSettingsPage({ searchParams }: { searchPa
           />
           <div className="flex items-center gap-3">
             <SubmitButton>{copy.bounds.save}</SubmitButton>
-            <Badge tone={Math.abs(targetSum - 100) < 0.05 ? 'success' : 'warning'}>{copy.bounds.sum(fmtNumber(targetSum, 2))}</Badge>
+            <Badge tone={statusTone(REVIEW_SEVERITY, Math.abs(targetSum - 100) < 0.05 ? 'clear' : 'needs_review')}>{copy.bounds.sum(fmtNumber(targetSum, 2))}</Badge>
           </div>
         </form>
       </Card>

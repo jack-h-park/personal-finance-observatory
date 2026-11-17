@@ -12,7 +12,7 @@ import { getCurrencyPreferences } from '@/lib/currency-server'
 import { buildTaxPlan } from '@/lib/tax-planning'
 import { getTaxPolicyState } from '@/lib/tax-policy'
 import { getGlossary } from '@/lib/glossary'
-import { POSITION_EVENT_TONE, TRANSACTION_TYPE_TONE, bucketTone, categoryTone, signClass, signTone } from '@/lib/tone'
+import { EVIDENCE_LINK_SEVERITY, POSITION_EVENT_TONE, REVIEW_SEVERITY, TRANSACTION_TYPE_TONE, bucketTone, categoryTone, signClass, signTone, statusTone } from '@/lib/tone'
 import { getLanguage } from '@/lib/i18n-server'
 import { getPageCopy } from '@/lib/ui-copy'
 import { CardRow, KpiBand } from '@/components/layout'
@@ -80,7 +80,7 @@ function ReconciliationStrip({
     <Panel text="caption">
       <div className="flex items-center justify-between gap-3">
         <span className="font-medium text-ink">{label}</span>
-        <Badge tone={ok ? 'success' : 'warning'}>{ok ? copy.matched : copy.needsReview}</Badge>
+        <Badge tone={statusTone(REVIEW_SEVERITY, ok ? 'clear' : 'needs_review')}>{ok ? copy.matched : copy.needsReview}</Badge>
       </div>
       <div className="mt-2 grid gap-2 text-label sm:grid-cols-3">
         <div>
@@ -221,7 +221,7 @@ export default async function PositionPage({ params }: { params: Promise<{ marke
           <Panel>
             <div className="mb-1 flex items-center justify-between gap-3">
               <span className="text-caption font-medium text-ink">{copy.reconciliationStatus}</span>
-              <Badge tone={hasReconIssue ? 'warning' : 'success'}>{hasReconIssue ? copy.needsReview : copy.matched}</Badge>
+              <Badge tone={statusTone(REVIEW_SEVERITY, hasReconIssue ? 'needs_review' : 'clear')}>{hasReconIssue ? copy.needsReview : copy.matched}</Badge>
             </div>
             <div className="text-label leading-relaxed text-ink-3">
               {copy.reconDetail(fmtQuantity(quantityDiff, 4), money(baseCostDiff, 'KRW'))}
@@ -401,7 +401,7 @@ export default async function PositionPage({ params }: { params: Promise<{ marke
           <DataTable
             rows={lineageSummary}
             columns={[
-              { key: 'status', label: copy.columns.status, render: (r: { status: 'linked' | 'unlinked' }) => <Badge tone={r.status === 'linked' ? 'success' : 'warning'}>{copy.linkStatus[r.status] ?? r.status}</Badge> },
+              { key: 'status', label: copy.columns.status, render: (r: { status: 'linked' | 'unlinked' }) => <Badge tone={statusTone(EVIDENCE_LINK_SEVERITY, r.status)}>{copy.linkStatus[r.status] ?? r.status}</Badge> },
               { key: 'label', label: copy.columns.file, render: (r) => <span className="max-w-[20rem] break-words">{r.label}</span> },
               { key: 'usage', label: copy.columns.usage },
               { key: 'rows', label: copy.columns.rows, align: 'right', render: (r) => (r.rows == null ? EMPTY_VALUE : fmtNumber(r.rows)) },
