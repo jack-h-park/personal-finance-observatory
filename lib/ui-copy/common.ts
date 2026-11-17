@@ -141,6 +141,7 @@ export const UI_COPY_BY_LANG = {
     form: {
       saving: 'Saving…',
       saved: 'Saved',
+      confirm: 'Press again to confirm',
       nameRequired: 'A plan needs a name before it can be saved.',
     },
   },
@@ -276,6 +277,7 @@ export const UI_COPY_BY_LANG = {
     form: {
       saving: '저장 중…',
       saved: '저장됨',
+      confirm: '한 번 더 누르면 확정',
       nameRequired: '계획을 저장하려면 이름이 필요합니다.',
     },
   },

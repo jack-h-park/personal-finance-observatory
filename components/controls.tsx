@@ -1,6 +1,6 @@
 import { clsx } from 'clsx'
 import Link from 'next/link'
-import type { ButtonHTMLAttributes, ReactNode } from 'react'
+import type { ButtonHTMLAttributes, ReactNode, Ref } from 'react'
 import type { Tone } from '@/lib/tone'
 
 /**
@@ -163,6 +163,8 @@ export function Button({
   loading?: boolean
   /** Render as a Next.js <Link> instead of a <button>. */
   href?: string
+  /** Reaches the <button> (React 19 passes it through with the rest of the props). */
+  ref?: Ref<HTMLButtonElement>
 } & ButtonHTMLAttributes<HTMLButtonElement>) {
   const isDisabled = disabled || loading
   const cls = clsx(
