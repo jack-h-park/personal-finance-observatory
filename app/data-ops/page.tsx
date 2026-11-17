@@ -1,3 +1,5 @@
+import { InvestmentUpdateAction, coverageDetailLabel, type CoverageCopy } from '@/components/AccountUpdateAction'
+import { SupplementaryCoverageTable } from '@/components/SupplementaryCoverageTable'
 import { DataTable } from '@/components/DataTable'
 import { FreshnessRows } from '@/components/Freshness'
 import { PageHeader } from '@/components/PageHeader'
@@ -5,9 +7,8 @@ import { Badge, Card, EmptyState, HeroAside, MetricField, MetricHeroCard, TextLi
 import {
   getAccountCoverage,
   getDataOpsReview,
+  getSupplementaryCoverage,
   type AccountCoverage,
-  type CoverageAction,
-  type CoverageArtifact,
   type DataOpsReview,
   type TickerlessSuggestion,
   type ValuationReason,
@@ -29,12 +30,11 @@ export const dynamic = 'force-dynamic'
 export const generateMetadata = routeMetadata('/data-ops')
 
 function coverageTone(status: AccountCoverage['status']): Tone {
+  if (status === 'unconfirmed') return 'warning'
   if (status === 'action_needed' || status === 'missing') return 'danger'
   if (status === 'due_soon') return 'warning'
   return 'success'
 }
-
-type CoverageCopy = ReturnType<typeof getPageCopy<'dataOps'>>['coverage']
 
 function coverageDateLabel(row: AccountCoverage, c: CoverageCopy, language: Language): string {
   const date = (value: string | null) => value ? fmtDate(value, language) : EMPTY_VALUE
@@ -52,41 +52,16 @@ function coverageLagLabel(row: AccountCoverage, c: CoverageCopy): string {
   return days(row.lagDays)
 }
 
-function coverageDownloadLabel(row: AccountCoverage, c: CoverageCopy, language: Language): string {
-  if (!row.downloadFrom) return c.noExistingCutoff
-  return c.downloadFrom(fmtDate(row.downloadFrom, language))
-}
-
-function coverageArtifactLabel(artifact: CoverageArtifact, c: CoverageCopy): string {
-  switch (artifact.code) {
-    case 'KR_CERTIFICATE':
-      return c.artifact.KR_CERTIFICATE(artifact.brokerage, maskAccountLabel(artifact.account))
-    case 'US_HOLDINGS_AND_TRANSACTIONS_CSV':
-      return c.artifact.US_HOLDINGS_AND_TRANSACTIONS_CSV(artifact.brokerage)
-    default:
-      return c.artifact[artifact.code] ?? artifact.code
-  }
-}
-
-function coverageActionLabel(action: CoverageAction, c: CoverageCopy): string {
-  switch (action.code) {
-    case 'KR_CERTIFICATE':
-      return c.action.KR_CERTIFICATE(action.brokerage, maskAccountLabel(action.account))
-    case 'US_HOLDINGS_AND_TRANSACTIONS':
-      return c.action.US_HOLDINGS_AND_TRANSACTIONS(action.brokerage)
-    default:
-      return c.action[action.code] ?? action.code
-  }
-}
-
 export default async function DataOpsPage() {
   const language = await getLanguage()
   const money = createMoneyFormatter(await getCurrencyPreferences())
   const copy = getPageCopy('dataOps', language)
+  const updatesCopy = getPageCopy('accountUpdates', language)
   const glossary = getGlossary(language)
   const priorityLabels = getUiCopy(language).priority
   const ops = getDataOpsReview()
   const coverage = getAccountCoverage()
+  const supplementary = getSupplementaryCoverage()
   const issueCount = ops.actionQueue.reduce((sum, item) => sum + item.count, 0)
   const coverageCopy = copy.coverage
 
@@ -140,40 +115,27 @@ export default async function DataOpsPage() {
               },
               {
                 key: 'artifact',
-                label: coverageCopy.columns.artifact,
+                label: updatesCopy.next,
                 render: (row: AccountCoverage) => (
-                  <div className="max-w-[24rem]">
-                    <div className="font-medium text-ink">{row.artifacts.map((artifact) => coverageArtifactLabel(artifact, coverageCopy)).join(' + ')}</div>
-                    <div className="mt-1 text-label text-ink-3">{row.format}</div>
-                    <div className="mt-1 text-label font-medium leading-relaxed text-info">
-                      {coverageCopy.downloadRange}: {coverageDownloadLabel(row, coverageCopy, language)}
-                    </div>
-                    <div className="mt-1 text-label leading-relaxed text-ink-3">
-                      {row.missingDisposals.length ? `${coverageCopy.missingDisposals(row.missingDisposals.length, row.missingDisposals)} ` : null}
-                      {coverageActionLabel(row.action, coverageCopy)}
-                    </div>
-                    {row.lastFile ? (
-                      <code className="mt-1 block truncate text-micro text-ink-3" title={row.lastFile}>
-                        {coverageCopy.last} {row.lastFile}
-                      </code>
-                    ) : null}
-                  </div>
+                  <div className="max-w-[24rem]"><InvestmentUpdateAction row={row} language={language} /></div>
                 ),
               },
-              { key: 'method', label: coverageCopy.columns.method, nowrap: true, priority: 'secondary', render: (row: AccountCoverage) => coverageCopy.methodLabel[row.method] },
+              { key: 'method', label: coverageCopy.columns.method, nowrap: true, priority: 'secondary', render: (row: AccountCoverage) => ['current','due_soon','unconfirmed'].includes(row.status) ? updatesCopy.none : coverageCopy.methodLabel[row.method] },
               {
                 key: 'destination',
                 label: coverageCopy.columns.destination,
                 priority: 'tertiary',
-                render: (row: AccountCoverage) => (
+                render: (row: AccountCoverage) => ['current','due_soon','unconfirmed'].includes(row.status) ? updatesCopy.none : (
                   <>
-                    <code className="text-label text-ink-3">{row.destination}</code>
-                    <div
-                      className="mt-1 max-w-[15rem] text-label leading-relaxed text-ink-3"
-                      title={'checkDetail' in row.detail ? row.detail.checkDetail : undefined}
-                    >
-                      {coverageCopy.detail[row.detail.code] ?? row.detail.code}
-                    </div>
+                    <code className="text-label text-ink-3">{row.sources.length > 1 ? row.sources.filter(source => ['action_needed','missing'].includes(source.status)).map(source => source.destination).join(' · ') : row.destination}</code>
+                    {row.sources.length <= 1 ? (
+                      <div
+                        className="mt-1 max-w-[15rem] text-label leading-relaxed text-ink-3"
+                        title={'checkDetail' in row.detail ? row.detail.checkDetail : undefined}
+                      >
+                        {coverageDetailLabel(row.detail, coverageCopy, language)}
+                      </div>
+                    ) : null}
                   </>
                 ),
               },
@@ -181,6 +143,13 @@ export default async function DataOpsPage() {
           />
         </div>
       </Card>
+
+      <div id="supplementary-coverage" className="mb-5">
+        <Card title={updatesCopy.title}
+          info={updatesCopy.info}>
+          <SupplementaryCoverageTable language={language} rows={supplementary.rows} />
+        </Card>
+      </div>
 
       <CardRow columns="hero">
         <MetricHeroCard

@@ -44,6 +44,7 @@ const CATEGORY_COLOR: Record<CashInflowCategory, string> = {
   interest: 'var(--accent-warning)',
   other: 'var(--text-tertiary)',
   unclassified: 'var(--accent-danger)',
+  reimbursement: 'var(--accent-warning)',
 }
 
 function first(value: string | string[] | undefined) {
@@ -82,7 +83,7 @@ export default async function CashInflowPage({
   const data = getCashInflow(view, currencyPreferences.displayCurrency, undefined, filter, scope)
   const categories = cashInflowCategories(filter)
   // Under All the unclassified column stays visible, muted, as a to-do.
-  const tableCategories: CashInflowCategory[] = filter === 'All' ? [...categories, 'unclassified'] : categories
+  const tableCategories: CashInflowCategory[] = filter === 'All' ? [...categories, 'reimbursement', 'unclassified'] : categories
   const showTotal = categories.length > 1
   // A drill-down into a category the table does not show belongs to another filter.
   const detailCategory = tableCategories.includes(detailCategoryParam as CashInflowCategory) ? (detailCategoryParam as CashInflowCategory) : null
@@ -220,6 +221,7 @@ export default async function CashInflowPage({
       ) : null}
       {filter === 'investment' ? <Note>{copy.investmentInfo}</Note> : null}
       {filter === 'unclassified' ? <Note>{copy.unclassifiedFilterNote}</Note> : null}
+      {filter === 'reimbursement' || filter === 'All' ? <Panel bordered={false} text="label-note">{copy.reimbursementNote}</Panel> : null}
 
       <CardRow columns={1}>
         <MetricHeroCard
