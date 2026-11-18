@@ -13,7 +13,7 @@ import { routeMetadata, routeSection } from '@/lib/page-names'
 import { CardRow, KpiBand } from '@/components/layout'
 import { PositionCell } from '@/components/PositionCell'
 import { SubmitButton } from '@/components/SubmitButton'
-import { MARKET_GAP_HOLD_PCT, SHORT_TERM_WATCH_PCT } from '@/lib/rebalance-policy'
+import { MARKET_GAP_HOLD_PCT, SHORT_TERM_WATCH_PCT, getRebalancePolicy } from '@/lib/rebalance-policy'
 import { dbAvailable, portfolioToday } from '@/lib/adapters/portfolio-db'
 import { getRebalanceInput } from '@/lib/adapters/rebalance-input'
 import { getAllocationPolicy, rebalanceWrappers } from '@/lib/rebalance/allocation-policy'
@@ -86,6 +86,14 @@ export default async function RebalancePage({ searchParams }: { searchParams: Pr
   const errorMessage = isProposalErrorCode(params.error) ? proposalCopy.errors[params.error] : null
   const ac = copy.allocation
   const pc = copy.proposals
+  // Which split the market gaps are measured against: a valid allocation policy,
+  // an unreadable one (saved or default split), or none yet (saved or default).
+  const marketSourceNote =
+    allocationState.state === 'invalid' || allocationState.state === 'classes_unreadable'
+      ? copy.marketSource.invalid
+      : getRebalancePolicy().source === 'saved'
+        ? copy.marketSource.fallbackSaved
+        : copy.marketSource.fallbackDefault
 
   return (
     <>
@@ -210,7 +218,7 @@ export default async function RebalancePage({ searchParams }: { searchParams: Pr
             <Note>{copy.marketSource.derived}</Note>
           ) : (
             <Note>
-              {copy.marketSource.fallback} <TextLink href="/rebalance/settings">{copy.settingsLink}</TextLink>
+              {marketSourceNote} <TextLink href="/rebalance/settings">{copy.settingsLink}</TextLink>
             </Note>
           )}
         </Card>

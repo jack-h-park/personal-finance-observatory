@@ -144,7 +144,7 @@ export function taxPlanningLinkedIssues(
     input.warnings,
     TO_REVIEW,
     '#tax-planning-warnings',
-    (n) => (input.example ? copy.page.warningsAndExample(n) : copy.page.warningsCount(n)),
+    (n) => (input.example ? copy.page.warningsAndExample(fmtNumber(n), n) : copy.page.warningsCount(fmtNumber(n), n)),
     example,
   )
 }

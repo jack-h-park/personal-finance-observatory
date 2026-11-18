@@ -217,6 +217,7 @@ export default async function TaxPlanningPage({
       <MasterScenarioComparison
         planSet={masterPlanSet}
         horizonYears={horizonYears}
+        annualTargetCashKrw={annualTargetCashKrw}
         copy={copy}
         money={money}
         language={language}
@@ -265,7 +266,7 @@ export default async function TaxPlanningPage({
       <Card title={copy.page.recommendedSaleLotSequence} className="mb-5">
         <CandidateTable rows={plan.recommended} copy={copy} money={money} />
         <details className="mt-4 border-t border-line-subtle pt-3">
-          <summary className="cursor-pointer text-body font-medium text-ink">{copy.page.allOpenLotCandidates}</summary>
+          <summary className="min-h-6 cursor-pointer text-body font-medium leading-6 text-ink">{copy.page.allOpenLotCandidates}</summary>
           <div className="mt-3">
             <CandidateTable rows={plan.candidates.slice(0, 80)} copy={copy} money={money} />
           </div>

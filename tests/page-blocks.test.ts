@@ -90,10 +90,29 @@ test('operator detail sits behind OperatorDetails', () => {
   const position = source('app/positions/[market]/[ticker]/page.tsx')
   const wrapper = position.indexOf('<OperatorDetails')
   assert.ok(wrapper >= 0)
-  for (const marker of ['copy.evidenceSummary', 'copy.lineage']) {
+  // One merged sources card: its table (the sha column) and the evidence-count line.
+  for (const marker of ['copy.evidenceSummary', 'copy.evidenceDetail', 'shortHash(']) {
     const at = position.indexOf(marker)
     assert.ok(at > wrapper && at < position.indexOf('</OperatorDetails>'), `${marker} is inside OperatorDetails`)
   }
+})
+
+// A position reads lead figure, wash-sale warning, reconciliation, accounts,
+// lots, then activity; the checks and mixes that repeated those cards are gone.
+test('app/positions/[market]/[ticker]/page.tsx renders the Decision 10 cards in order', () => {
+  const text = source('app/positions/[market]/[ticker]/page.tsx')
+  for (const gone of ['copy.firstChecks', 'copy.holdingMix', 'copy.transactionMix', 'copy.accountLotProfile', 'copy.freshness}']) {
+    assert.ok(!text.includes(gone), `still references ${gone}`)
+  }
+  assert.ok(text.includes('washSaleForTicker('))
+  assert.ok(text.includes('id="position-lead"'))
+  // A trade-blocking alert goes above the lead; `title={copy.dividends}` is the card (the hero has a `label={copy.dividends}` field).
+  const order = ['<WashSaleBanner', '<MetricHeroCard', 'copy.reconciliation}', 'copy.accountHoldings', 'copy.openTaxLots', 'copy.taxPreview', 'copy.activityTimeline', 'title={copy.dividends}']
+  const at = order.map((marker) => text.indexOf(marker))
+  for (const [i, marker] of order.entries()) assert.ok(at[i] >= 0, `missing ${marker}`)
+  for (let i = 1; i < at.length; i++) assert.ok(at[i - 1] < at[i], `${order[i - 1]} before ${order[i]}`)
+  const sources = text.indexOf('rows={detail.sources}')
+  assert.ok(sources > text.indexOf('<OperatorDetails') && sources < text.indexOf('</OperatorDetails>'), 'sources table inside OperatorDetails')
 })
 
 // The tax planner leads with the monthly plan's overview, above the toolbar
@@ -141,9 +160,10 @@ test('app/rebalance/page.tsx reads one policy model and leads with the hero', ()
   for (const line of text.split('\n').filter((l) => l.includes("key: 'reason'"))) {
     assert.ok(line.includes('render:') && line.includes('copy.reasons['), `reason column without copy: ${line.trim()}`)
   }
-  for (const token of ['MARKET_GAP_HOLD_PCT', 'copy.reasons[', 'id="rebalance-lead"']) {
+  for (const token of ['MARKET_GAP_HOLD_PCT', 'copy.reasons[', 'id="rebalance-lead"', 'marketSource.invalid', 'marketSource.fallbackSaved', 'marketSource.fallbackDefault']) {
     assert.ok(text.includes(token), `app/rebalance/page.tsx is missing ${token}`)
   }
+  assert.ok(!text.includes('marketSource.fallback}'), 'the single fallback note is split into saved and default')
   const hero = text.indexOf('<MetricHeroCard')
   assert.ok(hero > -1, 'no MetricHeroCard')
   for (const later of ['title={ac.title}', 'id="rebalance-hold-watch"', 'title={copy.marketTargetGaps}']) {
@@ -155,4 +175,42 @@ test('app/rebalance/page.tsx reads one policy model and leads with the hero', ()
 test('app/rebalance/actions.ts no longer saves a market split', () => {
   assert.ok(!/export async function saveRebalanceTargets/.test(source('app/rebalance/actions.ts')))
   assert.ok(!source('lib/rebalance-policy.ts').includes('saveRebalancePolicy'))
+})
+
+// A phone tap needs a 24px target; the summary stays a block (flex drops the
+// disclosure marker in Chromium), so the height comes from min-h-6 and leading-6.
+test('app/tax-planning/page.tsx gives the lot-candidates summary a 24px target', () => {
+  const text = source('app/tax-planning/page.tsx')
+  const at = text.indexOf('{copy.page.allOpenLotCandidates}</summary>')
+  assert.ok(at >= 0)
+  const open = text.slice(text.lastIndexOf('<summary', at), at)
+  assert.match(open, /\bmin-h-6\b/)
+  assert.doesNotMatch(open, /\bflex\b/)
+})
+
+test('app/cash-inflow/page.tsx puts the view switch in the filter bar and folds the JSON rule', () => {
+  const text = source('app/cash-inflow/page.tsx')
+  const actions = text.indexOf('actions=')
+  assert.ok(actions < 0 || !text.slice(actions, actions + 600).includes('copy.monthly'))
+  assert.match(text, /key: 'view'/)
+  assert.match(text, /id="cash-inflow-lead"/)
+  const pre = text.indexOf('<pre')
+  const summary = text.lastIndexOf('<summary', text.indexOf('copy.triage.group('))
+  const nested = text.lastIndexOf('<details', pre)
+  assert.ok(pre > 0 && nested > summary, 'the <pre is inside a <details opened after the group summary')
+  assert.ok(text.slice(nested, pre).includes('copy.triage.rule'))
+  const rule = text.slice(text.indexOf('<summary', nested), text.indexOf('</summary>', nested))
+  assert.match(rule, /\bmin-h-6\b/)
+  assert.doesNotMatch(rule, /\bflex\b/)
+})
+
+test('app/review/page.tsx draws its summary with StatStrip and names the concentration rows from copy', () => {
+  const text = source('app/review/page.tsx')
+  assert.match(text, /StatStrip/)
+  assert.match(text, /topShare/)
+  assert.doesNotMatch(text, /'Top 1'|>Top 1</)
+  assert.doesNotMatch(text, /grid-cols/)
+  for (const language of ['en', 'ko'] as const) {
+    assert.ok(getPageCopy('review', language).topShare(5).includes('5'))
+  }
 })

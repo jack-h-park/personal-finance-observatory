@@ -109,7 +109,7 @@ function Breadcrumb({ parent, language }: { parent: RouteHref; language: Languag
       <span aria-hidden="true">›</span>
       <Link
         href={parent}
-        className="whitespace-nowrap rounded-sm text-info hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info/40"
+        className="inline-flex min-h-6 items-center whitespace-nowrap rounded-sm text-info hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info/40"
       >
         {routeName(parent, language)}
       </Link>

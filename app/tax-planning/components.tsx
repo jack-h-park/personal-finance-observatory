@@ -185,15 +185,23 @@ export function MasterPlanOverview({
 
 const SCENARIO_TONE = { cheapest: 'success', other: 'warning' } as const
 
+function strategyHref(strategy: MasterPlanStrategyKey, pace: number, horizonYears: number, annualTargetCashKrw: number): string {
+  const query = new URLSearchParams({ master: strategy, pace: String(pace), horizon: String(horizonYears) })
+  if (annualTargetCashKrw > 0) query.set('annualTarget', String(annualTargetCashKrw))
+  return `/tax-planning?${query.toString()}`
+}
+
 export function MasterScenarioComparison({
   planSet,
   horizonYears,
+  annualTargetCashKrw,
   copy,
   money,
   language,
 }: {
   planSet: MonthlySalePlanSet
   horizonYears: number
+  annualTargetCashKrw: number
   copy: TaxPlanningCopy
   money: MoneyFormatter
   language: Language
@@ -229,7 +237,7 @@ export function MasterScenarioComparison({
               <div>
                 <div className="flex flex-wrap items-center gap-2">
                   <Link
-                    href={`/tax-planning?master=${scenarioRow.strategy}&pace=${planSet.executionMonths}&horizon=${horizonYears}`}
+                    href={strategyHref(scenarioRow.strategy, planSet.executionMonths, horizonYears, annualTargetCashKrw)}
                     className="inline-flex min-h-6 items-center text-body font-medium text-info hover:underline"
                   >
                     {scenarioRow.label}

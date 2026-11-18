@@ -1,17 +1,16 @@
 import { DataTable } from '@/components/DataTable'
 import { PageHeader } from '@/components/PageHeader'
-import { Card, EmptyState, MetricField, Note, Panel, Signed } from '@/components/ui'
+import { Card, EmptyState, Note, Panel, Signed } from '@/components/ui'
 import { getOperationalHealth, getPortfolioReview, type ReviewPosition } from '@/lib/adapters/portfolio-db'
 import { EMPTY_VALUE, fmtNumber, fmtPct, fmtQuantity } from '@/lib/format'
 import { createMoneyFormatter } from '@/lib/currency'
 import { getCurrencyPreferences } from '@/lib/currency-server'
-import { getGlossary } from '@/lib/glossary'
 import { getLanguage } from '@/lib/i18n-server'
 import { reviewLinkedIssues } from '@/lib/header-status'
 import { getPageCopy } from '@/lib/ui-copy'
 import { signTone } from '@/lib/tone'
 import { routeMetadata, routeSection } from '@/lib/page-names'
-import { CardRow } from '@/components/layout'
+import { CardRow, Stat, StatStrip } from '@/components/layout'
 import { ProgressBar } from '@/components/bars'
 import { PositionCell } from '@/components/PositionCell'
 
@@ -62,7 +61,6 @@ export default async function ReviewPage() {
   const language = await getLanguage()
   const money = createMoneyFormatter(await getCurrencyPreferences())
   const copy = getPageCopy('review', language)
-  const glossary = getGlossary(language)
   const review = getPortfolioReview()
   const operational = getOperationalHealth()
   const totalReturnPct =
@@ -83,24 +81,21 @@ export default async function ReviewPage() {
           number the overview leads with, so the reader met it twice and learned
           nothing the second time. What is left is what only this page frames:
           how many positions, how they split, and how much needs attention. */}
-      <div className="mb-5 grid grid-cols-2 gap-4 rounded-md border border-line bg-card px-4 py-3 shadow-card sm:grid-cols-3">
-        <MetricField
-          label={copy.positions}
-          value={fmtNumber(review.totals.position_count)}
-          hint={copy.accounts(fmtNumber(review.totals.account_count))}
-        />
-        <MetricField
-          label={copy.positiveNegative}
-          value={`${fmtNumber(review.totals.positive_positions)} / ${fmtNumber(review.totals.negative_positions)}`}
-          hint={copy.positionsByResult}
-        />
-        <MetricField
-          label={copy.unrealizedGl}
-          value={money(review.totals.base_unrealized_gl)}
-          info={glossary.unrealizedGl.description}
-          hint={fmtPct(totalReturnPct)}
-          tone={signTone(review.totals.base_unrealized_gl)}
-        />
+      <div id="review-summary" className="mb-5">
+        <StatStrip columns="sm-3">
+          <Stat label={copy.positions} value={fmtNumber(review.totals.position_count)} sub={copy.accounts(fmtNumber(review.totals.account_count))} />
+          <Stat
+            label={copy.positiveNegative}
+            value={`${fmtNumber(review.totals.positive_positions)} / ${fmtNumber(review.totals.negative_positions)}`}
+            sub={copy.positionsByResult}
+          />
+          <Stat
+            label={copy.unrealizedGl}
+            value={money(review.totals.base_unrealized_gl)}
+            sub={fmtPct(totalReturnPct)}
+            tone={signTone(review.totals.base_unrealized_gl)}
+          />
+        </StatStrip>
       </div>
 
       <Panel as="p" bordered={false} text="label-note" spacing="mb-5">{copy.readOrder}</Panel>
@@ -108,15 +103,15 @@ export default async function ReviewPage() {
       <Card title={copy.concentration} className="mb-5">
         <div className="grid gap-3 text-caption">
           <div className="flex items-center justify-between">
-            <span className="text-ink-3">Top 1</span>
+            <span className="text-ink-3">{copy.topShare(1)}</span>
             <span className="font-medium tabular-nums text-ink">{fmtPct(review.concentration.top1Share)}</span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-ink-3">Top 5</span>
+            <span className="text-ink-3">{copy.topShare(5)}</span>
             <span className="font-medium tabular-nums text-ink">{fmtPct(review.concentration.top5Share)}</span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-ink-3">Top 10</span>
+            <span className="text-ink-3">{copy.topShare(10)}</span>
             <span className="font-medium tabular-nums text-ink">{fmtPct(review.concentration.top10Share)}</span>
           </div>
           <ProgressBar pct={review.concentration.top5Share} tone="info" track="surface" roundedFill />

@@ -10,7 +10,7 @@ export function OperatorDetails({ children, language }: { children: ReactNode; l
   const { common } = getUiCopy(language)
   return (
     <details className="rounded-md border border-line-subtle p-3 text-label text-ink-3">
-      <summary className="cursor-pointer font-medium text-ink-2">{common.operatorDetails}</summary>
+      <summary className="min-h-6 cursor-pointer font-medium leading-6 text-ink-2">{common.operatorDetails}</summary>
       <div className="mt-3 space-y-3">{children}</div>
     </details>
   )

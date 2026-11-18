@@ -792,6 +792,13 @@ test('PageHeader breadcrumb wraps between crumbs, never inside one', () => {
   for (const crumb of crumbs) assert.match(crumb[0], /whitespace-nowrap/, crumb[0])
 })
 
+test('PageHeader breadcrumb parent link has a 24px target', () => {
+  const html = renderHeader({ parent: '/holdings', language: 'en', autoRefresh: false })
+  const link = html.match(/<a [^>]*href="\/holdings"[^>]*>/)
+  assert.ok(link, html)
+  assert.match(link[0], /class="[^"]*\binline-flex\b[^"]*\bmin-h-6\b[^"]*\bitems-center\b/)
+})
+
 test('PageHeader parent names the nav in Korean', () => {
   const html = renderHeader({ parent: '/rebalance', language: 'ko', autoRefresh: false })
   assert.match(html, /<nav aria-label="현재 위치"/)
@@ -861,12 +868,13 @@ for (const { page, pair, helper, id } of STATUS_ANCHORS) {
 // /review keeps its stale-input pill with no card to link to (the list lives
 // on /health): the status still comes from its builder, which sets no href
 // (tests/linked-issues.test.ts), and no card on the page carries its badge.
+// The summary strip's plain wrapper id is not a card and is not a link target.
 test('app/review/page.tsx: the header status is unlinked and no card reads its badge', () => {
   const source = readFileSync('app/review/page.tsx', 'utf8')
   assert.ok(source.includes('const readiness = reviewLinkedIssues('))
   assert.equal(statusBlock(source), 'status={readiness.status}')
   assert.ok(!source.includes('readiness.issues'))
-  assert.ok(!source.includes('id="review-'))
+  assert.ok(!source.includes('<Card id="review-'))
 })
 
 // The exception: cash-inflow's target is not an issues card and renders only
@@ -888,6 +896,17 @@ test('OperatorDetails renders a closed details with the operator summary', () =>
   assert.ok(en.includes('>Operator details</summary>'))
   const ko = renderToStaticMarkup(h(OperatorDetails, { language: 'ko', children: h('p', null, 'x') }))
   assert.ok(ko.includes('>운영 정보</summary>'))
+})
+
+test('OperatorDetails summary has a 24px target', () => {
+  const html = renderToStaticMarkup(h(OperatorDetails, { language: 'en', children: h('p', null, 'x') }))
+  const summary = html.match(/<summary [^>]*>/)
+  assert.ok(summary, html)
+  // A list-item, not flex: flex drops the disclosure triangle in Chromium. The
+  // 24px line box centres the text; min-h-6 holds the target if it wraps oddly.
+  assert.match(summary[0], /class="[^"]*\bmin-h-6\b/)
+  assert.match(summary[0], /class="[^"]*\bleading-6\b/)
+  assert.doesNotMatch(summary[0], /class="[^"]*\b(inline-)?flex\b/)
 })
 
 // Every caller knows the reader's language; a default would let a new caller
