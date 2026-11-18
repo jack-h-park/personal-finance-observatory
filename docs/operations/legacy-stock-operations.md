@@ -37,7 +37,7 @@ If `.env.local` already exists, `pnpm seed:sample` refuses to run so private-mod
 
 ## Main screens
 
-- `/` - global overview, allocation, largest positions, valuation freshness.
+- `/` - global overview: market breakdown, concentration by cost basis, term mix, the stock snapshot trend and account allocation.
 - `/daily-briefing` - archived daily portfolio briefings, one per trading day, with a date picker; session (day-over-day) view above standing-versus-cost.
 - `/health` - refresh run history, price/FX freshness, source drift, validation checks, PDF evidence coverage.
 - `/data-map` - full source inventory with used, unused, drift, and missing classifications.
@@ -48,7 +48,7 @@ If `.env.local` already exists, `pnpm seed:sample` refuses to run so private-mod
 
 ## Supplementary assets
 
-Deposits, CMA balances, pension accounts and physical gold are supplementary: they exist to show total assets, and the stock views never include them. A Stocks / All assets switch in the sidebar controls whether the Overview also shows total assets and a stacked total-assets trend. `/net-worth` (balances, the trend, and a foreign-account maximum-balance table for FBAR and Form 8938 preparation) and `/pension` sit in the sidebar's "All assets" section, which is hidden when the database holds no supplementary data. Their validation checks are scoped apart from the stock checks, and their freshness is reported in the weekly reminder only. They are excluded from the holdings sheets and the daily briefing.
+Deposits, CMA balances, pension accounts and physical gold are supplementary: they exist to show total assets, and the stock views never include them. A Stocks / All assets switch in the sidebar (All assets is the default) controls whether the Overview also shows a Total assets card, which links to `/net-worth`; only `/net-worth` draws the stacked total-assets trend, above its balances. The foreign-account maximum-balance table for FBAR and Form 8938 preparation is on `/fbar`, which is always in the sidebar. `/net-worth` and `/pension` sit in the sidebar's Assets & Cash Flow section as supplementary items, each hidden when the database holds no supplementary data; the rest of the section stays. Their validation checks are scoped apart from the stock checks, and their freshness is reported in the weekly reminder only. They are excluded from the holdings sheets and the daily briefing.
 
 ## Screenshots
 

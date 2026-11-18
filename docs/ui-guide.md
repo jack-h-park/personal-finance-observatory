@@ -155,8 +155,10 @@ a back link in `actions`.
 A block of data renders on one page, and other pages link to it. The overview
 and the review page keep only their own blocks; the all-view cumulative
 total-assets chart lives only on `/net-worth`; `/data-ops` is the one work
-queue, and its rows link to card anchors on that page, never to their own page;
-the FBAR worksheet lives on `/fbar`. The allowed repeats are:
+queue, and each of its rows links to the card that lists its items, never back
+to the queue (validation and source freshness lead to `/health`, position breaks
+to `/reconciliation`); the FBAR worksheet lives on `/fbar`. The allowed repeats
+are:
 
 - a header pill that summarises another page's count (it links there);
 - the archive figures on `/daily-briefing`, which is the archive's own page;
@@ -191,22 +193,24 @@ Three rules decide where they may appear:
 
 - **Stock surfaces never include them.** Holdings, the stock trend chart, the
   badge and the validation line are stock-only in both views.
-- **The switch is in the sidebar.** Stocks is the default. In All assets the
-  Overview adds a "Total assets trend" card, and the sidebar's "All assets"
-  section links `/net-worth` and `/pension`. That section is hidden when the
-  database has no supplementary data.
+- **The switch is in the sidebar.** All assets is the default view. In it the
+  Overview adds a Total assets card, which links to `/net-worth`; the Stocks
+  view drops that card. The sidebar gates supplementary items one by one, not by
+  section: Total Assets (`/net-worth`) and Pension (`/pension`) sit in Assets &
+  Cash Flow with `supplementary: true` and are hidden when the database has no
+  supplementary data, while the rest of the section stays.
 - **Every amount carries its as-of date.** The Total assets card shows the date
   per class, with cash using the oldest latest balance across accounts.
 
 **The stacked chart.** `StackedAssetChart` draws one stacked area per class
 (stocks, crypto, cash, pensions, gold) from `totalAssetsSeries`, the single
-definition of total assets by date. The last point is today's `getNetWorth()`
-figures, so it equals the Total assets card. A class contributes nothing before
-its data starts; it is never drawn as zero mid-series and never interpolated, and
-a note under the chart lists where each class starts. Pensions move only on
-certificate and snapshot dates, so the note says so. `/net-worth` shows the same
-chart above the balances, with a month-end table (Month, Stocks, Crypto, Cash,
-Pensions, Gold, Total).
+definition of total assets by date. Only `/net-worth` draws it, above the
+balances and a month-end table (Month, Stocks, Crypto, Cash, Pensions, Gold,
+Total). The last point is today's `getNetWorth()` figures, so it equals the
+Overview's Total assets card. A class contributes nothing before its data
+starts; it is never drawn as zero mid-series and never interpolated, and a note
+under the chart lists where each class starts. Pensions move only on
+certificate and snapshot dates, so the note says so.
 
 ## Type and colour
 

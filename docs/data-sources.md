@@ -926,7 +926,7 @@ account's transactions, lots and realized gains are unchanged.
 
 **`data/treasury-reporting-rates.json`.** The year-end KRW per USD rate that the
 FBAR instructions direct, used by the foreign-account maximum-balance table on
-`/net-worth`. It is tracked in the repository (public figures, not personal data):
+`/fbar`. It is tracked in the repository (public figures, not personal data):
 `{ "source", "retrieved", "rates": [{ "year", "date", "krwPerUsd" }] }`, one entry
 per year from 2020 to the last complete year, taken from the U.S. Treasury
 Reporting Rates of Exchange dataset on Fiscal Data; `source` records the exact
