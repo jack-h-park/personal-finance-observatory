@@ -12,7 +12,7 @@ import { getCurrencyPreferences } from '@/lib/currency-server'
 import { buildTaxPlan } from '@/lib/tax-planning'
 import { getTaxPolicyState } from '@/lib/tax-policy'
 import { getGlossary } from '@/lib/glossary'
-import { bucketTone, signClass, signTone } from '@/lib/tone'
+import { EVIDENCE_LINK_SEVERITY, POSITION_EVENT_TONE, REVIEW_SEVERITY, TRANSACTION_TYPE_TONE, bucketTone, categoryTone, signClass, signTone, statusTone, toneTextClass } from '@/lib/tone'
 import { getLanguage } from '@/lib/i18n-server'
 import { getPageCopy } from '@/lib/ui-copy'
 import { CardRow, KpiBand } from '@/components/layout'
@@ -54,13 +54,6 @@ function translated<T extends string | null | undefined>(raw: T, ...maps: CopyMa
   return raw
 }
 
-function eventTone(kind: string) {
-  if (kind === 'dividend') return 'success'
-  if (kind === 'sell') return 'warning'
-  if (kind === 'taxLot') return 'neutral'
-  return 'info'
-}
-
 function isFreshnessItem(item: FreshnessItem | undefined): item is FreshnessItem {
   return item != null
 }
@@ -87,7 +80,7 @@ function ReconciliationStrip({
     <Panel text="caption">
       <div className="flex items-center justify-between gap-3">
         <span className="font-medium text-ink">{label}</span>
-        <Badge tone={ok ? 'success' : 'warning'}>{ok ? copy.matched : copy.needsReview}</Badge>
+        <Badge tone={statusTone(REVIEW_SEVERITY, ok ? 'clear' : 'needs_review')}>{ok ? copy.matched : copy.needsReview}</Badge>
       </div>
       <div className="mt-2 grid gap-2 text-label sm:grid-cols-3">
         <div>
@@ -100,7 +93,7 @@ function ReconciliationStrip({
         </div>
         <div>
           <div className="text-ink-3">{copy.difference}</div>
-          <div className={ok ? 'font-medium tabular-nums text-success' : 'font-medium tabular-nums text-warning'}>
+          <div className={`font-medium tabular-nums ${toneTextClass(statusTone(REVIEW_SEVERITY, ok ? 'clear' : 'needs_review'))}`}>
             {unit === 'KRW' ? money(diff, 'KRW') : fmtNumber(diff, 4)}
           </div>
         </div>
@@ -223,12 +216,12 @@ export default async function PositionPage({ params }: { params: Promise<{ marke
         </div>
       </Card>
 
-      <Card title={copy.firstChecks} info={copy.firstChecksInfo} className="mb-5" accent={hasReconIssue}>
+      <Card title={copy.firstChecks} info={copy.firstChecksInfo} className="mb-5" issues={{ count: Number(hasReconIssue), severity: 'problem' }}>
         <div className="grid gap-3 lg:grid-cols-3">
           <Panel>
             <div className="mb-1 flex items-center justify-between gap-3">
               <span className="text-caption font-medium text-ink">{copy.reconciliationStatus}</span>
-              <Badge tone={hasReconIssue ? 'warning' : 'success'}>{hasReconIssue ? copy.needsReview : copy.matched}</Badge>
+              <Badge tone={statusTone(REVIEW_SEVERITY, hasReconIssue ? 'needs_review' : 'clear')}>{hasReconIssue ? copy.needsReview : copy.matched}</Badge>
             </div>
             <div className="text-label leading-relaxed text-ink-3">
               {copy.reconDetail(fmtQuantity(quantityDiff, 4), money(baseCostDiff, 'KRW'))}
@@ -332,7 +325,7 @@ export default async function PositionPage({ params }: { params: Promise<{ marke
             <ul className="divide-y divide-line-subtle">
               {detail.transactionSummary.map((row) => (
                 <li key={row.type} className="flex items-center justify-between gap-3 py-2 text-caption">
-                  <Badge tone={row.type === 'DIVIDEND' ? 'success' : row.type === 'SELL' ? 'warning' : 'info'}>{translated(row.type, copy.transactionTypes)}</Badge>
+                  <Badge tone={categoryTone(TRANSACTION_TYPE_TONE, row.type, 'info')}>{translated(row.type, copy.transactionTypes)}</Badge>
                   <span className="text-ink-3">{copy.rowCount(fmtNumber(row.count))}</span>
                   <span className="font-medium tabular-nums text-ink">{row.amount == null ? EMPTY_VALUE : money(row.amount, detail.currency)}</span>
                 </li>
@@ -391,7 +384,7 @@ export default async function PositionPage({ params }: { params: Promise<{ marke
             {timeline.map((event) => (
               <li key={event.id} className="grid gap-2 py-2.5 text-caption lg:grid-cols-[7rem_6rem_1fr_8rem_8rem] lg:items-center">
                 <span className="tabular-nums text-ink-3">{event.date}</span>
-                <Badge tone={eventTone(event.kind)}>{translated(event.kind, copy.eventKinds, copy.transactionTypes)}</Badge>
+                <Badge tone={categoryTone(POSITION_EVENT_TONE, event.kind, 'info')}>{translated(event.kind, copy.eventKinds, copy.transactionTypes)}</Badge>
                 <span className="min-w-0 truncate text-ink">
                   {displayAccount(event.brokerage, event.account)} · {event.detail}
                 </span>
@@ -408,7 +401,7 @@ export default async function PositionPage({ params }: { params: Promise<{ marke
           <DataTable
             rows={lineageSummary}
             columns={[
-              { key: 'status', label: copy.columns.status, render: (r: { status: 'linked' | 'unlinked' }) => <Badge tone={r.status === 'linked' ? 'success' : 'warning'}>{copy.linkStatus[r.status] ?? r.status}</Badge> },
+              { key: 'status', label: copy.columns.status, render: (r: { status: 'linked' | 'unlinked' }) => <Badge tone={statusTone(EVIDENCE_LINK_SEVERITY, r.status)}>{copy.linkStatus[r.status] ?? r.status}</Badge> },
               { key: 'label', label: copy.columns.file, render: (r) => <span className="max-w-[20rem] break-words">{r.label}</span> },
               { key: 'usage', label: copy.columns.usage },
               { key: 'rows', label: copy.columns.rows, align: 'right', render: (r) => (r.rows == null ? EMPTY_VALUE : fmtNumber(r.rows)) },
@@ -498,7 +491,7 @@ export default async function PositionPage({ params }: { params: Promise<{ marke
                 { key: 'date', label: copy.columns.date },
                 { key: 'brokerage', label: copy.columns.broker },
                 { key: 'account', label: copy.columns.account, render: (r: { account: string }) => maskAccountLabel(r.account) },
-                { key: 'type', label: copy.columns.type, render: (r) => <Badge tone={r.type === 'SELL' ? 'warning' : r.type === 'DIVIDEND' ? 'success' : 'info'}>{translated(r.type, copy.transactionTypes)}</Badge> },
+                { key: 'type', label: copy.columns.type, render: (r) => <Badge tone={categoryTone(TRANSACTION_TYPE_TONE, r.type, 'info')}>{translated(r.type, copy.transactionTypes)}</Badge> },
                 { key: 'quantity', label: copy.columns.quantity, align: 'right', render: (r) => fmtQuantity(r.quantity, 4) },
                 { key: 'native_amount', label: copy.columns.amount, align: 'right', render: (r) => moneyOrNa(money, r.native_amount, r.currency) },
                 { key: 'native_unit_price', label: copy.columns.unit, align: 'right', render: (r) => moneyOrNa(money, r.native_unit_price, r.currency) },

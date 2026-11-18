@@ -9,6 +9,7 @@ import { fmtDate, fmtNumber } from '@/lib/format'
 import type { Language } from '@/lib/i18n'
 import type { AccountInventoryReviewModel } from '@/lib/application/account-inventory'
 import type { InventoryRow } from '@/lib/domain/assets/account-inventory'
+import { INVENTORY_IDENTITY_SEVERITY, statusTone } from '@/lib/tone'
 
 export function AccountInventoryReview({ review, language }: { review: AccountInventoryReviewModel; language: Language }) {
   const copy = getPageCopy('accountInventory', language)
@@ -32,7 +33,7 @@ export function AccountInventoryReview({ review, language }: { review: AccountIn
           {review.pensionPolicies.find(p => p.key === row.key && p.state !== 'active') ? <div className="mt-1 text-label text-ink-3">{copy.pensionPolicy[review.pensionPolicies.find(p => p.key === row.key)!.state]}</div> : null}
         </div> },
         { key: 'identity', label: copy.identity, render: (row: InventoryRow) => <>
-          <Badge tone={row.discovery === 'expected' && row.membership === 'included' ? 'info' : 'warning'}>{copy.discovery[row.discovery]}</Badge>
+          <Badge tone={statusTone(INVENTORY_IDENTITY_SEVERITY, row.discovery === 'expected' && row.membership === 'included' ? 'expected' : 'unexpected')}>{copy.discovery[row.discovery]}</Badge>
           <div className="mt-1 text-label text-ink-3">{copy.membership[row.membership]}</div>
         </> },
         { key: 'evidence', label: copy.evidence, render: (row: InventoryRow) => {

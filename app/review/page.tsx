@@ -9,7 +9,7 @@ import { getCurrencyPreferences } from '@/lib/currency-server'
 import { getGlossary } from '@/lib/glossary'
 import { getLanguage } from '@/lib/i18n-server'
 import { getPageCopy } from '@/lib/ui-copy'
-import { signTone } from '@/lib/tone'
+import { TO_REVIEW_SEVERITY, countTone, signTone } from '@/lib/tone'
 import { routeMetadata, routeSection } from '@/lib/page-names'
 import { CardRow } from '@/components/layout'
 import { ProgressBar } from '@/components/bars'
@@ -106,7 +106,7 @@ export default async function ReviewPage() {
           value={fmtNumber(issueCount)}
           info={glossary.freshness.description}
           hint={copy.inputsNeedingReview}
-          tone={issueCount > 0 ? 'warning' : 'success'}
+          tone={countTone(TO_REVIEW_SEVERITY, issueCount)}
         />
       </div>
 
@@ -146,7 +146,7 @@ export default async function ReviewPage() {
           </div>
         </Card>
 
-        <Card title={copy.operationalReadiness} accent={issueCount > 0}>
+        <Card title={copy.operationalReadiness} issues={{ count: issueCount }}>
           {operational.staleItems.length === 0 ? (
             <EmptyState ok>{copy.noOperationalInputs}</EmptyState>
           ) : (
@@ -173,7 +173,7 @@ export default async function ReviewPage() {
         </Card>
       </CardRow>
 
-      <Card title={copy.missingMarketValue} accent={review.noMarketValue.length > 0}>
+      <Card title={copy.missingMarketValue} issues={{ count: review.noMarketValue.length }}>
         <PositionTable rows={review.noMarketValue} mode="missing" copy={copy} money={money} />
       </Card>
     </>

@@ -22,6 +22,7 @@ import {
   saveInstrumentClassesAction,
   saveLimits,
 } from './actions'
+import { REVIEW_SEVERITY, statusTone } from '@/lib/tone'
 
 export const dynamic = 'force-dynamic'
 
@@ -119,7 +120,7 @@ export default async function RebalanceSettingsPage({ searchParams }: { searchPa
       />
 
       {params.error && (
-        <Card title={copy.errorsTitle} accent>
+        <Card title={copy.errorsTitle}>
           <ul className="list-disc space-y-1 pl-5 text-caption text-warning">
             {messages.map((message) => (
               <li key={message}>{message}</li>
@@ -132,7 +133,7 @@ export default async function RebalanceSettingsPage({ searchParams }: { searchPa
       {!state.policy && !state.error && <Note size="caption" spacing="below-4">{copy.policyMissing}</Note>}
       {!input && <Note size="caption" spacing="below-4">{copy.noDatabase}</Note>}
 
-      <Card title={copy.bounds.title} info={copy.bounds.info} accent>
+      <Card title={copy.bounds.title} info={copy.bounds.info}>
         <form action={saveBoundsAndTargets} className="space-y-4">
           <DataTable
             minWidth="32rem"
@@ -147,7 +148,7 @@ export default async function RebalanceSettingsPage({ searchParams }: { searchPa
           />
           <div className="flex items-center gap-3">
             <SubmitButton>{copy.bounds.save}</SubmitButton>
-            <Badge tone={Math.abs(targetSum - 100) < 0.05 ? 'success' : 'warning'}>{copy.bounds.sum(fmtNumber(targetSum, 2))}</Badge>
+            <Badge tone={statusTone(REVIEW_SEVERITY, Math.abs(targetSum - 100) < 0.05 ? 'clear' : 'needs_review')}>{copy.bounds.sum(fmtNumber(targetSum, 2))}</Badge>
           </div>
         </form>
       </Card>

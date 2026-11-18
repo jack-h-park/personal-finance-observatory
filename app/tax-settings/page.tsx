@@ -135,7 +135,7 @@ export default async function TaxSettingsPage({ searchParams }: { searchParams: 
       <WrapperEstimateNote rows={wrapperReview} copy={wrapperReviewCopy} />
 
       <form action={saveTaxSettings} className="space-y-5">
-        <Card title={copy.filingProfile.title} accent>
+        <Card title={copy.filingProfile.title}>
           <div className="grid gap-4 lg:grid-cols-3">
             <label className="block">
               <Label as="span" className="mb-1 block">{copy.filingProfile.activeScenario}</Label>
@@ -156,7 +156,6 @@ export default async function TaxSettingsPage({ searchParams }: { searchParams: 
         <Card
           title={copy.annualTimeline.title}
           info={copy.annualTimeline.info}
-          accent
         >
           <DataTable
             caption={copy.annualTimeline.title}

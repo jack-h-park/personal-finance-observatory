@@ -6,6 +6,7 @@ import { clsx } from 'clsx'
 import { usePageLanguage } from '@/components/LanguageProvider'
 import { getUiCopy } from '@/lib/ui-copy'
 import { localeFor } from '@/lib/format'
+import { REFRESH_DOT_CLASS } from '@/lib/tone'
 
 /** Where the paused choice lives, so it survives navigating to another page. */
 const PAUSE_KEY = 'stock-observatory-autorefresh-paused'
@@ -154,7 +155,7 @@ export function AutoRefresh({ seconds = 30 }: { seconds?: number }) {
           aria-hidden
           className={clsx(
             'h-1.5 w-1.5 rounded-full',
-            paused ? 'bg-warning' : isPending ? 'bg-info motion-safe:animate-pulse' : 'bg-success/70'
+            REFRESH_DOT_CLASS[paused ? 'paused' : isPending ? 'refreshing' : 'live']
           )}
         />
         {label}

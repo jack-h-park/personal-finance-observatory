@@ -4,8 +4,12 @@ import type {
   CoverageAction,
   CoverageArtifact,
   CoverageDetail,
+  HealthCheck,
 } from '@/lib/adapters/portfolio-db'
 import { defineCopy } from '@/lib/ui-copy/define'
+
+// Named here so the Korean half carries no English string literal in a type (G12).
+type CheckStatus = HealthCheck['status']
 
 /** One entry per code: a sentence, or a function of the code's parameters. */
 type CodeCopy<U extends { code: string }> = Record<U['code'], string | ((...args: never[]) => string)>
@@ -48,6 +52,19 @@ export const dataOps = defineCopy({
     dividendOverrides: 'Dividend overrides',
     mappingStatus: 'Mapping Status',
     mappingStatusCaption: 'Income data mapping status',
+    // The values the ingest writes to dividends.mapping_status (scripts/ingest-stock-data.mjs),
+    // the two the sample seed uses, and `unknown` for a null the query coalesces.
+    mappingStatuses: {
+      ticker_mapped: 'Ticker mapped',
+      tickerless: 'No ticker',
+      categorized: 'Categorized by rule',
+      tickerless_categorized: 'No ticker, categorized by rule',
+      manual_override: 'Manual override',
+      mapped: 'Mapped',
+      tickerless_income_rule: 'No ticker, income rule',
+      unknown: 'Unknown',
+    } as Record<string, string>,
+    sourceIssueStatuses: { pass: 'Pass', fail: 'Fail' } satisfies Record<CheckStatus, string>,
     manualSuggestions: 'Manual mapping suggestions',
     noManualSuggestions: 'No manual mapping suggestions',
     valuationFixSuggestions: 'Valuation fix suggestions',
@@ -228,6 +245,17 @@ export const dataOps = defineCopy({
     dividendOverrides: '배당 override',
     mappingStatus: '매핑 상태',
     mappingStatusCaption: '수익 데이터 매핑 상태',
+    mappingStatuses: {
+      ticker_mapped: '종목 연결됨',
+      tickerless: '종목 없음',
+      categorized: '규칙으로 분류됨',
+      tickerless_categorized: '종목 없음, 규칙으로 분류됨',
+      manual_override: '수동 지정',
+      mapped: '연결됨',
+      tickerless_income_rule: '종목 없음, 수익 규칙',
+      unknown: '알 수 없음',
+    } as Record<string, string>,
+    sourceIssueStatuses: { pass: '통과', fail: '실패' } satisfies Record<CheckStatus, string>,
     manualSuggestions: '수동 매핑 제안',
     noManualSuggestions: '수동 매핑 제안이 없습니다.',
     valuationFixSuggestions: '평가금액 보정 제안',

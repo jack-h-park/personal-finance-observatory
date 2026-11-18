@@ -1,4 +1,8 @@
+import type { SourceInventoryItem } from '@/lib/adapters/portfolio-db'
 import { defineCopy } from '@/lib/ui-copy/define'
+
+// Named here so the Korean half carries no English string literal in a type (G12).
+type InventoryStatus = SourceInventoryItem['status']
 
 export const dataMap = defineCopy({
   en: {
@@ -27,6 +31,7 @@ export const dataMap = defineCopy({
     readOrder: 'Read order: review queue first, then coverage, then full file inventory.',
     retentionGuide: 'Retention reason is the source role, not a delete instruction.',
     retentionLabels: { active: 'Active source', fallback: 'Fallback', archive: 'Archive', derived: 'Derived', review: 'Review' },
+    statusLabels: { used: 'Used', unused: 'Unused', drift: 'Drift', missing: 'Missing', derived: 'Derived', archive: 'Archive' } satisfies Record<InventoryStatus, string>,
     reviewQueue: 'Source issue queue',
     noQueue: 'No drifted or missing source files',
     fullInventory: 'Full source inventory',
@@ -72,6 +77,7 @@ export const dataMap = defineCopy({
     readOrder: '읽는 순서: 확인 대기열, 범위, 전체 파일 인벤토리 순으로 봅니다.',
     retentionGuide: '보존 이유는 파일의 역할을 설명하며, 삭제 지시가 아닙니다.',
     retentionLabels: { active: '운영 원본', fallback: '대체 원본', archive: '보관 원본', derived: '파생 산출물', review: '추가 확인' },
+    statusLabels: { used: '사용 중', unused: '미사용', drift: '변경', missing: '누락', derived: '파생', archive: '보관' } satisfies Record<InventoryStatus, string>,
     reviewQueue: '원본 이슈 대기열',
     noQueue: '변경되거나 누락된 원본 파일이 없습니다.',
     fullInventory: '전체 원본 인벤토리',

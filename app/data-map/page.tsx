@@ -1,7 +1,7 @@
 import { DataTable } from '@/components/DataTable'
 import { FreshnessRows } from '@/components/Freshness'
 import { PageHeader } from '@/components/PageHeader'
-import { Badge, Card, EmptyState, HeroAside, MetricField, MetricHeroCard, type Tone } from '@/components/ui'
+import { Badge, Card, EmptyState, HeroAside, MetricField, MetricHeroCard } from '@/components/ui'
 import { getMeta, getOperationalHealth, getSourceInventory } from '@/lib/adapters/portfolio-db'
 import { EMPTY_VALUE, fmtBytes, fmtDateTime, fmtNumber, shortHash } from '@/lib/format'
 import { freshnessDetailText } from '@/lib/freshness-text'
@@ -11,25 +11,10 @@ import { getLanguage } from '@/lib/i18n-server'
 import { getPageCopy } from '@/lib/ui-copy'
 import { routeMetadata, routeSection } from '@/lib/page-names'
 import { CardRow, KpiBand } from '@/components/layout'
+import { FAULT_SEVERITY, INVENTORY_STATUS_TONE, RETENTION_TONE, TO_REVIEW_SEVERITY, categoryTone, countTone } from '@/lib/tone'
 
 export const dynamic = 'force-dynamic'
 export const generateMetadata = routeMetadata('/data-map')
-
-function statusTone(status: string): Tone {
-  if (status === 'used') return 'success'
-  if (status === 'derived' || status === 'archive') return 'neutral'
-  if (status === 'unused') return 'info'
-  if (status === 'drift') return 'warning'
-  return 'danger'
-}
-
-function retentionTone(retention: string): Tone {
-  if (retention === 'active') return 'success'
-  if (retention === 'fallback') return 'info'
-  if (retention === 'derived') return 'neutral'
-  if (retention === 'archive') return 'neutral'
-  return 'warning'
-}
 
 
 export default async function DataMapPage({
@@ -85,13 +70,13 @@ export default async function DataMapPage({
               value={fmtNumber(inventory.summary.drift)}
               info={glossary.drift.description}
               hint={copy.driftHint}
-              tone={inventory.summary.drift ? 'warning' : 'success'}
+              tone={countTone(TO_REVIEW_SEVERITY, inventory.summary.drift)}
             />
             <MetricField
               label={copy.missing}
               value={fmtNumber(inventory.summary.missing)}
               hint={copy.missingHint}
-              tone={inventory.summary.missing ? 'danger' : 'success'}
+              tone={countTone(FAULT_SEVERITY, inventory.summary.missing)}
             />
           </KpiBand>
         </MetricHeroCard>
@@ -112,7 +97,7 @@ export default async function DataMapPage({
         </HeroAside>
       </CardRow>
 
-      <Card title={copy.reviewQueue} accent={actionItems.length > 0}>
+      <Card title={copy.reviewQueue} issues={{ count: reviewCount, severity: 'problem' }}>
         <div className="border-b border-line-subtle bg-surface px-4 py-3 text-label leading-relaxed text-ink-3">
           {copy.retentionGuide}
         </div>
@@ -122,11 +107,11 @@ export default async function DataMapPage({
           <DataTable
             rows={actionItems}
             columns={[
-              { key: 'status', label: copy.columns.status, render: (r) => <Badge tone={statusTone(r.status)}>{r.status}</Badge> },
+              { key: 'status', label: copy.columns.status, render: (r) => <Badge tone={categoryTone(INVENTORY_STATUS_TONE, r.status, 'danger')}>{copy.statusLabels[r.status] ?? r.status}</Badge> },
               { key: 'category', label: copy.columns.category },
               { key: 'relativePath', label: copy.columns.file, render: (r) => <span className="block max-w-[34rem] truncate">{r.relativePath}</span> },
               { key: 'bytes', label: copy.columns.size, align: 'right', render: (r) => fmtBytes(r.bytes) },
-              { key: 'retention', label: copy.columns.retention, render: (r) => <div className="min-w-[14rem]"><Badge tone={retentionTone(r.retention)}>{copy.retentionLabels[r.retention as keyof typeof copy.retentionLabels]}</Badge><div className="mt-1 text-label text-ink-3">{r.retentionReason}</div></div> },
+              { key: 'retention', label: copy.columns.retention, render: (r) => <div className="min-w-[14rem]"><Badge tone={categoryTone(RETENTION_TONE, r.retention, 'warning')}>{copy.retentionLabels[r.retention as keyof typeof copy.retentionLabels]}</Badge><div className="mt-1 text-label text-ink-3">{r.retentionReason}</div></div> },
               { key: 'detail', label: copy.columns.detail, render: (r) => <span className="text-label text-ink-3">{typeof r.detail === 'string' ? r.detail : freshnessDetailText(r.detail, language)}</span> },
             ]}
           />
@@ -141,7 +126,7 @@ export default async function DataMapPage({
         title={copy.driftMonitor}
         info={copy.driftMonitorInfo}
         className="mt-5"
-        accent={operational.sourceDrift.some((item) => item.status !== 'fresh')}
+        issues={{ count: operational.sourceDrift.filter((item) => item.status !== 'fresh').length, severity: 'problem' }}
       >
         <FreshnessRows items={operational.sourceDrift} language={language} />
       </Card>
@@ -152,7 +137,7 @@ export default async function DataMapPage({
           sortHref={sortHref}
           rows={sortRows(inventory.items, sort, (row, key) => (row as Record<string, any>)[key])}
           columns={[
-            { key: 'status', sortable: true, sortFirst: 'asc', label: copy.columns.status, render: (r) => <Badge tone={statusTone(r.status)}>{r.status}</Badge> },
+            { key: 'status', sortable: true, sortFirst: 'asc', label: copy.columns.status, render: (r) => <Badge tone={categoryTone(INVENTORY_STATUS_TONE, r.status, 'danger')}>{copy.statusLabels[r.status] ?? r.status}</Badge> },
             { key: 'category', sortable: true, sortFirst: 'asc', label: copy.columns.category },
             { key: 'name', sortable: true, sortFirst: 'asc', label: copy.columns.dataset },
             { key: 'relativePath', sortable: true, sortFirst: 'asc', label: copy.columns.path, render: (r) => <span className="block max-w-[32rem] truncate">{r.relativePath}</span> },
@@ -160,7 +145,7 @@ export default async function DataMapPage({
             { key: 'bytes', sortable: true, sortFirst: 'desc', label: copy.columns.size, align: 'right', render: (r) => fmtBytes(r.bytes) },
             { key: 'mtimeMs', sortable: true, sortFirst: 'desc', label: copy.columns.modified, render: (r) => (r.mtimeMs ? fmtDateTime(new Date(r.mtimeMs).toISOString(), language) : EMPTY_VALUE) },
             { key: 'sha256', label: copy.columns.sha, render: (r) => (r.sha256 ? <code className="font-mono text-label">{shortHash(r.sha256)}</code> : EMPTY_VALUE) },
-            { key: 'retention', label: copy.columns.retention, render: (r) => <div className="min-w-[16rem]"><Badge tone={retentionTone(r.retention)}>{copy.retentionLabels[r.retention as keyof typeof copy.retentionLabels]}</Badge><div className="mt-1 text-label leading-relaxed text-ink-3">{r.retentionReason}</div></div> },
+            { key: 'retention', label: copy.columns.retention, render: (r) => <div className="min-w-[16rem]"><Badge tone={categoryTone(RETENTION_TONE, r.retention, 'warning')}>{copy.retentionLabels[r.retention as keyof typeof copy.retentionLabels]}</Badge><div className="mt-1 text-label leading-relaxed text-ink-3">{r.retentionReason}</div></div> },
           ]}
         />
       </Card>

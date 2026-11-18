@@ -11,8 +11,9 @@ import { useMoneyFormatter } from '@/components/LanguageProvider'
 import type { Language } from '@/lib/i18n'
 import { positionHref } from '@/lib/position-url'
 import type { MasterPlanMonth, MonthlySaleMasterPlan } from '@/lib/tax-planning'
+import type { FilingScenario } from '@/lib/tax-policy'
 import type { SavedInstructionExecution, SavedInstructionStatus } from '@/lib/tax-plan-store'
-import { bucketTone, signTone } from '@/lib/tone'
+import { FILING_PROFILE_TONE, PLAN_ROLE_TONE, bucketTone, categoryTone, signTone, toneBgClass } from '@/lib/tone'
 import { Input, Select } from '@/components/form'
 import { DataTable } from '@/components/DataTable'
 import { SubmitButton } from '@/components/SubmitButton'
@@ -30,11 +31,8 @@ function compactKrw(value: number, language: Language) {
 }
 
 
-function profileLabel(value: string | undefined, copy: ReturnType<typeof getPageCopy<'taxPlanning'>>['timeline']) {
-  if (value === 'US_AND_KR') return 'US + KR'
-  if (value === 'US_ONLY') return copy.usOnly
-  if (value === 'KR_ONLY') return copy.krOnly
-  return value ?? copy.noProfile
+function profileLabel(value: FilingScenario | undefined, copy: ReturnType<typeof getPageCopy<'taxPlanning'>>) {
+  return value ? copy.enums.filingScenario[value] ?? value : copy.timeline.noProfile
 }
 
 function instructionStatusLabel(status: SavedInstructionStatus, copy: ReturnType<typeof getPageCopy<'taxPlanning'>>['timeline']) {
@@ -155,7 +153,8 @@ export function TaxPlanTimeline({
   language: Language
 }) {
   const money = useMoneyFormatter()
-  const copy = getPageCopy('taxPlanning', language).timeline
+  const pageCopy = getPageCopy('taxPlanning', language)
+  const copy = pageCopy.timeline
   const fallbackMonth = plan.months[0]?.yearMonth ?? ''
   const [selectedMonth, setSelectedMonth] = useState(initialMonth || fallbackMonth)
   const [page, setPage] = useState(initialPage)
@@ -197,7 +196,6 @@ export function TaxPlanTimeline({
       title={copy.saleTimeline}
       info={copy.saleTimelineInfo}
       className="mb-5"
-      accent
       action={<Badge tone="info">{copy.activeMonths(fmtNumber(plan.months.length))}</Badge>}
     >
       {activeMonth ? (
@@ -235,8 +233,8 @@ export function TaxPlanTimeline({
                 >
                   <div className="mb-2 flex items-center justify-between gap-4">
                     <div className="text-body font-medium text-ink">{group.year}</div>
-                    <Badge tone={group.profile === 'US_AND_KR' ? 'warning' : 'info'}>
-                      {profileLabel(group.profile, copy)}
+                    <Badge tone={categoryTone(FILING_PROFILE_TONE, group.profile, 'info')}>
+                      {profileLabel(group.profile, pageCopy)}
                     </Badge>
                   </div>
                   <div className="relative flex gap-1.5 pt-2">
@@ -265,11 +263,9 @@ export function TaxPlanTimeline({
                           </span>
                           <span className="mt-auto flex h-[3.25rem] items-end">
                             <span
-                              className={`block w-5 rounded-t-sm transition-all ${
-                                month.gainKrw >= 0
-                                  ? 'bg-info'
-                                  : 'bg-danger'
-                              } ${selected ? 'opacity-100' : 'opacity-60 group-hover:opacity-85'}`}
+                              className={`block w-5 rounded-t-sm transition-all ${toneBgClass(
+                                categoryTone(PLAN_ROLE_TONE, month.gainKrw >= 0 ? 'gain' : 'loss'),
+                              )} ${selected ? 'opacity-100' : 'opacity-60 group-hover:opacity-85'}`}
                               style={{ height: `${barHeight}px` }}
                             />
                           </span>
@@ -367,8 +363,8 @@ export function TaxPlanTimeline({
                     priority: 'secondary',
                     render: (row: any) => (
                       <div className="flex flex-col items-start gap-1">
-                        <Badge tone={bucketTone(row.holdingBucket)}>{row.holdingBucket}</Badge>
-                        <Badge tone={row.role === 'loss' ? 'danger' : row.role === 'gain' ? 'info' : row.role === 'mixed' ? 'warning' : 'neutral'}>
+                        <Badge tone={bucketTone(row.holdingBucket)}>{pageCopy.enums.holdingBucket[row.holdingBucket as keyof typeof pageCopy.enums.holdingBucket] ?? row.holdingBucket}</Badge>
+                        <Badge tone={categoryTone(PLAN_ROLE_TONE, row.role)}>
                           {row.role === 'loss' ? copy.lossOffset : row.role === 'gain' ? copy.gainSale : row.role === 'mixed' ? copy.mixedByReturn : copy.neutral}
                         </Badge>
                       </div>

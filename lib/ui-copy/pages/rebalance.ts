@@ -1,4 +1,8 @@
+import type { RebalanceReview } from '@/lib/adapters/portfolio-db'
 import { defineCopy } from '@/lib/ui-copy/define'
+
+// Named here so the Korean half carries no English string literal in a type (G12).
+type MarketGapAction = RebalanceReview['marketGaps'][number]['action']
 
 export const rebalance = defineCopy({
   en: {
@@ -8,6 +12,7 @@ export const rebalance = defineCopy({
     freshnessIssues: (count: number) => `${count} freshness issue(s)`,
     inputsReady: 'Inputs ready',
     settingsLink: 'Rebalancing settings',
+    actions: { Add: 'Add', Reduce: 'Reduce', Hold: 'Hold' } satisfies Record<MarketGapAction, string>,
     allocation: {
       title: 'Allocation by asset class',
       info: 'Taxable accounts only, as a share of their total. Each class has a target and a band around it; outside the band, a proposal moves it back to the band edge.',
@@ -116,6 +121,7 @@ export const rebalance = defineCopy({
     freshnessIssues: (count: number) => `최신성 이슈 ${count}건`,
     inputsReady: '입력값 준비 완료',
     settingsLink: '리밸런싱 설정',
+    actions: { Add: '비중 확대', Reduce: '비중 축소', Hold: '유지' } satisfies Record<MarketGapAction, string>,
     allocation: {
       title: '자산군별 배분',
       info: '과세 계좌만 대상으로, 그 합계에서 차지하는 비중입니다. 자산군마다 목표와 그 주변의 밴드가 있고, 밴드를 벗어나면 제안이 밴드 경계까지 되돌립니다.',

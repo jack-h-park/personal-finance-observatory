@@ -419,24 +419,72 @@ export function findHandWrittenGrid(source, file = '<source>') {
 }
 
 /**
- * G5. A gain/loss colour picked by an inline ternary
- * (`x > 0 ? 'text-success' : 'text-danger'`) instead of `signTone` from
- * lib/tone.ts or `Signed` from components/ui.tsx. Each copy decides zero,
- * null and the threshold its own way, so the same number can read green on one
- * page and grey on another. It type-checks either way.
+ * G5. A colour picked by a ternary between two tones
+ * (`x > 0 ? 'text-success' : 'text-danger'`, `ok ? 'success' : 'warning'`,
+ * `ok ? 'px-2 text-success' : 'px-2 text-warning'`) instead of `signTone` or a
+ * severity table or named map in lib/tone.ts. A ternary decides zero, null and
+ * the threshold its own way, so the same number can read green on one page and
+ * grey on another; and either branch can be flipped without anything
+ * objecting. R2 shipped exactly that: a status whose two tones were the wrong
+ * way round, which type-checked and looked deliberate.
+ *
+ * So a ternary is a hit when both branches are string literals (quoted, or a
+ * backtick with no interpolation) and each one is toned: either a bare tone
+ * name, or a class string holding a `text-`, `bg-` or `border-` tone class as
+ * a whole token (under any variant, with an opacity, e.g. `bg-success/70`).
+ * Either order, over line breaks, and once per link of a chained ternary whose
+ * two branches are both toned. A ternary with one untoned branch
+ * (`'text-success' : 'text-ink-3'`), a bare tone passed to a function and a
+ * map value are not hits. Reported at the line of the first branch.
  */
-const INLINE_SIGN_TONE = [
-  /['"]text-(?:success|danger)['"]\s*:\s*['"]text-(?:danger|success)['"]/g,
-  /['"](?:success|danger)['"]\s*:\s*['"](?:danger|warning|success)['"]/g,
+const TONE_NAME = '(?:neutral|info|success|warning|danger)'
+
+/** A string literal on one line: quoted, or a backtick with no interpolation. */
+const BRANCH_LITERAL = "(?:'(?:[^'\\\\\\n]|\\\\.)*'|\"(?:[^\"\\\\\\n]|\\\\.)*\"|`[^`$\\\\]*`)"
+
+/** `? <literal> :`, the `?` being a ternary operator (not `?.` or `??`). */
+const LITERAL_THEN = new RegExp(`(?<!\\?)\\?(?![.?])\\s*(${BRANCH_LITERAL})\\s*:\\s*`, 'g')
+
+/**
+ * The else branch: a literal, or `cond ? <literal>` opening the next link of a
+ * chain. The condition stays on one line (the next `?` may start the line
+ * after it, as prettier writes a chain), so a statement that merely ends in a
+ * ternary is not joined to the next one.
+ */
+const LITERAL_ELSE = [
+  new RegExp(BRANCH_LITERAL, 'y'),
+  new RegExp(`(?:[^?:;,{}\\n]|\\?\\.|\\?\\?)+?\\s*(?<!\\?)\\?(?![.?])\\s*(${BRANCH_LITERAL})`, 'y'),
 ]
 
+const BARE_TONE = new RegExp(`^${TONE_NAME}$`)
+const TONE_CLASS = new RegExp(`^(?:[^\\s:]+:)*(?:text|bg|border)-${TONE_NAME}(?:/\\d+)?$`)
+
+/** A bare tone name, or a class string with a tone class among its tokens. */
+function isToned(literal) {
+  const body = literal.slice(1, -1).trim()
+  return BARE_TONE.test(body) || body.split(/\s+/).some((token) => TONE_CLASS.test(token))
+}
+
 export function findInlineSignTone(source, file = '<source>') {
+  const code = stripComments(source)
   const hits = []
-  eachLine(source, (text, line) => {
-    for (const re of INLINE_SIGN_TONE) {
-      for (const match of text.matchAll(re)) hits.push(hit(file, line, match[0]))
+  for (const match of code.matchAll(LITERAL_THEN)) {
+    if (!isToned(match[1])) continue
+    const after = match.index + match[0].length
+    let elseEnd = -1
+    for (const re of LITERAL_ELSE) {
+      re.lastIndex = after
+      const m = re.exec(code)
+      if (!m) continue
+      if (isToned(m[1] ?? m[0])) elseEnd = after + m[0].length
+      break
     }
-  })
+    if (elseEnd === -1) continue
+    const branch = match.index + match[0].indexOf(match[1])
+    const line = code.slice(0, branch).split('\n').length
+    const snippet = code.slice(match.index, elseEnd).replace(/\s+/g, ' ')
+    hits.push(hit(file, line, snippet))
+  }
   return hits
 }
 
@@ -458,40 +506,32 @@ export function findNullLiteral(source, file = '<source>') {
   return hits
 }
 
-/**
- * G7. A font size passed to a metric through `valueClassName`. The metric
- * components own the size of their value; an override makes one card on a row
- * larger or smaller than its neighbours, and next to the component's own size
- * class the two fight by emit order, which the conflict check cannot see
- * because the classes sit in two different literals.
- */
-const METRIC_VALUE_SIZE = /valueClassName=(?:["']|\{\s*["'`])\s*text-/g
-
-export function findMetricValueSize(source, file = '<source>') {
-  const hits = []
-  eachLine(source, (text, line) => {
-    for (const _ of text.matchAll(METRIC_VALUE_SIZE)) hits.push(hit(file, line, text))
-  })
-  return hits
-}
+// G7 (metric-value-size) is gone: R2 deleted `valueClassName`, so the check had nothing left to find.
 
 /**
- * G8. The `accent` prop marks the one figure a page wants read first. With two
- * or more on a page none of them stands out, and no tool notices. The target is
- * at most one per page; the baseline records where pages stand. Only the bare
- * prop counts, not a class token such as `accent-danger`. Read over the whole
- * source rather than line by line, so a bare `accent` alone on a line of a
- * wrapped tag still has its newline to match.
+ * G8. The `accent` prop marks the one figure a page wants read first. Two
+ * misuses: binding it to a condition, which turns the bar into a status light
+ * (a card that lists problems shows a count with `issues` instead), and a
+ * second bare `accent` on one page, after which none of them stands out. So
+ * report every `accent={...}`, and every bare `accent` after the first in the
+ * file. Only the bare prop counts, not a class token such as `accent-danger`.
+ * Read over the whole source rather than line by line, so a bare `accent`
+ * alone on a line of a wrapped tag still has its newline to match.
  */
 const ACCENT_PROP = /(?<=\s)accent(?=[\s=>}])/g
 
 export function findAccentProp(source, file = '<source>') {
   const text = stripComments(source)
   const lines = text.split('\n')
-  return [...text.matchAll(ACCENT_PROP)].map((match) => {
+  const hits = []
+  let bare = 0
+  for (const match of text.matchAll(ACCENT_PROP)) {
+    const bound = /^\s*=/.test(text.slice(match.index + match[0].length))
+    if (!bound && bare++ === 0) continue
     const line = text.slice(0, match.index).split('\n').length
-    return hit(file, line, lines[line - 1])
-  })
+    hits.push(hit(file, line, lines[line - 1]))
+  }
+  return hits
 }
 
 /**
@@ -662,6 +702,73 @@ export function findEnglishInKoreanCopy(source, file = '<source>') {
   return hits
 }
 
+/**
+ * The root of a copy lookup: `copy`, a `…Copy` object such as `fbarCopy`, or a
+ * `labels` / `…Labels` table such as `priorityLabels`.
+ */
+const COPY_ROOT = /^(?:copy|[a-z]\w*Copy|labels|[a-z]\w*Labels)$/
+
+/**
+ * Properties that hold something other than an enum code. A market code (KR,
+ * US, CRYPTO) is shown raw by design; a ticker is an identifier, not a member
+ * of a closed set; a `label` already holds display text.
+ */
+const RAW_BY_DESIGN = new Set(['market', 'ticker', 'label'])
+
+/**
+ * Local names for a slice of copy declared in the file, such as
+ * `const ac = copy.allocation` or `const proposalCopy = getPageCopy(…)`, read
+ * in order so an alias of an alias also counts.
+ */
+function copyAliases(text) {
+  const aliases = new Set()
+  for (const match of text.matchAll(/\b(?:const|let)\s+([A-Za-z_$][\w$]*)\s*=\s*([A-Za-z_$][\w$]*)\s*[.([]/g)) {
+    const [, name, root] = match
+    if (COPY_ROOT.test(root) || aliases.has(root) || root === 'getPageCopy' || root === 'getUiCopy') aliases.add(name)
+  }
+  return aliases
+}
+
+/** `a.b`, `a?.b`, `a[0].b`, `a.b[c]`: an identifier followed by one or more accesses. */
+const MEMBER_EXPRESSION = /^([A-Za-z_$][\w$]*)(?:\??\.[A-Za-z_$][\w$]*|\[[^\]]*\])+$/
+
+/**
+ * G13. An enum value rendered raw in a badge: `<Badge>{row.status}</Badge>`.
+ * The reader sees the code the data uses (`US_AND_KR`, `tickerless_categorized`)
+ * in both languages, where a word belongs. Every such value reads a copy map,
+ * `labels[value] ?? value`, so an unknown value still shows instead of a blank.
+ *
+ * A hit is a `<Badge …>` whose only child is one `{expression}` that is a plain
+ * member expression, not rooted in a copy object (COPY_ROOT, or a local alias
+ * of one) and not ending in a RAW_BY_DESIGN property. The tag may wrap over
+ * lines; the hit is reported on the line of `<Badge`. Heuristic: it cannot see
+ * a badge child built in a variable first (`const text = row.status` …
+ * `<Badge>{text}</Badge>`), a value passed through a helper that returns it
+ * unchanged, or a badge rendered by another component from a raw prop.
+ */
+export function findRawEnumBadge(source, file = '<source>') {
+  const hits = []
+  const text = stripComments(source)
+  const aliases = copyAliases(text)
+  for (const match of text.matchAll(/<Badge\b/g)) {
+    const tagEnd = scanStructure(text, match.index + match[0].length, (ch, i, depth) => ch === '>' && depth === 0 && text[i - 1] !== '=')
+    if (tagEnd === -1 || text[tagEnd - 1] === '/') continue
+    const open = text.slice(tagEnd + 1).match(/^\s*\{/)
+    if (!open) continue
+    const braceAt = tagEnd + open[0].length
+    const braceClose = scanStructure(text, braceAt, (ch, _, depth) => depth === 0)
+    if (braceClose === -1 || !/^\s*<\/Badge>/.test(text.slice(braceClose + 1))) continue
+    const expression = text.slice(braceAt + 1, braceClose).trim()
+    const member = expression.match(MEMBER_EXPRESSION)
+    if (!member || COPY_ROOT.test(member[1]) || aliases.has(member[1])) continue
+    const last = expression.match(/\.([A-Za-z_$][\w$]*)$/)
+    if (last && RAW_BY_DESIGN.has(last[1])) continue
+    const line = text.slice(0, match.index).split('\n').length
+    hits.push(hit(file, line, `<Badge>{${expression}}</Badge>`))
+  }
+  return hits
+}
+
 const BILINGUAL_BY_DESIGN = ['app/global-error.tsx']
 
 /**
@@ -702,7 +809,7 @@ export const CHECKS = [
   {
     code: 'G5',
     id: 'inline-sign-tone',
-    title: 'gain/loss colour chosen inline instead of with signTone or Signed',
+    title: 'tone chosen by a ternary instead of from lib/tone',
     find: findInlineSignTone,
   },
   {
@@ -711,16 +818,11 @@ export const CHECKS = [
     title: 'missing value written as n/a or a dash instead of by a formatter',
     find: findNullLiteral,
   },
-  {
-    code: 'G7',
-    id: 'metric-value-size',
-    title: 'font size passed to a metric value',
-    find: findMetricValueSize,
-  },
+  // G7 metric-value-size was retired: R2 deleted `valueClassName`, so it had nothing left to find.
   {
     code: 'G8',
     id: 'accent-per-page',
-    title: 'accent prop on a page (target: at most one per page)',
+    title: 'accent bar used as a status, or more than once on a page',
     roots: ['app'],
     include: /(?:^|\/)page\.tsx$/,
     find: findAccentProp,
@@ -752,6 +854,12 @@ export const CHECKS = [
     title: 'English word left in the Korean half of a copy module',
     roots: ['lib/ui-copy'],
     find: findEnglishInKoreanCopy,
+  },
+  {
+    code: 'G13',
+    id: 'raw-enum-badge',
+    title: 'enum value shown raw in a badge instead of through a copy label',
+    find: findRawEnumBadge,
   },
 ].map((check) => ({ roots: ['app', 'components'], exclude: [], include: null, ...check }))
 

@@ -12,6 +12,7 @@ import { getPageCopy } from '@/lib/ui-copy'
 import { routeMetadata, routeSection } from '@/lib/page-names'
 import { CardRow, KpiBand } from '@/components/layout'
 import { PositionCell } from '@/components/PositionCell'
+import { TO_REVIEW_SEVERITY, countTone, toneTextClass } from '@/lib/tone'
 
 export const dynamic = 'force-dynamic'
 export const generateMetadata = routeMetadata('/income')
@@ -87,7 +88,7 @@ export default async function IncomePage() {
             value={fmtNumber(income.totals.tickerless_count)}
             info={glossary.tickerless.description}
             hint={copy.tickerlessHint}
-            tone={income.totals.tickerless_count ? 'warning' : 'success'}
+            tone={countTone(TO_REVIEW_SEVERITY, income.totals.tickerless_count)}
             size="metric"
           />
         </HeroAside>
@@ -133,7 +134,7 @@ export default async function IncomePage() {
             </div>
             <div className="flex items-center justify-between">
               <span className="text-ink-3">{copy.tickerlessRowsLower}</span>
-              <span className={income.totals.tickerless_count ? 'font-medium tabular-nums text-warning' : 'font-medium tabular-nums text-success'}>
+              <span className={`font-medium tabular-nums ${toneTextClass(countTone(TO_REVIEW_SEVERITY, income.totals.tickerless_count))}`}>
                 {fmtNumber(income.totals.tickerless_count)}
               </span>
             </div>
@@ -193,7 +194,7 @@ export default async function IncomePage() {
           />
         </Card>
 
-        <Card title={copy.tickerlessIncomeRows} accent={income.tickerless.length > 0}>
+        <Card title={copy.tickerlessIncomeRows} issues={{ count: income.tickerless.length }}>
           {income.tickerless.length === 0 ? (
             <EmptyState ok>{copy.allIncomeMapped}</EmptyState>
           ) : (

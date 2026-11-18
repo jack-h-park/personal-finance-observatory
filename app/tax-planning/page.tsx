@@ -35,6 +35,7 @@ import { DataTable } from '@/components/DataTable'
 import { getPageCopy, getUiCopy } from '@/lib/ui-copy'
 import { routeMetadata, routeSection } from '@/lib/page-names'
 import { CardRow, Split } from '@/components/layout'
+import { TAX_DUE_SEVERITY, TAX_PROFILE_STATUS_SEVERITY, countTone, statusTone } from '@/lib/tone'
 
 export const dynamic = 'force-dynamic'
 export const generateMetadata = routeMetadata('/tax-planning')
@@ -284,7 +285,6 @@ export default async function TaxPlanningPage({
         <Card
           title={copy.page.annualFilingProfile}
           info={copy.page.annualFilingProfileInfo}
-          accent
         >
           <DataTable
             caption={copy.page.annualFilingProfile}
@@ -292,7 +292,7 @@ export default async function TaxPlanningPage({
             getRowKey={(profile: TaxYearProfile) => profile.year}
             columns={[
               { key: 'year', label: copy.page.year, render: (p: TaxYearProfile) => <span className="font-mono text-ink">{p.year}</span> },
-              { key: 'scenario', label: copy.page.taxCalc, render: (p: TaxYearProfile) => <Badge tone="info">{scenarioFromTaxYearProfile(p)}</Badge> },
+              { key: 'scenario', label: copy.page.taxCalc, render: (p: TaxYearProfile) => <Badge tone="info">{copy.enums.filingScenario[scenarioFromTaxYearProfile(p)] ?? scenarioFromTaxYearProfile(p)}</Badge> },
               {
                 key: 'wages',
                 label: copy.page.projectedWages,
@@ -322,14 +322,14 @@ export default async function TaxPlanningPage({
                     <Badge>{copy.page.off}</Badge>
                   ),
               },
-              { key: 'status', label: copy.page.status, render: (p: TaxYearProfile) => <Badge tone={p.status === 'confirmed' ? 'success' : 'warning'}>{p.status}</Badge> },
+              { key: 'status', label: copy.page.status, render: (p: TaxYearProfile) => <Badge tone={statusTone(TAX_PROFILE_STATUS_SEVERITY, p.status)}>{copy.enums.taxYearProfileStatus[p.status] ?? p.status}</Badge> },
             ]}
           />
         </Card>
 
         <Card title={copy.page.baseAssumptions}>
           <div className="space-y-2 text-caption text-ink-2">
-            <div className="flex items-center justify-between gap-3"><span>{copy.page.scenario}</span><Badge tone="info">{plan.assumptions.scenario}</Badge></div>
+            <div className="flex items-center justify-between gap-3"><span>{copy.page.scenario}</span><Badge tone="info">{copy.enums.filingScenario[plan.assumptions.scenario] ?? plan.assumptions.scenario}</Badge></div>
             <div className="flex items-center justify-between gap-3"><span>{copy.page.filingState}</span><span className="text-ink">{assumptionString(taxPolicy.policy, 'US', 'filingStatus', EMPTY_VALUE)} / {assumptionString(taxPolicy.policy, 'US', 'stateCode', EMPTY_VALUE)}</span></div>
             <div className="flex items-center justify-between gap-3"><span>{copy.page.w2WageBase}</span><span className="tabular-nums text-ink">{assumptionNumber(taxPolicy.policy, 'US', 'wageBaseYear', 0)} · {fmtMoney(assumptionNumber(taxPolicy.policy, 'US', 'wageBaseUsd', 0), 'USD')}</span></div>
             <div className="flex items-center justify-between gap-3"><span>{copy.page.annualIncomeGrowth}</span><span className="tabular-nums text-ink">{fmtPct(assumptionNumber(taxPolicy.policy, 'US', 'annualIncomeGrowthPct', 0))}</span></div>
@@ -365,7 +365,6 @@ export default async function TaxPlanningPage({
           title={copy.page.annualTargetScenarioComparison}
           info={copy.page.annualTargetInfo}
           className="mb-5"
-          accent
         >
           <Panel text="caption-note" spacing="mb-3">
             {copy.page.annualTargetNote}
@@ -439,7 +438,7 @@ export default async function TaxPlanningPage({
           </div>
         </Card>
 
-        <Card title={copy.page.warnings} accent={plan.summary.warnings.length + operational.staleItems.length > 0}>
+        <Card title={copy.page.warnings} issues={{ count: plan.summary.warnings.length + operational.staleItems.length }}>
           {plan.summary.warnings.length === 0 && operational.staleItems.length === 0 ? (
             <EmptyState ok>{copy.page.noPlannerWarnings}</EmptyState>
           ) : (
@@ -453,7 +452,7 @@ export default async function TaxPlanningPage({
         </Card>
       </CardRow>
 
-      <Card title={copy.page.recommendedSaleLotSequence} className="mb-5" accent>
+      <Card title={copy.page.recommendedSaleLotSequence} className="mb-5">
         <CandidateTable rows={plan.recommended} copy={copy} money={money} />
       </Card>
 
@@ -466,14 +465,14 @@ export default async function TaxPlanningPage({
 
 function ScenarioTimeline({ scenario, copy }: { scenario: MultiYearTaxScenario; copy: ReturnType<typeof getPageCopy<'taxPlanning'>> }) {
   return (
-    <Card title={scenario.label} action={<Badge tone={scenario.summary.taxKrw > 0 ? 'warning' : 'success'}>{fmtKrw(scenario.summary.taxKrw)}</Badge>}>
+    <Card title={scenario.label} action={<Badge tone={countTone(TAX_DUE_SEVERITY, scenario.summary.taxKrw)}>{fmtKrw(scenario.summary.taxKrw)}</Badge>}>
       <div className="space-y-3">
         {scenario.years.map((year) => (
           <Panel key={year.year} pad="md">
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <span className="font-mono text-body text-ink">{year.year}</span>
-                <Badge tone="info">{year.filingScenario}</Badge>
+                <Badge tone="info">{copy.enums.filingScenario[year.filingScenario] ?? year.filingScenario}</Badge>
               </div>
               <div className="text-right text-caption tabular-nums text-ink">
                 {fmtKrw(year.taxKrw)}

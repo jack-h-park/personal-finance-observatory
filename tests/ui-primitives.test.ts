@@ -6,7 +6,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { CardRow, MiniStat, MiniStatGrid, Split, Stat, StatStrip, Total, TotalsStrip } from '@/components/layout'
 import { ProgressBar, ShareBar } from '@/components/bars'
 import { PositionCell } from '@/components/PositionCell'
-import { Badge, Callout, HeroAside, MetricField, Note, Panel, SectionHeading } from '@/components/ui'
+import { Badge, Callout, Card, HeroAside, MetricField, Note, Panel, SectionHeading } from '@/components/ui'
 import { LinkChip, LinkChips } from '@/components/LinkChips'
 import { Tabs } from '@/components/Tabs'
 
@@ -624,4 +624,48 @@ for (const [props, expected] of [
 
 test('Split throws on a combination not in its table', () => {
   assert.throws(() => renderToStaticMarkup(h(Split, { side: '26rem', at: 'md', gap: 3, children: 'x' })), /Split/)
+})
+
+// — Card issues ————————————————————————————————————————————————————————————————
+
+/** The header of a rendered Card. */
+function cardHeader(html: string): string {
+  return html.match(/<header[^>]*>([\s\S]*)<\/header>/)?.[1] ?? ''
+}
+
+test('Card issues with a count shows a warning badge in the header', () => {
+  const html = renderToStaticMarkup(h(Card, { title: 'T', issues: { count: 3 }, children: 'x' }))
+  const header = cardHeader(html)
+  assert.match(header, /<span class="[^"]*border-warning\/30 bg-warning\/10 text-warning[^"]*">3 to review<\/span>/)
+})
+
+test('Card issues with problem severity shows a danger badge', () => {
+  const html = renderToStaticMarkup(h(Card, { title: 'T', issues: { count: 2, severity: 'problem' }, children: 'x' }))
+  assert.match(cardHeader(html), /<span class="[^"]*text-danger[^"]*">2 to review<\/span>/)
+})
+
+test('Card issues with a zero count renders no badge', () => {
+  const withZero = renderToStaticMarkup(h(Card, { title: 'T', issues: { count: 0 }, children: 'x' }))
+  const without = renderToStaticMarkup(h(Card, { title: 'T', children: 'x' }))
+  assert.equal(withZero, without)
+})
+
+test('Card issues badge sits before the action', () => {
+  const html = renderToStaticMarkup(
+    h(Card, { title: 'T', issues: { count: 1 }, action: h('a', { href: '/x' }, 'act'), children: 'x' }),
+  )
+  const header = cardHeader(html)
+  assert.ok(header.includes('1 to review'))
+  assert.ok(header.indexOf('1 to review') < header.indexOf('act'))
+})
+
+test('Card with an action and no issues keeps its header unchanged', () => {
+  const html = renderToStaticMarkup(h(Card, { title: 'T', action: h('a', { href: '/x' }, 'act'), children: 'x' }))
+  assert.match(cardHeader(html), /<\/div><a href="\/x">act<\/a>$/)
+})
+
+test('Card issues needs a title', () => {
+  // @ts-expect-error a count badge renders only in the header, so it needs a title
+  const props: React.ComponentProps<typeof Card> = { issues: { count: 1 }, children: 'x' }
+  assert.ok(props)
 })

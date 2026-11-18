@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { PageHeader } from '@/components/PageHeader'
-import { Badge, Button, Card, EmptyState, HeroAside, Label, MetaItem, MetaRow, MetricField, MetricHeroCard, Note, SectionHeading, Signed, Table, Tbody, Td, Th, Thead, Tr, type Tone } from '@/components/ui'
+import { Badge, Button, Card, EmptyState, HeroAside, Label, MetaItem, MetaRow, MetricField, MetricHeroCard, Note, SectionHeading, Signed, Table, Tbody, Td, Th, Thead, Tr } from '@/components/ui'
 import {
   getArchiveStatus,
   getBriefing,
@@ -13,7 +13,7 @@ import {
 import { EMPTY_VALUE, fmtDate, fmtDateShort, fmtDateTime, fmtNumber, fmtPct, fmtQuantity } from '@/lib/format'
 import { getGlossary } from '@/lib/glossary'
 import { positionHref } from '@/lib/position-url'
-import { signTone } from '@/lib/tone'
+import { BRIEFING_SEVERITY, TRADE_SIDE_TONE, categoryTone, signTone, statusTone } from '@/lib/tone'
 import { Select } from '@/components/form'
 import { getLanguage } from '@/lib/i18n-server'
 import { getPageCopy, getUiCopy } from '@/lib/ui-copy'
@@ -53,7 +53,7 @@ function TickerLink({ ticker, name, market }: { ticker: string; name?: string | 
 
 // Priority is the primary signal (how soon), kind the secondary one (what sort).
 // The writer already orders actions by priority, so this page only displays.
-const PRIORITY_TONE: Record<string, Tone> = { 'act-now': 'danger', 'this-week': 'warning', fyi: 'neutral' }
+// Its colour comes from BRIEFING_SEVERITY in lib/tone.
 // Built per request rather than at module scope, because the wording is now
 // per-language and a module constant would freeze whichever language loaded first.
 const priorityLabels = (copy: PageCopy): Record<string, string> => ({
@@ -123,10 +123,9 @@ function SessionMoverList({ movers, notes, direction, market, copy }: { movers: 
   )
 }
 
-// `split` is deliberately absent: it is not a trade, so it gets neither a
-// buy/sell tone nor a trade verb, and falls through to a neutral badge. The
+// `split` is not a trade, so it gets neither a buy/sell tone (TRADE_SIDE_TONE
+// in lib/tone) nor a trade verb, and falls through to a neutral badge. The
 // wording lives in lib/ui-copy/pages/dailyBriefing.ts, where it can be tested.
-const TRADE_TONE: Record<string, Tone> = { bought: 'success', opened: 'success', sold: 'danger', closed: 'danger' }
 
 function DatePicker({ dates, selected, copy }: { dates: string[]; selected: string; copy: PageCopy }) {
   const i = dates.indexOf(selected)
@@ -355,7 +354,7 @@ export default async function DailyBriefingPage({ searchParams }: { searchParams
                       <span className="w-20 shrink-0">
                         <TickerLink ticker={a.ticker} market={m} />
                       </span>
-                      <Badge tone={TRADE_TONE[a.kind] ?? 'neutral'}>{copy.activityBadge(a)}</Badge>
+                      <Badge tone={categoryTone(TRADE_SIDE_TONE, a.kind)}>{copy.activityBadge(a)}</Badge>
                       <span className="text-ink-2">{copy.activityWording(a, fmtQuantity)}</span>
                     </li>
                   ))}
@@ -437,7 +436,7 @@ export default async function DailyBriefingPage({ searchParams }: { searchParams
               return (
                 <li key={i} className="rounded-sm border border-line bg-surface px-3 py-2.5">
                   <div className="mb-1 flex flex-wrap items-center gap-2">
-                    <Badge tone={PRIORITY_TONE[priority]}>{priorityLabels(copy)[priority]}</Badge>
+                    <Badge tone={statusTone(BRIEFING_SEVERITY, priority)}>{priorityLabels(copy)[priority]}</Badge>
                     <span className="text-caption font-medium text-ink">{a.head}</span>
                     <Label as="span">{a.kind}</Label>
                   </div>

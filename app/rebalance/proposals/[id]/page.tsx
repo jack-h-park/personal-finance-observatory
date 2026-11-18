@@ -46,6 +46,7 @@ import {
   rejectProposal,
   saveTargetEdits,
 } from './actions'
+import { DRIFT_BAND_SEVERITY, FILL_STATUS_SEVERITY, FRESHNESS_SEVERITY, INSTRUCTION_KIND_TONE, REVIEW_SEVERITY, SELL_TIER_TONE, categoryTone, statusTone } from '@/lib/tone'
 
 export const dynamic = 'force-dynamic'
 
@@ -434,7 +435,7 @@ function SummaryTab({ proposal, copy, language }: { proposal: Proposal; copy: Co
                 {
                   key: 'stale',
                   label: '',
-                  render: (r) => <Badge tone={r.stale ? 'warning' : 'success'}>{r.stale ? copy.dataAsOf.stale : copy.dataAsOf.fresh}</Badge>,
+                  render: (r) => <Badge tone={statusTone(FRESHNESS_SEVERITY, r.stale ? 'stale' : 'fresh')}>{r.stale ? copy.dataAsOf.stale : copy.dataAsOf.fresh}</Badge>,
                 },
               ]}
             />
@@ -479,7 +480,7 @@ function SummaryTab({ proposal, copy, language }: { proposal: Proposal; copy: Co
                   render: (r) => {
                     const status = bandStatus(r)
                     if (!status) return <span className="text-ink-3">{EMPTY_VALUE}</span>
-                    return <Badge tone={status === 'within' ? 'success' : 'warning'}>{copy.drift.statuses[status]}</Badge>
+                    return <Badge tone={statusTone(DRIFT_BAND_SEVERITY, status)}>{copy.drift.statuses[status]}</Badge>
                   },
                 },
               ]}
@@ -647,7 +648,7 @@ function groupByAccount(instructions: Instruction[]) {
 }
 
 function KindBadge({ kind, copy }: { kind: Instruction['kind']; copy: Copy }) {
-  return <Badge tone={kind === 'sell' ? 'warning' : kind === 'buy' ? 'info' : 'neutral'}>{copy.kindsOfInstruction[kind]}</Badge>
+  return <Badge tone={categoryTone(INSTRUCTION_KIND_TONE, kind)}>{copy.kindsOfInstruction[kind]}</Badge>
 }
 
 function PlanTab({ proposal, copy, language }: { proposal: Proposal; copy: Copy; language: 'en' | 'ko' }) {
@@ -726,7 +727,7 @@ function PlanTab({ proposal, copy, language }: { proposal: Proposal; copy: Copy;
           </div>
         ),
     },
-    { key: 'tier', label: copy.plan.tier, render: (r: Instruction) => (r.tier ? <Badge tone={r.tier === 'loss' ? 'success' : r.tier === 'short_term' ? 'warning' : 'neutral'}>{copy.tiers[r.tier]}</Badge> : <span className="text-ink-3">{EMPTY_VALUE}</span>) },
+    { key: 'tier', label: copy.plan.tier, render: (r: Instruction) => (r.tier ? <Badge tone={categoryTone(SELL_TIER_TONE, r.tier)}>{copy.tiers[r.tier]}</Badge> : <span className="text-ink-3">{EMPTY_VALUE}</span>) },
     { key: 'notes', label: copy.plan.notes, render: (r: Instruction) => <span className="text-label text-ink-3">{r.notes.join(' · ')}</span> },
   ]
 
@@ -834,7 +835,7 @@ function FillsTab({ proposal, copy, language }: { proposal: Proposal; copy: Copy
                     </span>
                     <span className="ml-auto">
                       {fill ? (
-                        <Badge tone={fill.status === 'executed' ? 'success' : 'neutral'}>
+                        <Badge tone={statusTone(FILL_STATUS_SEVERITY, fill.status)}>
                           {fill.status === 'executed' ? copy.fills.executed : copy.fills.skipped}
                         </Badge>
                       ) : (
@@ -895,7 +896,7 @@ function FillsTab({ proposal, copy, language }: { proposal: Proposal; copy: Copy
         title={copy.reconciliation.title}
         info={copy.reconciliation.info}
         className="mb-5"
-        action={rec ? <Badge tone={rec.complete ? 'success' : 'warning'}>{rec.complete ? copy.reconciliation.complete : copy.reconciliation.incomplete}</Badge> : undefined}
+        action={rec ? <Badge tone={statusTone(REVIEW_SEVERITY, rec.complete ? 'clear' : 'needs_review')}>{rec.complete ? copy.reconciliation.complete : copy.reconciliation.incomplete}</Badge> : undefined}
       >
         {!rec ? (
           <EmptyState>{copy.reconciliation.none}</EmptyState>

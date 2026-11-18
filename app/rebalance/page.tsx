@@ -24,6 +24,7 @@ import { listProposals, type Proposal, type ProposalStatus } from '@/lib/rebalan
 import { isProposalErrorCode, PROPOSAL_STATUS_TONE } from '@/lib/rebalance/proposal-actions'
 import { fmtDateShort } from '@/lib/format'
 import { createManualProposal, saveRebalanceTargets } from './actions'
+import { REBALANCE_ACTION_TONE, TO_REVIEW_SEVERITY, categoryTone, countTone } from '@/lib/tone'
 
 export const dynamic = 'force-dynamic'
 export const generateMetadata = routeMetadata('/rebalance')
@@ -102,7 +103,7 @@ export default async function RebalancePage({ searchParams }: { searchParams: Pr
       />
 
       {errorMessage && (
-        <Card title={proposalCopy.errorTitle} accent className="mb-5">
+        <Card title={proposalCopy.errorTitle} className="mb-5">
           <p className="text-caption text-warning">{errorMessage}</p>
         </Card>
       )}
@@ -150,7 +151,7 @@ export default async function RebalancePage({ searchParams }: { searchParams: Pr
           )}
         </Card>
 
-        <Card title={pc.title} info={pc.info} accent>
+        <Card title={pc.title} info={pc.info}>
           <div className="space-y-4">
             <Panel bordered={false} text="label-note">{proposalCopy.disclaimer}</Panel>
             {proposals === null ? (
@@ -227,13 +228,13 @@ export default async function RebalancePage({ searchParams }: { searchParams: Pr
               label={copy.reduceCandidates}
               value={fmtNumber(rebalance.reduceCandidates.length)}
               hint={copy.reduceCandidatesHint}
-              tone={rebalance.reduceCandidates.length ? 'warning' : 'success'}
+              tone={countTone(TO_REVIEW_SEVERITY, rebalance.reduceCandidates.length)}
             />
             <MetricField
               label={copy.watchBeforeAction}
               value={fmtNumber(rebalance.watchCandidates.length + freshnessIssues)}
               hint={copy.watchBeforeActionHint}
-              tone={rebalance.watchCandidates.length + freshnessIssues ? 'warning' : 'success'}
+              tone={countTone(TO_REVIEW_SEVERITY, rebalance.watchCandidates.length + freshnessIssues)}
             />
           </KpiBand>
         </MetricHeroCard>
@@ -243,7 +244,7 @@ export default async function RebalancePage({ searchParams }: { searchParams: Pr
             label={copy.taxSensitive}
             value={fmtNumber(rebalance.taxSensitive.length)}
             hint={copy.taxSensitiveHint}
-            tone={rebalance.taxSensitive.length ? 'warning' : 'success'}
+            tone={countTone(TO_REVIEW_SEVERITY, rebalance.taxSensitive.length)}
             size="metric"
           />
           <MetricField
@@ -251,7 +252,7 @@ export default async function RebalancePage({ searchParams }: { searchParams: Pr
             value={fmtNumber(freshnessIssues)}
             info={glossary.freshness.description}
             hint={copy.freshnessIssuesHint}
-            tone={freshnessIssues ? 'warning' : 'success'}
+            tone={countTone(TO_REVIEW_SEVERITY, freshnessIssues)}
           />
         </HeroAside>
       </CardRow>
@@ -266,7 +267,7 @@ export default async function RebalancePage({ searchParams }: { searchParams: Pr
               { key: 'currentPct', label: copy.columns.current, align: 'right', render: (r) => fmtPct(r.currentPct) },
               { key: 'targetPct', label: copy.columns.target, align: 'right', render: (r) => fmtPct(r.targetPct) },
               { key: 'gapValue', label: copy.columns.gap, align: 'right', render: (r) => <Signed value={r.gapValue} format={(m) => money(m, 'KRW')} /> },
-              { key: 'action', label: copy.columns.action, render: (r) => <Badge tone={r.action === 'Hold' ? 'success' : 'warning'}>{r.action}</Badge> },
+              { key: 'action', label: copy.columns.action, render: (r) => <Badge tone={categoryTone(REBALANCE_ACTION_TONE, r.action, 'warning')}>{copy.actions[r.action] ?? r.action}</Badge> },
             ]}
           />
         </Card>
@@ -401,7 +402,7 @@ export default async function RebalancePage({ searchParams }: { searchParams: Pr
         </Card>
       </CardRow>
 
-      <Card title={copy.holdWatch} accent={rebalance.watchCandidates.length + freshnessIssues > 0}>
+      <Card title={copy.holdWatch} issues={{ count: rebalance.watchCandidates.length + freshnessIssues }}>
         {rebalance.watchCandidates.length === 0 && freshnessIssues === 0 ? (
           <EmptyState ok>{copy.noBlockers}</EmptyState>
         ) : (

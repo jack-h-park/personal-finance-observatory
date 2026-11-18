@@ -1,31 +1,43 @@
 import { clsx } from 'clsx'
 import { Children, Fragment, createElement, isValidElement, type ComponentProps, type ReactNode } from 'react'
 import { HelpPopover } from '@/components/HelpPopover'
-import { TONE_STYLES } from './controls'
+import { IssueCountLabel } from '@/components/LanguageProvider'
+import { severityTone, type Severity } from '@/lib/tone'
+import { Badge, TONE_STYLES } from './controls'
 import { Label } from './metric'
 
-export function Card({
-  children,
-  className,
-  title,
-  info,
-  action,
-  fill,
-  accent,
-}: {
+type CardBaseProps = {
   children: ReactNode
   className?: string
-  title?: ReactNode
   info?: ReactNode
   action?: ReactNode
   /** Make the body a flex column that fills the card's height. Pair with a height
    *  on `className` (e.g. `xl:h-[42rem]`) so a `flex-1` child list scrolls to fill
    *  it — lets two side-by-side cards stay exactly equal-height regardless of content. */
   fill?: boolean
-  /** Brand gradient accent bar across the card's top edge. Use sparingly — once
-   *  per surface for the hero/primary card (gradient guideline §3.2). */
+  /** Brand gradient accent bar across the card's top edge. It marks the page's
+   *  lead figure: at most one bare `accent` per page, never bound to a condition
+   *  (G8). A card that lists problems says so with `issues` instead. */
   accent?: boolean
-}) {
+}
+
+/** How many problems a card lists, and how bad they are. */
+export type CardIssues = { count: number; severity?: Extract<Severity, 'attention' | 'problem'> }
+
+/**
+ * A card that reports `issues` must have a `title`: the count badge renders
+ * only in the header, beside the title it qualifies.
+ */
+export type CardProps = CardBaseProps &
+  ({ title?: ReactNode; issues?: undefined } | { title: ReactNode; issues: CardIssues })
+
+export function Card({ children, className, title, info, action, fill, accent, issues }: CardProps) {
+  const badge =
+    issues && issues.count > 0 ? (
+      <Badge tone={severityTone(issues.severity ?? 'attention')}>
+        <IssueCountLabel count={issues.count} />
+      </Badge>
+    ) : null
   return (
     <section
       className={clsx(
@@ -42,13 +54,20 @@ export function Card({
           style={{ backgroundImage: 'var(--gradient-full)', borderRadius: 'var(--radius-md) var(--radius-md) 0 0' }}
         />
       )}
-      {(title || action) && (
+      {(title || action || badge) && (
         <header className="flex items-center justify-between border-b border-line-subtle px-4 py-2.5">
           <div className="flex items-center">
             <h2 className="text-body-lg font-medium tracking-tight text-ink">{title}</h2>
             {info ? <HelpPopover>{info}</HelpPopover> : null}
           </div>
-          {action}
+          {badge && action ? (
+            <div className="flex items-center gap-2">
+              {badge}
+              {action}
+            </div>
+          ) : (
+            badge ?? action
+          )}
         </header>
       )}
       <div className={clsx('p-4', fill && 'flex min-h-0 flex-1 flex-col')}>{children}</div>
