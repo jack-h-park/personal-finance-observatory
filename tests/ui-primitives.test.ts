@@ -792,6 +792,13 @@ test('PageHeader breadcrumb wraps between crumbs, never inside one', () => {
   for (const crumb of crumbs) assert.match(crumb[0], /whitespace-nowrap/, crumb[0])
 })
 
+test('PageHeader breadcrumb parent link has a 24px target', () => {
+  const html = renderHeader({ parent: '/holdings', language: 'en', autoRefresh: false })
+  const link = html.match(/<a [^>]*href="\/holdings"[^>]*>/)
+  assert.ok(link, html)
+  assert.match(link[0], /class="[^"]*\binline-flex\b[^"]*\bmin-h-6\b[^"]*\bitems-center\b/)
+})
+
 test('PageHeader parent names the nav in Korean', () => {
   const html = renderHeader({ parent: '/rebalance', language: 'ko', autoRefresh: false })
   assert.match(html, /<nav aria-label="현재 위치"/)
@@ -888,6 +895,17 @@ test('OperatorDetails renders a closed details with the operator summary', () =>
   assert.ok(en.includes('>Operator details</summary>'))
   const ko = renderToStaticMarkup(h(OperatorDetails, { language: 'ko', children: h('p', null, 'x') }))
   assert.ok(ko.includes('>운영 정보</summary>'))
+})
+
+test('OperatorDetails summary has a 24px target', () => {
+  const html = renderToStaticMarkup(h(OperatorDetails, { language: 'en', children: h('p', null, 'x') }))
+  const summary = html.match(/<summary [^>]*>/)
+  assert.ok(summary, html)
+  // A list-item, not flex: flex drops the disclosure triangle in Chromium. The
+  // 24px line box centres the text; min-h-6 holds the target if it wraps oddly.
+  assert.match(summary[0], /class="[^"]*\bmin-h-6\b/)
+  assert.match(summary[0], /class="[^"]*\bleading-6\b/)
+  assert.doesNotMatch(summary[0], /class="[^"]*\b(inline-)?flex\b/)
 })
 
 // Every caller knows the reader's language; a default would let a new caller
