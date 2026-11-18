@@ -1,6 +1,6 @@
-# Proposed next PR: read-only coverage summary and navigation
+# Read-only coverage summary and navigation scope
 
-Status: scope proposal based on the November 17, 2026 (America/Los_Angeles) read-only audit. No feature implementation, operating metadata adoption or deployment is included in the status PR. Actual figures and identifiers remain in private audit artifacts; all future fixtures must be invented.
+Status: approved source scope after merged #346; implemented with synthetic validation for source review, without operating adoption or deployment. The November 17, 2026 (America/Los_Angeles) audit remains private. See the [implementation boundary](../architecture/account-coverage-summary.md); fixtures are invented, not private observations.
 
 ## Observed problem and outcome
 
@@ -11,18 +11,18 @@ Add a concise read-only cross-section summary with direct navigation. A reviewer
 ## Bounded source changes
 
 - Introduce one pure presentation summary over existing `getAccountCoverage`, `getSupplementaryCoverage` and inventory-review outputs. Preserve the existing classifications and underlying populations; no new persisted file, data source, raw SQL, classifier or adapter is needed. `/data-ops` currently loads only the two freshness adapters, so it may reuse the existing read-only inventory adapter when inventory status is required, or keep that part navigation-only. The pure summary helper performs no I/O; separate adapter observations do not establish an atomic cross-file/DB capture. Add no network request or authority decision.
-- Keep investment freshness, supplementary freshness, unknown query periods, recorded history gaps and inventory review as separately labelled signals. A fresh row with a historical gap retains both facts. A single row with two signals is not two accounts; expose overlapping signal counts explicitly instead of adding them into a total.
+- Keep investment freshness, supplementary freshness, unknown query periods, recorded history gaps and inventory review as separately labelled signals. The existing adapter can mark a recent source action-needed for a historical gap. The summary retains that action/gap and explicitly marks independent pre-gap freshness unavailable; the detailed date remains available through the link. A single row with two signals is not two accounts; expose overlapping signal counts explicitly instead of adding them into a total.
 - On `/data-ops`, add the summary and links to `#account-coverage`, `#supplementary-coverage` and `/accounts#inventory-review`. On the inventory card, retain current links and add a clearly labelled route to bank/CMA/supplementary details. No write, refresh, download, confirmation or collection control is added.
 - Use existing source labels, account masking, bilingual copy and read-only component conventions. Keep identity/scope uncertainty visible; do not assign requirement sets to legacy rows or convert observed-only groups into expected accounts.
 
-Likely files: a small `lib/application/account-coverage-summary.ts` pure helper and matching test; `app/data-ops/page.tsx`, `components/AccountInventoryReview.tsx`, existing page-copy modules and display tests. The implementation author should verify current components first and avoid duplicating an existing summary. No importer, extractor, mapping, tax module, scheduler or permission code belongs in this PR.
+Implementation files include `components/AccountCoverageSummary.tsx`, `lib/ui-copy/pages/coverageSummary.ts` and a small `lib/application/account-coverage-summary.ts` pure helper and matching test; `app/data-ops/page.tsx`, `components/AccountInventoryReview.tsx`, existing page-copy modules and display tests. Inventory is navigation-only in this implementation; no additional inventory adapter read is added to `/data-ops`. No importer, extractor, mapping, tax module, scheduler or permission code belongs in this PR.
 
 ## Synthetic acceptance
 
 | Invented case | Required behavior |
 | --- | --- |
 | Investment rows current, bank row update-needed | Distinct bank/CMA signal and correct supplementary anchor; no global all-current claim |
-| Recent bank data with a recorded older gap | Freshness remains visible and history-gap signal remains actionable; no duplicate account total |
+| Recent bank data with a recorded older gap | Retain the adapter action-needed override and gap; explicitly mark pre-gap freshness unavailable and link to recorded dates without reconstructing it or duplicating account totals |
 | Unknown query interval despite recent transactions | Keep query-period review, without deriving completeness/download need from the last transaction |
 | Missing recorded source versus known gap versus stale source | Preserve different categories and existing actions; missing does not prove an account has no real-world data |
 | Unreviewed inventory, zero explicit primary metadata, source-only aliases | Keep denominator unknown; zero explicit registration is not zero accounts, and aliases are not silently merged |

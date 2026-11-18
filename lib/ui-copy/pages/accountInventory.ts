@@ -25,7 +25,7 @@ export const accountInventory = defineCopy({
     preservePensionPolicy: 'No new source request; preserve existing policy. Identity and ownership review remain separate.',
     lifecycle: { active: 'Active (declared)', closed: 'Closed (declared)', unconfirmed: 'Lifecycle not confirmed' },
     noRequirements: 'Source requirements not reviewed', recorded: 'Recorded basis only; not original-byte verification',
-    references: 'Source references', details: 'Account update details', sourcesLink: 'Source review', later: 'Later observations are outside this as-of date.',
+    references: 'Source references', details: 'Account update details', supplementaryDetails: 'Bank / CMA and supplementary updates', sourcesLink: 'Source review', later: 'Later observations are outside this as-of date.',
   },
   ko: {
     title: '계좌 목록 검토',
@@ -49,6 +49,6 @@ export const accountInventory = defineCopy({
     preservePensionPolicy: '새 자료 요청 없음 · 기존 정책 유지. 계좌 식별·소유자 검토는 별도입니다.',
     lifecycle: { active: '활성 (명시됨)', closed: '폐쇄 (명시됨)', unconfirmed: '계좌 상태 미확인' },
     noRequirements: '필요 자료의 범위 검토 전', recorded: '기록된 근거이며 원본 바이트 재검증이 아닙니다',
-    references: '출처 참조', details: '계좌 업데이트 상세', sourcesLink: '자료 출처 검토', later: '기준일 이후 관측은 이번 범위 밖입니다.',
+    references: '출처 참조', details: '계좌 업데이트 상세', supplementaryDetails: '은행 / CMA 및 기타 자료 갱신', sourcesLink: '자료 출처 검토', later: '기준일 이후 관측은 이번 범위 밖입니다.',
   },
 })
