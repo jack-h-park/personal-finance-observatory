@@ -411,7 +411,7 @@ export default async function PositionPage({ params }: { params: Promise<{ marke
         <Card
           title={copy.taxPreview}
           action={
-            <TextLink href={`/tax-planning?scenario=${taxPlan.assumptions.scenario}&objective=minimize-tax`}>
+            <TextLink href="/tax-planning">
               {copy.openPlanner}
             </TextLink>
           }

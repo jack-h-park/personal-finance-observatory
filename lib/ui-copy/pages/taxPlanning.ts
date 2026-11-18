@@ -85,9 +85,6 @@ export const taxPlanning = defineCopy({
       review: 'Review',
     },
     settings: {
-      title: 'Plan Settings',
-      subtitle: 'Choose sale-timing rules and date ranges, then recalculate the plan.',
-      badge: 'Calculated with current prices and FX',
       schedulingRule: 'Scheduling rule',
       schedulingRuleInfo: 'Choose the deterministic scheduling rule. Tax calculations remain rule-based; no market forecast or LLM judgment is applied here.',
       staged: 'Stage sales after long-term eligibility',
@@ -102,6 +99,9 @@ export const taxPlanning = defineCopy({
       taxHorizon: 'Tax horizon',
       years: 'years',
       horizonHint: 'Includes annual filing-profile changes.',
+      annualTarget: 'Annual test amount (KRW)',
+      annualTargetInfo: 'A yearly sale amount to compare execution scenarios against. Leave empty to skip the comparison.',
+      annualTargetPlaceholder: '50,000,000',
       rebuild: 'Rebuild plan',
     },
     candidateTable: {
@@ -501,9 +501,6 @@ export const taxPlanning = defineCopy({
       review: '검토',
     },
     settings: {
-      title: '계획 설정',
-      subtitle: '매도 시점 규칙과 기간을 선택한 뒤 계획을 다시 계산하세요.',
-      badge: '현재 가격과 FX로 계산',
       schedulingRule: '일정 규칙',
       schedulingRuleInfo: '결정론적 일정 규칙을 선택합니다. 세금 계산은 규칙 기반이며 시장 전망이나 LLM 판단을 사용하지 않습니다.',
       staged: '장기 보유 요건 충족 후 단계적 매도',
@@ -518,6 +515,9 @@ export const taxPlanning = defineCopy({
       taxHorizon: '세금 계획 기간',
       years: '년',
       horizonHint: '연도별 신고 프로필 변화를 포함합니다.',
+      annualTarget: '연간 테스트 금액 (원)',
+      annualTargetInfo: '실행 시나리오를 비교할 연간 매도 금액입니다. 비워 두면 비교하지 않습니다.',
+      annualTargetPlaceholder: '50,000,000',
       rebuild: '계획 다시 계산',
     },
     candidateTable: {

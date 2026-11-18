@@ -32,7 +32,7 @@
     "app/review/page.tsx": 1,
     "app/tax-planning/components.tsx": 4,
     "app/tax-planning/opportunity-analysis.tsx": 4,
-    "app/tax-planning/page.tsx": 2,
+    "app/tax-planning/page.tsx": 1,
     "app/tax-planning/plans/[id]/page.tsx": 1,
     "app/tax-settings/page.tsx": 5,
     "app/taxes/records/[id]/page.tsx": 1,

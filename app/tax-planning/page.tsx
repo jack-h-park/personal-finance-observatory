@@ -1,6 +1,6 @@
 import { PageHeader } from '@/components/PageHeader'
 import { TaxPlanTimeline } from '@/components/TaxPlanTimeline'
-import { Badge, Button, Card, EmptyState, FormError, HelpPopover, Label, Panel, SectionHeading, Signed, TextLink, marketTone } from '@/components/ui'
+import { Badge, Button, Card, EmptyState, FormError, HelpPopover, Label, Panel, Signed, TextLink, marketTone } from '@/components/ui'
 import { getOperationalHealth, getOverview, getTaxPlanningLots, getWashSaleReview, getWrapperReview } from '@/lib/adapters/portfolio-db'
 import { WrapperEstimateNote } from '@/components/WrapperReviewCard'
 import { WashSaleBanner } from '@/components/WashSaleBanner'
@@ -12,9 +12,9 @@ import {
   buildMonthlySalePlanSet,
   buildMultiYearTaxPlan,
   buildTaxPlan,
-  type MasterPlanStrategyKey,
   type MultiYearTaxScenario,
 } from '@/lib/tax-planning'
+import { planningInputs } from '@/lib/tax-planning-params'
 import { listSavedTaxPlans } from '@/lib/tax-plan-store'
 import {
   annualProfiles,
@@ -23,14 +23,13 @@ import {
   getTaxPolicyState,
   projectedWagesUsd,
   scenarioFromTaxYearProfile,
-  type FilingScenario,
   type TaxYearProfile,
 } from '@/lib/tax-policy'
 
 import { CandidateTable, MasterPlanAnnualTax, MasterPlanOverview, MasterScenarioComparison, SavedPlansPanel } from './components'
 import { DecisionSummary, PlanningMap, buildOpportunityRows, opportunitySummary, type OpportunityCoverage } from './opportunity-analysis'
 import { sameKrw } from './view-utils'
-import { Select } from '@/components/form'
+import { Input, Select } from '@/components/form'
 import { DataTable } from '@/components/DataTable'
 import { getPageCopy, getUiCopy } from '@/lib/ui-copy'
 import { routeMetadata, routeSection } from '@/lib/page-names'
@@ -39,29 +38,6 @@ import { TAX_DUE_SEVERITY, TAX_PROFILE_STATUS_SEVERITY, countTone, statusTone } 
 
 export const dynamic = 'force-dynamic'
 export const generateMetadata = routeMetadata('/tax-planning')
-
-function scenario(value: string | undefined, fallback: FilingScenario): FilingScenario {
-  return value === 'US_ONLY' || value === 'KR_ONLY' || value === 'US_AND_KR' ? value : fallback
-}
-
-function amountParam(value: string | undefined) {
-  if (!value) return 0
-  const normalized = value.replace(/[^\d.-]/g, '')
-  const parsed = Number(normalized)
-  return Number.isFinite(parsed) ? parsed : 0
-}
-
-function masterStrategy(value: string | undefined): MasterPlanStrategyKey {
-  if (
-    value === 'EARLIEST_LT' ||
-    value === 'STAGED' ||
-    value === 'WAIT_US_ONLY' ||
-    value === 'ACCELERATE_LOSSES'
-  ) {
-    return value
-  }
-  return 'STAGED'
-}
 
 function scenarioTaxTie(plan: ReturnType<typeof buildMultiYearTaxPlan>) {
   if (!plan.bestScenario) return false
@@ -72,9 +48,6 @@ export default async function TaxPlanningPage({
   searchParams,
 }: {
   searchParams: Promise<{
-    scenario?: string
-    objective?: string
-    target?: string
     annualTarget?: string
     horizon?: string
     master?: string
@@ -89,13 +62,15 @@ export default async function TaxPlanningPage({
   const money = createMoneyFormatter(await getCurrencyPreferences())
   const copy = getPageCopy('taxPlanning', language)
   const taxPolicy = getTaxPolicyState()
-  const activeScenario = scenario(params.scenario, taxPolicy.policy.activeScenario)
-  const objective = params.objective || 'minimize-tax'
-  const targetCashKrw = amountParam(params.target)
-  const annualTargetCashKrw = amountParam(params.annualTarget ?? params.target)
-  const horizonYears = Math.min(Math.max(Number(params.horizon ?? taxPolicy.policy.planningHorizonYears ?? 5) || 5, 1), 10)
-  const selectedMasterStrategy = masterStrategy(params.master)
-  const executionMonths = [12, 18, 24, 36, 48].includes(Number(params.pace)) ? Number(params.pace) : 24
+  const {
+    scenario: activeScenario,
+    objective,
+    targetCashKrw,
+    annualTargetCashKrw,
+    horizonYears,
+    master: selectedMasterStrategy,
+    executionMonths,
+  } = planningInputs(params, taxPolicy.policy)
   const lots = getTaxPlanningLots(5000, taxPolicy.policy)
   const wrapperReview = getWrapperReview(taxPolicy.policy)
   const plan = buildTaxPlan({ lots, policy: taxPolicy.policy, scenario: activeScenario, objective, targetCashKrw })
@@ -164,58 +139,58 @@ export default async function TaxPlanningPage({
 
       <WrapperEstimateNote rows={wrapperReview} copy={copy.wrapperReview} />
 
-      <section className="mb-5 rounded-md border border-line bg-card shadow-card">
-        <div className="flex flex-col gap-1 border-b border-line-subtle px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-          <SectionHeading size="section" subtitle={copy.settings.subtitle}>
-            {copy.settings.title}
-          </SectionHeading>
-          <Badge>{copy.settings.badge}</Badge>
-        </div>
-        <form className="grid gap-4 p-4 lg:grid-cols-[minmax(14rem,1.4fr)_minmax(11rem,0.8fr)_minmax(10rem,0.7fr)_auto] lg:items-end">
-          <label className="block">
-            <Label as="span" size="micro" className="mb-1.5 flex items-center">
-              <span className="mr-2 inline-flex h-5 w-5 items-center justify-center rounded-full bg-surface text-micro text-ink">1</span>
-              {copy.settings.schedulingRule}
-              <HelpPopover align="left">{copy.settings.schedulingRuleInfo}</HelpPopover>
-            </Label>
-            <Select name="master" defaultValue={selectedMasterStrategy} className="w-full">
-              <option value="STAGED">{copy.settings.staged}</option>
-              <option value="EARLIEST_LT">{copy.settings.earliestLongTerm}</option>
-              <option value="WAIT_US_ONLY">{copy.settings.waitUsOnly}</option>
-              <option value="ACCELERATE_LOSSES">{copy.settings.accelerateLosses}</option>
-            </Select>
-            <span className="mt-1 block text-micro text-ink-3">{copy.settings.schedulingHint}</span>
-          </label>
-          <label className="block">
-            <Label as="span" size="micro" className="mb-1.5 flex items-center">
-              <span className="mr-2 inline-flex h-5 w-5 items-center justify-center rounded-full bg-surface text-micro text-ink">2</span>
-              {copy.settings.executionWindow}
-              <HelpPopover align="left">{copy.settings.executionWindowInfo}</HelpPopover>
-            </Label>
-            <Select name="pace" defaultValue={executionMonths} className="w-full">
-              {[12, 18, 24, 36, 48].map((months) => (
-                <option key={months} value={months}>{months} {copy.settings.months}</option>
-              ))}
-            </Select>
-            <span className="mt-1 block text-micro text-ink-3">{copy.settings.executionHint}</span>
-          </label>
-          <label className="block">
-            <Label as="span" size="micro" className="mb-1.5 flex items-center">
-              <span className="mr-2 inline-flex h-5 w-5 items-center justify-center rounded-full bg-surface text-micro text-ink">3</span>
-              {copy.settings.taxHorizon}
-            </Label>
-            <Select name="horizon" defaultValue={horizonYears} className="w-full">
-              {[3, 4, 5, 7, 10].map((yearCount) => (
-                <option key={yearCount} value={yearCount}>{yearCount} {copy.settings.years}</option>
-              ))}
-            </Select>
-            <span className="mt-1 block text-micro text-ink-3">{copy.settings.horizonHint}</span>
-          </label>
-          <Button type="submit" variant="solid" size="md">
-            {copy.settings.rebuild}
-          </Button>
-        </form>
-      </section>
+      <form className="mb-5 flex flex-wrap items-end gap-x-4 gap-y-3">
+        <label className="block">
+          <Label as="span" size="micro" className="mb-1.5 flex items-center">
+            {copy.settings.schedulingRule}
+            <HelpPopover align="left">{copy.settings.schedulingRuleInfo} {copy.settings.schedulingHint}</HelpPopover>
+          </Label>
+          <Select name="master" defaultValue={selectedMasterStrategy}>
+            <option value="STAGED">{copy.settings.staged}</option>
+            <option value="EARLIEST_LT">{copy.settings.earliestLongTerm}</option>
+            <option value="WAIT_US_ONLY">{copy.settings.waitUsOnly}</option>
+            <option value="ACCELERATE_LOSSES">{copy.settings.accelerateLosses}</option>
+          </Select>
+        </label>
+        <label className="block">
+          <Label as="span" size="micro" className="mb-1.5 flex items-center">
+            {copy.settings.executionWindow}
+            <HelpPopover align="left">{copy.settings.executionWindowInfo} {copy.settings.executionHint}</HelpPopover>
+          </Label>
+          <Select name="pace" defaultValue={executionMonths}>
+            {[12, 18, 24, 36, 48].map((months) => (
+              <option key={months} value={months}>{months} {copy.settings.months}</option>
+            ))}
+          </Select>
+        </label>
+        <label className="block">
+          <Label as="span" size="micro" className="mb-1.5 flex items-center">
+            {copy.settings.taxHorizon}
+            <HelpPopover align="left">{copy.settings.horizonHint}</HelpPopover>
+          </Label>
+          <Select name="horizon" defaultValue={horizonYears}>
+            {[3, 4, 5, 7, 10].map((yearCount) => (
+              <option key={yearCount} value={yearCount}>{yearCount} {copy.settings.years}</option>
+            ))}
+          </Select>
+        </label>
+        <label className="block">
+          <Label as="span" size="micro" className="mb-1.5 flex items-center">
+            {copy.settings.annualTarget}
+            <HelpPopover align="left">{copy.settings.annualTargetInfo}</HelpPopover>
+          </Label>
+          <Input
+            name="annualTarget"
+            type="text"
+            inputMode="numeric"
+            placeholder={copy.settings.annualTargetPlaceholder}
+            defaultValue={annualTargetCashKrw > 0 ? fmtNumber(annualTargetCashKrw) : ''}
+          />
+        </label>
+        <Button type="submit" variant="solid" size="md">
+          {copy.settings.rebuild}
+        </Button>
+      </form>
 
       <MasterPlanOverview
         planSet={masterPlanSet}
