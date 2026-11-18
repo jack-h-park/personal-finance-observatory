@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { DataTable } from '@/components/DataTable'
 import { FreshnessInline } from '@/components/Freshness'
+import { HelpPopover } from '@/components/HelpPopover'
 import { OperatorDetails } from '@/components/OperatorDetails'
 import { PageHeader } from '@/components/PageHeader'
 import { Badge, Card, EmptyState, HeroAside, MetricField, MetricHeroCard, Note, Panel, TextLink } from '@/components/ui'
@@ -231,6 +232,7 @@ export default async function PositionPage({ params }: { params: Promise<{ marke
                     <FreshnessInline item={item} language={language} />
                   </span>
                 ))}
+                <HelpPopover>{glossary.freshness.description}</HelpPopover>
               </Note>
             )}
           </div>
