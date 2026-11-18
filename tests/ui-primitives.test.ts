@@ -8,7 +8,7 @@ import { CardRow, MiniStat, MiniStatGrid, Split, Stat, StatStrip, Total, TotalsS
 import { ProgressBar, ShareBar } from '@/components/bars'
 import { PositionCell } from '@/components/PositionCell'
 import { getUiCopy } from '@/lib/ui-copy'
-import { Badge, Callout, Card, Label, MetricHeroCard, FormError, FormSaved, HeroAside, MetricField, Note, Panel, SectionHeading } from '@/components/ui'
+import { Badge, Callout, Card, EmptyState, Label, MetricHeroCard, FormError, FormSaved, HeroAside, MetricField, Note, Panel, SectionHeading } from '@/components/ui'
 import { LinkChip, LinkChips } from '@/components/LinkChips'
 import { Tabs } from '@/components/Tabs'
 import { OperatorDetails } from '@/components/OperatorDetails'
@@ -938,4 +938,32 @@ test('Stat renders an info popover when given info', () => {
   const help = getUiCopy('en').common.help
   assert.ok(renderToStaticMarkup(h(Stat, { label: 'l', value: 'v', info: 'why' })).includes(help))
   assert.ok(!renderToStaticMarkup(h(Stat, { label: 'l', value: 'v' })).includes(help))
+})
+
+function relativeLuminance(hex: string) {
+  const [r, g, b] = [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
+  const lin = (c: number) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4)
+  return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b)
+}
+
+function contrastRatio(a: string, b: string) {
+  const [hi, lo] = [relativeLuminance(a), relativeLuminance(b)].sort((x, y) => y - x)
+  return (hi + 0.05) / (lo + 0.05)
+}
+
+test('the warning token clears AA inside its own pill', () => {
+  const css = readFileSync('styles/jp-theme.css', 'utf8')
+  const match = css.match(/--accent-warning:\s*#([0-9A-Fa-f]{6})\b/)
+  assert.ok(match, '--accent-warning is a 6-digit hex in jp-theme.css')
+  const fg = [0, 2, 4].map((i) => parseInt(match[1].slice(i, i + 2), 16))
+  const bg = [0xf7, 0xf6, 0xf3]
+  const blend = fg.map((c, i) => Math.round(c * 0.1 + bg[i] * 0.9).toString(16).padStart(2, '0')).join('')
+  const ratio = contrastRatio(match[1], blend)
+  assert.ok(ratio >= 4.5, `warning pill contrast is ${ratio.toFixed(2)}:1, need 4.5:1`)
+})
+
+test('EmptyState hint is full-strength tertiary', () => {
+  const html = renderToStaticMarkup(h(EmptyState, { hint: 'h', children: 'x' }))
+  assert.match(html, /class="[^"]*\btext-ink-3\b[^"]*">h</)
+  assert.doesNotMatch(html, /text-ink-3\/80/)
 })

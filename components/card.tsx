@@ -290,7 +290,7 @@ export function EmptyState({
         {children}
         {ok && ' ✓'}
       </div>
-      {hint && <div className="mt-1 text-label text-ink-3/80">{hint}</div>}
+      {hint && <div className="mt-1 text-label text-ink-3">{hint}</div>}
     </div>
   )
 }

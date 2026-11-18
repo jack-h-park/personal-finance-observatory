@@ -36,8 +36,9 @@
   /* 3.4 · Semantic status */
   --accent-info:    #0B6E99;
   --accent-success: #3B6D11;
-  /* 5.48:1 on white so warning labels remain readable without relying on color alone. */
-  --accent-warning: #965C0B;
+  /* 4.79:1 inside its own 10% pill on --bg-surface (#F7F6F3), 5.15:1 inside the pill on white,
+     and 5.50:1 as plain text on surface. Warning labels stay readable without relying on color alone. */
+  --accent-warning: #8F570A;
   --accent-danger:  #A32D2D;
 
   /* 5.3 · Elevation */
