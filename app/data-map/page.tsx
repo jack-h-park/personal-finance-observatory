@@ -1,5 +1,6 @@
 import { DataTable } from '@/components/DataTable'
 import { FreshnessRows } from '@/components/Freshness'
+import { OperatorDetails } from '@/components/OperatorDetails'
 import { PageHeader } from '@/components/PageHeader'
 import { Badge, Card, EmptyState, HeroAside, MetricField, MetricHeroCard } from '@/components/ui'
 import { getMeta, getOperationalHealth, getSourceInventory } from '@/lib/adapters/portfolio-db'
@@ -42,7 +43,7 @@ export default async function DataMapPage({
         eyebrow={routeSection('/data-map', language)}
         title={copy.title}
         emphasis={copy.emphasis}
-        subtitle={copy.subtitle(inventory.dataDir, fmtDateTime(meta.ingested_at, language))}
+        subtitle={copy.subtitle(fmtDateTime(meta.ingested_at, language))}
         status={reviewQueue.status}
       />
 
@@ -145,6 +146,10 @@ export default async function DataMapPage({
           ]}
         />
       </Card>
+
+      <OperatorDetails language={language}>
+        <p className="break-all">{copy.dataDir(inventory.dataDir)}</p>
+      </OperatorDetails>
     </>
   )
 }

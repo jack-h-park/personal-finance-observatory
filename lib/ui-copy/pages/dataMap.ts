@@ -8,7 +8,8 @@ export const dataMap = defineCopy({
   en: {
     title: 'Source & Retention',
     emphasis: 'Retention',
-    subtitle: (dir: string, ingestedAt: string) => `Source inventory for ${dir}. Last ingest: ${ingestedAt}.`,
+    subtitle: (ingestedAt: string) => `Source inventory. Last ingest: ${ingestedAt}.`,
+    dataDir: (dir: string) => `Data directory: ${dir}`,
     reviewItems: (count: string) => `${count} source issue(s)`,
     allMapped: 'No source issues',
     itemsToReview: 'Source Issues',
@@ -54,7 +55,8 @@ export const dataMap = defineCopy({
   ko: {
     title: '원본 · 보존',
     emphasis: '보존',
-    subtitle: (dir: string, ingestedAt: string) => `${dir}의 원본 인벤토리입니다. 마지막 ingest: ${ingestedAt}.`,
+    subtitle: (ingestedAt: string) => `원본 인벤토리입니다. 마지막 ingest: ${ingestedAt}.`,
+    dataDir: (dir: string) => `데이터 디렉터리: ${dir}`,
     reviewItems: (count: string) => `원본 이슈 ${count}건`,
     allMapped: '원본 이슈 없음',
     itemsToReview: '원본 이슈',

@@ -17,7 +17,7 @@ import fs from 'node:fs'
 
 const ROUTES = [
   '/', '/net-worth', '/pension', '/daily-briefing', '/holdings', '/review', '/rebalance', '/income',
-  '/tax-planning', '/tax-settings', '/lots', '/realized',
+  '/tax-planning', '/tax-settings', '/lots', '/realized', '/fbar',
   '/transactions', '/fx', '/crypto-premium', '/accounts', '/health', '/data-ops',
   '/reconciliation', '/data-map', '/positions/KR/005930', '/tax-planning/plans/none',
   // The surfaces R2's primitives touch that the net never checked.
@@ -26,8 +26,9 @@ const ROUTES = [
 const LANGUAGES = ['en', 'ko']
 const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']
 const LANGUAGE_COOKIE = 'stock-observatory-language'
-// One extra pass renders the overview in the all-assets view, which draws the
-// stacked total-assets chart that the default view never shows.
+// Every route is audited in both asset views: the default (no cookie) is the
+// all-assets view, and the extra pass sets the stocks view, which drops the
+// total-assets card and changes the hints the overview shows.
 const ASSET_VIEW_COOKIE = 'stock-observatory-asset-view'
 const VIEWS = [null, 'stocks']
 

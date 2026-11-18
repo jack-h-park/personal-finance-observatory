@@ -27,7 +27,7 @@ import { routeMetadata, routeSection } from '@/lib/page-names'
 import { CardRow, KpiBand } from '@/components/layout'
 import { PositionCell } from '@/components/PositionCell'
 import { maskAccountLabel } from '@/lib/account-label'
-import { dataOpsLinkedIssues } from '@/lib/header-status'
+import { dataOpsLinkedIssues, dataOpsQueueTiles } from '@/lib/header-status'
 
 export const dynamic = 'force-dynamic'
 export const generateMetadata = routeMetadata('/data-ops')
@@ -60,6 +60,7 @@ export default async function DataOpsPage() {
   const supplementary = getSupplementaryCoverage()
   const priorityWork = dataOpsLinkedIssues(copy, ops.actionQueue)
   const issueCount = priorityWork.issues.count
+  const tiles = dataOpsQueueTiles(ops.actionQueue)
   const coverageCopy = copy.coverage
 
   return (
@@ -158,25 +159,31 @@ export default async function DataOpsPage() {
           value={fmtNumber(issueCount)}
           hint={issueCount ? copy.triageHint : copy.noPendingHint}
         >
-          <KpiBand>
+          <KpiBand columns={4}>
             <MetricField
               label={copy.mappingSuggestions}
-              value={fmtNumber(ops.mappingSuggestions.length)}
+              value={fmtNumber(tiles.mapping)}
               hint={copy.mappingSuggestionsHint}
-              tone={countTone(TO_REVIEW_SEVERITY, ops.mappingSuggestions.length)}
+              tone={countTone(TO_REVIEW_SEVERITY, tiles.mapping)}
             />
             <MetricField
               label={copy.valuationFixes}
-              value={fmtNumber(ops.valuationFixes.length)}
+              value={fmtNumber(tiles.valuation)}
               hint={copy.valuationFixesHint}
-              tone={countTone(TO_REVIEW_SEVERITY, ops.valuationFixes.length)}
+              tone={countTone(TO_REVIEW_SEVERITY, tiles.valuation)}
             />
             <MetricField
               label={copy.sourceCheckIssues}
-              value={fmtNumber(ops.sourceIssues.length + ops.validationIssues.length)}
+              value={fmtNumber(tiles.sourceCheck)}
               info={glossary.inputIssues.description}
               hint={copy.sourceCheckIssuesHint}
-              tone={countTone(TO_REVIEW_SEVERITY, ops.sourceIssues.length + ops.validationIssues.length)}
+              tone={countTone(TO_REVIEW_SEVERITY, tiles.sourceCheck)}
+            />
+            <MetricField
+              label={copy.positionBreaks}
+              value={fmtNumber(tiles.breaks)}
+              hint={copy.positionBreaksHint}
+              tone={countTone(TO_REVIEW_SEVERITY, tiles.breaks)}
             />
           </KpiBand>
         </MetricHeroCard>
@@ -258,7 +265,7 @@ export default async function DataOpsPage() {
       </CardRow>
 
       <CardRow>
-        <Card title={copy.manualSuggestions} issues={{ count: ops.mappingSuggestions.length }}>
+        <Card id="data-ops-manual-mappings" title={copy.manualSuggestions} issues={{ count: ops.mappingSuggestions.length }}>
           {ops.mappingSuggestions.length === 0 ? (
             <EmptyState ok>{copy.noManualSuggestions}</EmptyState>
           ) : (
@@ -276,7 +283,7 @@ export default async function DataOpsPage() {
           )}
         </Card>
 
-        <Card title={copy.valuationFixSuggestions} issues={{ count: ops.valuationFixes.length }}>
+        <Card id="data-ops-valuation" title={copy.valuationFixSuggestions} issues={{ count: ops.valuationFixes.length }}>
           {ops.valuationFixes.length === 0 ? (
             <EmptyState ok>{copy.noValuationFixes}</EmptyState>
           ) : (

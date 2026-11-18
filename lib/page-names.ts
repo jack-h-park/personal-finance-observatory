@@ -34,6 +34,7 @@ export const ROUTE_HREFS = [
   '/tax-settings',
   '/lots',
   '/realized',
+  '/fbar',
   '/pension',
   '/transactions',
   '/fx',

@@ -683,10 +683,21 @@ export type RebalanceReview = {
 }
 
 export type ActionPriority = 'high' | 'medium' | 'low'
-export type DataOpsQueueKind = 'validation' | 'source_freshness' | 'manual_mappings' | 'valuation'
-export type ReconciliationQueueKind = 'source_freshness' | 'validation' | 'position_breaks' | 'valuation'
-/** One row of an action queue; the page says what the kind means (`dataOps.queue`, `reconciliation.queue`). */
-export type ActionQueueItem<K extends string> = { kind: K; priority: ActionPriority; count: number; href: string }
+export type DataOpsQueueKind = 'validation' | 'source_freshness' | 'manual_mappings' | 'position_breaks' | 'valuation'
+/** One row of the /data-ops work queue; the page says what the kind means (`dataOps.queue`). */
+export type ActionQueueItem = { kind: DataOpsQueueKind; priority: ActionPriority; count: number; href: string }
+/**
+ * Where each queue row leads: the card that lists its items, never the queue's
+ * own page. `#` ids are Cards on /data-ops (tests/work-queue.test.ts checks
+ * each one renders there).
+ */
+export const WORK_QUEUE_HREF: Record<DataOpsQueueKind, string> = {
+  validation: '/health',
+  source_freshness: '/health',
+  manual_mappings: '#data-ops-manual-mappings',
+  position_breaks: '/reconciliation#reconciliation-breaks',
+  valuation: '#data-ops-valuation',
+}
 export type TickerlessSuggestion = 'keep_interest' | 'keep_stock_lending' | 'keep_other' | 'review_override'
 export type ValuationReason = 'price_snapshot_missing' | 'ticker_missing_from_price_snapshot' | 'source_missing_market_value'
 export type PositionBreakStatus = 'holding_only' | 'lot_only' | 'quantity_break' | 'cost_break'
@@ -733,7 +744,7 @@ export type DataOpsReview = {
     base_cost: number | null
     reason: ValuationReason
   }[]
-  actionQueue: ActionQueueItem<DataOpsQueueKind>[]
+  actionQueue: ActionQueueItem[]
   mappingSuggestions: {
     id: string
     market: string
@@ -758,7 +769,6 @@ export type DataOpsReview = {
 
 export type ReconciliationReview = {
   totals: {
-    issue_count: number
     market_count: number
     brokerage_count: number
     position_count: number
@@ -811,7 +821,6 @@ export type ReconciliationReview = {
     native_cost: number
     base_cost: number | null
   }[]
-  actionQueue: ActionQueueItem<ReconciliationQueueKind>[]
 }
 
 function db(dbPath: string = config.stockDbPath) {
@@ -4458,29 +4467,17 @@ export function getDataOpsReview(): DataOpsReview {
       brokerage: row.brokerage,
       reason: row.reason,
     }))
-    const actionQueue: DataOpsReview['actionQueue'] = []
-    if (validationIssues.length > 0) {
-      actionQueue.push({ kind: 'validation', priority: 'high', count: validationIssues.length, href: '/health' })
-    }
-    if (operational.staleItems.length > 0) {
-      actionQueue.push({
-        kind: 'source_freshness',
-        priority: operational.summary.missing || operational.summary.drift ? 'high' : 'medium',
-        count: operational.staleItems.length,
-        href: '/health',
-      })
-    }
-    if (mappingSuggestions.length > 0) {
-      actionQueue.push({
-        kind: 'manual_mappings',
-        priority: 'medium',
-        count: mappingSuggestions.reduce((sum, row) => sum + Number(row.row_count ?? 0), 0),
-        href: '/data-ops',
-      })
-    }
-    if (valuationFixes.length > 0) {
-      actionQueue.push({ kind: 'valuation', priority: 'low', count: valuationFixes.length, href: '/data-ops' })
-    }
+    const queued: [DataOpsQueueKind, ActionPriority, number][] = [
+      ['validation', 'high', validationIssues.length],
+      ['source_freshness', operational.summary.missing || operational.summary.drift ? 'high' : 'medium', operational.staleItems.length],
+      ['manual_mappings', 'medium', mappingSuggestions.reduce((sum, row) => sum + Number(row.row_count ?? 0), 0)],
+      // The rows /reconciliation lists in its breaks card, counted the same way.
+      ['position_breaks', 'medium', readPositionBreaks(conn).length],
+      ['valuation', 'low', valuationFixes.length],
+    ]
+    const actionQueue: DataOpsReview['actionQueue'] = queued
+      .filter(([, , count]) => count > 0)
+      .map(([kind, priority, count]) => ({ kind, priority, count, href: WORK_QUEUE_HREF[kind] }))
     return {
       manualMappings: {
         path: config.stockManualMappingsPath,
@@ -4508,6 +4505,77 @@ function reconciliationStatus(row: any): ReconciliationReview['positionBreaks'][
   if (!row.lot_present) return 'holding_only'
   if (Math.abs(Number(row.quantity_diff ?? 0)) > 0.0001) return 'quantity_break'
   return 'cost_break'
+}
+
+/**
+ * Positions where holdings and tax lots disagree beyond the tolerance (at most
+ * 100): what /reconciliation lists in its breaks card and the /data-ops queue
+ * counts.
+ */
+function readPositionBreaks(conn: Database.Database): ReconciliationReview['positionBreaks'] {
+  const positionRows = conn
+    .prepare(
+      `with h as (
+         select market, coalesce(brokerage, 'Unassigned') as brokerage, ticker, max(name) as name,
+           count(distinct account) as holding_accounts,
+           coalesce(sum(quantity), 0) as holding_quantity,
+           coalesce(sum(coalesce(base_cost, total_cost_krw)), 0) as holding_base_cost,
+           1 as holding_present
+         from holdings
+         where ${STOCK_WRAPPER_SQL}
+         group by market, coalesce(brokerage, 'Unassigned'), ticker
+       ),
+       l as (
+         select market, coalesce(brokerage, 'Unassigned') as brokerage, ticker, max(name) as name,
+           coalesce(sum(open_quantity), 0) as lot_quantity,
+           coalesce(sum(cost_basis_krw), 0) as lot_base_cost,
+           1 as lot_present
+         from tax_lots
+         group by market, coalesce(brokerage, 'Unassigned'), ticker
+       ),
+       keys as (
+         select market, brokerage, ticker from h
+         union
+         select market, brokerage, ticker from l
+       )
+       select keys.market, keys.brokerage, keys.ticker,
+         coalesce(h.name, l.name, keys.ticker) as name,
+         coalesce(h.holding_accounts, 0) as holding_accounts,
+         h.holding_quantity,
+         l.lot_quantity,
+         case when h.holding_present = 1 and l.lot_present = 1 then h.holding_quantity - l.lot_quantity else null end as quantity_diff,
+         h.holding_base_cost,
+         l.lot_base_cost,
+         case when h.holding_present = 1 and l.lot_present = 1 then h.holding_base_cost - l.lot_base_cost else null end as base_cost_diff,
+         coalesce(h.holding_present, 0) as holding_present,
+         coalesce(l.lot_present, 0) as lot_present
+       from keys
+       left join h on h.market = keys.market and h.brokerage = keys.brokerage and h.ticker = keys.ticker
+       left join l on l.market = keys.market and l.brokerage = keys.brokerage and l.ticker = keys.ticker
+       where h.holding_present is null
+          or l.lot_present is null
+          or abs(coalesce(h.holding_quantity, 0) - coalesce(l.lot_quantity, 0)) > 0.0001
+          or abs(coalesce(h.holding_base_cost, 0) - coalesce(l.lot_base_cost, 0)) > 1000
+       order by
+         case when h.holding_present is null or l.lot_present is null then 0 else 1 end,
+         abs(coalesce(h.holding_base_cost, 0) - coalesce(l.lot_base_cost, 0)) desc
+       limit 100`
+    )
+    .all() as any[]
+  return positionRows.map((row) => ({
+    market: row.market,
+    brokerage: row.brokerage,
+    ticker: row.ticker,
+    name: row.name,
+    holding_accounts: row.holding_accounts,
+    holding_quantity: row.holding_quantity,
+    lot_quantity: row.lot_quantity,
+    quantity_diff: row.quantity_diff,
+    holding_base_cost: row.holding_base_cost,
+    lot_base_cost: row.lot_base_cost,
+    base_cost_diff: row.base_cost_diff,
+    status: reconciliationStatus(row),
+  })) as ReconciliationReview['positionBreaks']
 }
 
 export function getReconciliationReview(): ReconciliationReview {
@@ -4571,69 +4639,7 @@ export function getReconciliationReview(): ReconciliationReview {
       )
       .all() as ReconciliationReview['coverage']
 
-    const positionRows = conn
-      .prepare(
-        `with h as (
-           select market, coalesce(brokerage, 'Unassigned') as brokerage, ticker, max(name) as name,
-             count(distinct account) as holding_accounts,
-             coalesce(sum(quantity), 0) as holding_quantity,
-             coalesce(sum(coalesce(base_cost, total_cost_krw)), 0) as holding_base_cost,
-             1 as holding_present
-           from holdings
-           where ${STOCK_WRAPPER_SQL}
-           group by market, coalesce(brokerage, 'Unassigned'), ticker
-         ),
-         l as (
-           select market, coalesce(brokerage, 'Unassigned') as brokerage, ticker, max(name) as name,
-             coalesce(sum(open_quantity), 0) as lot_quantity,
-             coalesce(sum(cost_basis_krw), 0) as lot_base_cost,
-             1 as lot_present
-           from tax_lots
-           group by market, coalesce(brokerage, 'Unassigned'), ticker
-         ),
-         keys as (
-           select market, brokerage, ticker from h
-           union
-           select market, brokerage, ticker from l
-         )
-         select keys.market, keys.brokerage, keys.ticker,
-           coalesce(h.name, l.name, keys.ticker) as name,
-           coalesce(h.holding_accounts, 0) as holding_accounts,
-           h.holding_quantity,
-           l.lot_quantity,
-           case when h.holding_present = 1 and l.lot_present = 1 then h.holding_quantity - l.lot_quantity else null end as quantity_diff,
-           h.holding_base_cost,
-           l.lot_base_cost,
-           case when h.holding_present = 1 and l.lot_present = 1 then h.holding_base_cost - l.lot_base_cost else null end as base_cost_diff,
-           coalesce(h.holding_present, 0) as holding_present,
-           coalesce(l.lot_present, 0) as lot_present
-         from keys
-         left join h on h.market = keys.market and h.brokerage = keys.brokerage and h.ticker = keys.ticker
-         left join l on l.market = keys.market and l.brokerage = keys.brokerage and l.ticker = keys.ticker
-         where h.holding_present is null
-            or l.lot_present is null
-            or abs(coalesce(h.holding_quantity, 0) - coalesce(l.lot_quantity, 0)) > 0.0001
-            or abs(coalesce(h.holding_base_cost, 0) - coalesce(l.lot_base_cost, 0)) > 1000
-         order by
-           case when h.holding_present is null or l.lot_present is null then 0 else 1 end,
-           abs(coalesce(h.holding_base_cost, 0) - coalesce(l.lot_base_cost, 0)) desc
-         limit 100`
-      )
-      .all() as any[]
-    const positionBreaks = positionRows.map((row) => ({
-      market: row.market,
-      brokerage: row.brokerage,
-      ticker: row.ticker,
-      name: row.name,
-      holding_accounts: row.holding_accounts,
-      holding_quantity: row.holding_quantity,
-      lot_quantity: row.lot_quantity,
-      quantity_diff: row.quantity_diff,
-      holding_base_cost: row.holding_base_cost,
-      lot_base_cost: row.lot_base_cost,
-      base_cost_diff: row.base_cost_diff,
-      status: reconciliationStatus(row),
-    })) as ReconciliationReview['positionBreaks']
+    const positionBreaks = readPositionBreaks(conn)
 
     const incomeBreaks = conn
       .prepare(
@@ -4668,34 +4674,8 @@ export function getReconciliationReview(): ReconciliationReview {
       .get() as Pick<ReconciliationReview['totals'], 'market_count' | 'brokerage_count' | 'position_count'>
     const lotTotals = conn.prepare("select count(distinct market || ':' || ticker) as count from tax_lots").get() as { count: number }
 
-    const actionQueue: ReconciliationReview['actionQueue'] = []
-    if (operational.staleItems.length > 0) {
-      actionQueue.push({
-        kind: 'source_freshness',
-        priority: operational.summary.missing || operational.summary.drift ? 'high' : 'medium',
-        count: operational.staleItems.length,
-        href: '/health',
-      })
-    }
-    if (validationIssues.count > 0) {
-      actionQueue.push({ kind: 'validation', priority: 'high', count: validationIssues.count, href: '/health' })
-    }
-    if (positionBreaks.length > 0) {
-      actionQueue.push({ kind: 'position_breaks', priority: 'medium', count: positionBreaks.length, href: '/reconciliation' })
-    }
-    if (valuationBreaks.length > 0) {
-      actionQueue.push({ kind: 'valuation', priority: 'low', count: valuationBreaks.length, href: '/data-ops' })
-    }
-
-    const issueCount =
-      positionBreaks.length +
-      valuationBreaks.length +
-      operational.staleItems.length +
-      validationIssues.count
-
     return {
       totals: {
-        issue_count: issueCount,
         market_count: totals.market_count,
         brokerage_count: totals.brokerage_count,
         position_count: totals.position_count,
@@ -4709,7 +4689,6 @@ export function getReconciliationReview(): ReconciliationReview {
       positionBreaks,
       incomeBreaks,
       valuationBreaks,
-      actionQueue,
     }
   } finally {
     conn.close()
@@ -5176,38 +5155,6 @@ export function getAccountAllocation() {
          order by market, currency, value desc`
       )
       .all() as { market: string; currency: string; account: string; value: number; count: number }[]
-  } finally {
-    conn.close()
-  }
-}
-
-export function getDividendByYear() {
-  const conn = db()
-  try {
-    return conn
-      .prepare(
-        `select currency, substr(date, 1, 4) as year, coalesce(sum(native_amount), 0) as amount, count(*) as count
-         from dividends
-         group by currency, year
-         order by currency, year`
-      )
-      .all() as { currency: string; year: string; amount: number; count: number }[]
-  } finally {
-    conn.close()
-  }
-}
-
-export function getTransactionTypes() {
-  const conn = db()
-  try {
-    return conn
-      .prepare(
-        `select market, type, count(*) as count
-         from transactions
-         group by market, type
-         order by count desc`
-      )
-      .all() as { market: string; type: string; count: number }[]
   } finally {
     conn.close()
   }

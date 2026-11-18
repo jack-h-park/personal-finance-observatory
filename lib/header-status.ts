@@ -1,4 +1,5 @@
 import { createElement, type ReactNode } from 'react'
+import type { DataOpsQueueKind } from '@/lib/adapters/portfolio-db'
 import { fmtNumber } from '@/lib/format'
 import { ISSUE_SEVERITY, type IssueSeverity, type Severity } from '@/lib/tone'
 import type { getPageCopy } from '@/lib/ui-copy'
@@ -65,6 +66,21 @@ function queueCount(queue: readonly { count: number }[]) {
   return queue.reduce((sum, item) => sum + item.count, 0)
 }
 
+/**
+ * /data-ops: the KPI tiles under the queue headline, each read from the queue
+ * rows it stands for, so the tiles always sum to the headline. Mapping counts
+ * the income rows the suggested rules would map, as the queue row does.
+ */
+export function dataOpsQueueTiles(queue: readonly { kind: DataOpsQueueKind; count: number }[]) {
+  const of = (...kinds: DataOpsQueueKind[]) => queueCount(queue.filter((item) => kinds.includes(item.kind)))
+  return {
+    mapping: of('manual_mappings'),
+    valuation: of('valuation'),
+    sourceCheck: of('validation', 'source_freshness'),
+    breaks: of('position_breaks'),
+  }
+}
+
 /** /data-ops: the priority-work queue, counted by the items its rows stand for. */
 export function dataOpsLinkedIssues(copy: ReturnType<typeof getPageCopy<'dataOps'>>, queue: readonly { count: number }[]): LinkedIssues {
   return linkedIssues(queueCount(queue), TO_REVIEW, '#data-ops-priority-work', (n) => copy.needsReview(fmtNumber(n)), {
@@ -73,23 +89,25 @@ export function dataOpsLinkedIssues(copy: ReturnType<typeof getPageCopy<'dataOps
   })
 }
 
-/** /reconciliation: the action queue, counted by the items its rows stand for (the adapter's `issue_count`). */
-export function reconciliationLinkedIssues(
-  copy: ReturnType<typeof getPageCopy<'reconciliation'>>,
-  queue: readonly { count: number }[],
-): LinkedIssues {
-  return linkedIssues(queueCount(queue), TO_REVIEW, '#reconciliation-action-queue', (n) => copy.reviewItems(fmtNumber(n)), {
+/**
+ * /reconciliation: the position breaks its breaks card lists, a confirmed
+ * discrepancy each, so a problem. The hero reads the same count; the work
+ * queue that also counted stale sources and valuation gaps lives on /data-ops.
+ */
+export function reconciliationLinkedIssues(copy: ReturnType<typeof getPageCopy<'reconciliation'>>, breaks: number): LinkedIssues {
+  return linkedIssues(breaks, 'problem', '#reconciliation-breaks', (n) => copy.reviewItems(fmtNumber(n)), {
     severity: 'ok',
     label: copy.reconciled,
   })
 }
 
-/** /review: stale operational inputs. */
-export function reviewLinkedIssues(copy: ReturnType<typeof getPageCopy<'review'>>, stale: number): LinkedIssues {
-  return linkedIssues(stale, TO_REVIEW, '#review-operational-readiness', (n) => copy.freshnessIssues(n), {
-    severity: 'ok',
-    label: copy.ready,
-  })
+/**
+ * /review: stale operational inputs. The card that listed them moved to
+ * /health, so the pill still reports the count but links nowhere and no card
+ * on the page carries a matching badge.
+ */
+export function reviewLinkedIssues(copy: ReturnType<typeof getPageCopy<'review'>>, stale: number): { status: HeaderStatus } {
+  return { status: stale > 0 ? { severity: TO_REVIEW, label: copy.freshnessIssues(stale) } : { severity: 'ok', label: copy.ready } }
 }
 
 /**

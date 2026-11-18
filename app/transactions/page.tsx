@@ -64,7 +64,7 @@ export default async function TransactionsPage({
           <FilterBar
             basePath={BASE}
             params={params}
-            summary={copy.summary(fmtNumber(filtered.length), fmtNumber(rows.length))}
+            summary={copy.summary(fmtNumber(filtered.length), fmtNumber(scoped.length))}
             search={{ key: 'q', label: getUiCopy(language).common.search, placeholder: copy.searchPlaceholder, value: query }}
             groups={GROUPS.map((group) => ({
               key: group.key,
@@ -74,7 +74,7 @@ export default async function TransactionsPage({
             }))}
           />
           {ticker ? (
-            <TickerFilterChip ticker={ticker} clearHref={withParam(BASE, params, 'ticker', null)} label={getUiCopy(language).common.tickerFilter(ticker)} />
+            <TickerFilterChip clearHref={withParam(BASE, params, 'ticker', null)} label={getUiCopy(language).common.tickerFilter(ticker)} removeLabel={getUiCopy(language).common.removeTickerFilter(ticker)} />
           ) : null}
           <DataTable
             rows={filtered}

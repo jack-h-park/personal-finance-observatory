@@ -40,6 +40,7 @@ const COPY_FOR: Record<RouteHref, PageKey | { page: PageKey; title: string }> = 
   '/tax-settings': 'taxSettings',
   '/lots': 'lots',
   '/realized': 'realized',
+  '/fbar': 'fbar',
   '/pension': 'pension',
   '/transactions': 'transactions',
   '/fx': 'fx',

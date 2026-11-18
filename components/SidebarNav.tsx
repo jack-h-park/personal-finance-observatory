@@ -70,11 +70,12 @@ export function SidebarNav({
                     onToggle={(event) => onToggle(entry.group, event.currentTarget.open)}
                     className="group"
                   >
-                    <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between rounded-sm px-2 text-label font-medium text-ink-2 hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-info">
+                    {/* Styled as an item (item indent, body text), not as a section label: the group sits inside its section. */}
+                    <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between rounded-sm py-2 pl-3 pr-2 text-body text-ink-2 hover:bg-surface hover:text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-info lg:min-h-0 lg:py-1.5">
                       {entry.group}
                       <span aria-hidden className="transition-transform group-open:rotate-90">›</span>
                     </summary>
-                    <ul className="mt-1.5 flex flex-col gap-0.5">{entry.items.map(link)}</ul>
+                    <ul className="mt-0.5 flex flex-col gap-0.5 pl-3">{entry.items.map(link)}</ul>
                   </details>
                 </li>
               )

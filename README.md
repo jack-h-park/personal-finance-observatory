@@ -22,7 +22,7 @@ The seed refuses `.env.local`, configured private paths, unowned nonempty sample
 | --- | --- | --- |
 | Financial position | `/`, `/net-worth`, `/accounts`, `/pension` | Supported assets by owner/account, dated values and coverage; liabilities are not implemented |
 | Investments and cash flow | `/holdings`, `/transactions`, `/income`, `/cash-inflow`, `/fx`, `/crypto-premium` | Institution-specific records and reconciliation |
-| Tax records | `/taxes`, `/taxes/history`, `/taxes/records/[id]` | Reviewed returns/assessments, allocated payments/refunds, revisions, evidence |
+| Tax records | `/taxes`, `/taxes/history`, `/taxes/records/[id]`, `/fbar` | Reviewed returns/assessments, allocated payments/refunds, revisions, evidence |
 | Tax scenarios | `/tax-planning`, `/tax-settings`, `/lots`, `/realized` | Bounded investment-incremental estimates; not a complete annual tax return calculator |
 | Review and data | `/rebalance`, `/review`, `/health`, `/reconciliation`, `/data-map`, `/data-ops` | Reviewable proposals, source coverage, freshness and breaks |
 

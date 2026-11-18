@@ -48,7 +48,7 @@ export const netWorth = defineCopy({
       toggleAria: (included: boolean) => (included ? 'Include children: included' : 'Include children: excluded'),
       toggleHint: "Off: every figure is the maintainer's own. On: the children's accounts are added beside them, never inside a total.",
       title: "Children's accounts",
-      note: "Each child's own accounts, held for them. They are not in Covered total assets, the class totals or FBAR above.",
+      note: "Each child's own accounts, held for them. They are not in Covered total assets, the class totals or the FBAR worksheet.",
       band: 'Children',
       combined: 'Total incl. children',
       historyColumn: 'Children (separate)',
@@ -59,28 +59,6 @@ export const netWorth = defineCopy({
         method === 'contributions'
           ? `${label}: ${from} to ${until} is derived from cumulative net contributions (money in less money out), not a market value; the series is the snapshot from then on.`
           : `${label}: ${from} to ${until} is derived from the transaction certificate, with each day's holdings valued at that day's close plus cash; the series is the snapshot from then on.`,
-    },
-    fbar: {
-      title: 'Foreign account maximum balances (FBAR / Form 8938)',
-      yearLabel: 'Year',
-      note: 'Reference figures for preparing FBAR and Form 8938; filing thresholds depend on filing status — confirm with your preparer.',
-      method:
-        'Foreign accounts are every account not held at a US institution: Korean cash accounts, Korean brokerage accounts, pensions and gold. Crypto exchanges are listed separately, for reference. USD figures use the U.S. Treasury Reporting Rate of Exchange for the last day of the year; a USD account keeps its own dollar maximum.',
-      cashNote:
-        'A brokerage row adds the account\'s uninvested cash where its statements print a running balance, carried forward to each month-end. "Cash not included" marks a row whose statements do not, so its maximum leaves the cash out.',
-      rate: (krwPerUsd: string, date: string) => `Treasury rate: ${krwPerUsd} KRW per USD on ${date}.`,
-      noRate: (year: number) => `No Treasury year-end rate is on file for ${year}, so the figures are in KRW only.`,
-      understatedNote: 'An "understated" row was not found from daily balances, so the true maximum may be higher.',
-      unpriced: (list: string) => `No USD/KRW rate of any kind is on file for ${list}, so it has no KRW figure and is not in the KRW aggregate.`,
-      columns: { institution: 'Institution', account: 'Account', kind: 'Kind', maxDate: 'Date of maximum', maxKrw: 'Maximum (KRW)', maxUsd: 'Maximum (USD)', coverage: 'Basis' },
-      kinds: { cash: 'Cash', brokerage: 'Brokerage', pension: 'Pension', gold: 'Gold', crypto: 'Crypto exchange' },
-      coverage: { daily: 'Daily balances', month_end: 'Month-end values', year_end: 'Year-end totals', partial: 'Part of the year', derived: 'Derived principal' },
-      understated: 'Understated',
-      cashNotIncluded: 'Cash not included',
-      aggregate: 'Aggregate of maximums',
-      cryptoTitle: 'Crypto exchange (reference — confirm with your preparer whether it is reportable)',
-      cryptoSubtotal: 'Crypto subtotal (not in the aggregate)',
-      empty: (year: number) => `No foreign account has data for ${year}.`,
     },
   },
   ko: {
@@ -130,7 +108,7 @@ export const netWorth = defineCopy({
       toggleAria: (included: boolean) => (included ? '자녀 포함: 포함됨' : '자녀 포함: 제외됨'),
       toggleHint: '끄면 모든 숫자가 본인 것만입니다. 켜면 자녀 계좌를 옆에 따로 보여주며, 어떤 합계에도 더하지 않습니다.',
       title: '자녀 계좌',
-      note: '자녀 명의로 보유한 계좌입니다. 위의 확인 가능한 총자산, 자산군 합계, FBAR에는 포함되지 않습니다.',
+      note: '자녀 명의로 보유한 계좌입니다. 확인 가능한 총자산, 자산군 합계, 해외 계좌 신고(FBAR) 화면에는 포함되지 않습니다.',
       band: '자녀',
       combined: '자녀 포함 합계',
       historyColumn: '자녀 (별도)',
@@ -141,28 +119,6 @@ export const netWorth = defineCopy({
         method === 'contributions'
           ? `${label}: ${from}부터 ${until}까지는 평가금액이 아니라 누적 순납입액(입금 - 출금)으로 추정한 값이며, 그 이후는 잔고 스냅샷입니다.`
           : `${label}: ${from}부터 ${until}까지는 거래내역증명서로 추정한 값으로, 그날의 보유 수량을 그날 종가로 평가하고 예수금을 더했습니다. 그 이후는 잔고 스냅샷입니다.`,
-    },
-    fbar: {
-      title: '해외 계좌 최대 잔고 (FBAR / Form 8938)',
-      yearLabel: '연도',
-      note: 'FBAR와 Form 8938 준비용 참고 수치입니다. 신고 기준 금액은 신고 유형에 따라 다르니 세무 대리인과 확인하세요.',
-      method:
-        '해외 계좌는 미국 금융기관에 있지 않은 모든 계좌입니다: 한국 현금 계좌, 한국 증권 계좌, 연금, 금. 암호화폐 거래소는 참고용으로 따로 보여줍니다. USD 금액은 그해 마지막 날의 미국 재무부 Reporting Rate of Exchange를 쓰며, USD 계좌는 달러 기준 최대값을 그대로 씁니다.',
-      cashNote:
-        '증권 계좌는 거래내역에 예수금 잔액이 찍힌 경우 그 예수금을 월말까지 이어 더합니다. "예수금 미포함"은 거래내역에 잔액이 없어 최대값에 예수금이 빠진 계좌입니다.',
-      rate: (krwPerUsd: string, date: string) => `재무부 환율: ${date} 기준 1 USD = ${krwPerUsd} KRW.`,
-      noRate: (year: number) => `${year}년 재무부 연말 환율이 없어 원화로만 표시합니다.`,
-      understatedNote: '"과소 추정" 표시는 일별 잔고로 구한 값이 아니라 실제 최대값이 더 클 수 있다는 뜻입니다.',
-      unpriced: (list: string) => `${list}은(는) USD/KRW 환율이 전혀 없어 원화 금액이 없고, 원화 합계에도 포함되지 않습니다.`,
-      columns: { institution: '기관', account: '계좌', kind: '종류', maxDate: '최대값 날짜', maxKrw: '최대값 (KRW)', maxUsd: '최대값 (USD)', coverage: '기준' },
-      kinds: { cash: '현금', brokerage: '증권', pension: '연금', gold: '금', crypto: '암호화폐 거래소' },
-      coverage: { daily: '일별 잔고', month_end: '월말 평가금액', year_end: '연말 합계', partial: '연중 일부', derived: '원금 기준 계산' },
-      understated: '과소 추정',
-      cashNotIncluded: '예수금 미포함',
-      aggregate: '최대값 합계',
-      cryptoTitle: '암호화폐 거래소 (참고용 — 신고 대상인지 세무 대리인과 확인하세요)',
-      cryptoSubtotal: '암호화폐 소계 (합계에 미포함)',
-      empty: (year: number) => `${year}년 데이터가 있는 해외 계좌가 없습니다.`,
     },
   },
 })

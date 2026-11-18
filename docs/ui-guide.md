@@ -126,6 +126,65 @@ button is `type="button"`, and a submission without a submitter is cancelled.
 `confirmStep` is pure and tested; the click, timer and blur wiring has no DOM
 test, so check it by hand.
 
+## Information architecture
+
+The sidebar has five sections. `lib/nav.ts` holds the model (`navItems`, and
+`activeHref` with its aliases `/positions` to `/holdings` and `/taxes/records`
+to `/taxes/history`); the eyebrow above a heading is the top-level section.
+
+| section | what belongs in it |
+|---|---|
+| Overview | `/` and `/daily-briefing`: the summary a reader opens first, and only blocks no other page owns |
+| Assets & Cash Flow | `/holdings`, `/net-worth`, `/pension`, `/income`, `/cash-inflow`, and the collapsible Detailed Records group (`/transactions`, `/fx`, `/crypto-premium`). `/net-worth` and `/pension` are hidden when the database has no supplementary data |
+| Taxes | `/taxes`, `/taxes/history`, `/tax-planning`, `/lots`, `/realized`, `/fbar` |
+| Review & Data | `/review`, `/rebalance`, `/data-ops`, `/reconciliation`, `/accounts`, `/health`, `/data-map` |
+| Settings | `/tax-settings`, `/rebalance/settings` |
+
+`/cost-basis` redirects to `/holdings` with every parameter kept, and
+`/dividends` redirects to `/income`, so old links still land.
+
+### Breadcrumbs
+
+A page under another page passes `PageHeader parent={...} language={...}`
+instead of `eyebrow`; the two are exclusive. The header then reads
+`Section › Parent` above the heading, and the way back is that breadcrumb, never
+a back link in `actions`.
+
+### One home per data block
+
+A block of data renders on one page, and other pages link to it. The overview
+and the review page keep only their own blocks; the all-view cumulative
+total-assets chart lives only on `/net-worth`; `/data-ops` is the one work
+queue, and each of its rows links to the card that lists its items, never back
+to the queue (validation and source freshness lead to `/health`, position breaks
+to `/reconciliation`); the FBAR worksheet lives on `/fbar`. The allowed repeats
+are:
+
+- a header pill that summarises another page's count (it links there);
+- the archive figures on `/daily-briefing`, which is the archive's own page;
+- the position page's per-ticker slices of data whose full list lives elsewhere.
+
+`tests/page-blocks.test.ts` asserts the absences, so a block cannot drift back
+quietly.
+
+### Operator detail
+
+Paths, hashes, stderr tails and commands are for whoever runs the pipeline, not
+for the reader of a figure. Put them in `<OperatorDetails language={language}>`
+(`components/OperatorDetails.tsx`): a closed `<details>` whose summary is
+`common.operatorDetails`. It goes at the bottom of the page, except that a
+stderr tail stays inside its own step on `/health`. On `/data-map` it holds the
+data directory, on `/health` the stderr tail and the refresh-runs path, and on
+the position page the evidence-summary and lineage cards. Keep these out of
+subtitles and out of the main flow.
+
+### Ticker links
+
+A position links to `/lots`, `/realized` and `/transactions` with an exact
+`ticker` parameter, plus `market` where the ticker alone is ambiguous. The
+target page shows the filter as a removable `TickerFilterChip`, so the reader
+can see why the list is short and clear it in one press.
+
 ## All assets
 
 Deposits, CMA balances, pensions and gold are supplementary data (see
@@ -134,22 +193,24 @@ Three rules decide where they may appear:
 
 - **Stock surfaces never include them.** Holdings, the stock trend chart, the
   badge and the validation line are stock-only in both views.
-- **The switch is in the sidebar.** Stocks is the default. In All assets the
-  Overview adds a "Total assets trend" card, and the sidebar's "All assets"
-  section links `/net-worth` and `/pension`. That section is hidden when the
-  database has no supplementary data.
+- **The switch is in the sidebar.** All assets is the default view. In it the
+  Overview adds a Total assets card, which links to `/net-worth`; the Stocks
+  view drops that card. The sidebar gates supplementary items one by one, not by
+  section: Total Assets (`/net-worth`) and Pension (`/pension`) sit in Assets &
+  Cash Flow with `supplementary: true` and are hidden when the database has no
+  supplementary data, while the rest of the section stays.
 - **Every amount carries its as-of date.** The Total assets card shows the date
   per class, with cash using the oldest latest balance across accounts.
 
 **The stacked chart.** `StackedAssetChart` draws one stacked area per class
 (stocks, crypto, cash, pensions, gold) from `totalAssetsSeries`, the single
-definition of total assets by date. The last point is today's `getNetWorth()`
-figures, so it equals the Total assets card. A class contributes nothing before
-its data starts; it is never drawn as zero mid-series and never interpolated, and
-a note under the chart lists where each class starts. Pensions move only on
-certificate and snapshot dates, so the note says so. `/net-worth` shows the same
-chart above the balances, with a month-end table (Month, Stocks, Crypto, Cash,
-Pensions, Gold, Total).
+definition of total assets by date. Only `/net-worth` draws it, above the
+balances and a month-end table (Month, Stocks, Crypto, Cash, Pensions, Gold,
+Total). The last point is today's `getNetWorth()` figures, so it equals the
+Overview's Total assets card. A class contributes nothing before its data
+starts; it is never drawn as zero mid-series and never interpolated, and a note
+under the chart lists where each class starts. Pensions move only on
+certificate and snapshot dates, so the note says so.
 
 ## Type and colour
 

@@ -1,3 +1,4 @@
+import { OperatorDetails } from '@/components/OperatorDetails'
 import { PageHeader } from '@/components/PageHeader'
 import { FreshnessRows } from '@/components/Freshness'
 import { Badge, Callout, Card, EmptyState, Label, Panel, TextLink, marketTone, type Tone } from '@/components/ui'
@@ -167,11 +168,7 @@ export default async function HealthPage() {
         }
       >
         {!latestRefresh ? (
-          <EmptyState
-            hint={copy.refreshRunsHint(getMeta().refresh_runs_path ?? 'data/refresh-runs.json')}
-          >
-            {copy.noRefreshRuns}
-          </EmptyState>
+          <EmptyState>{copy.noRefreshRuns}</EmptyState>
         ) : (
           <div className="space-y-4">
             <MiniStatGrid columns="sm-4">
@@ -210,12 +207,14 @@ export default async function HealthPage() {
             </ul>
 
             {latestRefresh.steps.some((step) => step.status === 'failed' && step.stderrTail) ? (
-              <Panel pad="md">
-                <Label className="mb-2">{copy.latestErrorTail}</Label>
-                <pre className="max-h-48 overflow-auto whitespace-pre-wrap font-mono text-label leading-relaxed text-danger">
-                  {latestRefresh.steps.find((step) => step.status === 'failed' && step.stderrTail)?.stderrTail}
-                </pre>
-              </Panel>
+              <OperatorDetails language={language}>
+                <Panel pad="md">
+                  <Label className="mb-2">{copy.latestErrorTail}</Label>
+                  <pre className="max-h-48 overflow-auto whitespace-pre-wrap font-mono text-label leading-relaxed text-danger">
+                    {latestRefresh.steps.find((step) => step.status === 'failed' && step.stderrTail)?.stderrTail}
+                  </pre>
+                </Panel>
+              </OperatorDetails>
             ) : null}
           </div>
         )}
@@ -298,6 +297,9 @@ export default async function HealthPage() {
         )}
       </Card>
 
+      <OperatorDetails language={language}>
+        <p className="break-all">{copy.refreshRunsHint(getMeta().refresh_runs_path ?? 'data/refresh-runs.json')}</p>
+      </OperatorDetails>
     </>
   )
 }

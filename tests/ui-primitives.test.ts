@@ -10,6 +10,7 @@ import { PositionCell } from '@/components/PositionCell'
 import { Badge, Callout, Card, FormError, FormSaved, HeroAside, MetricField, Note, Panel, SectionHeading } from '@/components/ui'
 import { LinkChip, LinkChips } from '@/components/LinkChips'
 import { Tabs } from '@/components/Tabs'
+import { OperatorDetails } from '@/components/OperatorDetails'
 import { PageHeader } from '@/components/PageHeader'
 import { routeName, routeSection } from '@/lib/page-names'
 import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared-runtime'
@@ -834,12 +835,11 @@ function statusBlock(source: string): string {
  * moving the id onto an element that does not always render fails here.
  */
 const STATUS_ANCHORS: Array<{ page: string; pair: string; helper: string; id: string }> = [
-  { page: 'app/reconciliation/page.tsx', pair: 'actionQueue', helper: 'reconciliationLinkedIssues', id: 'reconciliation-action-queue' },
+  { page: 'app/reconciliation/page.tsx', pair: 'breaks', helper: 'reconciliationLinkedIssues', id: 'reconciliation-breaks' },
   { page: 'app/health/page.tsx', pair: 'operationalIssues', helper: 'healthLinkedIssues', id: 'health-operational-status' },
   { page: 'app/income/page.tsx', pair: 'tickerless', helper: 'incomeLinkedIssues', id: 'income-tickerless' },
   { page: 'app/data-ops/page.tsx', pair: 'priorityWork', helper: 'dataOpsLinkedIssues', id: 'data-ops-priority-work' },
   { page: 'app/rebalance/page.tsx', pair: 'holdWatch', helper: 'rebalanceLinkedIssues', id: 'rebalance-hold-watch' },
-  { page: 'app/review/page.tsx', pair: 'readiness', helper: 'reviewLinkedIssues', id: 'review-operational-readiness' },
   { page: 'app/data-map/page.tsx', pair: 'reviewQueue', helper: 'dataMapLinkedIssues', id: 'data-map-review-queue' },
 ]
 
@@ -856,6 +856,17 @@ for (const { page, pair, helper, id } of STATUS_ANCHORS) {
   })
 }
 
+// /review keeps its stale-input pill with no card to link to (the list lives
+// on /health): the status still comes from its builder, which sets no href
+// (tests/linked-issues.test.ts), and no card on the page carries its badge.
+test('app/review/page.tsx: the header status is unlinked and no card reads its badge', () => {
+  const source = readFileSync('app/review/page.tsx', 'utf8')
+  assert.ok(source.includes('const readiness = reviewLinkedIssues('))
+  assert.equal(statusBlock(source), 'status={readiness.status}')
+  assert.ok(!source.includes('readiness.issues'))
+  assert.ok(!source.includes('id="review-'))
+})
+
 // The exception: cash-inflow's target is not an issues card and renders only
 // under the unclassified filter. The pill's href is what switches that filter
 // on (tests/header-status.test.ts pins the #cash-inflow-unclassified part).
@@ -867,3 +878,19 @@ test('app/cash-inflow/page.tsx: the header status opens the filter that renders 
   assert.ok(branch >= 0 && target > branch, 'the target sits inside the unclassified branch')
   assert.equal((source.match(/id="cash-inflow-unclassified"/g) ?? []).length, 1)
 })
+
+test('OperatorDetails renders a closed details with the operator summary', () => {
+  const en = renderToStaticMarkup(h(OperatorDetails, { language: 'en', children: h('p', null, 'x') }))
+  assert.ok(en.startsWith('<details'))
+  assert.ok(!en.includes(' open'))
+  assert.ok(en.includes('>Operator details</summary>'))
+  const ko = renderToStaticMarkup(h(OperatorDetails, { language: 'ko', children: h('p', null, 'x') }))
+  assert.ok(ko.includes('>운영 정보</summary>'))
+})
+
+// Every caller knows the reader's language; a default would let a new caller
+// render English on a Korean page without a type error.
+export function operatorDetailsNeedsLanguage() {
+  // @ts-expect-error language is required
+  return OperatorDetails({ children: null })
+}
