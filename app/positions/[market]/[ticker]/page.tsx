@@ -21,7 +21,8 @@ import { getLanguage } from '@/lib/i18n-server'
 import { getPageCopy } from '@/lib/ui-copy'
 import { CardRow, KpiBand, Total, TotalsStrip } from '@/components/layout'
 import { positionHeading } from '@/lib/page-headings'
-import { displayAccount, maskAccountLabel } from '@/lib/account-label'
+import { AccountCell } from '@/components/PositionCell'
+import { displayAccount } from '@/lib/account-label'
 import { ALL_YEARS } from '@/lib/realized-lots'
 
 export const dynamic = 'force-dynamic'
@@ -270,8 +271,7 @@ export default async function PositionPage({ params }: { params: Promise<{ marke
           <DataTable
             rows={accounts}
             columns={[
-              { key: 'brokerage', label: copy.columns.broker },
-              { key: 'account', label: copy.columns.account, render: (r: AccountRow) => maskAccountLabel(r.account) },
+              { key: 'account', label: copy.columns.account, render: (r) => <AccountCell brokerage={r.brokerage} account={r.account} /> },
               { key: 'quantity', label: copy.columns.quantity, align: 'right', render: (r) => fmtQuantity(r.quantity, 4) },
               { key: 'native_cost', label: copy.columns.cost, align: 'right', render: (r) => money(r.native_cost, r.currency) },
               { key: 'native_market_value', label: copy.columns.market, align: 'right', render: (r) => moneyOrNa(money, r.native_market_value, r.currency) },
@@ -316,8 +316,7 @@ export default async function PositionPage({ params }: { params: Promise<{ marke
               <DataTable
                 rows={detail.lots}
                 columns={[
-                  { key: 'brokerage', label: copy.columns.broker },
-                  { key: 'account', label: copy.columns.account, render: (r: { account: string }) => maskAccountLabel(r.account) },
+                  { key: 'account', label: copy.columns.account, render: (r) => <AccountCell brokerage={r.brokerage} account={r.account} /> },
                   { key: 'acquired_date', label: copy.columns.acquired },
                   { key: 'tax_term', label: copy.columns.term, render: (r) => translated(r.tax_term, copy.terms) },
                   { key: 'open_quantity', label: copy.columns.quantity, align: 'right', render: (r) => fmtQuantity(r.open_quantity, 4) },
@@ -344,8 +343,7 @@ export default async function PositionPage({ params }: { params: Promise<{ marke
             <DataTable
               rows={taxPlan.recommended.slice(0, 8)}
               columns={[
-                { key: 'brokerage', label: copy.columns.broker },
-                { key: 'account', label: copy.columns.account, render: (r: { account: string }) => maskAccountLabel(r.account) },
+                { key: 'account', label: copy.columns.account, render: (r) => <AccountCell brokerage={r.brokerage} account={r.account} /> },
                 { key: 'acquired_date', label: copy.columns.acquired },
                 { key: 'holdingBucket', label: copy.columns.term, render: (r: { holdingBucket: 'long' | 'short' }) => <Badge tone={bucketTone(r.holdingBucket)}>{copy.buckets[r.holdingBucket] ?? r.holdingBucket}</Badge> },
                 { key: 'open_quantity', label: copy.columns.quantity, align: 'right', render: (r) => fmtQuantity(r.open_quantity, 4) },
@@ -407,8 +405,7 @@ export default async function PositionPage({ params }: { params: Promise<{ marke
               rows={detail.dividends}
               columns={[
                 { key: 'date', label: copy.columns.paidDate },
-                { key: 'brokerage', label: copy.columns.broker },
-                { key: 'account', label: copy.columns.account, render: (r: { account: string }) => maskAccountLabel(r.account) },
+                { key: 'account', label: copy.columns.account, render: (r) => <AccountCell brokerage={r.brokerage} account={r.account} /> },
                 { key: 'native_amount', label: copy.columns.amount, align: 'right', render: (r) => money(r.native_amount, r.currency) },
                 { key: 'native_tax_withheld', label: copy.columns.tax, align: 'right', render: (r) => moneyOrNa(money, r.native_tax_withheld, r.currency) },
                 { key: 'amount_krw', label: copy.columns.baseAmount, align: 'right', render: (r) => money(r.amount_krw, 'KRW') },

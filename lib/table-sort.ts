@@ -72,3 +72,23 @@ export function sortRows<Row>(
   }
   return sorted
 }
+
+/**
+ * The sort to apply: the parsed one when it names a column the table has, the
+ * page default otherwise. A bookmark from before a column was merged away
+ * (`sort=brokerage:asc`) then renders the default order instead of sorting on
+ * a column no header shows.
+ */
+export function knownSort(sort: TableSort | null, keys: readonly string[], fallback: TableSort | null): TableSort | null {
+  return sort && keys.includes(sort.key) ? sort : fallback
+}
+
+/**
+ * The value a row sorts on for a column key. The merged `account` column sorts
+ * on broker, then account, matching the two lines the cell shows.
+ */
+export function rowSortValue<Row>(row: Row, key: string): Comparable {
+  const record = row as Record<string, any>
+  if (key === 'account') return `${record.brokerage ?? ''} ${record.account ?? ''}`.trim() || null
+  return record[key]
+}

@@ -12,10 +12,10 @@ import { getLanguage } from '@/lib/i18n-server'
 import { positionHref } from '@/lib/position-url'
 import { getPageCopy, getUiCopy } from '@/lib/ui-copy'
 import { applyFilters, applySearch, filterOptions, readFilters, withParam, type FilterGroup } from '@/lib/table-filter'
-import { formatSort, parseSort, sortRows, type TableSort } from '@/lib/table-sort'
+import { formatSort, knownSort, parseSort, rowSortValue, sortRows, type TableSort } from '@/lib/table-sort'
 import { COST_BASIS_STATUS_TONE } from '@/lib/tone'
 import { routeMetadata, routeSection } from '@/lib/page-names'
-import { maskAccountLabel } from '@/lib/account-label'
+import { AccountCell } from '@/components/PositionCell'
 
 export const dynamic = 'force-dynamic'
 export const generateMetadata = routeMetadata('/holdings')
@@ -30,6 +30,8 @@ const GROUPS: FilterGroup<any>[] = [
   { key: 'account', label: 'Account' },
   { key: 'status', label: 'Status', valueFor: (row) => row.cost_status },
 ]
+
+const SORT_KEYS = ['market', 'account', 'ticker', 'quantity', 'native_cost', 'base_cost', 'native_market_value', 'native_unrealized_gl', 'base_unrealized_gl', 'native_unrealized_gl_pct', 'long_term_qty', 'short_term_qty', 'lot_count', 'cost_status', 'cost_note']
 
 export default async function HoldingsPage({
   searchParams,
@@ -46,11 +48,12 @@ export default async function HoldingsPage({
   const selected = readFilters(params, GROUPS)
   const options = filterOptions(rows, GROUPS, selected)
   const query = typeof params.q === 'string' ? params.q : ''
-  const sort = parseSort(params.sort, { key: 'base_market_value', direction: 'desc' })
+  const DEFAULT_SORT: TableSort = { key: 'base_market_value', direction: 'desc' }
+  const sort = knownSort(parseSort(params.sort, DEFAULT_SORT), SORT_KEYS, DEFAULT_SORT)
   const filtered = sortRows(
     applySearch(applyFilters(rows, GROUPS, selected), query, (r) => [r.ticker, r.name, r.account, r.brokerage]),
     sort,
-    (row, key) => (row as Record<string, any>)[key]
+    rowSortValue
   )
   const totals = filtered.reduce(
     (acc, row) => ({
@@ -107,8 +110,7 @@ export default async function HoldingsPage({
             sortHref={(next: TableSort) => withParam(BASE, params, 'sort', formatSort(next))}
             columns={[
               { key: 'market', label: copy.market, sortable: true, sortFirst: 'asc', nowrap: true, render: (r) => <Badge tone={marketTone(r.market)}>{r.market}</Badge> },
-              { key: 'brokerage', label: copy.broker, sortable: true, sortFirst: 'asc', priority: 'secondary' },
-              { key: 'account', label: copy.account, sortable: true, sortFirst: 'asc', priority: 'secondary', render: (r) => maskAccountLabel(r.account) },
+              { key: 'account', label: copy.account, sortable: true, sortFirst: 'asc', priority: 'secondary', render: (r) => <AccountCell brokerage={r.brokerage} account={r.account} /> },
               {
                 key: 'ticker',
                 label: copy.instrument,

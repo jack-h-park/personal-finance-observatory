@@ -15,7 +15,6 @@ export const lots = defineCopy({
     filters: { market: 'Market', broker: 'Broker', account: 'Account', type: 'Type', term: 'Term', status: 'Status' },
     columns: {
       market: 'Market',
-      broker: 'Broker',
       account: 'Account',
       instrument: 'Position',
       acquired: 'Acquired',
@@ -40,7 +39,6 @@ export const lots = defineCopy({
     filters: { market: '시장', broker: '증권사', account: '계좌', type: '유형', term: '과세 구분', status: '상태' },
     columns: {
       market: '시장',
-      broker: '증권사',
       account: '계좌',
       instrument: '종목',
       acquired: '취득일',

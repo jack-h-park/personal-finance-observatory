@@ -14,17 +14,19 @@ import { positionHref } from '@/lib/position-url'
 import { ALL_YEARS, sumRealized, type RealizedLotView } from '@/lib/realized-lots'
 import { queryRealized, REALIZED_GROUPS } from '@/lib/realized-lots-query'
 import { getPageCopy, getUiCopy } from '@/lib/ui-copy'
-import { formatSort, parseSort, sortRows, type TableSort } from '@/lib/table-sort'
+import { formatSort, knownSort, parseSort, rowSortValue, sortRows, type TableSort } from '@/lib/table-sort'
 import { withParam } from '@/lib/table-filter'
 import { TickerFilterChip } from '@/components/TickerFilterChip'
 import { bucketTone } from '@/lib/tone'
 import { routeMetadata, routeSection } from '@/lib/page-names'
-import { maskAccountLabel } from '@/lib/account-label'
+import { AccountCell } from '@/components/PositionCell'
 
 export const dynamic = 'force-dynamic'
 export const generateMetadata = routeMetadata('/realized')
 
 const BASE = '/realized'
+
+const SORT_KEYS = ['market', 'account', 'ticker', 'acquired_date', 'sold_date', 'quantity_sold', 'holding_days', 'tax_term', 'basis']
 
 export default async function RealizedLotsPage({
   searchParams,
@@ -45,8 +47,9 @@ export default async function RealizedLotsPage({
   const currency: 'krw' | 'usd' = rawCurrency === 'usd' ? 'usd' : 'krw'
   const usd = currency === 'usd'
   // Newest sale first: the question this page answers is what closed lately.
-  const sort = parseSort(params.sort, { key: 'sold_date', direction: 'desc' })
-  const sorted = sortRows(filtered, sort, (row, key) => (row as Record<string, any>)[key])
+  const DEFAULT_SORT: TableSort = { key: 'sold_date', direction: 'desc' }
+  const sort = knownSort(parseSort(params.sort, DEFAULT_SORT), SORT_KEYS, DEFAULT_SORT)
+  const sorted = sortRows(filtered, sort, rowSortValue)
   const totals = sumRealized(filtered)
 
   const money = (krw: number | null, dollars: number | null) => (usd ? (dollars == null ? null : formatUsd(dollars)) : formatKrw(krw))
@@ -175,8 +178,7 @@ export default async function RealizedLotsPage({
             sortHref={(next: TableSort) => withParam(BASE, params, 'sort', formatSort(next))}
             columns={[
               { key: 'market', label: copy.columns.market, sortable: true, sortFirst: 'asc', render: (r: RealizedLotView) => <Badge tone={marketTone(r.market)}>{r.market}</Badge> },
-              { key: 'brokerage', label: copy.columns.broker, sortable: true, sortFirst: 'asc' },
-              { key: 'account', label: copy.columns.account, sortable: true, sortFirst: 'asc', priority: 'secondary', render: (r: RealizedLotView) => maskAccountLabel(r.account) },
+              { key: 'account', label: copy.columns.account, sortable: true, sortFirst: 'asc', priority: 'secondary', render: (r: RealizedLotView) => <AccountCell brokerage={r.brokerage} account={r.account} /> },
               {
                 key: 'ticker',
                 label: copy.columns.instrument,

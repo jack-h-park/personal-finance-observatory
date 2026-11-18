@@ -12,7 +12,6 @@ export const transactions = defineCopy({
     columns: {
       market: 'Market',
       date: 'Date',
-      broker: 'Broker',
       account: 'Account',
       type: 'Type',
       ticker: 'Ticker',
@@ -35,7 +34,6 @@ export const transactions = defineCopy({
     columns: {
       market: '시장',
       date: '거래일',
-      broker: '증권사',
       account: '계좌',
       type: '유형',
       ticker: '종목코드',

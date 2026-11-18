@@ -10,10 +10,10 @@ import { getLanguage } from '@/lib/i18n-server'
 import { getPageCopy, getUiCopy } from '@/lib/ui-copy'
 import { TickerFilterChip } from '@/components/TickerFilterChip'
 import { applyFilters, applySearch, applyTicker, filterOptions, readFilters, readTicker, withParam, type FilterGroup } from '@/lib/table-filter'
-import { formatSort, parseSort, sortRows, type TableSort } from '@/lib/table-sort'
+import { formatSort, knownSort, parseSort, rowSortValue, sortRows, type TableSort } from '@/lib/table-sort'
 import { TRANSACTION_TYPE_TONE, categoryTone } from '@/lib/tone'
 import { routeMetadata, routeSection } from '@/lib/page-names'
-import { maskAccountLabel } from '@/lib/account-label'
+import { AccountCell } from '@/components/PositionCell'
 
 export const dynamic = 'force-dynamic'
 export const generateMetadata = routeMetadata('/transactions')
@@ -25,6 +25,8 @@ const GROUPS: FilterGroup<any>[] = [
   { key: 'brokerage', label: 'broker' },
   { key: 'type', label: 'type' },
 ]
+
+const SORT_KEYS = ['market', 'date', 'account', 'type', 'ticker', 'name', 'quantity', 'native_amount', 'amount_krw', 'source', 'page']
 
 export default async function TransactionsPage({
   searchParams,
@@ -43,12 +45,13 @@ export default async function TransactionsPage({
   const selected = readFilters(params, GROUPS)
   const options = filterOptions(scoped, GROUPS, selected)
   const query = typeof params.q === 'string' ? params.q : ''
-  const sort = parseSort(params.sort, { key: 'date', direction: 'desc' })
+  const DEFAULT_SORT: TableSort = { key: 'date', direction: 'desc' }
+  const sort = knownSort(parseSort(params.sort, DEFAULT_SORT), SORT_KEYS, DEFAULT_SORT)
 
   const filtered = sortRows(
     applySearch(applyFilters(scoped, GROUPS, selected), query, (r) => [r.ticker, r.name, r.account, r.brokerage, r.source]),
     sort,
-    (row, key) => (row as Record<string, any>)[key]
+    rowSortValue
   )
 
   return (
@@ -83,8 +86,7 @@ export default async function TransactionsPage({
             columns={[
               { key: 'market', label: copy.columns.market, sortable: true, sortFirst: 'asc', render: (r) => <Badge tone={marketTone(r.market)}>{r.market}</Badge> },
               { key: 'date', label: copy.columns.date, sortable: true, nowrap: true },
-              { key: 'brokerage', label: copy.columns.broker, sortable: true, sortFirst: 'asc' },
-              { key: 'account', label: copy.columns.account, sortable: true, sortFirst: 'asc', priority: 'secondary', render: (r) => maskAccountLabel(r.account) },
+              { key: 'account', label: copy.columns.account, sortable: true, sortFirst: 'asc', priority: 'secondary', render: (r) => <AccountCell brokerage={r.brokerage} account={r.account} /> },
               { key: 'type', label: copy.columns.type, sortable: true, sortFirst: 'asc', render: (r) => <Badge tone={categoryTone(TRANSACTION_TYPE_TONE, r.type, 'info')}>{getUiCopy(language).transactionTypes[r.type] ?? r.type}</Badge> },
               { key: 'ticker', label: copy.columns.ticker, sortable: true, sortFirst: 'asc' },
               { key: 'name', label: copy.columns.name, sortable: true, sortFirst: 'asc' },

@@ -13,10 +13,10 @@ import { positionHref } from '@/lib/position-url'
 import { getPageCopy, getUiCopy } from '@/lib/ui-copy'
 import { TickerFilterChip } from '@/components/TickerFilterChip'
 import { applyFilters, applySearch, applyTicker, filterOptions, readFilters, readTicker, withParam, type FilterGroup } from '@/lib/table-filter'
-import { formatSort, parseSort, sortRows, type TableSort } from '@/lib/table-sort'
+import { formatSort, knownSort, parseSort, rowSortValue, sortRows, type TableSort } from '@/lib/table-sort'
 import { bucketTone } from '@/lib/tone'
 import { routeMetadata, routeSection } from '@/lib/page-names'
-import { maskAccountLabel } from '@/lib/account-label'
+import { AccountCell } from '@/components/PositionCell'
 
 export const dynamic = 'force-dynamic'
 export const generateMetadata = routeMetadata('/lots')
@@ -30,6 +30,8 @@ const GROUPS: FilterGroup<any>[] = [
   { key: 'account', label: 'account' },
   { key: 'term', label: 'term', valueFor: (row) => row.tax_term || 'Unknown' },
 ]
+
+const SORT_KEYS = ['market', 'account', 'ticker', 'acquired_date', 'open_quantity', 'native_cost_basis', 'cost_basis_krw', 'holding_days', 'tax_term']
 
 export default async function LotsPage({
   searchParams,
@@ -50,12 +52,13 @@ export default async function LotsPage({
   const query = typeof params.q === 'string' ? params.q : ''
   // Longest-held first: the question this page answers is what has crossed, or
   // is about to cross, the long-term boundary.
-  const sort = parseSort(params.sort, { key: 'holding_days', direction: 'desc' })
+  const DEFAULT_SORT: TableSort = { key: 'holding_days', direction: 'desc' }
+  const sort = knownSort(parseSort(params.sort, DEFAULT_SORT), SORT_KEYS, DEFAULT_SORT)
 
   const filtered = sortRows(
     applySearch(applyFilters(scoped, GROUPS, selected), query, (r) => [r.ticker, r.name, r.account, r.brokerage, r.source]),
     sort,
-    (row, key) => (row as Record<string, any>)[key]
+    rowSortValue
   )
 
   const totals = filtered.reduce(
@@ -102,8 +105,7 @@ export default async function LotsPage({
             sortHref={(next: TableSort) => withParam(BASE, params, 'sort', formatSort(next))}
             columns={[
               { key: 'market', label: copy.columns.market, sortable: true, sortFirst: 'asc', render: (r) => <Badge tone={marketTone(r.market)}>{r.market}</Badge> },
-              { key: 'brokerage', label: copy.columns.broker, sortable: true, sortFirst: 'asc' },
-              { key: 'account', label: copy.columns.account, sortable: true, sortFirst: 'asc', priority: 'secondary', render: (r) => maskAccountLabel(r.account) },
+              { key: 'account', label: copy.columns.account, sortable: true, sortFirst: 'asc', priority: 'secondary', render: (r) => <AccountCell brokerage={r.brokerage} account={r.account} /> },
               {
                 key: 'ticker',
                 label: copy.columns.instrument,
