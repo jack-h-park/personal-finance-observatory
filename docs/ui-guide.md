@@ -126,6 +126,51 @@ button is `type="button"`, and a submission without a submitter is cancelled.
 `confirmStep` is pure and tested; the click, timer and blur wiring has no DOM
 test, so check it by hand.
 
+## Page order
+
+Every page restructured in R5 reads in the same order, top to bottom:
+
+| # | Block | Rule |
+|---|-------|------|
+| 1 | Alert that blocks a trade | `WashSaleBanner` only. It renders nothing when no window is open, and its component documents why it goes first. |
+| 2 | Lead figure | The page's one `accent` card, with an `id` (`MetricHeroCard` takes it). |
+| 3 | Issues card | Directly under the lead. Rendered only when it has rows. |
+| 4 | Input controls | A toolbar, not a card. |
+| 5 | Detail | Everything else. |
+
+The order exists so the reader sees the figure first, then what is wrong with it,
+then what they can change, then the evidence.
+
+### Card budget
+
+A page has at most ten `section.shadow-card` inside `<main>` at 1440×1000, not
+counting cards inside a `<details>`. The lead's top edge sits at or above 840 px,
+so its title and figure are on the first screen.
+
+`pnpm ui:shape --base <url>` measures both limits. Its routes and their lead ids
+are `SHAPE_ROUTES` in `scripts/page-shape.mjs`: `/tax-planning`
+(`#tax-plan-overview`), `/rebalance` (`#rebalance-lead`), `/positions/KR/005930`
+(`#position-lead`), `/cash-inflow` (`#cash-inflow-lead`) and `/review`
+(`#review-summary`). A new page joins the budget by adding a row there.
+
+Two exceptions are already in the code and are not precedent:
+
+- `/rebalance` always renders its hold/watch card, because the header status pill
+  links to it (the R3 pairing).
+- `/review` has no accent card by design. Its lead is the summary strip.
+
+### Rules that go with the order
+
+- Input controls are a toolbar, not a card. A card around a row of filters spends
+  budget on a block that carries no figure.
+- A page fed by two engines labels each group with `SectionHeading`.
+  `/tax-planning` shows "Monthly sale plan" and "Lot-level estimate" this way, so
+  two figures that differ by design are not read as a disagreement.
+- A policy figure shown on a page comes from its named constant or from the
+  policy, never a literal. `/rebalance` reads `MARKET_GAP_HOLD_PCT` and
+  `SHORT_TERM_WATCH_PCT` from `lib/rebalance-policy.ts` and the position cap from
+  the policy, so changing the number changes the page.
+
 ## Information architecture
 
 The sidebar has five sections. `lib/nav.ts` holds the model (`navItems`, and
@@ -385,9 +430,10 @@ Three things will waste your afternoon otherwise:
 ```bash
 pnpm ui:a11y --base http://127.0.0.1:3143      # axe-core, WCAG 2.0/2.1 A + AA
 pnpm ui:mobile --base http://127.0.0.1:3143    # sideways scroll, touch targets at 375px
+pnpm ui:shape --base http://127.0.0.1:3143     # card budget and lead position, see Page order
 ```
 
-Both need a running sample server, so neither is in CI. Run them when you touch
+All three need a running sample server, so none is in CI. Run them when you touch
 layout.
 
 Both audits cover `/net-worth` and `/pension`, and run one extra pass over `/` with
@@ -400,6 +446,9 @@ P4 was wrong in both directions — it flagged seven selects that were wrapped i
 `ui:mobile` deliberately ignores links inside table rows and sort headers. Those
 are inline targets, which WCAG 2.2 SC 2.5.8 exempts, and giving each a 24px box
 would change the row height of every dense table in the app.
+
+A disclosure `<summary>` keeps its 24px target with `min-h-6 … leading-6`, not
+`flex`: `flex` drops the disclosure marker in Chromium.
 
 ## Never point any of this at real data
 
