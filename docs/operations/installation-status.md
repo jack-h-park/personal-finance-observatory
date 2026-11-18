@@ -1,6 +1,6 @@
 # Owner installation observation
 
-Updated November 17, 2026 (America/Los_Angeles). This documentation update records the separately authorized security release and later scoped backup/recovery acceptance. The preceding table and earlier sections are dated historical observations; the latest bounded source/browser/readiness observation is the final section. This task performs no deployment or private metadata adoption.
+Updated November 17, 2026 (America/Los_Angeles). This documentation update records the separately authorized security release and later scoped backup/recovery acceptance. The preceding table and earlier sections are dated historical observations; the latest bounded source/browser/release acceptance is the final section. This task performs no deployment or private metadata adoption.
 
 | Layer | Verified state | Interpretation |
 | --- | --- | --- |
@@ -54,3 +54,25 @@ The private readiness observation and non-executable minimum-input proposal are 
 Financial/source inventories, DB/WAL contents, mappings and protection settings were preserved within the observed scope. The SQLite SHM read-lock transport had an mtime-only change with equal bytes; it is not a financial record change or evidence of a new capture. The environment, service configuration, persisted/live gateway identity and installed source/build were unchanged. Owner-device notice and disabled web writes remain in effect. This is preservation observation, not another cross-device authorization test.
 
 Automatic briefing publication remained disabled/paused. Actual generation/archive writes, web publication, Hometax, operating settings changes, deployment and actual 2025 comparison remain held. No backup, restore, maintenance or cleanup was run. Prior scope/capture/recovery proof remains separate from future scheduled results and future artifacts. Exact account identities, figures, filenames, inventories and receipts remain in private session artifacts, not this public repository.
+
+
+## Coverage summary release acceptance: November 17, 2026
+
+[#347](https://github.com/jack-h-park/stock-portfolio-observatory/pull/347) is merged as `97c41df7bfd192f2e628348eebbf76a494056594` and its coverage summary/navigation change was separately authorized, deployed and verified on the owner HTTPS service. This status PR records that completed release; it performs no deployment, data change or new browser acceptance.
+
+| Layer | Verified identity / outcome | Boundary |
+| --- | --- | --- |
+| Release source | `0eab5fc74478c7cf6426ffd0be3574ce2d688df7`, public branch `codex/coverage-summary-release`, based on prior serving `2c3b215bfd8cfd08bcd8f86d97cd1bd27307904b` | Isolated seven runtime files and one synthetic regression from #347; the added/deleted feature lines match exactly, with the insertion adapted to unchanged older page context |
+| Installed build/runtime | Build `LIDgUtH4jeuiJhlWct6Kv`; existing Node 22.22.3, Next.js 15.5.28 and dependencies | Candidate built separately with invented sample data; package/lock/dependency installation and unrelated main changes were excluded |
+| App activation | Source and build switched; only the application service restarted successfully | No refresh, ingest, extraction, source sync, importer, generator, publisher, backup/restore or schedule action |
+| Owner HTTPS | Installed static-build manifest bytes match HTTPS; summary visible in English/Korean at desktop and narrow widths | Four language/viewport cases, not physical-device or whole-site accessibility acceptance |
+| Counts and navigation | All displayed group status/gap values matched independently counted existing read-only adapter outputs; investment/supplementary anchors and inventory supplementary link worked | Source rows and overlapping gap signals are not unique economic accounts or an inventory-completeness score |
+| Preservation | Root/net-worth monetary tokens unchanged; inspected financial/source/operator content and link targets, settings and access fingerprints unchanged | SQLite SHM read-lock transport had an mtime-only change with equal bytes; this is scoped preservation, not an atomic whole-host snapshot |
+
+The deployed summary uses existing review states and explicitly leaves pre-gap freshness unavailable where the existing bank adapter overwrote its status for a history gap. It does not recalculate thresholds or assign account ownership. Existing unknown inventory and child-pension closure/non-load guidance remain. See the [implementation boundary](../architecture/account-coverage-summary.md).
+
+The operating checkout intentionally differs from repository main: later comparison-CLI and unrelated GUI changes were not installed by this release. CLI #339 remains absent. A fresh read-only source/build/hold check during this documentation task corroborated the release identity, owner-device notice, `FINANCE_STATE_WRITABLE=0`, disabled/paused briefing job and absent comparison CLI. This is identity/hold observation, not another release or renewed owner acceptance.
+
+Actual 2025 tax comparison remains blocked; no supported private input, human role assignment or numerical approval was adopted. Actual generation/archive writes, briefing web publication, automatic resume and Hometax remain held. Future deployments or reconciliation of held main changes need separate scope; #347 is completed work, not permission for another rollout. The earlier read-only audit sections retain their historical installation identities and holds.
+
+The previous build and baseline source/receipts remain privately retained for controlled rollback/reconciliation and owner review. No cleanup was performed. Detailed financial figures, account labels, paths, snapshots and screenshots remain outside this public repository.
