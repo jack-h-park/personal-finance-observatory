@@ -1,6 +1,6 @@
 # Owner installation observation
 
-Updated November 17, 2026 (America/Los_Angeles). This documentation update records the separately authorized security release and later scoped backup/recovery acceptance. The preceding table and November 15 section are dated historical observations; the latest observation is below. This task performs no deployment or new browser acceptance.
+Updated November 17, 2026 (America/Los_Angeles). This documentation update records the separately authorized security release and later scoped backup/recovery acceptance. The preceding table and earlier sections are dated historical observations; the latest bounded source/browser/readiness observation is the final section. This task performs no deployment or private metadata adoption.
 
 | Layer | Verified state | Interpretation |
 | --- | --- | --- |
@@ -39,3 +39,18 @@ The briefing producer is installed at the merged #76 source, with reviewed produ
 No real generation, archive record write, static publication or application restart was performed by those acceptance tasks. A concurrent gateway edit was observed during recovery; the pre-edit backup matched the baseline hash and the finance route was identical in pre-edit, post-edit and live configuration. This is finance-route preservation, not a claim that the entire gateway was unchanged. Original financial material, account maps and web-write prohibition were retained.
 
 Actual generation and later publication remain separately held. A future scheduled run, future output custody, retention/cleanup, full fleet recovery and full application failover are not established by source installation or this scoped restore. Hometax remains held. Exact private evidence stays outside this repository.
+
+
+## Account coverage and private tax readiness observation: November 17, 2026
+
+A separately authorized read-only audit found authority checkout `2c3b215bfd8cfd08bcd8f86d97cd1bd27307904b` and build `NgT6wlW13vApDyCqM3fkP`, unchanged across the inspection. They supersede the earlier source/build identity for this observation only. Repository main contains merged #339 and #344; neither this audit nor the status PR updated the operating checkout, installed the comparison CLI or deployed a build. The observed checkout contains adapter #338 but lacks CLI #339. Source presence, serving build and private adoption remain distinct.
+
+The installed read-only inventory/coverage adapters were invoked with network and file writes denied, except the existing SQLite SHM used for read-lock transport and the null device. `/accounts`, `/data-ops#account-coverage`, its supplementary section and `/data-map` were inspected through the existing owner HTTPS entry using browser navigation only. No refresh, download/collection action, form submission or data edit was performed. This is bounded browser observation of the existing review surfaces, not full account reconciliation, physical-device access testing or a new release acceptance.
+
+The inventory remains unconfirmed because ownership/scope decisions are unresolved; zero explicit expected registrations and observed review groups are not a complete account denominator. Existing legacy pension closure/non-load annotations remain visible without a new source request. Investment freshness is within configured windows, while bank/CMA rows separately retain update-needed, unknown-query-period, no-recorded-data and historical-gap signals. The current labelled sections are not demonstrated to miscalculate their own totals. The [next source proposal](../product/account-coverage-follow-up-scope.md) is a read-only summary/navigation improvement across them, without mapping adoption or threshold changes.
+
+The private readiness observation and non-executable minimum-input proposal are complete. The selected historical federal reference retains the owner-accepted final version; it was not reopened. Available reviewed inputs do not establish an eligible supported actual 2025 calculation, so the actual comparison remains blocked. No operating input/review artifact, human role assignment or numerical approval was adopted. Do not install the missing CLI or expand unsupported methods as an incidental follow-up.
+
+Financial/source inventories, DB/WAL contents, mappings and protection settings were preserved within the observed scope. The SQLite SHM read-lock transport had an mtime-only change with equal bytes; it is not a financial record change or evidence of a new capture. The environment, service configuration, persisted/live gateway identity and installed source/build were unchanged. Owner-device notice and disabled web writes remain in effect. This is preservation observation, not another cross-device authorization test.
+
+Automatic briefing publication remained disabled/paused. Actual generation/archive writes, web publication, Hometax, operating settings changes, deployment and actual 2025 comparison remain held. No backup, restore, maintenance or cleanup was run. Prior scope/capture/recovery proof remains separate from future scheduled results and future artifacts. Exact account identities, figures, filenames, inventories and receipts remain in private session artifacts, not this public repository.

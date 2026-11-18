@@ -1,6 +1,6 @@
 # Explicit-file annual federal comparison CLI
 
-Status: implemented source command with synthetic validation; no private execution, installation or deployment acceptance.
+Status: source command merged in #339 with synthetic validation; no private execution, installation or deployment acceptance.
 
 ## Invocation contract
 
@@ -40,4 +40,4 @@ Success retains both the adapter's `selected-history-evidence-and-review-pins-ch
 
 Subprocess tests use only invented disposable files, a different working directory, paths with spaces, explicit pins, changed/missing/oversized/linked sources and independently expected arithmetic. Proven filesystem observers detect default/ambient reads and writes, including under writable environment flags. Help/invalid calls are checked before explicit-source I/O. The broader adapter/domain regression suite remains authoritative for selection, evidence budgets and observation stability.
 
-No operating review file/path is adopted and no actual financial CLI execution occurs in this increment. Private authority/path binding, logical review ownership and any owner-reviewed private preview require separate scope. No web route, scheduler, importer, generator or publisher is connected. Actual records, originals, account mappings, access restrictions and disabled web writes remain unchanged; automatic publication stays paused, and generation, web publication, Hometax and deployment stay held.
+No operating review file/path is adopted and no actual financial CLI execution occurs in this increment. The [private preview design](../superpowers/specs/2026-11-17-annual-private-comparison-preview-design.md) proposes authority/path binding, logical review ownership and separate readiness/preparation/execution acceptance. Actual assignments, paths and any private preview require separate scope; merge of the design does not authorize an operating stage. No web route, scheduler, importer, generator or publisher is connected. Actual records, originals, account mappings, access restrictions and disabled web writes remain unchanged; automatic publication stays paused, and generation, web publication, Hometax and deployment stay held.
