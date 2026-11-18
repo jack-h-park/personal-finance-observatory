@@ -4,7 +4,7 @@ import { FilterBar } from '@/components/FilterBar'
 import { PageHeader } from '@/components/PageHeader'
 import { ScrollOnHash } from '@/components/ScrollOnHash'
 import { StackedBarChart } from '@/components/charts'
-import { Badge, Button, Card, MetricField, MetricHeroCard, Note, Panel } from '@/components/ui'
+import { Button, Card, MetricField, MetricHeroCard, Note, Panel } from '@/components/ui'
 import {
   CASH_INFLOW_CURRENCIES,
   CASH_INFLOW_FILTERS,
@@ -30,6 +30,7 @@ import { getCurrencyPreferences } from '@/lib/currency-server'
 import { getLanguage } from '@/lib/i18n-server'
 import { getPageCopy } from '@/lib/ui-copy'
 import { routeMetadata, routeSection } from '@/lib/page-names'
+import { cashInflowHeaderStatus } from '@/lib/header-status'
 import { CardRow, KpiBand } from '@/components/layout'
 import { maskAccountLabel } from '@/lib/account-label'
 
@@ -190,22 +191,9 @@ export default async function CashInflowPage({
         title={copy.title}
         emphasis={copy.emphasis}
         subtitle={copy.subtitle}
-        status={
-          data.unclassifiedCount > 0
-            ? {
-                severity: 'attention',
-                label: <span title={copy.unclassifiedHint}>{copy.unclassified(fmtNumber(data.unclassifiedCount))}</span>,
-                // Opens the triage card, keeping the source, currency and range.
-                href: `${href({ category: 'unclassified' })}#cash-inflow-unclassified`,
-              }
-            : data.undatedCount > 0
-              ? { severity: 'attention', label: copy.undated(fmtNumber(data.undatedCount)) }
-              : undefined
-        }
+        status={cashInflowHeaderStatus(copy, data.unclassifiedCount, data.undatedCount, href({ category: 'unclassified' }))}
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            {/* The second warning, when the status already shows the first. */}
-            {data.unclassifiedCount > 0 && data.undatedCount > 0 ? <Badge tone="warning">{copy.undated(fmtNumber(data.undatedCount))}</Badge> : null}
             <Button href={href({ view: 'month' })} variant={view === 'month' ? 'solid' : 'outline'}>{copy.monthly}</Button>
             <Button href={href({ view: 'year' })} variant={view === 'year' ? 'solid' : 'outline'}>{copy.yearly}</Button>
           </div>

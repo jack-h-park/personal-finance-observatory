@@ -773,28 +773,53 @@ test('Card forwards id to its section', () => {
   assert.ok(!renderToStaticMarkup(h(Card, { title: 'T', children: 'x' })).includes('scroll-mt'))
 })
 
+/** The source of the `status={...}` prop on a page's PageHeader, braces balanced. */
+function statusBlock(source: string): string {
+  const start = source.indexOf('status={')
+  assert.ok(start >= 0, 'no status prop')
+  let depth = 0
+  for (let i = start + 'status='.length; i < source.length; i++) {
+    if (source[i] === '{') depth++
+    else if (source[i] === '}' && --depth === 0) return source.slice(start, i + 1)
+  }
+  throw new Error('unbalanced status prop')
+}
+
 /**
  * A header pill that reports a problem links to the card that lists it. Each
- * row names the page, the href its pill uses and the id it lands on. Every
- * target below is rendered unconditionally on its page, so it exists whenever
- * the pill is in its linked state (cash-inflow's href switches the filter that
- * renders its target). Pages whose problem pill has no such card carry no href.
+ * row names the page, what its status prop must contain (its own `href:`, or
+ * the helper whose href tests/header-status.test.ts pins) and the Card id it
+ * lands on. Each of these cards renders unconditionally on its page, so the
+ * target exists whenever the pill is linked; matching `<Card id=` means moving
+ * the id onto an element that does not always render fails here.
  */
-const STATUS_ANCHORS: Array<{ page: string; href: string; id: string }> = [
-  { page: 'app/reconciliation/page.tsx', href: "'#reconciliation-action-queue'", id: 'reconciliation-action-queue' },
-  { page: 'app/health/page.tsx', href: "'#health-operational-status'", id: 'health-operational-status' },
-  { page: 'app/income/page.tsx', href: "'#income-tickerless'", id: 'income-tickerless' },
-  { page: 'app/data-ops/page.tsx', href: "'#data-ops-priority-work'", id: 'data-ops-priority-work' },
-  { page: 'app/rebalance/page.tsx', href: "'#rebalance-hold-watch'", id: 'rebalance-hold-watch' },
-  { page: 'app/review/page.tsx', href: "'#review-operational-readiness'", id: 'review-operational-readiness' },
-  { page: 'app/data-map/page.tsx', href: "'#data-map-review-queue'", id: 'data-map-review-queue' },
-  { page: 'app/cash-inflow/page.tsx', href: "`${href({ category: 'unclassified' })}#cash-inflow-unclassified`", id: 'cash-inflow-unclassified' },
+const STATUS_ANCHORS: Array<{ page: string; status: string; id: string }> = [
+  { page: 'app/reconciliation/page.tsx', status: "href: '#reconciliation-action-queue'", id: 'reconciliation-action-queue' },
+  { page: 'app/health/page.tsx', status: "href: '#health-operational-status'", id: 'health-operational-status' },
+  { page: 'app/income/page.tsx', status: 'incomeHeaderStatus(', id: 'income-tickerless' },
+  { page: 'app/data-ops/page.tsx', status: "href: '#data-ops-priority-work'", id: 'data-ops-priority-work' },
+  { page: 'app/rebalance/page.tsx', status: "href: '#rebalance-hold-watch'", id: 'rebalance-hold-watch' },
+  { page: 'app/review/page.tsx', status: "href: '#review-operational-readiness'", id: 'review-operational-readiness' },
+  { page: 'app/data-map/page.tsx', status: "href: '#data-map-review-queue'", id: 'data-map-review-queue' },
 ]
 
-for (const { page, href, id } of STATUS_ANCHORS) {
-  test(`${page}: the header status links to #${id}, which the page renders`, () => {
+for (const { page, status, id } of STATUS_ANCHORS) {
+  test(`${page}: the header status links to the card #${id}`, () => {
     const source = readFileSync(page, 'utf8')
-    assert.ok(source.includes(`href: ${href}`), `status href ${href} not found`)
-    assert.equal((source.match(new RegExp(`id="${id}"`, 'g')) ?? []).length, 1, `exactly one element with id="${id}"`)
+    assert.ok(statusBlock(source).includes(status), `status prop lacks ${status}`)
+    assert.equal((source.match(new RegExp(`id="${id}"`, 'g')) ?? []).length, 1, `exactly one id="${id}"`)
+    assert.ok(source.includes(`<Card id="${id}"`), `id="${id}" is not on a Card`)
   })
 }
+
+// The exception: cash-inflow's target is not an issues card and renders only
+// under the unclassified filter. The pill's href is what switches that filter
+// on (tests/header-status.test.ts pins the #cash-inflow-unclassified part).
+test('app/cash-inflow/page.tsx: the header status opens the filter that renders its target', () => {
+  const source = readFileSync('app/cash-inflow/page.tsx', 'utf8')
+  assert.ok(statusBlock(source).includes("cashInflowHeaderStatus(copy, data.unclassifiedCount, data.undatedCount, href({ category: 'unclassified' }))"))
+  const branch = source.indexOf("{filter === 'unclassified' ? (")
+  const target = source.indexOf('id="cash-inflow-unclassified"')
+  assert.ok(branch >= 0 && target > branch, 'the target sits inside the unclassified branch')
+  assert.equal((source.match(/id="cash-inflow-unclassified"/g) ?? []).length, 1)
+})

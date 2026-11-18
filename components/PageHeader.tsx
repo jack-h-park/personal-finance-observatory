@@ -2,13 +2,14 @@ import Link from 'next/link'
 import type { ReactNode } from 'react'
 import { AutoRefresh } from '@/components/AutoRefresh'
 import { Badge } from '@/components/controls'
-import { severityTone, type Severity } from '@/lib/tone'
+import type { HeaderStatus } from '@/lib/header-status'
+import { severityTone } from '@/lib/tone'
 
 /**
  * The page's one-line verdict. When it reports a problem, `href` points at the
  * card that lists it (`#<card id>`), so the pill is the way in, not only a sign.
  */
-export type PageHeaderStatus = { severity: Severity; label: ReactNode; href?: string }
+export type PageHeaderStatus = HeaderStatus
 
 export function PageHeader({
   title,
