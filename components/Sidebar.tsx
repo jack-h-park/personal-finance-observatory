@@ -11,6 +11,7 @@ import type { Language } from '@/lib/i18n'
 import { Label } from '@/components/ui'
 import { getPageCopy } from '@/lib/ui-copy'
 import { BRAND } from '@/lib/brand'
+import { activeHref, navItems } from '@/lib/nav'
 
 
 export function Sidebar({
@@ -22,14 +23,13 @@ export function Sidebar({
   language: Language
   displayCurrency: DisplayCurrency
   assetView: AssetView
-  /** False when the database holds no supplementary data: the All assets section is then hidden. */
+  /** False when the database holds no supplementary data: Total Assets and Pension are then hidden. */
   showAllAssets: boolean
 }) {
   const copy = getPageCopy('sidebar', language)
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
-  const isActive = (href: string) =>
-    href === '/' ? pathname === '/' : href === '/taxes' ? pathname === href || pathname.startsWith('/taxes/records/') : pathname === href || pathname.startsWith(href + '/')
+  const active = activeHref(pathname, navItems(copy.sections, { supplementary: showAllAssets }).map((item) => item.href))
 
   useEffect(() => {
     setOpen(false)
@@ -138,50 +138,52 @@ export function Sidebar({
         </div>
 
         <nav className="mt-5 flex flex-col gap-4" aria-label={copy.navLabel}>
-          {copy.sections.filter((section) => showAllAssets || !('supplementary' in section && section.supplementary)).map((section) => {
-            const sectionActive = section.items.some((item) => isActive(item.href))
-            const items = (
-              <ul className="mt-1.5 flex flex-col gap-0.5">
-                {section.items.map((item) => (
-                  <li key={item.href}>
-                    <Link
-                      href={item.href}
-                      aria-current={isActive(item.href) ? 'page' : undefined}
-                      className={clsx(
-                        'relative block min-h-10 rounded-sm py-2 pl-3 pr-2 text-body transition-colors lg:min-h-0 lg:py-1.5',
-                        isActive(item.href)
-                          ? 'bg-surface font-medium'
-                          : 'text-ink-2 hover:bg-surface hover:text-ink'
-                      )}
-                    >
-                      {isActive(item.href) ? (
-                        <span
-                          aria-hidden
-                          className="absolute bottom-1 left-0 top-1 w-[2.5px] rounded-pill"
-                          style={{ backgroundImage: 'var(--gradient-mini)' }}
-                        />
-                      ) : null}
-                      <span className={isActive(item.href) ? 't-emph-gradient' : undefined}>{item.label}</span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
+          {copy.sections.map((section) => {
+            // Interim rendering until the sidebar is rebuilt on lib/nav: one
+            // active item, supplementary links gated per item, groups as a
+            // collapsible <details>.
+            const link = (item: { href: string; label: string }) => (
+              <li key={item.href}>
+                <Link
+                  href={item.href}
+                  aria-current={item.href === active ? 'page' : undefined}
+                  className={clsx(
+                    'relative block min-h-10 rounded-sm py-2 pl-3 pr-2 text-body transition-colors lg:min-h-0 lg:py-1.5',
+                    item.href === active
+                      ? 'bg-surface font-medium'
+                      : 'text-ink-2 hover:bg-surface hover:text-ink'
+                  )}
+                >
+                  {item.href === active ? (
+                    <span
+                      aria-hidden
+                      className="absolute bottom-1 left-0 top-1 w-[2.5px] rounded-pill"
+                      style={{ backgroundImage: 'var(--gradient-mini)' }}
+                    />
+                  ) : null}
+                  <span className={item.href === active ? 't-emph-gradient' : undefined}>{item.label}</span>
+                </Link>
+              </li>
             )
-            if ('collapsible' in section && section.collapsible) {
-              return (
-                <details key={`${section.label}:${pathname}`} open={sectionActive} className="group">
-                  <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between rounded-sm px-2 text-label font-medium text-ink-2 hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-info">
-                    {section.label}
-                    <span aria-hidden className="transition-transform group-open:rotate-90">›</span>
-                  </summary>
-                  {items}
-                </details>
-              )
-            }
             return (
               <div key={section.label}>
                 <div className="px-2 text-label font-medium text-ink-3">{section.label}</div>
-                {items}
+                <ul className="mt-1.5 flex flex-col gap-0.5">
+                  {section.items.map((entry) => {
+                    if (!('group' in entry)) return showAllAssets || !entry.supplementary ? link(entry) : null
+                    return (
+                      <li key={entry.group}>
+                        <details key={`${entry.group}:${pathname}`} open={entry.items.some((item) => item.href === active)} className="group">
+                          <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between rounded-sm px-2 text-label font-medium text-ink-2 hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-info">
+                            {entry.group}
+                            <span aria-hidden className="transition-transform group-open:rotate-90">›</span>
+                          </summary>
+                          <ul className="mt-1.5 flex flex-col gap-0.5">{entry.items.map(link)}</ul>
+                        </details>
+                      </li>
+                    )
+                  })}
+                </ul>
               </div>
             )
           })}

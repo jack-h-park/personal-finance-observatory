@@ -2,9 +2,9 @@ import { defineCopy } from '@/lib/ui-copy/define'
 
 export const rebalanceSettings = defineCopy({
   en: {
-    metaTitle: 'Rebalancing settings',
-    title: 'Rebalancing settings',
-    emphasis: 'settings',
+    metaTitle: 'Rebalancing Settings',
+    title: 'Rebalancing Settings',
+    emphasis: 'Settings',
     subtitle: 'Bounds, targets, limits, account rules and buy lists. This writes only to the ignored policy files on this host.',
     back: 'Back to rebalancing',
     saved: 'Saved',

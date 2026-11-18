@@ -107,7 +107,7 @@ export default async function RebalanceSettingsPage({ searchParams }: { searchPa
   return (
     <>
       <PageHeader
-        eyebrow={routeSection('/rebalance', language)}
+        eyebrow={routeSection('/rebalance/settings', language)}
         title={copy.title}
         emphasis={copy.emphasis}
         subtitle={copy.subtitle}

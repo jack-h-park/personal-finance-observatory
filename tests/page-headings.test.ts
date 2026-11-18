@@ -30,6 +30,7 @@ const COPY_FOR: Record<RouteHref, PageKey | { page: PageKey; title: string }> = 
   '/holdings': 'holdings',
   '/review': 'review',
   '/rebalance': 'rebalance',
+  '/rebalance/settings': 'rebalanceSettings',
   '/income': 'income',
   '/cash-inflow': 'cashInflow',
   '/tax-planning': 'taxPlanning',
@@ -122,10 +123,6 @@ test('the heading matches the sidebar label', () => {
 
 /** The routes outside the sidebar, each giving the heading its page renders. Inputs are invented. */
 const NESTED: Record<string, (language: Lang) => Heading> = {
-  '/rebalance/settings': (language) => {
-    const copy = getPageCopy('rebalanceSettings', language)
-    return { title: copy.title, emphasis: copy.emphasis }
-  },
   '/rebalance/proposals/[id]': (language) => proposalHeading(getPageCopy('rebalanceProposal', language), 'rp-0001-test'),
   '/positions/[market]/[ticker]': () => positionHeading('Example Holdings Corp'),
   '/tax-planning/plans/[id]': () => savedPlanHeading('Sample sale plan'),
