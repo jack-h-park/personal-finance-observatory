@@ -273,7 +273,7 @@ export default async function PositionPage({ params }: { params: Promise<{ marke
             columns={[
               { key: 'account', label: copy.columns.account, render: (r) => <AccountCell brokerage={r.brokerage} account={r.account} /> },
               { key: 'quantity', label: copy.columns.quantity, align: 'right', render: (r) => fmtQuantity(r.quantity, 4) },
-              { key: 'native_cost', label: copy.columns.cost, align: 'right', render: (r) => money(r.native_cost, r.currency) },
+              { key: 'native_cost', priority: 'secondary', label: copy.columns.cost, align: 'right', render: (r) => money(r.native_cost, r.currency) },
               { key: 'native_market_value', label: copy.columns.market, align: 'right', render: (r) => moneyOrNa(money, r.native_market_value, r.currency) },
               {
                 key: 'native_unrealized_gl',
@@ -285,10 +285,10 @@ export default async function PositionPage({ params }: { params: Promise<{ marke
                   </span>
                 ),
               },
-              { key: 'lot_count', label: copy.columns.lots, align: 'right', render: (r) => fmtNumber(r.lot_count) },
-              { key: 'long_count', label: copy.columns.long, align: 'right', render: (r) => fmtNumber(r.long_count) },
-              { key: 'short_count', label: copy.columns.short, align: 'right', render: (r) => fmtNumber(r.short_count) },
-              { key: 'lot_cost_krw', label: copy.columns.lotCost, align: 'right', render: (r) => money(r.lot_cost_krw, 'KRW') },
+              { key: 'lot_count', priority: 'secondary', label: copy.columns.lots, align: 'right', render: (r) => fmtNumber(r.lot_count) },
+              { key: 'long_count', priority: 'secondary', label: copy.columns.long, align: 'right', render: (r) => fmtNumber(r.long_count) },
+              { key: 'short_count', priority: 'secondary', label: copy.columns.short, align: 'right', render: (r) => fmtNumber(r.short_count) },
+              { key: 'lot_cost_krw', priority: 'secondary', label: copy.columns.lotCost, align: 'right', render: (r) => money(r.lot_cost_krw, 'KRW') },
             ]}
           />
         </Card>
@@ -318,11 +318,11 @@ export default async function PositionPage({ params }: { params: Promise<{ marke
                 columns={[
                   { key: 'account', label: copy.columns.account, render: (r) => <AccountCell brokerage={r.brokerage} account={r.account} /> },
                   { key: 'acquired_date', label: copy.columns.acquired },
-                  { key: 'tax_term', label: copy.columns.term, render: (r) => translated(r.tax_term, copy.terms) },
+                  { key: 'tax_term', priority: 'secondary', label: copy.columns.term, render: (r) => translated(r.tax_term, copy.terms) },
                   { key: 'open_quantity', label: copy.columns.quantity, align: 'right', render: (r) => fmtQuantity(r.open_quantity, 4) },
-                  { key: 'native_cost_basis', label: copy.columns.cost, align: 'right', render: (r) => money(r.native_cost_basis, r.currency) },
+                  { key: 'native_cost_basis', priority: 'secondary', label: copy.columns.cost, align: 'right', render: (r) => money(r.native_cost_basis, r.currency) },
                   { key: 'cost_basis_krw', label: copy.columns.baseCost, align: 'right', render: (r) => money(r.cost_basis_krw, 'KRW') },
-                  { key: 'source', label: copy.columns.source },
+                  { key: 'source', priority: 'tertiary', label: copy.columns.source },
                 ]}
               />
             )}
@@ -345,9 +345,9 @@ export default async function PositionPage({ params }: { params: Promise<{ marke
               columns={[
                 { key: 'account', label: copy.columns.account, render: (r) => <AccountCell brokerage={r.brokerage} account={r.account} /> },
                 { key: 'acquired_date', label: copy.columns.acquired },
-                { key: 'holdingBucket', label: copy.columns.term, render: (r: { holdingBucket: 'long' | 'short' }) => <Badge tone={bucketTone(r.holdingBucket)}>{copy.buckets[r.holdingBucket] ?? r.holdingBucket}</Badge> },
-                { key: 'open_quantity', label: copy.columns.quantity, align: 'right', render: (r) => fmtQuantity(r.open_quantity, 4) },
-                { key: 'proceedsNative', label: copy.columns.proceeds, align: 'right', render: (r) => (r.proceedsNative == null ? EMPTY_VALUE : money(r.proceedsNative, r.currency)) },
+                { key: 'holdingBucket', priority: 'secondary', label: copy.columns.term, render: (r: { holdingBucket: 'long' | 'short' }) => <Badge tone={bucketTone(r.holdingBucket)}>{copy.buckets[r.holdingBucket] ?? r.holdingBucket}</Badge> },
+                { key: 'open_quantity', priority: 'secondary', label: copy.columns.quantity, align: 'right', render: (r) => fmtQuantity(r.open_quantity, 4) },
+                { key: 'proceedsNative', priority: 'secondary', label: copy.columns.proceeds, align: 'right', render: (r) => (r.proceedsNative == null ? EMPTY_VALUE : money(r.proceedsNative, r.currency)) },
                 {
                   key: 'gainKrw',
                   label: copy.columns.baseGainLoss,
@@ -406,11 +406,11 @@ export default async function PositionPage({ params }: { params: Promise<{ marke
               columns={[
                 { key: 'date', label: copy.columns.paidDate },
                 { key: 'account', label: copy.columns.account, render: (r) => <AccountCell brokerage={r.brokerage} account={r.account} /> },
-                { key: 'native_amount', label: copy.columns.amount, align: 'right', render: (r) => money(r.native_amount, r.currency) },
-                { key: 'native_tax_withheld', label: copy.columns.tax, align: 'right', render: (r) => moneyOrNa(money, r.native_tax_withheld, r.currency) },
+                { key: 'native_amount', priority: 'secondary', label: copy.columns.amount, align: 'right', render: (r) => money(r.native_amount, r.currency) },
+                { key: 'native_tax_withheld', priority: 'secondary', label: copy.columns.tax, align: 'right', render: (r) => moneyOrNa(money, r.native_tax_withheld, r.currency) },
                 { key: 'amount_krw', label: copy.columns.baseAmount, align: 'right', render: (r) => money(r.amount_krw, 'KRW') },
-                { key: 'source', label: copy.columns.source },
-                { key: 'page', label: copy.columns.page, align: 'right' },
+                { key: 'source', priority: 'tertiary', label: copy.columns.source },
+                { key: 'page', priority: 'tertiary', label: copy.columns.page, align: 'right' },
               ]}
             />
           )}
@@ -438,10 +438,10 @@ export default async function PositionPage({ params }: { params: Promise<{ marke
                 },
               },
               { key: 'file', label: copy.columns.file, render: (r) => <span className="max-w-[20rem] break-words">{r.file?.filename ?? r.source}</span> },
-              { key: 'usages', label: copy.columns.usage, render: (r) => r.usages.map((usage) => translated(usage, copy.sourceUsages)).join(', ') },
-              { key: 'row_count', label: copy.columns.rows, align: 'right', render: (r) => (r.file ? fmtNumber(r.file.row_count) : EMPTY_VALUE) },
-              { key: 'mtime_ms', label: copy.columns.modified, render: (r) => (r.file ? fmtDateTime(new Date(r.file.mtime_ms).toISOString(), language) : EMPTY_VALUE) },
-              { key: 'sha256', label: copy.columns.sha, render: (r) => (r.file ? <code className="font-mono text-label">{shortHash(r.file.sha256)}</code> : EMPTY_VALUE) },
+              { key: 'usages', priority: 'secondary', label: copy.columns.usage, render: (r) => r.usages.map((usage) => translated(usage, copy.sourceUsages)).join(', ') },
+              { key: 'row_count', priority: 'secondary', label: copy.columns.rows, align: 'right', render: (r) => (r.file ? fmtNumber(r.file.row_count) : EMPTY_VALUE) },
+              { key: 'mtime_ms', priority: 'secondary', label: copy.columns.modified, render: (r) => (r.file ? fmtDateTime(new Date(r.file.mtime_ms).toISOString(), language) : EMPTY_VALUE) },
+              { key: 'sha256', priority: 'tertiary', label: copy.columns.sha, render: (r) => (r.file ? <code className="font-mono text-label">{shortHash(r.file.sha256)}</code> : EMPTY_VALUE) },
             ]}
           />
         </Card>

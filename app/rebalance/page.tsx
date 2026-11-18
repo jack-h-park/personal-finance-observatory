@@ -193,11 +193,12 @@ export default async function RebalancePage({ searchParams }: { searchParams: Pr
             columns={[
               { key: 'market', label: copy.columns.market, render: (r) => <Badge tone={marketTone(r.market)}>{r.market}</Badge> },
               { key: 'currentPct', label: copy.columns.current, align: 'right', render: (r) => fmtPct(r.currentPct) },
-              { key: 'targetPct', label: copy.columns.target, align: 'right', render: (r) => fmtPct(r.targetPct) },
+              { key: 'targetPct', priority: 'secondary', label: copy.columns.target, align: 'right', render: (r) => fmtPct(r.targetPct) },
               { key: 'gapValue', label: copy.columns.gap, align: 'right', render: (r) => <Signed value={r.gapValue} format={(m) => money(m, 'KRW')} /> },
               { key: 'action', label: copy.columns.action, render: (r) => <Badge tone={categoryTone(REBALANCE_ACTION_TONE, r.action, 'warning')}>{copy.actions[r.action] ?? r.action}</Badge> },
               {
                 key: 'existingPositions',
+                priority: 'secondary',
                 label: copy.columns.existingPositions,
                 align: 'right',
                 render: (r) => {
@@ -278,8 +279,8 @@ export default async function RebalancePage({ searchParams }: { searchParams: Pr
                 { key: 'currentPct', label: copy.columns.currentPct, align: 'right', render: (r) => fmtPct(r.currentPct) },
                 { key: 'capGapPct', label: copy.columns.overCap, align: 'right', render: (r) => fmtPct(r.capGapPct) },
                 { key: 'capGapValue', label: copy.columns.gapValue, align: 'right', render: (r) => money(r.capGapValue) },
-                { key: 'base_unrealized_gl', label: copy.columns.baseGl, align: 'right', render: (r) => (r.base_unrealized_gl == null ? EMPTY_VALUE : money(r.base_unrealized_gl)) },
-                { key: 'short_term_ratio', label: copy.columns.shortPct, align: 'right', render: (r) => fmtPct(r.short_term_ratio) },
+                { key: 'base_unrealized_gl', priority: 'secondary', label: copy.columns.baseGl, align: 'right', render: (r) => (r.base_unrealized_gl == null ? EMPTY_VALUE : money(r.base_unrealized_gl)) },
+                { key: 'short_term_ratio', priority: 'secondary', label: copy.columns.shortPct, align: 'right', render: (r) => fmtPct(r.short_term_ratio) },
               ]}
             />
           )}

@@ -181,12 +181,12 @@ export default async function IncomePage() {
                 label: copy.columns.position,
                 render: (r) => <PositionCell market={r.market} ticker={r.ticker} name={r.name} />,
               },
-              { key: 'row_count', label: copy.columns.rows, align: 'right', render: (r) => fmtNumber(r.row_count) },
-              { key: 'native_income', label: copy.columns.nativeIncome, align: 'right', render: (r) => money(r.native_income, r.currency) },
+              { key: 'row_count', priority: 'secondary', label: copy.columns.rows, align: 'right', render: (r) => fmtNumber(r.row_count) },
+              { key: 'native_income', priority: 'secondary', label: copy.columns.nativeIncome, align: 'right', render: (r) => money(r.native_income, r.currency) },
               { key: 'base_income', label: copy.columns.baseIncome, align: 'right', render: (r) => money(r.base_income, income.currency) },
-              { key: 'market_value', label: copy.columns.marketValue, align: 'right', render: (r) => (r.market_value == null ? EMPTY_VALUE : money(r.market_value)) },
+              { key: 'market_value', priority: 'secondary', label: copy.columns.marketValue, align: 'right', render: (r) => (r.market_value == null ? EMPTY_VALUE : money(r.market_value)) },
               { key: 'trailing_yield', label: copy.columns.yield, align: 'right', render: (r) => fmtPct(r.trailing_yield) },
-              { key: 'yield_on_cost', label: copy.columns.yieldOnCost, align: 'right', render: (r) => fmtPct(r.yield_on_cost) },
+              { key: 'yield_on_cost', priority: 'secondary', label: copy.columns.yieldOnCost, align: 'right', render: (r) => fmtPct(r.yield_on_cost) },
             ]}
           />
         </Card>
@@ -198,11 +198,11 @@ export default async function IncomePage() {
             <DataTable
               rows={income.tickerless}
               columns={[
-                { key: 'market', label: copy.columns.market, render: (r) => <Badge tone={marketTone(r.market)}>{r.market}</Badge> },
+                { key: 'market', priority: 'secondary', label: copy.columns.market, render: (r) => <Badge tone={marketTone(r.market)}>{r.market}</Badge> },
                 { key: 'type', label: copy.columns.type },
                 { key: 'name', label: copy.columns.name },
-                { key: 'row_count', label: copy.columns.rows, align: 'right', render: (r) => fmtNumber(r.row_count) },
-                { key: 'native_income', label: copy.columns.native, align: 'right', render: (r) => money(r.native_income, r.currency) },
+                { key: 'row_count', priority: 'secondary', label: copy.columns.rows, align: 'right', render: (r) => fmtNumber(r.row_count) },
+                { key: 'native_income', priority: 'secondary', label: copy.columns.native, align: 'right', render: (r) => money(r.native_income, r.currency) },
                 { key: 'base_income', label: copy.columns.base, align: 'right', render: (r) => money(r.base_income, income.currency) },
               ]}
             />
