@@ -71,3 +71,8 @@ export function maskAccountsIn(text: string, accounts: Iterable<string | null | 
   }
   return out
 }
+
+/** What an account column sorts on: broker, then account, as the two-line cell reads. */
+export function accountSortValue(row: { brokerage?: string | null; account?: string | null }): string | null {
+  return `${row.brokerage ?? ''} ${row.account ?? ''}`.trim() || null
+}

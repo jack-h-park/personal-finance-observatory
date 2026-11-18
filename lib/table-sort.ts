@@ -83,12 +83,21 @@ export function knownSort(sort: TableSort | null, keys: readonly string[], fallb
   return sort && keys.includes(sort.key) ? sort : fallback
 }
 
+/** The part of a table column that sorting reads; `DataTableColumn` satisfies it. */
+type SortColumn = { key: string; sortable?: boolean; sortValue?: (row: any) => Comparable }
+
+/** The column keys a header can sort on: the columns marked `sortable`. */
+export function sortableKeys(columns: readonly SortColumn[]): string[] {
+  return columns.filter((column) => column.sortable).map((column) => column.key)
+}
+
 /**
- * The value a row sorts on for a column key. The merged `account` column sorts
- * on broker, then account, matching the two lines the cell shows.
+ * The value accessor for `sortRows`: a column's own `sortValue` when it has one
+ * (the merged account column sorts on broker then account), else `row[key]`.
  */
-export function rowSortValue<Row>(row: Row, key: string): Comparable {
-  const record = row as Record<string, any>
-  if (key === 'account') return `${record.brokerage ?? ''} ${record.account ?? ''}`.trim() || null
-  return record[key]
+export function columnSortValue(columns: readonly SortColumn[]) {
+  return (row: any, key: string): Comparable => {
+    const column = columns.find((candidate) => candidate.key === key)
+    return column?.sortValue ? column.sortValue(row) : row[key]
+  }
 }
