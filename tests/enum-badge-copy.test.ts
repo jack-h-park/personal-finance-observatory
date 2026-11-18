@@ -2,7 +2,7 @@ import { strict as assert } from 'node:assert'
 import { test } from 'node:test'
 
 import type { FilingScenario } from '../lib/tax-policy'
-import { getPageCopy } from '../lib/ui-copy'
+import { getPageCopy, getUiCopy } from '../lib/ui-copy'
 
 const HANGUL = /[가-힣]/
 
@@ -36,6 +36,9 @@ test('the other enum badge maps carry Korean for every value', () => {
     ['mappingStatuses', getPageCopy('dataOps', 'en').mappingStatuses, getPageCopy('dataOps', 'ko').mappingStatuses],
     ['sourceIssueStatuses', getPageCopy('dataOps', 'en').sourceIssueStatuses, getPageCopy('dataOps', 'ko').sourceIssueStatuses],
     ['actions', getPageCopy('rebalance', 'en').actions, getPageCopy('rebalance', 'ko').actions],
+    // Typed `as Record<string, string>`, so a ko key missing here would still compile.
+    ['transactionTypes', getUiCopy('en').transactionTypes, getUiCopy('ko').transactionTypes],
+    ['statusLabels', getPageCopy('dataMap', 'en').statusLabels, getPageCopy('dataMap', 'ko').statusLabels],
   ]
   for (const [name, en, ko] of maps) {
     assert.deepEqual(Object.keys(ko).sort(), Object.keys(en).sort(), name)

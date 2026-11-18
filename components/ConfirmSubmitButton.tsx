@@ -58,8 +58,9 @@ export function confirmStep(
  *   disarms it.
  * - The submission itself goes through `form.requestSubmit(button)`, never the
  *   click's default action, so the state change that turns the button back into
- *   `type="button"` cannot race the browser's activation behaviour, and the
- *   server action still receives the button's own name/value/formAction.
+ *   `type="button"` cannot race the browser's activation behaviour. The button
+ *   is still the submitter, so the form submits to its own action; the button
+ *   takes no name, value or formAction of its own to add.
  * - The form guard cancels every submitter-less submission in a form holding this button.
  *
  * The click, timer, blur and Enter wiring has no DOM test environment here; it

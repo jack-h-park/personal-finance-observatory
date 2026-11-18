@@ -65,7 +65,7 @@ a leading substring instead.
 | tabs that change the page | `<Tabs>` — the current tab carries `aria-current="page"` |
 | an inset box inside a card | `<Panel>` — `pad`, `text`, `bordered`, `as="a"` for a link tile |
 | a toned message box | `<Callout>` — `tone`, `emphasis` strong / soft / rule |
-| the result of a form post | `<FormSaved>` in the header's `status` slot, `<FormError>` above the first card |
+| the result of a form post | `status={{ severity: 'ok', label }}` on the header; `<FormSaved>` for a saved notice inside a card; `<FormError>` above the first card |
 | a button that changes policy | `<ConfirmSubmitButton>` instead of `<SubmitButton>` |
 | a muted footnote | `<Note>` — `size`, `spacing`, `row`, `band`; phrasing content only |
 | a heading inside a page or card body | `<SectionHeading>` — `size`, `eyebrow`, `subtitle`, `layout` |
@@ -97,16 +97,21 @@ file allowed to write `grid-cols-*`), `components/bars.tsx`,
 shows two verdicts, and the thing that is clickable is always in the same place.
 
 - **`status` is `{ severity, label, href? }`.** The pill's colour comes from the
-  severity scale below. When it reports a problem, `href` is `#<card id>` of the
-  card that lists it, so the pill is the way to the rows and not only a sign
-  that they exist. `lib/header-status.ts` builds it where a verdict has two
-  causes: the linkable issue wins, and one label names both, so the header never
-  shows an all-clear beside a warning.
+  severity scale below. When it reports a problem and a card on the page lists
+  it, `href` is `#<card id>` of that card, so the pill is the way to the rows
+  and not only a sign that they exist; a pill with no such card (an example
+  assumption, a missing rate) has no link. The pill and the card's `issues`
+  badge then show one count in one colour: `lib/header-status.ts` builds both
+  from one source per page (`*LinkedIssues`), and where a verdict has two causes
+  the linkable issue wins and one label names both, so the header never shows
+  an all-clear beside a warning.
 - **Form pages pass `autoRefresh={false}`.** The clock calls `router.refresh()`
   every 30 seconds, which re-renders a form mid-entry and discards what was
   typed. G14 checks this per route folder.
-- **A form's outcome is `FormSaved` or `FormError`**, not a hand-built callout:
-  the saved badge takes the `status` slot, the error sits above the first card.
+- **A form's outcome is a saved notice or `FormError`**, not a hand-built
+  callout. A saved notice in the header is `status={{ severity: 'ok', label }}`;
+  `FormSaved` is the saved notice inside a card (an in-card editor). The error
+  sits above the first card.
 
 ### Confirming an action
 

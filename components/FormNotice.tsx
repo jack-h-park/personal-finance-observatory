@@ -7,7 +7,10 @@ import { Badge } from './controls'
 // when the save went through, a danger alert above the page's first card when
 // it did not. Hook-free, so server pages render it directly.
 
-/** The saved badge. It sits in the page header's status slot. */
+/**
+ * A saved notice inside a card, such as an in-card editor's. A saved notice in
+ * the page header is not this: it is the header's `status={{ severity: 'ok', label }}`.
+ */
 export function FormSaved({ children }: { children: ReactNode }) {
   return <Badge tone="success">{children}</Badge>
 }
