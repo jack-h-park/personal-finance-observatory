@@ -3,7 +3,7 @@ import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
-import { MARKET_GAP_HOLD_PCT, SHORT_TERM_WATCH_PCT, getRebalancePolicy, marketTargetsFor, parseUsTargetPct, saveRebalancePolicy } from '../lib/rebalance-policy'
+import { MARKET_GAP_HOLD_PCT, SHORT_TERM_WATCH_PCT, getRebalancePolicy, marketTargetsFor, parseUsTargetPct } from '../lib/rebalance-policy'
 
 const scratch = () => path.join(mkdtempSync(path.join(tmpdir(), 'rebalance-policy-')), 'rebalance-policy.json')
 
@@ -18,7 +18,7 @@ test('no saved file falls back to 50/50 and says so', () => {
 
 test('a saved US share is read back, with KR as the remainder', () => {
   const file = scratch()
-  saveRebalancePolicy(70, file)
+  writeFileSync(file, `${JSON.stringify({ version: 1, usTargetPct: 70 })}\n`)
   const policy = getRebalancePolicy(file)
   assert.equal(policy.source, 'saved')
   assert.equal(policy.usTargetPct, 70)

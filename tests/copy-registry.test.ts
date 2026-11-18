@@ -35,8 +35,7 @@ const DYNAMIC_KEYS: Record<string, string[]> = {}
  * here with the reason, and remove it once wired (the last test fails when a
  * listed key starts being read).
  */
-// rebalance.guardrails is read by the page in the next R5 task, which removes it from this list.
-const PENDING_WIRING: Record<string, string[]> = { rebalance: ['guardrails'] }
+const PENDING_WIRING: Record<string, string[]> = {}
 
 function sourceFiles(dir: string): string[] {
   const out: string[] = []

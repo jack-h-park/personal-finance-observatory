@@ -129,3 +129,30 @@ test('every rebalance row reason code has copy in both languages', () => {
     assert.ok(copy.guardrails('2%', '10%', '50%').length > 0)
   }
 })
+
+// The allocation policy is the one model on /rebalance: no second target
+// editor, no hand-typed thresholds, and the lead figure comes first.
+test('app/rebalance/page.tsx reads one policy model and leads with the hero', () => {
+  const text = source('app/rebalance/page.tsx')
+  for (const token of ['saveRebalanceTargets', 'targetEditor', "'2%'", "'50%+'", '>2%<', '>50%+<', 'addContext.map']) {
+    assert.ok(!text.includes(token), `app/rebalance/page.tsx still references ${token}`)
+  }
+  // A reason column must render copy, never the raw code.
+  for (const line of text.split('\n').filter((l) => l.includes("key: 'reason'"))) {
+    assert.ok(line.includes('render:') && line.includes('copy.reasons['), `reason column without copy: ${line.trim()}`)
+  }
+  for (const token of ['MARKET_GAP_HOLD_PCT', 'copy.reasons[', 'id="rebalance-lead"']) {
+    assert.ok(text.includes(token), `app/rebalance/page.tsx is missing ${token}`)
+  }
+  const hero = text.indexOf('<MetricHeroCard')
+  assert.ok(hero > -1, 'no MetricHeroCard')
+  for (const later of ['title={ac.title}', 'id="rebalance-hold-watch"', 'title={copy.marketTargetGaps}']) {
+    assert.ok(text.indexOf(later) > hero, `${later} renders before the hero`)
+  }
+  assert.ok(text.indexOf('id="rebalance-hold-watch"') < text.indexOf('title={copy.marketTargetGaps}'), 'hold/watch must follow the hero row')
+})
+
+test('app/rebalance/actions.ts no longer saves a market split', () => {
+  assert.ok(!/export async function saveRebalanceTargets/.test(source('app/rebalance/actions.ts')))
+  assert.ok(!source('lib/rebalance-policy.ts').includes('saveRebalancePolicy'))
+})
