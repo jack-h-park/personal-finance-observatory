@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { DataTable } from '@/components/DataTable'
 import { PageHeader } from '@/components/PageHeader'
 import { SubmitButton } from '@/components/SubmitButton'
-import { Badge, Card, EmptyState, FormError, Note, TextLink } from '@/components/ui'
+import { Badge, Card, EmptyState, FormError, Note } from '@/components/ui'
 import { Checkbox, Field, Input, Select } from '@/components/form'
 import { CardRow } from '@/components/layout'
 import { dbAvailable, portfolioToday } from '@/lib/adapters/portfolio-db'
@@ -112,7 +112,6 @@ export default async function RebalanceSettingsPage({ searchParams }: { searchPa
         emphasis={copy.emphasis}
         subtitle={copy.subtitle}
         status={params.saved ? { severity: 'ok', label: copy.saved } : undefined}
-        actions={<TextLink href="/rebalance">{copy.back}</TextLink>}
         autoRefresh={false}
       />
 

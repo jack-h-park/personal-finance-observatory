@@ -7,6 +7,7 @@ export const UI_COPY_BY_LANG = {
   en: {
     common: {
       all: 'All',
+      breadcrumb: 'Breadcrumb',
       search: 'Search',
       sort: 'Sort',
       market: 'Market',
@@ -147,6 +148,7 @@ export const UI_COPY_BY_LANG = {
   ko: {
     common: {
       all: '전체',
+      breadcrumb: '현재 위치',
       search: '검색',
       sort: '정렬',
       market: '시장',

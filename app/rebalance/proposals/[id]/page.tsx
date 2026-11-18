@@ -14,7 +14,6 @@ import { getRebalanceInput } from '@/lib/adapters/rebalance-input'
 import { EMPTY_VALUE, fmtDateShort, fmtDateTime, fmtKrw, fmtMoney, fmtNumber, fmtPct, fmtPctRange, fmtQuantity, fmtSigned } from '@/lib/format'
 import { displayAccount, displayAccountKey, maskAccountsIn } from '@/lib/account-label'
 import { getLanguage } from '@/lib/i18n-server'
-import { routeSection } from '@/lib/page-names'
 import { SLEEVES, accountKey, getAllocationPolicy, rebalanceWrappers, type AllocationPolicy, type Sleeve } from '@/lib/rebalance/allocation-policy'
 import { bandEdges, computeAllocation } from '@/lib/rebalance/allocation'
 import type { EngineWarning, Instruction, SleeveMove } from '@/lib/rebalance/engine'
@@ -971,10 +970,10 @@ export default async function RebalanceProposalPage({
     <>
       <PageHeader
         autoRefresh={false}
-        eyebrow={routeSection('/rebalance', language)}
+        parent="/rebalance"
+        language={language}
         {...proposalHeading(copy, proposal.id)}
         subtitle={copy.subtitle(copy.kinds[proposal.kind], fmtDateShort(proposal.createdAt, language), fmtDateShort(proposal.expiresAt, language))}
-        actions={<TextLink href="/rebalance">{copy.back}</TextLink>}
       />
 
       <Panel text="caption-2" spacing="mb-4" role="note">

@@ -16,7 +16,6 @@ import { EVIDENCE_LINK_SEVERITY, POSITION_EVENT_TONE, REVIEW_SEVERITY, TRANSACTI
 import { getLanguage } from '@/lib/i18n-server'
 import { getPageCopy } from '@/lib/ui-copy'
 import { CardRow, KpiBand } from '@/components/layout'
-import { routeSection } from '@/lib/page-names'
 import { positionHeading } from '@/lib/page-headings'
 import { displayAccount, maskAccountLabel } from '@/lib/account-label'
 
@@ -199,10 +198,10 @@ export default async function PositionPage({ params }: { params: Promise<{ marke
   return (
     <>
       <PageHeader
-        eyebrow={routeSection('/holdings', language)}
+        parent="/holdings"
+        language={language}
         {...positionHeading(detail.name)}
         subtitle={copy.subtitle(fmtNumber(detail.totals.account_count), fmtNumber(detail.lotTotals.lot_count), fmtNumber(detail.transactions.length))}
-        actions={<TextLink href="/holdings">{copy.backToHoldings}</TextLink>}
       />
 
       <Card title={copy.freshness} info={glossary.freshness.description} className="mb-5">

@@ -1,4 +1,5 @@
 import { strict as assert } from 'node:assert'
+import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 import * as React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
@@ -185,4 +186,23 @@ test('PageHeader throws on an emphasis that is not the end of the title', () => 
   )
   assert.match(renderHeader('Rebalance proposal', 'proposal'), /t-emph-gradient">proposal</)
   assert.doesNotMatch(renderHeader('Tax Record'), /t-emph-gradient/)
+})
+
+// The back link beside the heading is gone: a nested page names its parent in
+// the breadcrumb above the title (PageHeader parent), and /rebalance/settings,
+// now a sidebar route, takes its section as an ordinary eyebrow.
+test('no page puts a back link in its header', () => {
+  const pages = [
+    'app/rebalance/proposals/[id]/page.tsx',
+    'app/tax-planning/plans/[id]/page.tsx',
+    'app/positions/[market]/[ticker]/page.tsx',
+    'app/taxes/records/[id]/page.tsx',
+    'app/rebalance/settings/page.tsx',
+  ]
+  for (const file of pages) {
+    const source = readFileSync(file, 'utf8')
+    for (const key of ['copy.back}', 'copy.backToPlanner', 'copy.backToHoldings']) {
+      assert.ok(!source.includes(key), `${file} still renders ${key}`)
+    }
+  }
 })

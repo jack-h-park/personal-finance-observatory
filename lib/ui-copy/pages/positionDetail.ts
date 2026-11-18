@@ -10,7 +10,6 @@ export const positionDetail = defineCopy({
   en: {
     subtitle: (accounts: string, lots: string, transactions: string) =>
       `${accounts} accounts · ${lots} open tax lots · ${transactions} transactions`,
-    backToHoldings: 'Back to holdings',
     freshness: 'Valuation Data Freshness',
     firstChecks: 'First Checks',
     firstChecksInfo: "Summarizes whether this position's quantity, cost basis, and evidence agree.",
@@ -120,7 +119,6 @@ export const positionDetail = defineCopy({
   ko: {
     subtitle: (accounts: string, lots: string, transactions: string) =>
       `계좌 ${accounts}개 · 미결제 세금 단위 ${lots}개 · 거래 ${transactions}건`,
-    backToHoldings: '보유종목으로 돌아가기',
     freshness: '평가 데이터 신선도',
     firstChecks: '먼저 확인할 것',
     firstChecksInfo: '이 종목의 수량·취득원가·증빙이 서로 맞는지 요약합니다.',
