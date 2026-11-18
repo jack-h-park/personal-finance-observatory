@@ -47,7 +47,11 @@ export default async function ReconciliationPage({
         title={copy.title}
         emphasis={copy.emphasis}
         subtitle={copy.subtitle}
-        action={hasIssues ? <Badge tone="warning">{copy.reviewItems(fmtNumber(review.totals.issue_count))}</Badge> : <Badge tone="success">{copy.reconciled}</Badge>}
+        status={
+          hasIssues
+            ? { severity: 'attention', label: copy.reviewItems(fmtNumber(review.totals.issue_count)), href: '#reconciliation-action-queue' }
+            : { severity: 'ok', label: copy.reconciled }
+        }
       />
 
       <CardRow columns="hero">
@@ -96,7 +100,7 @@ export default async function ReconciliationPage({
         </HeroAside>
       </CardRow>
 
-      <Card title={copy.actionQueue} issues={{ count: review.actionQueue.length }}>
+      <Card id="reconciliation-action-queue" title={copy.actionQueue} issues={{ count: review.actionQueue.length }}>
         {review.actionQueue.length === 0 ? (
           <EmptyState ok>{copy.noQueuedActions}</EmptyState>
         ) : (

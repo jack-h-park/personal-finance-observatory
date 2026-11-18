@@ -9,7 +9,7 @@ import { getPageCopy, getUiCopy } from '@/lib/ui-copy'
 type HealthCopy = ReturnType<typeof getPageCopy<'health'>>
 import { routeMetadata, routeSection } from '@/lib/page-names'
 import { CardRow, MiniStat, MiniStatGrid } from '@/components/layout'
-import { CHECK_RESULT_SEVERITY, RUN_SEVERITY, TAX_REPORT_TONE, categoryTone, checkResultKey, statusTone } from '@/lib/tone'
+import { CHECK_RESULT_SEVERITY, RUN_SEVERITY, TAX_REPORT_TONE, categoryTone, checkResultKey, severityOf, statusTone } from '@/lib/tone'
 
 export const dynamic = 'force-dynamic'
 export const generateMetadata = routeMetadata('/health')
@@ -100,7 +100,15 @@ export default async function HealthPage() {
         title={copy.title}
         emphasis={copy.emphasis}
         subtitle={copy.subtitle(fmtDateTime(meta.ingested_at, language))}
-        action={issueCount ? <Badge tone={statusTone(CHECK_RESULT_SEVERITY, errors.length || operational.summary.missing ? 'error' : 'warning')}>{copy.needsReview(fmtNumber(issueCount))}</Badge> : <Badge tone="success">{copy.allChecksPassed}</Badge>}
+        status={
+          issueCount
+            ? {
+                severity: severityOf(CHECK_RESULT_SEVERITY, errors.length || operational.summary.missing ? 'error' : 'warning'),
+                label: copy.needsReview(fmtNumber(issueCount)),
+                href: '#health-operational-status',
+              }
+            : { severity: 'ok', label: copy.allChecksPassed }
+        }
       />
 
       <CardRow columns={3}>
@@ -112,7 +120,7 @@ export default async function HealthPage() {
           </MiniStatGrid>
           <div className="mt-3 text-label leading-relaxed text-ink-3">{copy.accountCoverageNote}</div>
         </Card>
-        <Card title={copy.operationalStatus} info={copy.operationalStatusInfo} issues={{ count: issueCount, severity: 'problem' }}>
+        <Card id="health-operational-status" title={copy.operationalStatus} info={copy.operationalStatusInfo} issues={{ count: issueCount, severity: 'problem' }}>
           <MiniStatGrid columns={2}>
             <MiniStat label={freshnessLabels.fresh} value={fmtNumber(operational.summary.fresh)} tone="success" />
             <MiniStat label={freshnessLabels.stale} value={fmtNumber(operational.summary.stale)} tone="warning" />

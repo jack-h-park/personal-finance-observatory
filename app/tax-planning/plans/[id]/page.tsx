@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import { getTaxPlanningLots } from '@/lib/adapters/portfolio-db'
 import { PageHeader } from '@/components/PageHeader'
 import { TaxPlanTimeline } from '@/components/TaxPlanTimeline'
-import { Badge, Card, FormSaved, Panel, TextLink } from '@/components/ui'
+import { Badge, Card, Panel, TextLink } from '@/components/ui'
 import { Split, Stat, StatStrip } from '@/components/layout'
 import { ProgressBar } from '@/components/bars'
 import { fmtDateShort, fmtDateTime, fmtKrw, fmtNumber, fmtPct, fmtSigned } from '@/lib/format'
@@ -79,15 +79,13 @@ export default async function SavedTaxPlanPage({
         eyebrow={routeSection('/tax-planning', language)}
         {...savedPlanHeading(saved.name)}
         subtitle={copy.subtitle(fmtDateShort(saved.asOfDate, language), saved.revision)}
-        action={
-          <span className="flex items-center gap-3">
-            {/* createSavedTaxPlanAction has always redirected here with ?saved=1;
-                until now nothing read it, so saving a plan ended in silence. */}
-            {query.saved === '1' ? <FormSaved>{labels.form.saved}</FormSaved> : null}
-            <TextLink href="/tax-planning">
-              {copy.backToPlanner}
-            </TextLink>
-          </span>
+        // createSavedTaxPlanAction has always redirected here with ?saved=1;
+        // until now nothing read it, so saving a plan ended in silence.
+        status={query.saved === '1' ? { severity: 'ok', label: labels.form.saved } : undefined}
+        actions={
+          <TextLink href="/tax-planning">
+            {copy.backToPlanner}
+          </TextLink>
         }
       />
 

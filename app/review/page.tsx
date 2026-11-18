@@ -76,7 +76,11 @@ export default async function ReviewPage() {
         title={copy.title}
         emphasis={copy.emphasis}
         subtitle={copy.subtitle}
-        action={issueCount ? <Badge tone="warning">{copy.freshnessIssues(issueCount)}</Badge> : <Badge tone="success">{copy.ready}</Badge>}
+        status={
+          issueCount
+            ? { severity: 'attention', label: copy.freshnessIssues(issueCount), href: '#review-operational-readiness' }
+            : { severity: 'ok', label: copy.ready }
+        }
       />
 
       {/* No hero. The market value that used to headline this page is the same
@@ -146,7 +150,7 @@ export default async function ReviewPage() {
           </div>
         </Card>
 
-        <Card title={copy.operationalReadiness} issues={{ count: issueCount }}>
+        <Card id="review-operational-readiness" title={copy.operationalReadiness} issues={{ count: issueCount }}>
           {operational.staleItems.length === 0 ? (
             <EmptyState ok>{copy.noOperationalInputs}</EmptyState>
           ) : (

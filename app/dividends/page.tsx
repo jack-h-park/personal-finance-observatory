@@ -30,7 +30,7 @@ export default async function DividendsPage() {
         title={copy.title}
         emphasis={copy.emphasis}
         subtitle={copy.subtitle(totalLabel, fmtNumber(rows.reduce((s, r) => s + r.count, 0)))}
-        action={<Button href="/income" variant="solid">{copy.openIncome}</Button>}
+        actions={<Button href="/income" variant="solid">{copy.openIncome}</Button>}
       />
       <CardRow spacing="none">
         <Card title={copy.trendCard}>

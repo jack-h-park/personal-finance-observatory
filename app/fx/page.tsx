@@ -59,7 +59,11 @@ export default async function FxPage() {
         title={copy.title}
         emphasis={copy.emphasis}
         subtitle={copy.subtitle(fmtNumber(data.summary.exchangeCount))}
-        action={data.summary.missingDestinationCount ? <Badge tone="warning">{copy.qualityGap(fmtNumber(data.summary.missingDestinationCount))}</Badge> : <Badge tone="success">{copy.qualityOk}</Badge>}
+        status={
+          data.summary.missingDestinationCount
+            ? { severity: 'attention', label: copy.qualityGap(fmtNumber(data.summary.missingDestinationCount)) }
+            : { severity: 'ok', label: copy.qualityOk }
+        }
       />
 
       <CardRow columns="hero">

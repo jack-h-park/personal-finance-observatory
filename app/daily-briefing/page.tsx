@@ -231,18 +231,16 @@ export default async function DailyBriefingPage({ searchParams }: { searchParams
         title={copy.title}
         emphasis={copy.emphasis}
         subtitle={copy.docSubtitle(fmtDateShort(doc.date, language), fmtDate(doc.generatedAt, language))}
-        action={
-          <div className="flex items-center gap-2">
-            {isLatest ? <Badge tone="success">{copy.latest}</Badge> : <Badge tone="neutral">{copy.archived}</Badge>}
-            <a
-              href={publicBriefingUrl(doc.date, isLatest)}
-              target="_blank"
-              rel="noreferrer"
-              className="text-caption text-info hover:underline"
-            >
-              {copy.openPublished}
-            </a>
-          </div>
+        status={isLatest ? { severity: 'ok', label: copy.latest } : { severity: 'quiet', label: copy.archived }}
+        actions={
+          <a
+            href={publicBriefingUrl(doc.date, isLatest)}
+            target="_blank"
+            rel="noreferrer"
+            className="text-caption text-info hover:underline"
+          >
+            {copy.openPublished}
+          </a>
         }
       />
 

@@ -39,12 +39,12 @@ export default async function IncomePage() {
         title={copy.title}
         emphasis={copy.emphasis}
         subtitle={copy.subtitle(fmtNumber(income.totals.row_count), latestMonthLabel)}
-        action={
-          <div className="flex flex-wrap items-center gap-2">
-            {income.totals.tickerless_count ? <Badge tone="warning">{copy.tickerlessRows(fmtNumber(income.totals.tickerless_count))}</Badge> : <Badge tone="success">{copy.tickerMapped}</Badge>}
-            {income.totals.undated_count > 0 ? <Badge tone="warning">{copy.undatedRows(fmtNumber(income.totals.undated_count))}</Badge> : null}
-          </div>
+        status={
+          income.totals.tickerless_count
+            ? { severity: 'attention', label: copy.tickerlessRows(fmtNumber(income.totals.tickerless_count)), href: '#income-tickerless' }
+            : { severity: 'ok', label: copy.tickerMapped }
         }
+        actions={income.totals.undated_count > 0 ? <Badge tone="warning">{copy.undatedRows(fmtNumber(income.totals.undated_count))}</Badge> : null}
       />
 
       <CardRow columns="hero">
@@ -194,7 +194,7 @@ export default async function IncomePage() {
           />
         </Card>
 
-        <Card title={copy.tickerlessIncomeRows} issues={{ count: income.tickerless.length }}>
+        <Card id="income-tickerless" title={copy.tickerlessIncomeRows} issues={{ count: income.tickerless.length }}>
           {income.tickerless.length === 0 ? (
             <EmptyState ok>{copy.allIncomeMapped}</EmptyState>
           ) : (

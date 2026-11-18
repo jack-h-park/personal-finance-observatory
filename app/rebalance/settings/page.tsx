@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { DataTable } from '@/components/DataTable'
 import { PageHeader } from '@/components/PageHeader'
 import { SubmitButton } from '@/components/SubmitButton'
-import { Badge, Card, EmptyState, FormError, FormSaved, Note, TextLink } from '@/components/ui'
+import { Badge, Card, EmptyState, FormError, Note, TextLink } from '@/components/ui'
 import { Checkbox, Field, Input, Select } from '@/components/form'
 import { CardRow } from '@/components/layout'
 import { dbAvailable, portfolioToday } from '@/lib/adapters/portfolio-db'
@@ -111,12 +111,8 @@ export default async function RebalanceSettingsPage({ searchParams }: { searchPa
         title={copy.title}
         emphasis={copy.emphasis}
         subtitle={copy.subtitle}
-        action={
-          <div className="flex items-center gap-2">
-            {params.saved && <FormSaved>{copy.saved}</FormSaved>}
-            <TextLink href="/rebalance">{copy.back}</TextLink>
-          </div>
-        }
+        status={params.saved ? { severity: 'ok', label: copy.saved } : undefined}
+        actions={<TextLink href="/rebalance">{copy.back}</TextLink>}
       />
 
       {params.error && (

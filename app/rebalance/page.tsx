@@ -94,12 +94,12 @@ export default async function RebalancePage({ searchParams }: { searchParams: Pr
         title={copy.title}
         emphasis={copy.emphasis}
         subtitle={copy.subtitle(rebalance.policy.marketTargets.map((row) => `${row.market} ${fmtPct(row.targetPct, { digits: 0 })}`).join(' / '), fmtNumber(rebalance.policy.positionCapPct))}
-        action={
-          <div className="flex items-center gap-2">
-            {freshnessIssues ? <Badge tone="warning">{copy.freshnessIssues(freshnessIssues)}</Badge> : <Badge tone="success">{copy.inputsReady}</Badge>}
-            <TextLink href="/rebalance/settings">{copy.settingsLink}</TextLink>
-          </div>
+        status={
+          freshnessIssues
+            ? { severity: 'attention', label: copy.freshnessIssues(freshnessIssues), href: '#rebalance-hold-watch' }
+            : { severity: 'ok', label: copy.inputsReady }
         }
+        actions={<TextLink href="/rebalance/settings">{copy.settingsLink}</TextLink>}
       />
 
       {errorMessage && <FormError title={proposalCopy.errorTitle} messages={[errorMessage]} />}
@@ -398,7 +398,7 @@ export default async function RebalancePage({ searchParams }: { searchParams: Pr
         </Card>
       </CardRow>
 
-      <Card title={copy.holdWatch} issues={{ count: rebalance.watchCandidates.length + freshnessIssues }}>
+      <Card id="rebalance-hold-watch" title={copy.holdWatch} issues={{ count: rebalance.watchCandidates.length + freshnessIssues }}>
         {rebalance.watchCandidates.length === 0 && freshnessIssues === 0 ? (
           <EmptyState ok>{copy.noBlockers}</EmptyState>
         ) : (

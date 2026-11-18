@@ -41,12 +41,10 @@ export default async function DataMapPage({
         title={copy.title}
         emphasis={copy.emphasis}
         subtitle={copy.subtitle(inventory.dataDir, fmtDateTime(meta.ingested_at, language))}
-        action={
-          inventory.summary.missing || inventory.summary.drift ? (
-            <Badge tone="warning">{copy.reviewItems(fmtNumber(reviewCount))}</Badge>
-          ) : (
-            <Badge tone="success">{copy.allMapped}</Badge>
-          )
+        status={
+          inventory.summary.missing || inventory.summary.drift
+            ? { severity: 'attention', label: copy.reviewItems(fmtNumber(reviewCount)), href: '#data-map-review-queue' }
+            : { severity: 'ok', label: copy.allMapped }
         }
       />
 
@@ -97,7 +95,7 @@ export default async function DataMapPage({
         </HeroAside>
       </CardRow>
 
-      <Card title={copy.reviewQueue} issues={{ count: reviewCount, severity: 'problem' }}>
+      <Card id="data-map-review-queue" title={copy.reviewQueue} issues={{ count: reviewCount, severity: 'problem' }}>
         <div className="border-b border-line-subtle bg-surface px-4 py-3 text-label leading-relaxed text-ink-3">
           {copy.retentionGuide}
         </div>

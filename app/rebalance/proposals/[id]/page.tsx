@@ -974,7 +974,7 @@ export default async function RebalanceProposalPage({
         eyebrow={routeSection('/rebalance', language)}
         {...proposalHeading(copy, proposal.id)}
         subtitle={copy.subtitle(copy.kinds[proposal.kind], fmtDateShort(proposal.createdAt, language), fmtDateShort(proposal.expiresAt, language))}
-        action={<TextLink href="/rebalance">{copy.back}</TextLink>}
+        actions={<TextLink href="/rebalance">{copy.back}</TextLink>}
       />
 
       <Panel text="caption-2" spacing="mb-4" role="note">

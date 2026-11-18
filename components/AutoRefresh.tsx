@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState, useTransition } from 'react'
 import { clsx } from 'clsx'
 import { usePageLanguage } from '@/components/LanguageProvider'
 import { getUiCopy } from '@/lib/ui-copy'
-import { localeFor } from '@/lib/format'
+import { EMPTY_VALUE, localeFor } from '@/lib/format'
 import { REFRESH_DOT_CLASS } from '@/lib/tone'
 
 /** Where the paused choice lives, so it survives navigating to another page. */
@@ -119,15 +119,16 @@ export function AutoRefresh({ seconds = 30 }: { seconds?: number }) {
     )
   }
 
+  // The interval is the same on every page, so the label does not repeat it;
+  // the button's title still says it. Before the first effect there is no time
+  // yet, and the placeholder keeps the label the same shape.
   const label = paused
     ? clock
       ? copy.pausedSince(clock)
       : copy.paused
     : isPending
       ? copy.refreshing
-      : clock
-        ? `${copy.lastRefresh} ${clock} · ${copy.interval(seconds)}`
-        : copy.auto(seconds)
+      : `${copy.lastRefresh} ${clock ?? EMPTY_VALUE}`
 
   return (
     <span className="inline-flex items-center gap-2">
@@ -141,6 +142,7 @@ export function AutoRefresh({ seconds = 30 }: { seconds?: number }) {
         type="button"
         onClick={togglePaused}
         aria-pressed={paused}
+        title={copy.auto(seconds)}
         // The action first, because that is what a button's name should say,
         // then the status — an aria-label replaces the visible text outright,
         // so naming only the action would take the refresh time away from

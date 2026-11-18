@@ -65,7 +65,11 @@ export default async function DataOpsPage() {
         title={copy.title}
         emphasis={copy.emphasis}
         subtitle={copy.subtitle}
-        action={issueCount ? <Badge tone="warning">{copy.needsReview(fmtNumber(issueCount))}</Badge> : <Badge tone="success">{copy.noPending}</Badge>}
+        status={
+          issueCount
+            ? { severity: 'attention', label: copy.needsReview(fmtNumber(issueCount)), href: '#data-ops-priority-work' }
+            : { severity: 'ok', label: copy.noPending }
+        }
       />
 
       <Card title={coverageCopy.title} info={coverageCopy.info} issues={{ count: coverage.actionNeeded, severity: 'problem' }} className="mb-5" action={<TextLink href="#account-coverage">{coverageCopy.viewAll}</TextLink>}>
@@ -190,7 +194,7 @@ export default async function DataOpsPage() {
         </HeroAside>
       </CardRow>
 
-      <Card title={copy.priorityWork} info={copy.priorityWorkInfo} className="mb-5" issues={{ count: ops.actionQueue.length }}>
+      <Card id="data-ops-priority-work" title={copy.priorityWork} info={copy.priorityWorkInfo} className="mb-5" issues={{ count: ops.actionQueue.length }}>
         {ops.actionQueue.length === 0 ? (
           <EmptyState ok>{copy.noPriorityWork}</EmptyState>
         ) : (

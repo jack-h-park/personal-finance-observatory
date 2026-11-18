@@ -1,12 +1,22 @@
+import Link from 'next/link'
 import type { ReactNode } from 'react'
 import { AutoRefresh } from '@/components/AutoRefresh'
+import { Badge } from '@/components/controls'
+import { severityTone, type Severity } from '@/lib/tone'
+
+/**
+ * The page's one-line verdict. When it reports a problem, `href` points at the
+ * card that lists it (`#<card id>`), so the pill is the way in, not only a sign.
+ */
+export type PageHeaderStatus = { severity: Severity; label: ReactNode; href?: string }
 
 export function PageHeader({
   title,
   subtitle,
   eyebrow,
   emphasis,
-  action,
+  status,
+  actions,
   autoRefresh = true,
 }: {
   title: string
@@ -16,7 +26,9 @@ export function PageHeader({
   /** A trailing substring of `title` to highlight with the brand gradient.
    *  e.g. title="Pipeline Overview" emphasis="Overview". */
   emphasis?: string
-  action?: ReactNode
+  status?: PageHeaderStatus
+  /** Back links and buttons. They follow the status, and the clock follows them. */
+  actions?: ReactNode
   /** Off on pages with a form to fill in, where a refresh every 30 seconds would reload it mid-entry. */
   autoRefresh?: boolean
 }) {
@@ -43,10 +55,31 @@ export function PageHeader({
         </h1>
         {subtitle && <p className="mt-1 max-w-4xl text-body leading-relaxed text-ink-2">{subtitle}</p>}
       </div>
-      <div className="flex shrink-0 items-center gap-3">
-        {action}
-        {autoRefresh ? <AutoRefresh seconds={30} /> : null}
+      {/*
+        Wraps between its children, never inside one: on a phone a Korean label
+        would otherwise break mid-word. The badge is whitespace-nowrap itself.
+      */}
+      <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1">
+        {status ? <StatusPill {...status} /> : null}
+        {actions ? <div className="flex items-center whitespace-nowrap">{actions}</div> : null}
+        {autoRefresh ? (
+          <div className="flex items-center whitespace-nowrap">
+            <AutoRefresh seconds={30} />
+          </div>
+        ) : null}
       </div>
     </header>
+  )
+}
+
+function StatusPill({ severity, label, href }: PageHeaderStatus) {
+  const badge = <Badge tone={severityTone(severity)}>{label}</Badge>
+  if (!href) return badge
+  // The ring every linked badge in the app already uses; inline-flex so the
+  // link's box is exactly the badge's and the pill does not move.
+  return (
+    <Link href={href} className="inline-flex rounded-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-info/40">
+      {badge}
+    </Link>
   )
 }

@@ -1,4 +1,5 @@
 import { strict as assert } from 'node:assert'
+import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 import * as React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
@@ -9,6 +10,8 @@ import { PositionCell } from '@/components/PositionCell'
 import { Badge, Callout, Card, FormError, FormSaved, HeroAside, MetricField, Note, Panel, SectionHeading } from '@/components/ui'
 import { LinkChip, LinkChips } from '@/components/LinkChips'
 import { Tabs } from '@/components/Tabs'
+import { PageHeader } from '@/components/PageHeader'
+import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared-runtime'
 
 // tsx compiles the component's JSX with the classic runtime, which reads a
 // global React; Next supplies it in the app, so the test does here.
@@ -702,3 +705,96 @@ test('FormError with no messages renders the title alone', () => {
   const html = renderToStaticMarkup(h(FormError, { title: 'T', messages: [] }))
   assert.equal(html, `${FORM_ERROR_OPEN}<div class="font-medium">T</div></div>`)
 })
+
+// — PageHeader status and actions ————————————————————————————————————————————
+
+/** A stand-in for the App Router, which AutoRefresh needs mounted to render. */
+const ROUTER = { back() {}, forward() {}, refresh() {}, push() {}, replace() {}, prefetch() {} }
+
+function renderHeader(props: Partial<React.ComponentProps<typeof PageHeader>>): string {
+  return renderToStaticMarkup(
+    h(AppRouterContext.Provider, { value: ROUTER as never }, h(PageHeader, { title: 'T', ...props }))
+  )
+}
+
+/** The text a reader sees: tags (and so their attributes) removed. */
+function visibleText(html: string): string {
+  return html.replace(/<[^>]*>/g, ' ')
+}
+
+test('PageHeader status with href is a link around the severity badge', () => {
+  const html = renderHeader({ status: { severity: 'attention', label: 'x', href: '#a' }, autoRefresh: false })
+  const warning = renderToStaticMarkup(h(Badge, { tone: 'warning', children: 'x' }))
+  const link = html.match(/<a [^>]*href="#a"[^>]*>(.*?)<\/a>/)
+  assert.ok(link, html)
+  assert.equal(link[1], warning)
+  // The focus ring the repo already uses on a linked badge, shown on keyboard focus only.
+  assert.match(link[0], /focus-visible:ring-2 focus-visible:ring-info\/40/)
+})
+
+test('PageHeader status without href renders the badge and no link', () => {
+  const html = renderHeader({ status: { severity: 'problem', label: 'x' }, autoRefresh: false })
+  assert.ok(!html.includes('<a '), html)
+  assert.ok(html.includes(renderToStaticMarkup(h(Badge, { tone: 'danger', children: 'x' }))), html)
+})
+
+test('PageHeader renders status, then actions, then the clock', () => {
+  const html = renderHeader({ status: { severity: 'ok', label: 'STATUS' }, actions: h('span', null, 'ACTIONS') })
+  const status = html.indexOf('STATUS')
+  const actions = html.indexOf('ACTIONS')
+  const clock = html.indexOf('aria-pressed')
+  assert.ok(status > 0 && status < actions && actions < clock, html)
+})
+
+test('PageHeader slot wraps between children and never inside one', () => {
+  const html = renderHeader({ status: { severity: 'ok', label: 'S' }, actions: h('span', null, 'A') })
+  assert.match(html, /class="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1"/)
+  // Two wrappers (actions, clock); the badge carries whitespace-nowrap itself.
+  assert.equal((html.match(/class="flex items-center whitespace-nowrap"/g) ?? []).length, 2, html)
+})
+
+test('PageHeader clock shows no refresh interval; the title still names it', () => {
+  const html = renderHeader({})
+  assert.ok(!/30/.test(visibleText(html)), visibleText(html))
+  assert.match(html, /title="Auto-refresh every 30s"/)
+})
+
+test('PageHeader no longer takes action', () => {
+  // @ts-expect-error status and actions replaced it; tsc fails any caller left behind
+  const props: React.ComponentProps<typeof PageHeader> = { title: 'T', action: 'x' }
+  assert.ok(props)
+})
+
+test('Card forwards id to its section', () => {
+  const html = renderToStaticMarkup(h(Card, { id: 'anchor', title: 'T', children: 'x' }))
+  assert.ok(html.startsWith('<section id="anchor" '), html)
+  // A linked card clears the phone's sticky top bar; one without an id is unchanged.
+  assert.match(html, /class="[^"]*\bscroll-mt-24\b/)
+  assert.ok(!renderToStaticMarkup(h(Card, { title: 'T', children: 'x' })).includes('scroll-mt'))
+})
+
+/**
+ * A header pill that reports a problem links to the card that lists it. Each
+ * row names the page, the href its pill uses and the id it lands on. Every
+ * target below is rendered unconditionally on its page, so it exists whenever
+ * the pill is in its linked state (cash-inflow's href switches the filter that
+ * renders its target). Pages whose problem pill has no such card carry no href.
+ */
+const STATUS_ANCHORS: Array<{ page: string; href: string; id: string }> = [
+  { page: 'app/reconciliation/page.tsx', href: "'#reconciliation-action-queue'", id: 'reconciliation-action-queue' },
+  { page: 'app/health/page.tsx', href: "'#health-operational-status'", id: 'health-operational-status' },
+  { page: 'app/income/page.tsx', href: "'#income-tickerless'", id: 'income-tickerless' },
+  { page: 'app/data-ops/page.tsx', href: "'#data-ops-priority-work'", id: 'data-ops-priority-work' },
+  { page: 'app/rebalance/page.tsx', href: "'#rebalance-hold-watch'", id: 'rebalance-hold-watch' },
+  { page: 'app/review/page.tsx', href: "'#review-operational-readiness'", id: 'review-operational-readiness' },
+  { page: 'app/data-map/page.tsx', href: "'#data-map-review-queue'", id: 'data-map-review-queue' },
+  { page: 'app/cash-inflow/page.tsx', href: "`${href({ category: 'unclassified' })}#cash-inflow-unclassified`", id: 'cash-inflow-unclassified' },
+]
+
+for (const { page, href, id } of STATUS_ANCHORS) {
+  test(`${page}: the header status links to #${id}, which the page renders`, () => {
+    const source = readFileSync(page, 'utf8')
+    assert.ok(source.includes(`href: ${href}`), `status href ${href} not found`)
+    assert.equal((source.match(new RegExp(`id="${id}"`, 'g')) ?? []).length, 1, `exactly one element with id="${id}"`)
+  })
+}

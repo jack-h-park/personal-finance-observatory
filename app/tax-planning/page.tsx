@@ -146,13 +146,11 @@ export default async function TaxPlanningPage({
         title={copy.page.title}
         emphasis={copy.page.emphasis}
         subtitle={copy.page.subtitle}
-        action={
-          <div className="flex items-center gap-2">
-            {taxPolicy.source === 'example' && <Badge tone="warning">{copy.page.usingExampleAssumptions}</Badge>}
-            <TextLink href="/tax-settings">
-              {copy.page.editAssumptions}
-            </TextLink>
-          </div>
+        status={taxPolicy.source === 'example' ? { severity: 'attention', label: copy.page.usingExampleAssumptions } : undefined}
+        actions={
+          <TextLink href="/tax-settings">
+            {copy.page.editAssumptions}
+          </TextLink>
         }
       />
 
