@@ -24,9 +24,6 @@ export default async function IncomePage() {
   const currencyPreferences = await getCurrencyPreferences()
   const money = createMoneyFormatter(currencyPreferences)
   const usd = currencyPreferences.displayCurrency === 'USD'
-  const chartDivisor = usd ? 1 : 1000
-  const chartPrefix = usd ? '$' : '₩'
-  const chartSuffix = usd ? '' : 'K'
   const copy = getPageCopy('income', language)
   const glossary = getGlossary(language)
   const income = getIncomeReview(currencyPreferences.displayCurrency)
@@ -145,14 +142,15 @@ export default async function IncomePage() {
       <CardRow>
         <Card title={copy.monthlyIncomeTrend}>
           <TrendBarChart
-            data={income.byMonth.map((row) => ({ month: row.month.slice(2), income: Math.round(row.base_income / chartDivisor) }))}
+            data={income.byMonth.map((row) => ({ month: row.month.slice(2), income: row.base_income }))}
             xKey="month"
             yKey="income"
             height={300}
             color="var(--accent-success)"
-            yAxisPrefix={chartPrefix}
-            yAxisSuffix={chartSuffix}
             yAxisLabel={usd ? copy.chartAxisUsd : copy.chartAxis}
+            unit={{ kind: 'money', currency: currencyPreferences.displayCurrency }}
+            language={language}
+            emptyMessage={copy.noMonthlyIncome}
           />
           <Note spacing="above-2">{usd ? copy.chartNoteUsd : copy.chartNote}</Note>
         </Card>

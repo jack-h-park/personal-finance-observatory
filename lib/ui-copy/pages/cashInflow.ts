@@ -16,7 +16,8 @@ export const cashInflow = defineCopy({
     unclassifiedAndUndated: (unclassified: string, undated: string) => `${unclassified} unclassified · ${undated} at today's rate`,
     noBankData: 'No bank statements on file: showing dividends and interest only.',
     chartNote: 'Each credit converted at the USD/KRW rate of the day it arrived.',
-    axisKrw: 'KRW thousand', axisUsd: 'USD',
+    axisKrw: 'KRW', axisUsd: 'USD',
+    noTrend: 'No credits in this range.',
     filter: {
       label: 'Show',
       options: { All: 'All', salary: 'Salary', investment: 'Investment income', dividend: 'Dividends', interest: 'Interest', other: 'Other', reimbursement: 'Purchase reimbursement', unclassified: 'Unclassified' },
@@ -73,7 +74,8 @@ export const cashInflow = defineCopy({
     unclassifiedAndUndated: (unclassified: string, undated: string) => `미분류 ${unclassified}건 · 오늘 환율 ${undated}건`,
     noBankData: '은행 거래내역이 없어 배당과 이자만 표시합니다.',
     chartNote: '각 입금을 입금일의 원/달러 환율로 환산했습니다.',
-    axisKrw: '천 원', axisUsd: '달러',
+    axisKrw: '원', axisUsd: '달러',
+    noTrend: '이 기간에 입금이 없습니다.',
     filter: {
       label: '보기',
       options: { All: '전체', salary: '급여', investment: '투자 수익', dividend: '배당', interest: '이자', other: '기타', reimbursement: '구매대행 정산', unclassified: '미분류' },

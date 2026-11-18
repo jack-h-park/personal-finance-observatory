@@ -37,8 +37,8 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
   // Balance column stays in each account's own currency.
   const currencyPreferences = await getCurrencyPreferences()
   const money = createMoneyFormatter(currencyPreferences)
-  const toDisplayMillions = (krw: number) =>
-    convertMoney(krw, 'KRW', currencyPreferences.displayCurrency, currencyPreferences.usdKrwRate).value / 1_000_000
+  const toDisplay = (krw: number) =>
+    convertMoney(krw, 'KRW', currencyPreferences.displayCurrency, currencyPreferences.usdKrwRate).value
   const meta = getMeta()
   const netWorth = getNetWorth()
   const allocation = getAssetAllocation(netWorth)
@@ -187,19 +187,21 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
         <StackedAssetChart
           points={trendAssets.points.map((point) => ({
             date: point.date,
-            stocks: point.stocks == null ? null : toDisplayMillions(point.stocks),
-            crypto: point.crypto == null ? null : toDisplayMillions(point.crypto),
-            cash: point.cash == null ? null : toDisplayMillions(point.cash),
-            pensions: point.pensions == null ? null : toDisplayMillions(point.pensions),
-            gold: point.gold == null ? null : toDisplayMillions(point.gold),
-            total: toDisplayMillions(point.total),
-            ...(includeChildren ? { children: childrenOn.get(point.date) == null ? null : toDisplayMillions(childrenOn.get(point.date)!) } : {}),
+            stocks: point.stocks == null ? null : toDisplay(point.stocks),
+            crypto: point.crypto == null ? null : toDisplay(point.crypto),
+            cash: point.cash == null ? null : toDisplay(point.cash),
+            pensions: point.pensions == null ? null : toDisplay(point.pensions),
+            gold: point.gold == null ? null : toDisplay(point.gold),
+            total: toDisplay(point.total),
+            ...(includeChildren ? { children: childrenOn.get(point.date) == null ? null : toDisplay(childrenOn.get(point.date)!) } : {}),
           }))}
           childrenBand={includeChildren ? { label: childCopy.band, combinedLabel: childCopy.combined } : undefined}
           startsOn={trendAssets.startsOn}
-          currency={currencyPreferences.displayCurrency}
           labels={{ ...copy.classes, total: copy.historyColumns.total }}
           axisLabel={currencyPreferences.displayCurrency === 'USD' ? copy.chartAxisUsd : copy.chartAxisKrw}
+          unit={{ kind: 'money', currency: currencyPreferences.displayCurrency }}
+          language={language}
+          emptyMessage={copy.noTrend}
           markers={chartMarkers(eventMarkers, trendAssets.points[0]?.date)}
         />
         <div className="mt-1 text-label text-ink-3">

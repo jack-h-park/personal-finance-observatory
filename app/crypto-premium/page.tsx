@@ -175,9 +175,10 @@ export default async function CryptoPremiumPage() {
                 data={chartData}
                 series={series}
                 height={280}
-                valuePrefix=""
-                valueSuffix="%"
                 axisLabel={copy.axisLabel}
+                unit={{ kind: 'percent' }}
+                language={language}
+                emptyMessage={copy.noHistory}
               />
             )}
           </Card>

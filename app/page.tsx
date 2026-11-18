@@ -4,6 +4,7 @@ import { isSupplementarySource } from '@/lib/supplementary'
 import { PageHeader } from '@/components/PageHeader'
 import { Badge, Card, EmptyState, HeroAside, MetricField, MetricHeroCard, Note, Panel, TextLink, marketTone } from '@/components/ui'
 import { PortfolioMultiTrendChart, PortfolioTrendChart } from '@/components/charts'
+import type { ChartUnit } from '@/lib/chart-format'
 import {
   dbAvailable,
   getAccountAllocation,
@@ -67,9 +68,7 @@ export default async function OverviewPage({
   const money = createMoneyFormatter(currencyPreferences)
   const displayBaseValue = (value: number | null | undefined) =>
     convertMoney(Number(value ?? 0), 'KRW', currencyPreferences.displayCurrency, currencyPreferences.usdKrwRate).value
-  const displayBaseMillions = (value: number | null | undefined) => displayBaseValue(value) / 1_000_000
-  const displayPrefix = currencyPreferences.displayCurrency === 'USD' ? '$' : '₩'
-  const displayMillionsLabel = currencyPreferences.displayCurrency === 'USD' ? copy.usdMillions : copy.krwMillions
+  const moneyUnit: ChartUnit = { kind: 'money', currency: currencyPreferences.displayCurrency }
   const displayAxisLabel = currencyPreferences.displayCurrency === 'USD' ? copy.chartAxisUsd : copy.chartAxisKrw
   const glossary = getGlossary(language)
   if (!dbAvailable()) {
@@ -187,8 +186,8 @@ export default async function OverviewPage({
       barStyle: 'linear-gradient(90deg, var(--accent-warning), var(--brand-purple))',
     },
   ]
-  const trendData = singleTrendPoints(portfolioSnapshots, selectedScope, selectedMetric.key, displayBaseMillions)
-  const combinedTrendData = combinedTrendPoints(portfolioSnapshots, selectedScope, displayBaseMillions)
+  const trendData = singleTrendPoints(portfolioSnapshots, selectedScope, selectedMetric.key, displayBaseValue)
+  const combinedTrendData = combinedTrendPoints(portfolioSnapshots, selectedScope, displayBaseValue)
   const valuedTrendData = trendData.filter((point): point is typeof point & { value: number } => typeof point.value === 'number')
   const firstTrendPoint = valuedTrendData[0]
   const latestTrendPoint = valuedTrendData[valuedTrendData.length - 1]
@@ -204,7 +203,7 @@ export default async function OverviewPage({
   // wrote it is recent: a failed refresh leaves the last good snapshot in place.
   const latestPriceDates = snapshotPriceDates(latestSnapshot, selectedScope)
   const latestSnapshotStale = isSnapshotStale(latestSnapshot?.captured_at)
-  const trendValueLabel = (value: number) => selectedMetric.key === 'return_pct' ? fmtPct(value, { digits: 1 }) : money(value * 1_000_000, currencyPreferences.displayCurrency)
+  const trendValueLabel = (value: number) => selectedMetric.key === 'return_pct' ? fmtPct(value, { digits: 1 }) : money(value, currencyPreferences.displayCurrency)
   const trendChangeLabel = selectedMetric.key === 'return_pct'
     ? fmtPct(trendChange, { digits: 1, unit: 'pp', signed: true })
     : `${fmtSigned(trendChange, trendValueLabel)}${trendChangePct == null ? '' : ` · ${fmtPct(trendChangePct, { digits: 1, signed: true })}`}`
@@ -440,14 +439,14 @@ export default async function OverviewPage({
           <div>
             {selectedView === 'combined' ? (
               <>
-                <div className="text-caption text-ink-3">{copy.combinedTrendSummary(selectedScopeLabel)}</div>
+                <div className="text-caption text-ink-3">{copy.combinedTrendSummary(selectedScopeLabel, displayAxisLabel)}</div>
                 <div className="mt-2 flex flex-wrap gap-x-5 gap-y-2">
                   {combinedMetrics.map((metric) => {
                     const latest = combinedTrendData[combinedTrendData.length - 1]?.[metric.key]
                     return (
                       <div key={metric.key}>
                         <div className="flex items-center gap-1.5 text-label text-ink-3"><span className="h-2 w-2 rounded-full" style={{ backgroundColor: metric.color }} />{copy.metricLabels[metric.key]}</div>
-                        <div className="mt-0.5 text-title font-medium tabular-nums text-ink">{typeof latest === 'number' ? money(latest * 1_000_000, currencyPreferences.displayCurrency) : EMPTY_VALUE}</div>
+                        <div className="mt-0.5 text-title font-medium tabular-nums text-ink">{typeof latest === 'number' ? money(latest, currencyPreferences.displayCurrency) : EMPTY_VALUE}</div>
                       </div>
                     )
                   })}
@@ -456,7 +455,7 @@ export default async function OverviewPage({
             ) : (
               <>
                 <div className="text-caption text-ink-3">
-                  {copy.trendUnit(`${selectedScopeLabel} · ${selectedMetricLabel}`, selectedMetric.key === 'return_pct' ? copy.percentagePoints : displayMillionsLabel)}
+                  {copy.trendUnit(`${selectedScopeLabel} · ${selectedMetricLabel}`, selectedMetric.key === 'return_pct' ? copy.percentagePoints : displayAxisLabel)}
                   {latestTrendCoverage != null && latestTrendCoverage < 1 ? ` · ${copy.costPriced(fmtNumber(latestTrendCoverage * 100, 2))}` : ''}
                   {latestPositionCoverage != null && latestPositionCoverage < 1 ? ` · ${copy.positionsPriced(fmtNumber(latestPositionCoverage * 100, 1))}` : ''}
                 </div>
@@ -528,9 +527,11 @@ export default async function OverviewPage({
               series={combinedMetrics.map((metric) => metric.key === 'realized_gl'
                 ? { dataKey: metric.key, name: copy.onRightAxis(copy.metricLabels[metric.key]), color: metric.color, axis: 'right' as const }
                 : { dataKey: metric.key, name: copy.metricLabels[metric.key], color: metric.color })}
-              valuePrefix={displayPrefix}
               axisLabel={displayAxisLabel}
               rightAxisLabel={`${copy.metricLabels.realized_gl} · ${displayAxisLabel}`}
+              unit={moneyUnit}
+              language={language}
+              emptyMessage={copy.noCombinedHistory}
             />
           )
         ) : valuedTrendData.length === 0 ? (
@@ -540,10 +541,11 @@ export default async function OverviewPage({
             data={trendData}
             dataKey="value"
             color={selectedMetric.color}
-            valuePrefix={selectedMetric.key === 'return_pct' ? '' : displayPrefix}
-            valueSuffix={selectedMetric.key === 'return_pct' ? '%' : 'M'}
             axisLabel={selectedMetric.key === 'return_pct' ? copy.chartAxisReturn : displayAxisLabel}
             valueName={copy.chartValueName}
+            unit={selectedMetric.key === 'return_pct' ? { kind: 'percent' } : moneyUnit}
+            language={language}
+            emptyMessage={copy.noPortfolioHistory}
           />
         )}
         <div className="mt-1 text-label text-ink-3">
