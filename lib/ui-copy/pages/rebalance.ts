@@ -1,4 +1,4 @@
-import type { RebalanceReview } from '@/lib/adapters/portfolio-db'
+import type { RebalanceReasonCode, RebalanceReview } from '@/lib/adapters/portfolio-db'
 import { defineCopy } from '@/lib/ui-copy/define'
 
 // Named here so the Korean half carries no English string literal in a type (G12).
@@ -54,6 +54,12 @@ export const rebalance = defineCopy({
     reduceCandidatesHint: 'Positions above cap',
     watchBeforeAction: 'Watch Before Action',
     watchBeforeActionHint: 'Valuation or freshness blockers',
+    reasons: {
+      missing_market_value: 'Missing market value; refresh prices before sizing.',
+      short_term_heavy: 'High short-term lot exposure; review lots before reducing.',
+    } satisfies Record<RebalanceReasonCode, string>,
+    guardrails: (holdPct: string, capPct: string, shortPct: string) =>
+      `Hold within ±${holdPct} · position cap ${capPct} · short-term watch from ${shortPct}`,
     executionRisk: 'Execution Risk',
     executionRiskInfo: 'Tax and data-quality flags that should be checked before turning a rebalance signal into an action.',
     taxSensitive: 'Tax-Sensitive',
@@ -163,6 +169,12 @@ export const rebalance = defineCopy({
     reduceCandidatesHint: '상한을 넘은 종목',
     watchBeforeAction: '실행 전 관찰',
     watchBeforeActionHint: '평가금액 또는 최신성 확인 항목',
+    reasons: {
+      missing_market_value: '평가금액이 없습니다. 비중을 정하기 전에 가격을 갱신하세요.',
+      short_term_heavy: '단기 보유 세금 단위 비중이 높습니다. 줄이기 전에 세금 단위를 확인하세요.',
+    } satisfies Record<RebalanceReasonCode, string>,
+    guardrails: (holdPct: string, capPct: string, shortPct: string) =>
+      `±${holdPct} 안은 유지 · 종목 상한 ${capPct} · 단기 보유 ${shortPct} 이상 주의`,
     executionRisk: '실행 리스크',
     executionRiskInfo: '리밸런싱 신호를 실제 행동으로 옮기기 전에 확인해야 하는 세금 및 데이터 품질 플래그입니다.',
     taxSensitive: '세금 민감',

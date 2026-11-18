@@ -12,6 +12,12 @@ import { config } from '@/config'
  */
 export const DEFAULT_US_TARGET_PCT = 50
 
+/** A market within this many points of its target is held, not added to or reduced. */
+export const MARKET_GAP_HOLD_PCT = 2
+
+/** A position with at least this share of short-term lots is flagged as tax-sensitive. */
+export const SHORT_TERM_WATCH_PCT = 50
+
 export type RebalanceMarketTarget = { market: string; targetPct: number }
 
 export type RebalancePolicy = {

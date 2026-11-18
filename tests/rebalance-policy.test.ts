@@ -3,7 +3,7 @@ import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
-import { getRebalancePolicy, marketTargetsFor, parseUsTargetPct, saveRebalancePolicy } from '../lib/rebalance-policy'
+import { MARKET_GAP_HOLD_PCT, SHORT_TERM_WATCH_PCT, getRebalancePolicy, marketTargetsFor, parseUsTargetPct, saveRebalancePolicy } from '../lib/rebalance-policy'
 
 const scratch = () => path.join(mkdtempSync(path.join(tmpdir(), 'rebalance-policy-')), 'rebalance-policy.json')
 
@@ -47,4 +47,9 @@ test('a corrupt file degrades to the default instead of throwing', () => {
   const file = scratch()
   writeFileSync(file, '{ not json')
   assert.equal(getRebalancePolicy(file).source, 'default')
+})
+
+test('guardrail thresholds keep their values', () => {
+  assert.equal(MARKET_GAP_HOLD_PCT, 2)
+  assert.equal(SHORT_TERM_WATCH_PCT, 50)
 })

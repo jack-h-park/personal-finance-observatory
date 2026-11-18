@@ -106,3 +106,26 @@ test('app/tax-planning/page.tsx puts the plan overview first', () => {
   assert.ok(overview < text.indexOf('<form'), 'overview before the toolbar')
   assert.ok(overview < text.indexOf('<MasterScenarioComparison'), 'overview before the scenario comparison')
 })
+
+test('getRebalanceReview reads its thresholds from named constants', () => {
+  const full = source('lib/adapters/portfolio-db.ts')
+  const start = full.indexOf('export function getRebalanceReview')
+  assert.ok(start >= 0)
+  const next = full.indexOf('\nexport function', start + 1)
+  const body = full.slice(start, next < 0 ? undefined : next)
+  assert.ok(body.includes('MARKET_GAP_HOLD_PCT'))
+  assert.ok(body.includes('SHORT_TERM_WATCH_PCT'))
+  assert.ok(!body.includes('< 2 ?'))
+  assert.ok(!body.includes('>= 50 &&'))
+})
+
+test('every rebalance row reason code has copy in both languages', () => {
+  const codes = ['missing_market_value', 'short_term_heavy'] as const
+  for (const language of ['en', 'ko'] as const) {
+    const copy = getPageCopy('rebalance', language)
+    for (const code of codes) {
+      assert.ok(copy.reasons[code].length > 0, `${language} ${code}`)
+    }
+    assert.ok(copy.guardrails('2%', '10%', '50%').length > 0)
+  }
+})
