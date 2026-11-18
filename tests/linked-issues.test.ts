@@ -14,6 +14,7 @@ import {
   taxPlanningLinkedIssues,
   type LinkedIssues,
 } from '@/lib/header-status'
+import { fmtNumber } from '@/lib/format'
 import { getPageCopy } from '@/lib/ui-copy'
 
 ;(globalThis as { React?: typeof React }).React = React
@@ -146,9 +147,16 @@ for (const language of ['en', 'ko'] as const) {
   test(`tax-planning (${language}): warnings name the example assumptions; the example alone is unlinked`, () => {
     const copy = getPageCopy('taxPlanning', language)
     const both = taxPlanningLinkedIssues(copy, { warnings: 3, example: true })
-    assert.equal(text(both.status?.label), text(copy.page.warningsAndExample(3)))
+    assert.equal(text(both.status?.label), text(copy.page.warningsAndExample(fmtNumber(3), 3)))
     const warningsOnly = taxPlanningLinkedIssues(copy, { warnings: 3, example: false })
-    assert.equal(text(warningsOnly.status?.label), text(copy.page.warningsCount(3)))
+    assert.equal(text(warningsOnly.status?.label), text(copy.page.warningsCount(fmtNumber(3), 3)))
+    const one = taxPlanningLinkedIssues(copy, { warnings: 1, example: false })
+    assert.equal(text(one.status?.label), text(copy.page.warningsCount(fmtNumber(1), 1)))
+    if (language === 'en') {
+      assert.equal(text(one.status?.label), '1 planner warning')
+      assert.equal(text(taxPlanningLinkedIssues(copy, { warnings: 1, example: true }).status?.label), '1 planner warning · example assumptions')
+      assert.equal(text(both.status?.label), '3 planner warnings · example assumptions')
+    }
     const example = taxPlanningLinkedIssues(copy, { warnings: 0, example: true })
     assert.deepEqual(example.status, { severity: 'attention', label: copy.page.usingExampleAssumptions })
     assert.equal(example.issues?.count ?? 0, 0)

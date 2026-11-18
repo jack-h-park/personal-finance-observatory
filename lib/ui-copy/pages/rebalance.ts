@@ -67,7 +67,9 @@ export const rebalance = defineCopy({
     marketTargetGaps: 'Market target gaps',
     marketSource: {
       derived: 'Split derived from the allocation policy.',
-      fallback: 'No allocation policy yet: measured against the saved or default split.',
+      invalid: 'The allocation policy cannot be read: measured against the saved or default split.',
+      fallbackSaved: 'No allocation policy yet: measured against the saved market split.',
+      fallbackDefault: 'No allocation policy yet: measured against the default 50/50 split.',
     },
     outsidePolicy: 'Outside the policy',
     everyMarketTargeted: 'Every market held has a target',
@@ -163,7 +165,9 @@ export const rebalance = defineCopy({
     marketTargetGaps: '시장 목표 차이',
     marketSource: {
       derived: '자산 배분 정책에서 나온 비중입니다.',
-      fallback: '자산 배분 정책이 아직 없어 저장된 비중이나 기본 비중으로 계산합니다.',
+      invalid: '자산 배분 정책을 읽을 수 없어 저장된 비중이나 기본 비중으로 계산합니다.',
+      fallbackSaved: '자산 배분 정책이 아직 없어 저장된 시장 비중으로 계산합니다.',
+      fallbackDefault: '자산 배분 정책이 아직 없어 기본 50/50 비중으로 계산합니다.',
     },
     outsidePolicy: '정책 밖 보유',
     everyMarketTargeted: '보유 중인 모든 시장에 목표가 있습니다.',

@@ -106,7 +106,8 @@ test('app/positions/[market]/[ticker]/page.tsx renders the Decision 10 cards in 
   }
   assert.ok(text.includes('washSaleForTicker('))
   assert.ok(text.includes('id="position-lead"'))
-  const order = ['<MetricHeroCard', 'copy.reconciliation}', 'copy.accountHoldings', 'copy.openTaxLots', 'copy.activityTimeline']
+  // A trade-blocking alert goes above the lead; `title={copy.dividends}` is the card (the hero has a `label={copy.dividends}` field).
+  const order = ['<WashSaleBanner', '<MetricHeroCard', 'copy.reconciliation}', 'copy.accountHoldings', 'copy.openTaxLots', 'copy.taxPreview', 'copy.activityTimeline', 'title={copy.dividends}']
   const at = order.map((marker) => text.indexOf(marker))
   for (const [i, marker] of order.entries()) assert.ok(at[i] >= 0, `missing ${marker}`)
   for (let i = 1; i < at.length; i++) assert.ok(at[i - 1] < at[i], `${order[i - 1]} before ${order[i]}`)
@@ -159,9 +160,10 @@ test('app/rebalance/page.tsx reads one policy model and leads with the hero', ()
   for (const line of text.split('\n').filter((l) => l.includes("key: 'reason'"))) {
     assert.ok(line.includes('render:') && line.includes('copy.reasons['), `reason column without copy: ${line.trim()}`)
   }
-  for (const token of ['MARKET_GAP_HOLD_PCT', 'copy.reasons[', 'id="rebalance-lead"']) {
+  for (const token of ['MARKET_GAP_HOLD_PCT', 'copy.reasons[', 'id="rebalance-lead"', 'marketSource.invalid', 'marketSource.fallbackSaved', 'marketSource.fallbackDefault']) {
     assert.ok(text.includes(token), `app/rebalance/page.tsx is missing ${token}`)
   }
+  assert.ok(!text.includes('marketSource.fallback}'), 'the single fallback note is split into saved and default')
   const hero = text.indexOf('<MetricHeroCard')
   assert.ok(hero > -1, 'no MetricHeroCard')
   for (const later of ['title={ac.title}', 'id="rebalance-hold-watch"', 'title={copy.marketTargetGaps}']) {

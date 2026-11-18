@@ -217,6 +217,7 @@ export default async function TaxPlanningPage({
       <MasterScenarioComparison
         planSet={masterPlanSet}
         horizonYears={horizonYears}
+        annualTargetCashKrw={annualTargetCashKrw}
         copy={copy}
         money={money}
         language={language}

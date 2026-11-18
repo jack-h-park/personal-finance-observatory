@@ -141,6 +141,18 @@ Every page restructured in R5 reads in the same order, top to bottom:
 The order exists so the reader sees the figure first, then what is wrong with it,
 then what they can change, then the evidence.
 
+### Rules that go with the order
+
+- Input controls are a toolbar, not a card. A card around a row of filters spends
+  budget on a block that carries no figure.
+- A page fed by two engines labels each group with `SectionHeading`.
+  `/tax-planning` shows "Monthly sale plan" and "Lot-level estimate" this way, so
+  two figures that differ by design are not read as a disagreement.
+- A policy figure shown on a page comes from its named constant or from the
+  policy, never a literal. `/rebalance` reads `MARKET_GAP_HOLD_PCT` and
+  `SHORT_TERM_WATCH_PCT` from `lib/rebalance-policy.ts` and the position cap from
+  the policy, so changing the number changes the page.
+
 ### Card budget
 
 A page has at most ten `section.shadow-card` inside `<main>` at 1440×1000, not
@@ -158,18 +170,6 @@ Two exceptions are already in the code and are not precedent:
 - `/rebalance` always renders its hold/watch card, because the header status pill
   links to it (the R3 pairing).
 - `/review` has no accent card by design. Its lead is the summary strip.
-
-### Rules that go with the order
-
-- Input controls are a toolbar, not a card. A card around a row of filters spends
-  budget on a block that carries no figure.
-- A page fed by two engines labels each group with `SectionHeading`.
-  `/tax-planning` shows "Monthly sale plan" and "Lot-level estimate" this way, so
-  two figures that differ by design are not read as a disagreement.
-- A policy figure shown on a page comes from its named constant or from the
-  policy, never a literal. `/rebalance` reads `MARKET_GAP_HOLD_PCT` and
-  `SHORT_TERM_WATCH_PCT` from `lib/rebalance-policy.ts` and the position cap from
-  the policy, so changing the number changes the page.
 
 ## Information architecture
 
@@ -436,7 +436,7 @@ pnpm ui:shape --base http://127.0.0.1:3143     # card budget and lead position, 
 All three need a running sample server, so none is in CI. Run them when you touch
 layout.
 
-Both audits cover `/net-worth` and `/pension`, and run one extra pass over `/` with
+The a11y and mobile audits cover `/net-worth` and `/pension`, and run one extra pass over `/` with
 the `stock-observatory-asset-view=all` cookie so the stacked chart is checked.
 
 Do not audit accessibility by reading the source. The hand survey that started

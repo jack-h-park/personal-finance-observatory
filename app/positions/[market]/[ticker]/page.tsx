@@ -188,6 +188,8 @@ export default async function PositionPage({ params }: { params: Promise<{ marke
         subtitle={copy.subtitle(fmtNumber(detail.totals.account_count), fmtNumber(detail.lotTotals.lot_count), fmtNumber(detail.transactions.length))}
       />
 
+      <WashSaleBanner review={washSale} copy={getPageCopy('washSale', language)} />
+
       <CardRow columns="hero">
         <MetricHeroCard
           id="position-lead"
@@ -249,8 +251,6 @@ export default async function PositionPage({ params }: { params: Promise<{ marke
           />
         </HeroAside>
       </CardRow>
-
-      <WashSaleBanner review={washSale} copy={getPageCopy('washSale', language)} />
 
       <CardRow columns={1}>
         <Card
