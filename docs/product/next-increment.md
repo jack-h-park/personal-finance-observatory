@@ -1,6 +1,6 @@
 # Next Personal Finance Observatory increments
 
-Updated November 17, 2026 (America/Los_Angeles). The [master plan](../superpowers/plans/2026-11-10-personal-finance-observatory.md) remains public reusable code with private sources/state, evidence-linked all-assets visibility and bounded tax planning. Source, deployed build, browser observation, human acceptance and complete financial coverage remain separate claims. See [implementation status](implementation-status.md) and [release acceptance](../operations/installation-status.md#coverage-summary-release-acceptance-november-17-2026).
+Updated November 18, 2026 (America/Los_Angeles). The [master plan](../superpowers/plans/2026-11-10-personal-finance-observatory.md) remains public reusable code with private sources/state, evidence-linked all-assets visibility and bounded tax planning. Source, deployed build, browser observation, human acceptance and complete financial coverage remain separate claims. See [implementation status](implementation-status.md) and [release acceptance](../operations/installation-status.md#coverage-summary-release-acceptance-november-17-2026).
 
 ## Completed work: do not repeat it
 
@@ -18,9 +18,9 @@ The main remaining product objective is an authoritative reviewed account scope 
 
 The current UI already separates investment and supplementary update sections, links them from the summary, preserves child-pension closure/non-load policy and keeps inventory completeness unconfirmed. A recent source can still have historical gaps or an unconfirmed query period. Do not build another summary, rewrite the inventory adapter or imply that freshness completes a source history.
 
-The approved [additive freshness contract](../architecture/supplementary-coverage-freshness.md) is now implemented for source review. It captures the already computed pre-gap status and provides a pure explicit-metadata reader; legacy action/status, windows, filters, reminders, current summary rendering and briefing transport remain unchanged. This contract is not installed/deployed and does not make new freshness data available in the current operating build.
+The [additive freshness contract](../architecture/supplementary-coverage-freshness.md) is merged in #350. A read-only UI consumer is now implemented for review: a separate supplementary freshness summary and detail freshness/gap columns. Missing/invalid metadata stays unavailable; combined statuses, actions, thresholds, reminder text and briefing transport remain unchanged. Capture and display are source-only, not installed or deployed; the operating #347 build still has its earlier limitation.
 
-Next, finish this source review and, if separately authorized, design a small read-only consumer showing the explicit freshness state alongside combined actions and history gaps. Missing/invalid metadata from old producers must remain unavailable; no inference from dates, legacy status or the partial Boolean. Do not repeat the capture/reader work as an unimplemented task or change reminder priorities to match a display. Any UI change, merge, installation or deployment needs its own scope. Private inventory acceptance and full reconciliation remain separate, owner-dependent work with unanswered decisions retained.
+Next, finish the consumer source review and synthetic verification. Any new PR merge or bounded rollout needs separate authorization; do not deploy held main changes incidentally. After a separately authorized rollout, verify both-language source freshness versus recorded gaps and unchanged combined actions on owner-web. Private inventory acceptance and full reconciliation remain separate, owner-dependent work with unanswered decisions retained. Do not repeat the completed capture/reader or consumer work as an unimplemented task.
 
 ## Priority 2: bounded operational evidence and responsibility
 
