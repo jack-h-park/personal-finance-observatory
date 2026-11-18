@@ -280,6 +280,21 @@ export const CHECK_RESULT_SEVERITY: Record<string, Severity> = {
   error: 'problem',
 }
 
+/** The two severities a list of issues can have: a card's count badge, and the header pill that links to it. */
+export type IssueSeverity = Extract<Severity, 'attention' | 'problem'>
+
+/**
+ * A list of issues, by its worst item: any error (a failed error check, a
+ * missing source) makes it a problem; warnings alone need attention. Keyed like
+ * `CHECK_RESULT_SEVERITY`'s failures, so the call site names what it found
+ * (`errors ? 'error' : 'warning'`) and a header pill and the card it links to
+ * read one table.
+ */
+export const ISSUE_SEVERITY: Record<'warning' | 'error', IssueSeverity> = {
+  warning: 'attention',
+  error: 'problem',
+}
+
 /** The `CHECK_RESULT_SEVERITY` key for a check. */
 export function checkResultKey(check: { status: string; severity: string }): string {
   return check.status === 'pass' ? 'pass' : check.severity

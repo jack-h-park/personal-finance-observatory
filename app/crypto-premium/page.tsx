@@ -58,12 +58,10 @@ export default async function CryptoPremiumPage() {
               )
             : copy.subtitleNoData
         }
-        action={
-          notable.length ? (
-            <Badge tone="warning">{copy.notableBadge(String(notable.length), String(NOTABLE_PREMIUM_PCT))}</Badge>
-          ) : (
-            <Badge tone="success">{copy.nearParity}</Badge>
-          )
+        status={
+          notable.length
+            ? { severity: 'attention', label: copy.notableBadge(String(notable.length), String(NOTABLE_PREMIUM_PCT)) }
+            : { severity: 'ok', label: copy.nearParity }
         }
       />
 

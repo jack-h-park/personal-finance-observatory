@@ -130,7 +130,6 @@ export const UI_COPY_BY_LANG = {
       lastChecked: 'last checked',
       refreshing: 'Refreshing...',
       lastRefresh: 'Last refresh',
-      interval: (seconds: number) => `${seconds}s interval`,
       auto: (seconds: number) => `Auto-refresh every ${seconds}s`,
       paused: 'Auto-refresh paused',
       pausedSince: (clock: string) => `Auto-refresh paused · showing ${clock}`,
@@ -141,6 +140,7 @@ export const UI_COPY_BY_LANG = {
     form: {
       saving: 'Saving…',
       saved: 'Saved',
+      confirm: 'Press again to confirm',
       nameRequired: 'A plan needs a name before it can be saved.',
     },
   },
@@ -265,7 +265,6 @@ export const UI_COPY_BY_LANG = {
       lastChecked: '마지막 확인',
       refreshing: '갱신 중...',
       lastRefresh: '마지막 갱신',
-      interval: (seconds: number) => `${seconds}초 간격`,
       auto: (seconds: number) => `${seconds}초마다 자동 갱신`,
       paused: '자동 갱신 멈춤',
       pausedSince: (clock: string) => `자동 갱신 멈춤 · ${clock} 기준`,
@@ -276,6 +275,7 @@ export const UI_COPY_BY_LANG = {
     form: {
       saving: '저장 중…',
       saved: '저장됨',
+      confirm: '한 번 더 누르면 확정',
       nameRequired: '계획을 저장하려면 이름이 필요합니다.',
     },
   },

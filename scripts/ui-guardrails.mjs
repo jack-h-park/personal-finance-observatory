@@ -769,6 +769,62 @@ export function findRawEnumBadge(source, file = '<source>') {
   return hits
 }
 
+/**
+ * G14: a form page that reloads itself. PageHeader renders AutoRefresh, which
+ * calls router.refresh() every 30 seconds; on a page with a server-action form
+ * that re-renders the form mid-entry. Such a page passes `autoRefresh={false}`.
+ *
+ * This check reads a route folder, not a file: `files` is every file in one
+ * folder under app/ (see groupByRoute), so a page whose form lives in a sibling
+ * such as `components.tsx`, or whose header lives in `view.tsx`, is judged as
+ * one unit. A hit is a folder where some file renders `<SubmitButton` or
+ * `<ConfirmSubmitButton` and no file passes `autoRefresh={false}`. It is
+ * reported once, on the `<PageHeader` line of page.tsx (or of whichever file
+ * renders the header), since that is where the fix goes.
+ *
+ * A GET filter form (`method="get"`, as on /realized) uses a plain button, not
+ * SubmitButton, and is not a hit: it does not hold typed state across a refresh.
+ *
+ * Blind spots: a submit button rendered by a shared component in components/
+ * (outside the route folder) is not seen, and neither is a header rendered by
+ * one; a route that gets its form only that way is not reported. A nested route
+ * folder is a separate unit, so its parent's switch does not cover it.
+ */
+const SUBMIT_TAG = /<(?:Confirm)?SubmitButton\b/
+const AUTO_REFRESH_OFF = /\bautoRefresh=\{\s*false\s*\}/
+
+export function findFormPagePolls(files) {
+  const stripped = files.map(({ file, source }) => ({ file, text: stripComments(source) }))
+  const submitting = stripped.filter(({ text }) => SUBMIT_TAG.test(text))
+  if (submitting.length === 0) return []
+  if (stripped.some(({ text }) => AUTO_REFRESH_OFF.test(text))) return []
+  const lineOf = (text, re) => {
+    const index = text.search(re)
+    return index === -1 ? -1 : text.slice(0, index).split('\n').length
+  }
+  const withHeader = stripped.filter(({ text }) => /<PageHeader\b/.test(text))
+  const target =
+    withHeader.find(({ file }) => file.endsWith('/page.tsx')) ?? withHeader[0] ?? submitting[0]
+  const headerLine = lineOf(target.text, /<PageHeader\b/)
+  const line = headerLine !== -1 ? headerLine : lineOf(target.text, SUBMIT_TAG)
+  return [hit(target.file, line, target.text.split('\n')[line - 1])]
+}
+
+/**
+ * Group repo-relative paths by the folder they sit in. Each folder is one route
+ * unit: `app/tax-planning/plans/[id]/` is its own route, not part of
+ * `app/tax-planning/`. Keys and members are sorted.
+ */
+export function groupByRoute(paths) {
+  const groups = new Map()
+  for (const rel of [...paths].sort()) {
+    const dir = rel.slice(0, rel.lastIndexOf('/'))
+    if (!groups.has(dir)) groups.set(dir, [])
+    groups.get(dir).push(rel)
+  }
+  return new Map([...groups.entries()].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)))
+}
+
 const BILINGUAL_BY_DESIGN = ['app/global-error.tsx']
 
 /**
@@ -777,6 +833,10 @@ const BILINGUAL_BY_DESIGN = ['app/global-error.tsx']
  * gets worse. `roots` defaults to app and components; `exclude` lists exact
  * paths relative to the repo root; `include`, when set, is a pattern a path must
  * match to be read at all. Add a check by appending to this list.
+ *
+ * `group: 'route'` changes what `find` receives: instead of one file's source,
+ * it gets `[{ file, source }]` for every file in one folder (groupByRoute), and
+ * is called once per folder. Without `group`, a check reads one file at a time.
  */
 export const CHECKS = [
   {
@@ -861,6 +921,14 @@ export const CHECKS = [
     title: 'enum value shown raw in a badge instead of through a copy label',
     find: findRawEnumBadge,
   },
+  {
+    code: 'G14',
+    id: 'form-page-polls',
+    title: 'form page that still refreshes itself every 30 seconds',
+    roots: ['app'],
+    group: 'route',
+    find: findFormPagePolls,
+  },
 ].map((check) => ({ roots: ['app', 'components'], exclude: [], include: null, ...check }))
 
 /**
@@ -924,15 +992,24 @@ function scanTree() {
 function scanCounted() {
   const results = {}
   for (const check of CHECKS) {
-    const hits = []
+    const files = []
     for (const root of check.roots) {
       if (!fs.existsSync(root)) continue
       for (const file of walk(root).sort()) {
         const rel = file.split(path.sep).join('/')
         if (/\.test\.tsx?$/.test(rel) || check.exclude.includes(rel)) continue
         if (check.include && !check.include.test(rel)) continue
-        hits.push(...check.find(fs.readFileSync(file, 'utf8'), rel))
+        files.push(rel)
       }
+    }
+    const read = (rel) => fs.readFileSync(rel, 'utf8')
+    const hits = []
+    if (check.group === 'route') {
+      for (const members of groupByRoute(files).values()) {
+        hits.push(...check.find(members.map((rel) => ({ file: rel, source: read(rel) }))))
+      }
+    } else {
+      for (const rel of files) hits.push(...check.find(read(rel), rel))
     }
     results[check.id] = hits
   }

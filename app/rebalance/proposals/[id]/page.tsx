@@ -4,6 +4,7 @@ import { clsx } from 'clsx'
 import { DataTable } from '@/components/DataTable'
 import { PageHeader } from '@/components/PageHeader'
 import { Tabs } from '@/components/Tabs'
+import { ConfirmSubmitButton } from '@/components/ConfirmSubmitButton'
 import { SubmitButton } from '@/components/SubmitButton'
 import { Badge, Callout, Card, EmptyState, Note, Panel, SectionHeading, Signed, TextLink } from '@/components/ui'
 import { Checkbox, Input, Select } from '@/components/form'
@@ -587,7 +588,7 @@ function TargetsTab({ proposal, copy }: { proposal: Proposal; copy: Copy }) {
           </form>
           <form action={approveTargets} className="mt-4 flex flex-wrap items-center gap-3 border-t border-line-subtle pt-4">
             <input type="hidden" name="proposalId" value={proposal.id} />
-            <SubmitButton variant="solid">{copy.targets.approve}</SubmitButton>
+            <ConfirmSubmitButton variant="solid">{copy.targets.approve}</ConfirmSubmitButton>
             <span className="text-label text-ink-3">{copy.targets.approveNote}</span>
           </form>
         </>
@@ -786,14 +787,14 @@ function PlanTab({ proposal, copy, language }: { proposal: Proposal; copy: Copy;
         {canApprove && (
           <form action={approvePlan} className="mt-4 flex flex-wrap items-center gap-3 border-t border-line-subtle pt-4">
             <input type="hidden" name="proposalId" value={proposal.id} />
-            <SubmitButton variant="solid">{copy.plan.approve}</SubmitButton>
+            <ConfirmSubmitButton variant="solid">{copy.plan.approve}</ConfirmSubmitButton>
             <span className="text-label text-ink-3">{copy.plan.approveNote}</span>
           </form>
         )}
         {closeInstead && (
           <form action={closeWithoutTrades} className="mt-4 flex flex-wrap items-center gap-3 border-t border-line-subtle pt-4">
             <input type="hidden" name="proposalId" value={proposal.id} />
-            <SubmitButton variant="solid">{copy.plan.closeNoTrades}</SubmitButton>
+            <ConfirmSubmitButton variant="solid">{copy.plan.closeNoTrades}</ConfirmSubmitButton>
             <span className="text-label text-ink-3">{copy.plan.closeNoTradesNote}</span>
           </form>
         )}
@@ -973,7 +974,7 @@ export default async function RebalanceProposalPage({
         eyebrow={routeSection('/rebalance', language)}
         {...proposalHeading(copy, proposal.id)}
         subtitle={copy.subtitle(copy.kinds[proposal.kind], fmtDateShort(proposal.createdAt, language), fmtDateShort(proposal.expiresAt, language))}
-        action={<TextLink href="/rebalance">{copy.back}</TextLink>}
+        actions={<TextLink href="/rebalance">{copy.back}</TextLink>}
       />
 
       <Panel text="caption-2" spacing="mb-4" role="note">
@@ -1007,7 +1008,7 @@ export default async function RebalanceProposalPage({
             {proposal.status === 'reconciled' && (
               <form action={closeProposal}>
                 <input type="hidden" name="proposalId" value={proposal.id} />
-                <SubmitButton variant="solid">{copy.statusCard.close}</SubmitButton>
+                <ConfirmSubmitButton variant="solid">{copy.statusCard.close}</ConfirmSubmitButton>
               </form>
             )}
             {REJECTABLE.includes(proposal.status) && (
@@ -1019,7 +1020,7 @@ export default async function RebalanceProposalPage({
                   <Input size="sm" type="text" name="reason" required maxLength={500} placeholder={copy.statusCard.rejectPlaceholder} className="w-full" />
                 </label>
                 {targetsWritten && <p className="text-label text-warning">{copy.statusCard.rejectKeepsTargets}</p>}
-                <SubmitButton>{copy.statusCard.reject}</SubmitButton>
+                <ConfirmSubmitButton>{copy.statusCard.reject}</ConfirmSubmitButton>
               </form>
             )}
           </div>

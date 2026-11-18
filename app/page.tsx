@@ -252,7 +252,11 @@ export default async function OverviewPage({
         title={copy.title}
         emphasis={copy.emphasis}
         subtitle={copy.subtitle(fmtDateTime(meta.ingested_at, language), fxLabel)}
-        action={overview.failedChecks + operationalIssues > 0 ? <Badge tone="warning">{copy.needsReview(overview.failedChecks + operationalIssues)}</Badge> : <Badge tone="success">{copy.healthy}</Badge>}
+        status={
+          overview.failedChecks + operationalIssues > 0
+            ? { severity: 'attention', label: copy.needsReview(overview.failedChecks + operationalIssues) }
+            : { severity: 'ok', label: copy.healthy }
+        }
       />
 
       <WashSaleBanner review={getWashSaleReview()} copy={getPageCopy('washSale', language)} />

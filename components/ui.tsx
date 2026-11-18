@@ -4,8 +4,10 @@
 //   metric.tsx    MetricField, Signed, Label, MetaRow, MetaItem, Note, SectionHeading
 //   table.tsx     Table, Thead, Th, Tbody, Tr, Td
 //   controls.tsx  Button, SegmentedControl, TextLink, Badge
+// plus FormSaved and FormError, the form feedback pair in FormNotice.tsx.
 export { Callout, Card, EmptyState, HeroAside, MetricHeroCard, Panel } from './card'
 export { Badge, Button, SegmentedControl, TextLink } from './controls'
+export { FormError, FormSaved } from '@/components/FormNotice'
 export { HelpPopover } from '@/components/HelpPopover'
 export { Label, MetaItem, MetaRow, MetricField, Note, SectionHeading, Signed } from './metric'
 export { Table, Tbody, Td, Th, Thead, Tr } from './table'

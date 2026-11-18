@@ -9,7 +9,8 @@ import { getPageCopy, getUiCopy } from '@/lib/ui-copy'
 type HealthCopy = ReturnType<typeof getPageCopy<'health'>>
 import { routeMetadata, routeSection } from '@/lib/page-names'
 import { CardRow, MiniStat, MiniStatGrid } from '@/components/layout'
-import { CHECK_RESULT_SEVERITY, RUN_SEVERITY, TAX_REPORT_TONE, categoryTone, checkResultKey, statusTone } from '@/lib/tone'
+import { CHECK_RESULT_SEVERITY, ISSUE_SEVERITY, RUN_SEVERITY, TAX_REPORT_TONE, categoryTone, checkResultKey, statusTone } from '@/lib/tone'
+import { healthLinkedIssues } from '@/lib/header-status'
 
 export const dynamic = 'force-dynamic'
 export const generateMetadata = routeMetadata('/health')
@@ -92,7 +93,12 @@ export default async function HealthPage() {
   const failed = checks.filter((c) => c.status !== 'pass')
   const errors = failed.filter((c) => c.severity === 'error')
   const fx = overview.fxRates.find((r: any) => r.from_currency === 'USD' && r.to_currency === 'KRW')
-  const issueCount = failed.length + operational.staleItems.length
+  const operationalIssues = healthLinkedIssues(copy, {
+    failed: failed.length,
+    errors: errors.length,
+    stale: operational.staleItems.length,
+    missing: operational.summary.missing,
+  })
   return (
     <>
       <PageHeader
@@ -100,7 +106,7 @@ export default async function HealthPage() {
         title={copy.title}
         emphasis={copy.emphasis}
         subtitle={copy.subtitle(fmtDateTime(meta.ingested_at, language))}
-        action={issueCount ? <Badge tone={statusTone(CHECK_RESULT_SEVERITY, errors.length || operational.summary.missing ? 'error' : 'warning')}>{copy.needsReview(fmtNumber(issueCount))}</Badge> : <Badge tone="success">{copy.allChecksPassed}</Badge>}
+        status={operationalIssues.status}
       />
 
       <CardRow columns={3}>
@@ -112,7 +118,7 @@ export default async function HealthPage() {
           </MiniStatGrid>
           <div className="mt-3 text-label leading-relaxed text-ink-3">{copy.accountCoverageNote}</div>
         </Card>
-        <Card title={copy.operationalStatus} info={copy.operationalStatusInfo} issues={{ count: issueCount, severity: 'problem' }}>
+        <Card id="health-operational-status" title={copy.operationalStatus} info={copy.operationalStatusInfo} issues={operationalIssues.issues}>
           <MiniStatGrid columns={2}>
             <MiniStat label={freshnessLabels.fresh} value={fmtNumber(operational.summary.fresh)} tone="success" />
             <MiniStat label={freshnessLabels.stale} value={fmtNumber(operational.summary.stale)} tone="warning" />
@@ -244,7 +250,7 @@ export default async function HealthPage() {
         )}
       </Card>
 
-      <Card title={copy.validationChecks} info={copy.validationChecksInfo} className="mt-5" issues={{ count: failed.length, severity: 'problem' }}>
+      <Card title={copy.validationChecks} info={copy.validationChecksInfo} className="mt-5" issues={{ count: failed.length, severity: ISSUE_SEVERITY[errors.length > 0 ? 'error' : 'warning'] }}>
         {checks.length === 0 ? (
           <EmptyState>{copy.noChecks}</EmptyState>
         ) : (

@@ -11,6 +11,7 @@ import { getLanguage } from '@/lib/i18n-server'
 import { getPageCopy } from '@/lib/ui-copy'
 import { routeMetadata, routeSection } from '@/lib/page-names'
 import { CardRow, KpiBand } from '@/components/layout'
+import { dataMapLinkedIssues } from '@/lib/header-status'
 import { FAULT_SEVERITY, INVENTORY_STATUS_TONE, RETENTION_TONE, TO_REVIEW_SEVERITY, categoryTone, countTone } from '@/lib/tone'
 
 export const dynamic = 'force-dynamic'
@@ -34,6 +35,7 @@ export default async function DataMapPage({
   const operational = getOperationalHealth()
   const actionItems = inventory.items.filter((item) => ['drift', 'missing'].includes(item.status)).slice(0, 20)
   const reviewCount = inventory.summary.missing + inventory.summary.drift
+  const reviewQueue = dataMapLinkedIssues(copy, inventory.summary)
   return (
     <>
       <PageHeader
@@ -41,13 +43,7 @@ export default async function DataMapPage({
         title={copy.title}
         emphasis={copy.emphasis}
         subtitle={copy.subtitle(inventory.dataDir, fmtDateTime(meta.ingested_at, language))}
-        action={
-          inventory.summary.missing || inventory.summary.drift ? (
-            <Badge tone="warning">{copy.reviewItems(fmtNumber(reviewCount))}</Badge>
-          ) : (
-            <Badge tone="success">{copy.allMapped}</Badge>
-          )
-        }
+        status={reviewQueue.status}
       />
 
       <CardRow columns="hero">
@@ -97,7 +93,7 @@ export default async function DataMapPage({
         </HeroAside>
       </CardRow>
 
-      <Card title={copy.reviewQueue} issues={{ count: reviewCount, severity: 'problem' }}>
+      <Card id="data-map-review-queue" title={copy.reviewQueue} issues={reviewQueue.issues}>
         <div className="border-b border-line-subtle bg-surface px-4 py-3 text-label leading-relaxed text-ink-3">
           {copy.retentionGuide}
         </div>

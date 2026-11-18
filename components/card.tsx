@@ -2,12 +2,14 @@ import { clsx } from 'clsx'
 import { Children, Fragment, createElement, isValidElement, type ComponentProps, type ReactNode } from 'react'
 import { HelpPopover } from '@/components/HelpPopover'
 import { IssueCountLabel } from '@/components/LanguageProvider'
-import { severityTone, type Severity } from '@/lib/tone'
+import { severityTone, type IssueSeverity } from '@/lib/tone'
 import { Badge, TONE_STYLES } from './controls'
 import { Label } from './metric'
 
 type CardBaseProps = {
   children: ReactNode
+  /** Anchor for a link to this card, such as a header status pill's `href`. */
+  id?: string
   className?: string
   info?: ReactNode
   action?: ReactNode
@@ -22,7 +24,7 @@ type CardBaseProps = {
 }
 
 /** How many problems a card lists, and how bad they are. */
-export type CardIssues = { count: number; severity?: Extract<Severity, 'attention' | 'problem'> }
+export type CardIssues = { count: number; severity?: IssueSeverity }
 
 /**
  * A card that reports `issues` must have a `title`: the count badge renders
@@ -31,7 +33,7 @@ export type CardIssues = { count: number; severity?: Extract<Severity, 'attentio
 export type CardProps = CardBaseProps &
   ({ title?: ReactNode; issues?: undefined } | { title: ReactNode; issues: CardIssues })
 
-export function Card({ children, className, title, info, action, fill, accent, issues }: CardProps) {
+export function Card({ children, id, className, title, info, action, fill, accent, issues }: CardProps) {
   const badge =
     issues && issues.count > 0 ? (
       <Badge tone={severityTone(issues.severity ?? 'attention')}>
@@ -40,9 +42,12 @@ export function Card({ children, className, title, info, action, fill, accent, i
     ) : null
   return (
     <section
+      id={id}
       className={clsx(
         'relative rounded-md border border-line bg-card shadow-card',
         fill && 'flex flex-col',
+        // A link lands below the phone's sticky top bar, as other anchors do.
+        id && 'scroll-mt-24',
         className
       )}
       style={{ borderRadius: 'var(--radius-md)' }}

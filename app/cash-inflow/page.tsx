@@ -4,7 +4,7 @@ import { FilterBar } from '@/components/FilterBar'
 import { PageHeader } from '@/components/PageHeader'
 import { ScrollOnHash } from '@/components/ScrollOnHash'
 import { StackedBarChart } from '@/components/charts'
-import { Badge, Button, Card, MetricField, MetricHeroCard, Note, Panel } from '@/components/ui'
+import { Button, Card, MetricField, MetricHeroCard, Note, Panel } from '@/components/ui'
 import {
   CASH_INFLOW_CURRENCIES,
   CASH_INFLOW_FILTERS,
@@ -30,6 +30,7 @@ import { getCurrencyPreferences } from '@/lib/currency-server'
 import { getLanguage } from '@/lib/i18n-server'
 import { getPageCopy } from '@/lib/ui-copy'
 import { routeMetadata, routeSection } from '@/lib/page-names'
+import { cashInflowHeaderStatus } from '@/lib/header-status'
 import { CardRow, KpiBand } from '@/components/layout'
 import { maskAccountLabel } from '@/lib/account-label'
 
@@ -190,15 +191,9 @@ export default async function CashInflowPage({
         title={copy.title}
         emphasis={copy.emphasis}
         subtitle={copy.subtitle}
-        action={
+        status={cashInflowHeaderStatus(copy, data.unclassifiedCount, data.undatedCount, href({ category: 'unclassified' }))}
+        actions={
           <div className="flex flex-wrap items-center gap-2">
-            {data.unclassifiedCount > 0 ? (
-              // Opens the triage card, keeping the source, currency and range.
-              <Link href={`${href({ category: 'unclassified' })}#cash-inflow-unclassified`} title={copy.unclassifiedHint} className="rounded-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-info/40">
-                <Badge tone="warning">{copy.unclassified(fmtNumber(data.unclassifiedCount))}</Badge>
-              </Link>
-            ) : null}
-            {data.undatedCount > 0 ? <Badge tone="warning">{copy.undated(fmtNumber(data.undatedCount))}</Badge> : null}
             <Button href={href({ view: 'month' })} variant={view === 'month' ? 'solid' : 'outline'}>{copy.monthly}</Button>
             <Button href={href({ view: 'year' })} variant={view === 'year' ? 'solid' : 'outline'}>{copy.yearly}</Button>
           </div>

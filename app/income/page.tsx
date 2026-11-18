@@ -10,6 +10,7 @@ import { getGlossary } from '@/lib/glossary'
 import { getLanguage } from '@/lib/i18n-server'
 import { getPageCopy } from '@/lib/ui-copy'
 import { routeMetadata, routeSection } from '@/lib/page-names'
+import { incomeLinkedIssues } from '@/lib/header-status'
 import { CardRow, KpiBand } from '@/components/layout'
 import { PositionCell } from '@/components/PositionCell'
 import { TO_REVIEW_SEVERITY, countTone, toneTextClass } from '@/lib/tone'
@@ -31,6 +32,7 @@ export default async function IncomePage() {
   const income = getIncomeReview(currencyPreferences.displayCurrency)
   const latestMonth = income.byMonth[income.byMonth.length - 1]
   const latestMonthLabel = latestMonth?.month ?? EMPTY_VALUE
+  const tickerless = incomeLinkedIssues(copy, income.totals.tickerless_count, income.totals.undated_count)
 
   return (
     <>
@@ -39,12 +41,7 @@ export default async function IncomePage() {
         title={copy.title}
         emphasis={copy.emphasis}
         subtitle={copy.subtitle(fmtNumber(income.totals.row_count), latestMonthLabel)}
-        action={
-          <div className="flex flex-wrap items-center gap-2">
-            {income.totals.tickerless_count ? <Badge tone="warning">{copy.tickerlessRows(fmtNumber(income.totals.tickerless_count))}</Badge> : <Badge tone="success">{copy.tickerMapped}</Badge>}
-            {income.totals.undated_count > 0 ? <Badge tone="warning">{copy.undatedRows(fmtNumber(income.totals.undated_count))}</Badge> : null}
-          </div>
-        }
+        status={tickerless.status}
       />
 
       <CardRow columns="hero">
@@ -194,7 +191,7 @@ export default async function IncomePage() {
           />
         </Card>
 
-        <Card title={copy.tickerlessIncomeRows} issues={{ count: income.tickerless.length }}>
+        <Card id="income-tickerless" title={copy.tickerlessIncomeRows} issues={tickerless.issues}>
           {income.tickerless.length === 0 ? (
             <EmptyState ok>{copy.allIncomeMapped}</EmptyState>
           ) : (

@@ -1,4 +1,5 @@
 import { strict as assert } from 'node:assert'
+import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 import * as React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
@@ -6,9 +7,11 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { CardRow, MiniStat, MiniStatGrid, Split, Stat, StatStrip, Total, TotalsStrip } from '@/components/layout'
 import { ProgressBar, ShareBar } from '@/components/bars'
 import { PositionCell } from '@/components/PositionCell'
-import { Badge, Callout, Card, HeroAside, MetricField, Note, Panel, SectionHeading } from '@/components/ui'
+import { Badge, Callout, Card, FormError, FormSaved, HeroAside, MetricField, Note, Panel, SectionHeading } from '@/components/ui'
 import { LinkChip, LinkChips } from '@/components/LinkChips'
 import { Tabs } from '@/components/Tabs'
+import { PageHeader } from '@/components/PageHeader'
+import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared-runtime'
 
 // tsx compiles the component's JSX with the classic runtime, which reads a
 // global React; Next supplies it in the app, so the test does here.
@@ -668,4 +671,161 @@ test('Card issues needs a title', () => {
   // @ts-expect-error a count badge renders only in the header, so it needs a title
   const props: React.ComponentProps<typeof Card> = { issues: { count: 1 }, children: 'x' }
   assert.ok(props)
+})
+
+const FORM_ERROR_OPEN =
+  '<div class="mb-4 rounded-md border px-3 py-2 border-danger/30 bg-danger/10 text-danger" role="alert">'
+
+test('FormError with two messages is a danger alert Callout with a two-item list', () => {
+  const html = renderToStaticMarkup(h(FormError, { title: 'T', messages: ['first', 'second'] }))
+  assert.ok(html.startsWith(FORM_ERROR_OPEN), html)
+  assert.ok(html.includes('<div class="font-medium">T</div>'), html)
+  assert.equal((html.match(/<li>/g) ?? []).length, 2)
+  assert.ok(html.indexOf('>T<') < html.indexOf('<ul'), 'the title leads the list')
+})
+
+test('FormError with one message renders no list and needs no title', () => {
+  const html = renderToStaticMarkup(h(FormError, { messages: ['only'] }))
+  assert.ok(html.startsWith(FORM_ERROR_OPEN), html)
+  assert.ok(!html.includes('<ul'), html)
+  assert.ok(!html.includes('<li'), html)
+  assert.ok(!html.includes('font-medium'), html)
+  assert.ok(html.includes('only'), html)
+})
+
+test('FormSaved renders the success Badge', () => {
+  assert.equal(
+    renderToStaticMarkup(h(FormSaved, { children: 'Saved' })),
+    renderToStaticMarkup(h(Badge, { tone: 'success', children: 'Saved' })),
+  )
+  assert.match(renderToStaticMarkup(h(FormSaved, { children: 'Saved' })), /border-success\/30 bg-success\/10 text-success/)
+})
+
+test('FormError with no messages renders the title alone', () => {
+  const html = renderToStaticMarkup(h(FormError, { title: 'T', messages: [] }))
+  assert.equal(html, `${FORM_ERROR_OPEN}<div class="font-medium">T</div></div>`)
+})
+
+// — PageHeader status and actions ————————————————————————————————————————————
+
+/** A stand-in for the App Router, which AutoRefresh needs mounted to render. */
+const ROUTER = { back() {}, forward() {}, refresh() {}, push() {}, replace() {}, prefetch() {} }
+
+function renderHeader(props: Partial<React.ComponentProps<typeof PageHeader>>): string {
+  return renderToStaticMarkup(
+    h(AppRouterContext.Provider, { value: ROUTER as never }, h(PageHeader, { title: 'T', ...props }))
+  )
+}
+
+/** The text a reader sees: tags (and so their attributes) removed. */
+function visibleText(html: string): string {
+  return html.replace(/<[^>]*>/g, ' ')
+}
+
+test('PageHeader status with href is a link around the severity badge', () => {
+  const html = renderHeader({ status: { severity: 'attention', label: 'x', href: '#a' }, autoRefresh: false })
+  const warning = renderToStaticMarkup(h(Badge, { tone: 'warning', children: 'x' }))
+  const link = html.match(/<a [^>]*href="#a"[^>]*>(.*?)<\/a>/)
+  assert.ok(link, html)
+  assert.equal(link[1], warning)
+  // The focus ring the repo already uses on a linked badge, shown on keyboard focus only.
+  assert.match(link[0], /focus-visible:ring-2 focus-visible:ring-info\/40/)
+})
+
+test('PageHeader status without href renders the badge and no link', () => {
+  const html = renderHeader({ status: { severity: 'problem', label: 'x' }, autoRefresh: false })
+  assert.ok(!html.includes('<a '), html)
+  assert.ok(html.includes(renderToStaticMarkup(h(Badge, { tone: 'danger', children: 'x' }))), html)
+})
+
+test('PageHeader renders status, then actions, then the clock', () => {
+  const html = renderHeader({ status: { severity: 'ok', label: 'STATUS' }, actions: h('span', null, 'ACTIONS') })
+  const status = html.indexOf('STATUS')
+  const actions = html.indexOf('ACTIONS')
+  const clock = html.indexOf('aria-pressed')
+  assert.ok(status > 0 && status < actions && actions < clock, html)
+})
+
+test('PageHeader slot wraps between children and never inside one', () => {
+  const html = renderHeader({ status: { severity: 'ok', label: 'S' }, actions: h('span', null, 'A') })
+  assert.match(html, /class="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1"/)
+  // Two wrappers (actions, clock); the badge carries whitespace-nowrap itself.
+  assert.equal((html.match(/class="flex items-center whitespace-nowrap"/g) ?? []).length, 2, html)
+})
+
+test('PageHeader clock shows no refresh interval; the title still names it', () => {
+  const html = renderHeader({})
+  assert.ok(!/30/.test(visibleText(html)), visibleText(html))
+  assert.match(html, /title="Auto-refresh every 30s"/)
+})
+
+test('PageHeader no longer takes action', () => {
+  // @ts-expect-error status and actions replaced it; tsc fails any caller left behind
+  const props: React.ComponentProps<typeof PageHeader> = { title: 'T', action: 'x' }
+  assert.ok(props)
+})
+
+test('Card forwards id to its section', () => {
+  const html = renderToStaticMarkup(h(Card, { id: 'anchor', title: 'T', children: 'x' }))
+  assert.ok(html.startsWith('<section id="anchor" '), html)
+  // A linked card clears the phone's sticky top bar; one without an id is unchanged.
+  assert.match(html, /class="[^"]*\bscroll-mt-24\b/)
+  assert.ok(!renderToStaticMarkup(h(Card, { title: 'T', children: 'x' })).includes('scroll-mt'))
+})
+
+/** The source of the `status={...}` prop on a page's PageHeader, braces balanced. */
+function statusBlock(source: string): string {
+  const start = source.indexOf('status={')
+  assert.ok(start >= 0, 'no status prop')
+  let depth = 0
+  for (let i = start + 'status='.length; i < source.length; i++) {
+    if (source[i] === '{') depth++
+    else if (source[i] === '}' && --depth === 0) return source.slice(start, i + 1)
+  }
+  throw new Error('unbalanced status prop')
+}
+
+/**
+ * A header pill that reports a problem links to the card that lists it, and
+ * both read one `*LinkedIssues` pair from lib/header-status.ts: the status
+ * prop is the pair's `status`, the target Card's badge is the pair's `issues`.
+ * Each row names the page, the pair's variable, the helper that builds it
+ * (tests/linked-issues.test.ts pins its href, count and severity) and the Card
+ * id it lands on. Each of these cards renders unconditionally on its page, so
+ * the target exists whenever the pill is linked; matching `<Card id=` means
+ * moving the id onto an element that does not always render fails here.
+ */
+const STATUS_ANCHORS: Array<{ page: string; pair: string; helper: string; id: string }> = [
+  { page: 'app/reconciliation/page.tsx', pair: 'actionQueue', helper: 'reconciliationLinkedIssues', id: 'reconciliation-action-queue' },
+  { page: 'app/health/page.tsx', pair: 'operationalIssues', helper: 'healthLinkedIssues', id: 'health-operational-status' },
+  { page: 'app/income/page.tsx', pair: 'tickerless', helper: 'incomeLinkedIssues', id: 'income-tickerless' },
+  { page: 'app/data-ops/page.tsx', pair: 'priorityWork', helper: 'dataOpsLinkedIssues', id: 'data-ops-priority-work' },
+  { page: 'app/rebalance/page.tsx', pair: 'holdWatch', helper: 'rebalanceLinkedIssues', id: 'rebalance-hold-watch' },
+  { page: 'app/review/page.tsx', pair: 'readiness', helper: 'reviewLinkedIssues', id: 'review-operational-readiness' },
+  { page: 'app/data-map/page.tsx', pair: 'reviewQueue', helper: 'dataMapLinkedIssues', id: 'data-map-review-queue' },
+]
+
+for (const { page, pair, helper, id } of STATUS_ANCHORS) {
+  test(`${page}: the header status links to the card #${id}, and both read one pair`, () => {
+    const source = readFileSync(page, 'utf8')
+    assert.ok(source.includes(`const ${pair} = ${helper}(`), `${pair} is not built by ${helper}`)
+    assert.equal(statusBlock(source), `status={${pair}.status}`)
+    assert.equal((source.match(new RegExp(`id="${id}"`, 'g')) ?? []).length, 1, `exactly one id="${id}"`)
+    const card = source.indexOf(`<Card id="${id}"`)
+    assert.ok(card >= 0, `id="${id}" is not on a Card`)
+    const openTag = source.slice(card, source.indexOf('>', source.indexOf(`issues=`, card)) + 1)
+    assert.ok(openTag.includes(`issues={${pair}.issues}`), `the card's badge is not ${pair}.issues`)
+  })
+}
+
+// The exception: cash-inflow's target is not an issues card and renders only
+// under the unclassified filter. The pill's href is what switches that filter
+// on (tests/header-status.test.ts pins the #cash-inflow-unclassified part).
+test('app/cash-inflow/page.tsx: the header status opens the filter that renders its target', () => {
+  const source = readFileSync('app/cash-inflow/page.tsx', 'utf8')
+  assert.ok(statusBlock(source).includes("cashInflowHeaderStatus(copy, data.unclassifiedCount, data.undatedCount, href({ category: 'unclassified' }))"))
+  const branch = source.indexOf("{filter === 'unclassified' ? (")
+  const target = source.indexOf('id="cash-inflow-unclassified"')
+  assert.ok(branch >= 0 && target > branch, 'the target sits inside the unclassified branch')
+  assert.equal((source.match(/id="cash-inflow-unclassified"/g) ?? []).length, 1)
 })

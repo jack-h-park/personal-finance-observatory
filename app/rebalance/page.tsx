@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { DataTable } from '@/components/DataTable'
 import { PageHeader } from '@/components/PageHeader'
-import { Badge, Card, EmptyState, HeroAside, MetricField, MetricHeroCard, Note, Panel, Signed, TextLink, marketTone } from '@/components/ui'
+import { Badge, Card, EmptyState, FormError, FormSaved, HeroAside, MetricField, MetricHeroCard, Note, Panel, Signed, TextLink, marketTone } from '@/components/ui'
 import { getOperationalHealth, getRebalanceReview } from '@/lib/adapters/portfolio-db'
 import { EMPTY_VALUE, fmtNumber, fmtPct, fmtPctRange } from '@/lib/format'
 import { createMoneyFormatter } from '@/lib/currency'
@@ -24,7 +24,8 @@ import { listProposals, type Proposal, type ProposalStatus } from '@/lib/rebalan
 import { isProposalErrorCode, PROPOSAL_STATUS_TONE } from '@/lib/rebalance/proposal-actions'
 import { fmtDateShort } from '@/lib/format'
 import { createManualProposal, saveRebalanceTargets } from './actions'
-import { REBALANCE_ACTION_TONE, TO_REVIEW_SEVERITY, categoryTone, countTone } from '@/lib/tone'
+import { DRIFT_BAND_SEVERITY, REBALANCE_ACTION_TONE, TO_REVIEW_SEVERITY, categoryTone, countTone, statusTone } from '@/lib/tone'
+import { rebalanceLinkedIssues } from '@/lib/header-status'
 
 export const dynamic = 'force-dynamic'
 export const generateMetadata = routeMetadata('/rebalance')
@@ -32,8 +33,6 @@ export const generateMetadata = routeMetadata('/rebalance')
 // Matches OPEN_STATUSES in lib/rebalance/proposal-store.ts: a reconciled proposal awaiting its close is listed with
 // the past ones (its page still closes it) and does not hold the open slot.
 const OPEN: ProposalStatus[] = ['draft', 'targets_approved', 'plan_approved', 'executing']
-
-const SLEEVE_TONE = { below: 'warning', within: 'success', above: 'warning' } as const
 
 /** The allocation by sleeve, or why there is none. Never throws: the market-gap view below must still render. */
 function loadAllocation(): { state: 'ok'; allocation: Allocation } | { state: 'missing' | 'invalid' | 'classes_unreadable' | 'no_data' } {
@@ -77,6 +76,7 @@ export default async function RebalancePage({ searchParams }: { searchParams: Pr
   const editor = copy.targetEditor
   const operational = getOperationalHealth()
   const freshnessIssues = operational.staleItems.length
+  const holdWatch = rebalanceLinkedIssues(copy, { watch: rebalance.watchCandidates.length, freshness: freshnessIssues })
   const largestGap = rebalance.marketGaps.reduce((max, row) => Math.max(max, Math.abs(row.gapPct)), 0)
   const proposalCopy = getPageCopy('rebalanceProposal', language)
   const allocationState = loadAllocation()
@@ -94,19 +94,13 @@ export default async function RebalancePage({ searchParams }: { searchParams: Pr
         title={copy.title}
         emphasis={copy.emphasis}
         subtitle={copy.subtitle(rebalance.policy.marketTargets.map((row) => `${row.market} ${fmtPct(row.targetPct, { digits: 0 })}`).join(' / '), fmtNumber(rebalance.policy.positionCapPct))}
-        action={
-          <div className="flex items-center gap-2">
-            {freshnessIssues ? <Badge tone="warning">{copy.freshnessIssues(freshnessIssues)}</Badge> : <Badge tone="success">{copy.inputsReady}</Badge>}
-            <TextLink href="/rebalance/settings">{copy.settingsLink}</TextLink>
-          </div>
-        }
+        status={holdWatch.status}
+        actions={<TextLink href="/rebalance/settings">{copy.settingsLink}</TextLink>}
+        autoRefresh={false}
       />
 
-      {errorMessage && (
-        <Card title={proposalCopy.errorTitle} className="mb-5">
-          <p className="text-caption text-warning">{errorMessage}</p>
-        </Card>
-      )}
+      {errorMessage && <FormError title={proposalCopy.errorTitle} messages={[errorMessage]} />}
+      {params.target === 'invalid' && <FormError title={editor.title} messages={[editor.invalid]} />}
 
       <CardRow>
         <Card
@@ -128,7 +122,7 @@ export default async function RebalancePage({ searchParams }: { searchParams: Pr
                 { key: 'pct', label: ac.current, align: 'right', render: (r: SleeveRow) => fmtPct(r.pct) },
                 { key: 'target', label: ac.target, align: 'right', render: (r: SleeveRow) => fmtPct(r.target) },
                 { key: 'band', label: ac.band, align: 'right', render: (r: SleeveRow) => fmtPctRange(r.lower, r.upper, 1) },
-                { key: 'status', label: ac.status, render: (r: SleeveRow) => <Badge tone={SLEEVE_TONE[r.status]}>{ac.statuses[r.status]}</Badge> },
+                { key: 'status', label: ac.status, render: (r: SleeveRow) => <Badge tone={statusTone(DRIFT_BAND_SEVERITY, r.status)}>{ac.statuses[r.status]}</Badge> },
               ]}
             />
           ) : allocationState.state === 'missing' ? (
@@ -294,8 +288,7 @@ export default async function RebalancePage({ searchParams }: { searchParams: Pr
             </Note>
             <div className="flex items-center gap-3">
               <SubmitButton>{editor.save}</SubmitButton>
-              {params.target === 'saved' && <Badge tone="success">{editor.saved}</Badge>}
-              {params.target === 'invalid' && <Badge tone="warning">{editor.invalid}</Badge>}
+              {params.target === 'saved' && <FormSaved>{editor.saved}</FormSaved>}
             </div>
           </form>
           )}
@@ -402,7 +395,7 @@ export default async function RebalancePage({ searchParams }: { searchParams: Pr
         </Card>
       </CardRow>
 
-      <Card title={copy.holdWatch} issues={{ count: rebalance.watchCandidates.length + freshnessIssues }}>
+      <Card id="rebalance-hold-watch" title={copy.holdWatch} issues={holdWatch.issues}>
         {rebalance.watchCandidates.length === 0 && freshnessIssues === 0 ? (
           <EmptyState ok>{copy.noBlockers}</EmptyState>
         ) : (

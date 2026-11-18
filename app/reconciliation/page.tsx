@@ -13,6 +13,7 @@ import { getPageCopy, getUiCopy } from '@/lib/ui-copy'
 import { formatSort, parseSort, sortRows, type TableSort } from '@/lib/table-sort'
 import { FAULT_SEVERITY, RECONCILIATION_STATUS_TONE, TO_REVIEW_SEVERITY, categoryTone, countTone, priorityTone, reconciliationStatusKey } from '@/lib/tone'
 import { routeMetadata, routeSection } from '@/lib/page-names'
+import { reconciliationLinkedIssues } from '@/lib/header-status'
 import { CardRow, KpiBand } from '@/components/layout'
 
 export const dynamic = 'force-dynamic'
@@ -38,6 +39,7 @@ export default async function ReconciliationPage({
   const priorityLabels = getUiCopy(language).priority
   const review = getReconciliationReview()
   const hasIssues = review.totals.issue_count > 0
+  const actionQueue = reconciliationLinkedIssues(copy, review.actionQueue)
   const sourceIssueCount = review.totals.source_issue_count + review.totals.validation_issue_count
 
   return (
@@ -47,7 +49,7 @@ export default async function ReconciliationPage({
         title={copy.title}
         emphasis={copy.emphasis}
         subtitle={copy.subtitle}
-        action={hasIssues ? <Badge tone="warning">{copy.reviewItems(fmtNumber(review.totals.issue_count))}</Badge> : <Badge tone="success">{copy.reconciled}</Badge>}
+        status={actionQueue.status}
       />
 
       <CardRow columns="hero">
@@ -96,7 +98,7 @@ export default async function ReconciliationPage({
         </HeroAside>
       </CardRow>
 
-      <Card title={copy.actionQueue} issues={{ count: review.actionQueue.length }}>
+      <Card id="reconciliation-action-queue" title={copy.actionQueue} issues={actionQueue.issues}>
         {review.actionQueue.length === 0 ? (
           <EmptyState ok>{copy.noQueuedActions}</EmptyState>
         ) : (
