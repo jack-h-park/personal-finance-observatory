@@ -254,7 +254,7 @@ export default async function DataOpsPage() {
       </CardRow>
 
       <CardRow>
-        <Card title={copy.manualSuggestions} issues={{ count: ops.mappingSuggestions.length }}>
+        <Card id="data-ops-manual-mappings" title={copy.manualSuggestions} issues={{ count: ops.mappingSuggestions.length }}>
           {ops.mappingSuggestions.length === 0 ? (
             <EmptyState ok>{copy.noManualSuggestions}</EmptyState>
           ) : (
@@ -272,7 +272,7 @@ export default async function DataOpsPage() {
           )}
         </Card>
 
-        <Card title={copy.valuationFixSuggestions} issues={{ count: ops.valuationFixes.length }}>
+        <Card id="data-ops-valuation" title={copy.valuationFixSuggestions} issues={{ count: ops.valuationFixes.length }}>
           {ops.valuationFixes.length === 0 ? (
             <EmptyState ok>{copy.noValuationFixes}</EmptyState>
           ) : (

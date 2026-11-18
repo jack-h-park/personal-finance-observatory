@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { DataTable } from '@/components/DataTable'
 import { PageHeader } from '@/components/PageHeader'
-import { Badge, Card, EmptyState, HeroAside, MetricField, MetricHeroCard, TextLink, marketTone } from '@/components/ui'
+import { Badge, Card, EmptyState, HeroAside, MetricField, MetricHeroCard, marketTone } from '@/components/ui'
 import { getReconciliationReview, type ReconciliationReview } from '@/lib/adapters/portfolio-db'
 import { EMPTY_VALUE, fmtNumber, fmtQuantity } from '@/lib/format'
 import { createMoneyFormatter } from '@/lib/currency'
@@ -9,9 +9,9 @@ import { getCurrencyPreferences } from '@/lib/currency-server'
 import { getGlossary } from '@/lib/glossary'
 import { getLanguage } from '@/lib/i18n-server'
 import { positionHref } from '@/lib/position-url'
-import { getPageCopy, getUiCopy } from '@/lib/ui-copy'
+import { getPageCopy } from '@/lib/ui-copy'
 import { formatSort, parseSort, sortRows, type TableSort } from '@/lib/table-sort'
-import { FAULT_SEVERITY, RECONCILIATION_STATUS_TONE, TO_REVIEW_SEVERITY, categoryTone, countTone, priorityTone, reconciliationStatusKey } from '@/lib/tone'
+import { FAULT_SEVERITY, RECONCILIATION_STATUS_TONE, TO_REVIEW_SEVERITY, categoryTone, countTone, reconciliationStatusKey } from '@/lib/tone'
 import { routeMetadata, routeSection } from '@/lib/page-names'
 import { reconciliationLinkedIssues } from '@/lib/header-status'
 import { CardRow, KpiBand } from '@/components/layout'
@@ -19,7 +19,6 @@ import { CardRow, KpiBand } from '@/components/layout'
 export const dynamic = 'force-dynamic'
 export const generateMetadata = routeMetadata('/reconciliation')
 
-type QueueRow = ReconciliationReview['actionQueue'][number]
 type BreakRow = ReconciliationReview['positionBreaks'][number]
 
 
@@ -36,10 +35,8 @@ export default async function ReconciliationPage({
   const money = createMoneyFormatter(await getCurrencyPreferences())
   const copy = getPageCopy('reconciliation', language)
   const glossary = getGlossary(language)
-  const priorityLabels = getUiCopy(language).priority
   const review = getReconciliationReview()
-  const hasIssues = review.totals.issue_count > 0
-  const actionQueue = reconciliationLinkedIssues(copy, review.actionQueue)
+  const breaks = reconciliationLinkedIssues(copy, review.positionBreaks.length)
   const sourceIssueCount = review.totals.source_issue_count + review.totals.validation_issue_count
 
   return (
@@ -49,7 +46,7 @@ export default async function ReconciliationPage({
         title={copy.title}
         emphasis={copy.emphasis}
         subtitle={copy.subtitle}
-        status={actionQueue.status}
+        status={breaks.status}
       />
 
       <CardRow columns="hero">
@@ -57,8 +54,8 @@ export default async function ReconciliationPage({
           title={copy.reviewItemsTitle}
           info={copy.reviewItemsInfo}
           eyebrow={copy.headline}
-          value={fmtNumber(review.totals.issue_count)}
-          hint={hasIssues ? copy.queuedHint : copy.noActionsHint}
+          value={fmtNumber(breaks.issues.count)}
+          hint={breaks.issues.count > 0 ? copy.breaksHint : copy.noBreaksHint}
         >
           <KpiBand>
             <MetricField
@@ -98,32 +95,7 @@ export default async function ReconciliationPage({
         </HeroAside>
       </CardRow>
 
-      <Card id="reconciliation-action-queue" title={copy.actionQueue} issues={actionQueue.issues}>
-        {review.actionQueue.length === 0 ? (
-          <EmptyState ok>{copy.noQueuedActions}</EmptyState>
-        ) : (
-          <DataTable
-            rows={review.actionQueue}
-            columns={[
-              { key: 'priority', label: copy.columns.priority, render: (r: QueueRow) => <Badge tone={priorityTone(r.priority)}>{priorityLabels[r.priority] ?? r.priority}</Badge> },
-              { key: 'area', label: copy.columns.area, render: (r: QueueRow) => copy.queue[r.kind]?.area ?? r.kind },
-              { key: 'count', label: copy.columns.count, align: 'right', render: (r) => fmtNumber(r.count) },
-              { key: 'action', label: copy.columns.action, render: (r: QueueRow) => <span className="text-caption text-ink-2">{copy.queue[r.kind]?.action ?? r.kind}</span> },
-              {
-                key: 'href',
-                label: copy.columns.open,
-                render: (r) => (
-                  <TextLink href={r.href}>
-                    {copy.view}
-                  </TextLink>
-                ),
-              },
-            ]}
-          />
-        )}
-      </Card>
-
-      <Card title={copy.marketCoverage} className="mt-5">
+      <Card title={copy.marketCoverage}>
         <DataTable
           rows={review.coverage}
           columns={[
@@ -140,7 +112,7 @@ export default async function ReconciliationPage({
         />
       </Card>
 
-      <Card title={copy.positionBreaks} className="mt-5" issues={{ count: review.positionBreaks.length, severity: 'problem' }}>
+      <Card id="reconciliation-breaks" title={copy.positionBreaks} className="mt-5" issues={breaks.issues}>
         {review.positionBreaks.length === 0 ? (
           <EmptyState ok>{copy.noPositionBreaks}</EmptyState>
         ) : (

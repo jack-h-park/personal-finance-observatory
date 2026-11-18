@@ -73,12 +73,13 @@ export function dataOpsLinkedIssues(copy: ReturnType<typeof getPageCopy<'dataOps
   })
 }
 
-/** /reconciliation: the action queue, counted by the items its rows stand for (the adapter's `issue_count`). */
-export function reconciliationLinkedIssues(
-  copy: ReturnType<typeof getPageCopy<'reconciliation'>>,
-  queue: readonly { count: number }[],
-): LinkedIssues {
-  return linkedIssues(queueCount(queue), TO_REVIEW, '#reconciliation-action-queue', (n) => copy.reviewItems(fmtNumber(n)), {
+/**
+ * /reconciliation: the position breaks its breaks card lists, a confirmed
+ * discrepancy each, so a problem. The hero reads the same count; the work
+ * queue that also counted stale sources and valuation gaps lives on /data-ops.
+ */
+export function reconciliationLinkedIssues(copy: ReturnType<typeof getPageCopy<'reconciliation'>>, breaks: number): LinkedIssues {
+  return linkedIssues(breaks, 'problem', '#reconciliation-breaks', (n) => copy.reviewItems(fmtNumber(n)), {
     severity: 'ok',
     label: copy.reconciled,
   })

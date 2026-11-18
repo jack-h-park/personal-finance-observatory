@@ -77,10 +77,10 @@ for (const language of ['en', 'ko'] as const) {
     },
     {
       page: 'reconciliation',
-      href: '#reconciliation-action-queue',
-      build: () => reconciliationLinkedIssues(getPageCopy('reconciliation', language), queue),
-      count: 7,
-      severity: 'attention',
+      href: '#reconciliation-breaks',
+      build: () => reconciliationLinkedIssues(getPageCopy('reconciliation', language), 3),
+      count: 3,
+      severity: 'problem',
     },
     {
       page: 'rebalance',

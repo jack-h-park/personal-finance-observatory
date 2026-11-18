@@ -107,11 +107,15 @@ export const dataOps = defineCopy({
       },
       source_freshness: {
         area: 'Source freshness',
-        action: 'Resolve stale, drifted, or missing inputs and rerun pnpm refresh.',
+        action: 'Resolve stale, drifted, or missing inputs and run the refresh again.',
       },
       manual_mappings: {
         area: 'Manual mappings',
         action: 'Review suggested read-only mapping rules and apply the useful ones to data/manual-mappings.json.',
+      },
+      position_breaks: {
+        area: 'Holdings vs lots',
+        action: 'Review quantity and cost-basis differences by ticker and brokerage.',
       },
       valuation: {
         area: 'Valuation',
@@ -303,6 +307,10 @@ export const dataOps = defineCopy({
       manual_mappings: {
         area: '수동 매핑',
         action: '제안된 읽기 전용 매핑 규칙을 검토하고 유용한 것을 data/manual-mappings.json에 적용하세요.',
+      },
+      position_breaks: {
+        area: '보유 ↔ 세금 단위',
+        action: '종목·증권사별 수량과 취득원가 차이를 검토하세요.',
       },
       valuation: {
         area: '평가',

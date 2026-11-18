@@ -834,7 +834,7 @@ function statusBlock(source: string): string {
  * moving the id onto an element that does not always render fails here.
  */
 const STATUS_ANCHORS: Array<{ page: string; pair: string; helper: string; id: string }> = [
-  { page: 'app/reconciliation/page.tsx', pair: 'actionQueue', helper: 'reconciliationLinkedIssues', id: 'reconciliation-action-queue' },
+  { page: 'app/reconciliation/page.tsx', pair: 'breaks', helper: 'reconciliationLinkedIssues', id: 'reconciliation-breaks' },
   { page: 'app/health/page.tsx', pair: 'operationalIssues', helper: 'healthLinkedIssues', id: 'health-operational-status' },
   { page: 'app/income/page.tsx', pair: 'tickerless', helper: 'incomeLinkedIssues', id: 'income-tickerless' },
   { page: 'app/data-ops/page.tsx', pair: 'priorityWork', helper: 'dataOpsLinkedIssues', id: 'data-ops-priority-work' },
