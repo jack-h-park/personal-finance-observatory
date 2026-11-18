@@ -52,6 +52,7 @@ export const sidebar = defineCopy({
           { href: '/tax-planning', label: 'Tax Planning' },
           { href: '/lots', label: 'Tax Lots' },
           { href: '/realized', label: 'Realized Lots' },
+          { href: '/fbar', label: 'FBAR / Form 8938' },
         ],
       },
       {
@@ -122,6 +123,7 @@ export const sidebar = defineCopy({
           { href: '/tax-planning', label: '세금 계획' },
           { href: '/lots', label: '세금 단위' },
           { href: '/realized', label: '실현 손익 내역' },
+          { href: '/fbar', label: '해외 계좌 신고 (FBAR)' },
         ],
       },
       {

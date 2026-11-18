@@ -14,6 +14,16 @@ const source = (path: string) => readFileSync(new URL(`../${path}`, import.meta.
 
 const BLOCKS: { path: string; absent: string[]; present: string[] }[] = [
   {
+    path: 'app/net-worth/page.tsx',
+    absent: ['getForeignAccountMaxima', 'fbarYear'],
+    present: [],
+  },
+  {
+    path: 'app/fbar/page.tsx',
+    absent: [],
+    present: ['getForeignAccountMaxima'],
+  },
+  {
     path: 'app/page.tsx',
     absent: ['getTransactionTypes', 'getDividendByYear', 'StackedAssetChart', 'AssetEventList', 'topHoldingsByCost', 'freshnessTitle'],
     present: ['copy.concentrationBasis', 'copy.openTotalAssets'],

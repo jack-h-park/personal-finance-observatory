@@ -1,22 +1,21 @@
 import { AssetCoverageNote } from '@/components/AssetCoverageNote'
-import { DataTable, type DataTableColumn } from '@/components/DataTable'
+import { DataTable } from '@/components/DataTable'
 import { PageHeader } from '@/components/PageHeader'
-import { Badge, Card, MetricField, Note, SectionHeading } from '@/components/ui'
+import { Badge, Card, MetricField, Note } from '@/components/ui'
 import { CardRow } from '@/components/layout'
 import { StackedAssetChart } from '@/components/charts'
-import { getAssetCoverageReview, getAssetAllocation, getAssetEvents, getChildAssets, getForeignAccountMaxima, getMeta, getNetWorth, getSnapshotDates, getTotalAssetsSeries, portfolioToday } from '@/lib/adapters/portfolio-db'
+import { getAssetCoverageReview, getAssetAllocation, getAssetEvents, getChildAssets, getMeta, getNetWorth, getSnapshotDates, getTotalAssetsSeries } from '@/lib/adapters/portfolio-db'
 import { convertMoney, createMoneyFormatter, formatKrw, formatUsd } from '@/lib/currency'
 import { getCurrencyPreferences } from '@/lib/currency-server'
-import { fmtDate, fmtDateTime, fmtNumber } from '@/lib/format'
+import { fmtDate, fmtDateTime } from '@/lib/format'
 import { getLanguage } from '@/lib/i18n-server'
 import { routeMetadata, routeSection } from '@/lib/page-names'
-import { lastCompleteYear, type ForeignAccountRow } from '@/lib/fbar'
 import { ASSET_CLASSES, type NetWorth, type TotalAssetsPoint } from '@/lib/net-worth'
 import { chartMarkers, snapEventDates } from '@/lib/asset-events'
 import { AssetEventList } from '@/components/AssetEventList'
 import { AllocationShares } from '@/components/AllocationShares'
 import { TrendRangeLinks } from '@/components/TrendRangeLinks'
-import { LinkChip, LinkChips } from '@/components/LinkChips'
+import { LinkChip } from '@/components/LinkChips'
 import { DEFAULT_TREND_RANGE, resolveTrendRange, trendRangeDays, type TrendRange } from '@/lib/trend-ranges'
 import type { AllocationClass } from '@/lib/asset-allocation'
 import { ASSET_CLASS_COLOR, WRAPPER_COLOR } from '@/lib/palette'
@@ -29,9 +28,6 @@ export const generateMetadata = routeMetadata('/net-worth')
 type CashRow = NetWorth['cash'][number]
 type HistoryRow = TotalAssetsPoint & { month: string; children?: number | null }
 type ChildRow = { key: string; owner: string; account: string; asOf: string | null; valueKrw: number; subtotal?: boolean }
-
-/** The first year the FBAR table offers: the Treasury rates file starts here. */
-const FBAR_FIRST_YEAR = 2020
 
 export default async function NetWorthPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const params = await searchParams
@@ -80,12 +76,10 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
   const childAssets = includeChildren ? getChildAssets(totalAssets.points.map((point) => point.date)) : null
   const childrenOn = new Map((childAssets?.points ?? []).map((point) => [point.date, point.total]))
   const childCopy = copy.children
-  const hrefWith = (next: { fbarYear?: number; children?: boolean; trend?: TrendRange['key'] }) => {
+  const hrefWith = (next: { children?: boolean; trend?: TrendRange['key'] }) => {
     const query = new URLSearchParams()
     const trend = next.trend ?? selectedRange.key
     if (trend !== DEFAULT_TREND_RANGE.key) query.set('trend', trend)
-    const year = next.fbarYear ?? (params.fbarYear ? Number(Array.isArray(params.fbarYear) ? params.fbarYear[0] : params.fbarYear) : null)
-    if (year) query.set('fbarYear', String(year))
     if (next.children ?? includeChildren) query.set('children', '1')
     const text = query.toString()
     return text ? `/net-worth?${text}` : '/net-worth'
@@ -102,53 +96,6 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
     netWorth.asOfNotes.filter((note) => note.assetClass === key).map((note) => copy.asOfNote(maskAccountLabel(note.label), fmtDate(note.asOf, language))).join(' · ')
   const amount = (value: number | null) => <span className="tabular-nums">{value == null ? copy.none : money(value)}</span>
   const kindLabel = (kind: string) => (kind in copy.kinds ? copy.kinds[kind as keyof typeof copy.kinds] : kind)
-  // FBAR: the last complete year unless ?fbarYear= names another offered year.
-  const currentYear = Number(portfolioToday().slice(0, 4))
-  const fbarYears = Array.from({ length: currentYear - FBAR_FIRST_YEAR + 1 }, (_, i) => FBAR_FIRST_YEAR + i)
-  const requestedYear = Number(Array.isArray(params.fbarYear) ? params.fbarYear[0] : params.fbarYear)
-  const fbarYear = fbarYears.includes(requestedYear) ? requestedYear : lastCompleteYear(portfolioToday())
-  const fbar = getForeignAccountMaxima(fbarYear)
-  const fbarCopy = copy.fbar
-  const fbarColumns: DataTableColumn<ForeignAccountRow>[] = [
-    { key: 'institution', label: fbarCopy.columns.institution, render: (row: ForeignAccountRow) => <span className="font-medium text-ink">{row.institution}</span> },
-    { key: 'account', label: fbarCopy.columns.account, render: (row: ForeignAccountRow) => maskAccountLabel(row.account) },
-    { key: 'kind', label: fbarCopy.columns.kind, priority: 'secondary', render: (row: ForeignAccountRow) => fbarCopy.kinds[row.kind] },
-    {
-      key: 'coverage',
-      label: fbarCopy.columns.coverage,
-      render: (row: ForeignAccountRow) => (
-        <span>
-          {fbarCopy.coverage[row.coverage]}
-          {row.understated ? (
-            <>
-              {' '}
-              <Badge tone="warning">{fbarCopy.understated}</Badge>
-            </>
-          ) : null}
-          {row.cashIncluded === false ? <span className="block text-label text-ink-3">{fbarCopy.cashNotIncluded}</span> : null}
-        </span>
-      ),
-    },
-    { key: 'maxDate', label: fbarCopy.columns.maxDate, nowrap: true, render: (row: ForeignAccountRow) => <span className="tabular-nums">{fmtDate(row.maxDate, language)}</span> },
-    {
-      key: 'maxKrw',
-      label: fbarCopy.columns.maxKrw,
-      align: 'right',
-      nowrap: true,
-      render: (row: ForeignAccountRow) => <span className="tabular-nums">{row.maxKrw == null ? copy.none : formatKrw(row.maxKrw)}</span>,
-    },
-    ...(fbar.rate
-      ? [
-          {
-            key: 'maxUsd',
-            label: fbarCopy.columns.maxUsd,
-            align: 'right' as const,
-            nowrap: true,
-            render: (row: ForeignAccountRow) => <span className="tabular-nums">{row.maxUsd == null ? copy.none : formatUsd(row.maxUsd)}</span>,
-          },
-        ]
-      : []),
-  ]
 
   return (
     <>
@@ -386,55 +333,6 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
             />
           </Card>
         ) : null}
-      </CardRow>
-
-      <CardRow columns={1} spacing="above">
-        <Card
-          title={fbarCopy.title}
-          action={
-            <LinkChips
-              as="nav"
-              label={fbarCopy.yearLabel}
-              ariaCurrent="page"
-              items={fbarYears.map((year) => ({ key: String(year), href: hrefWith({ fbarYear: year }), label: year }))}
-              current={String(fbarYear)}
-            />
-          }
-        >
-          <div className="mb-3 flex flex-col gap-1 text-label leading-relaxed text-ink-3">
-            <p className="font-medium text-ink-2">{fbarCopy.note}</p>
-            <p>{fbarCopy.method}</p>
-            <p>
-              {fbar.rate
-                ? fbarCopy.rate(fmtNumber(fbar.rate.krwPerUsd, 2), fmtDate(fbar.rate.date, language))
-                : fbarCopy.noRate(fbarYear)}
-            </p>
-            <p>{fbarCopy.understatedNote}</p>
-            <p>{fbarCopy.cashNote}</p>
-            {fbar.rows.some((row) => row.maxKrw == null) ? (
-              <p>{fbarCopy.unpriced(fbar.rows.filter((row) => row.maxKrw == null).map((row) => `${row.institution} ${maskAccountLabel(row.account)}`).join(', '))}</p>
-            ) : null}
-          </div>
-          <DataTable caption={fbarCopy.title} rows={fbar.rows} getRowKey={(row: ForeignAccountRow) => row.id} emptyMessage={fbarCopy.empty(fbarYear)} columns={fbarColumns} />
-          {fbar.rows.length ? (
-            <div className="mt-3 flex flex-wrap justify-end gap-x-6 gap-y-1 text-body">
-              <span className="text-ink-3">{fbarCopy.aggregate}</span>
-              <span className="font-medium tabular-nums text-ink">{formatKrw(fbar.rows.reduce((sum, row) => sum + (row.maxKrw ?? 0), 0))}</span>
-              {fbar.aggregateMaxUsd != null ? <span className="font-medium tabular-nums text-ink">{formatUsd(fbar.aggregateMaxUsd)}</span> : null}
-            </div>
-          ) : null}
-          {fbar.cryptoRows.length ? (
-            <section className="mt-5 border-t border-line-subtle pt-4">
-              <SectionHeading level={3} size="sub" tone="muted" spacing="mb-2">{fbarCopy.cryptoTitle}</SectionHeading>
-              <DataTable caption={fbarCopy.cryptoTitle} rows={fbar.cryptoRows} getRowKey={(row: ForeignAccountRow) => row.id} emptyMessage={fbarCopy.empty(fbarYear)} columns={fbarColumns} />
-              <div className="mt-3 flex flex-wrap justify-end gap-x-6 gap-y-1 text-body">
-                <span className="text-ink-3">{fbarCopy.cryptoSubtotal}</span>
-                <span className="font-medium tabular-nums text-ink">{formatKrw(fbar.cryptoRows.reduce((sum, row) => sum + (row.maxKrw ?? 0), 0))}</span>
-                {fbar.cryptoSubtotalMaxUsd != null ? <span className="font-medium tabular-nums text-ink">{formatUsd(fbar.cryptoSubtotalMaxUsd)}</span> : null}
-              </div>
-            </section>
-          ) : null}
-        </Card>
       </CardRow>
     </>
   )

@@ -29,6 +29,7 @@ import { accounts } from '@/lib/ui-copy/pages/accounts'
 import { netWorth } from '@/lib/ui-copy/pages/netWorth'
 import { pension } from '@/lib/ui-copy/pages/pension'
 import { assetEvents } from '@/lib/ui-copy/pages/assetEvents'
+import { fbar } from '@/lib/ui-copy/pages/fbar'
 import { washSale } from '@/lib/ui-copy/pages/washSale'
 
 export const PAGE_COPY = {
@@ -64,4 +65,5 @@ export const PAGE_COPY = {
   pension,
   assetEvents,
   washSale,
+  fbar,
 }
