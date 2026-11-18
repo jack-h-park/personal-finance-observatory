@@ -99,7 +99,8 @@ The rest are mine:
    - Korean KRW: ≥ 1억 → `1.2억` (one decimal, trailing `.0` dropped); ≥ 1만 → `3,500만`; else the number.
    - English KRW: `₩1.2M`, `₩350K`, `₩900`.
    - USD in both languages: `$1.2M`, `$350K`, `$900`.
-   - Negative values get a leading `-`, the same character `fmtNumber` already prints. `0` → `0`.
+   - Values round half away from zero at the shown precision (one decimal for 억, M and K; whole numbers for 만); a value whose rounded form reaches the next unit prints in that unit (`999_999` → `₩1M`, `99_999_999` → `1억`).
+- Negative values get a leading `-`, the same character `fmtNumber` already prints. `0` → `0`.
    - Percent → `fmtPct(value, { digits: 0 })`.
 10. **Mobile layout.**
     - `KpiBand` becomes `grid-cols-2` below `sm`.
@@ -191,7 +192,7 @@ The rest are mine:
   - `app/page.tsx:378,398`: `text-hero` → `text-metric`.
   - `Label` and `table.tsx:52`: append `[&:lang(ko)]:tracking-normal`.
   - `Stat`: add `info`, using the same `HelpPopover` as `MetricField` (`components/metric.tsx`).
-  - Restore the glossary text on `/review`'s unrealized `Stat` and the position page's freshness `Stat`, from the same `glossary` keys they used before R5 (`git show 9680b68^ -- app/review/page.tsx` shows the old `info`).
+  - Restore the glossary text on `/review`'s unrealized `Stat` and the position page's freshness `Stat`, from the same `glossary` keys they used before R5 (`git show 713dbcc:app/review/page.tsx` and `git show 713dbcc:'app/positions/[market]/[ticker]/page.tsx'` show the old `info`).
 - [ ] **Step 4: Run** the focused test (PASS), then the gates.
 - [ ] **Step 5: Intended visual changes.**
   - Every page with a `MetricHeroCard`: the hero figure is 42 px on desktop (was 52) and 36 px on a phone (was 42).
@@ -323,7 +324,7 @@ export function hasPlottablePoint(data: Record<string, unknown>[], keys: string[
 - Every chart in `components/charts.tsx` takes `unit: ChartUnit`, `language: Language` and `emptyMessage: ReactNode`. `valuePrefix`, `valueSuffix` and `yAxisPrefix`/`yAxisSuffix` are removed, and `axisLabel` stays optional with no default.
 
 - [ ] **Step 1: Write the failing tests** in `tests/chart-format.test.ts`:
-  - `axisTick ko KRW`: `0 → '0'`, `9_999 → '9,999'`, `10_000 → '1만'`, `35_000_000 → '3,500만'`, `99_999_999 → '9,999만'`, `100_000_000 → '1억'`, `120_000_000 → '1.2억'`, `-120_000_000 → '-1.2억'`.
+  - `axisTick ko KRW`: `0 → '0'`, `9_999 → '9,999'`, `10_000 → '1만'`, `35_000_000 → '3,500만'`, `99_999_999 → '1억'` (rounding reached 10,000만, so it promotes), `100_000_000 → '1억'`, `120_000_000 → '1.2억'`, `-120_000_000 → '-1.2억'`.
   - `axisTick en KRW`: `900 → '₩900'`, `350_000 → '₩350K'`, `1_200_000 → '₩1.2M'`, `-1_200_000 → '-₩1.2M'`.
   - `axisTick USD ignores language`: `1_500` gives `'$1.5K'` for both `'ko'` and `'en'`.
   - `axisTick percent`: `12.34 → fmtPct(12.34, { digits: 0 })`.
