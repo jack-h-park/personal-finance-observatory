@@ -1,3 +1,4 @@
+import { summarizeSupplementaryFreshness } from '@/lib/application/coverage-freshness-summary'
 import { AccountCoverageSummary } from '@/components/AccountCoverageSummary'
 import { summarizeAccountCoverage } from '@/lib/application/account-coverage-summary'
 import { InvestmentUpdateAction, coverageDetailLabel, type CoverageCopy } from '@/components/AccountUpdateAction'
@@ -77,7 +78,7 @@ export default async function DataOpsPage() {
         action={issueCount ? <Badge tone="warning">{copy.needsReview(fmtNumber(issueCount))}</Badge> : <Badge tone="success">{copy.noPending}</Badge>}
       />
 
-      <AccountCoverageSummary language={language} summary={summarizeAccountCoverage({ investmentRows: coverage.rows, supplementaryRows: supplementary.rows })} />
+      <AccountCoverageSummary freshness={summarizeSupplementaryFreshness(supplementary.rows)} language={language} summary={summarizeAccountCoverage({ investmentRows: coverage.rows, supplementaryRows: supplementary.rows })} />
 
       <Card title={coverageCopy.title} info={coverageCopy.info} accent={coverage.actionNeeded > 0} className="mb-5" action={<TextLink href="#account-coverage">{coverageCopy.viewAll}</TextLink>}>
         <div className="mb-4 grid grid-cols-3 gap-3">

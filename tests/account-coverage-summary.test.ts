@@ -61,7 +61,7 @@ test('bilingual summary exposes scoped navigation and separate signals without i
     assert.match(html, language === 'en' ? /Query period unknown/ : /조회기간 미확인/)
     assert.match(html, language === 'en' ? /History gaps/ : /과거 구간 누락/)
     assert.match(html, language === 'en' ? /may overlap/ : /겹칠 수/)
-    assert.match(html, language === 'en' ? /Pre-gap freshness is not available/ : /누락 조치 이전의 최신성은 확인할 수 없습니다/)
+    assert.match(html, language === 'en' ? /explicit metadata only/ : /명시된 정보만 사용/)
     assert.match(html, language === 'en' ? /not unique accounts/ : /고유 계좌 수/)
     assert.doesNotMatch(html, /PRIVATE_SYNTHETIC_LABEL|123456789|2026-02-08|<form|<input|<button|\/api\/|All accounts are current|전체 계좌 최신/)
   }
@@ -87,4 +87,14 @@ test('supplementary navigation preserves unknown inventory and closed/non-loaded
     assert.doesNotMatch(html, /<form|<input|Download now|지금 다운로드/)
   }
   assert.deepEqual(review, before)
+})
+
+test('additive freshness metadata leaves existing summary states and rendered UI unchanged', () => {
+  const original = rows(), baseline = summarizeAccountCoverage(original)
+  const additive = { ...original, supplementaryRows: original.supplementaryRows.map(row => ({ ...row, freshnessStatus: 'current' as const })) }
+  assert.deepEqual(summarizeAccountCoverage(additive), baseline)
+  for (const language of ['en', 'ko'] as const) {
+    const render = (summary: ReturnType<typeof summarizeAccountCoverage>) => renderToStaticMarkup(React.createElement(AccountCoverageSummary, { summary, language }))
+    assert.equal(render(summarizeAccountCoverage(additive)), render(baseline))
+  }
 })

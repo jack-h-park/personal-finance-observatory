@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -89,6 +90,7 @@ test('one row per cash account, pension token, gold account and the gold price, 
     lagDays: 100,
     maxLagDays: 30,
     status: 'action_needed',
+    freshnessStatus: 'action_needed',
     action: `Example Bank ••1234 거래내역을 ${daysAgo(100)} ~ ${new Intl.DateTimeFormat('en-CA',{timeZone:'America/Los_Angeles',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date())} 기간으로 받아 inbox에 넣으세요`,
   })
   assert.equal(byLabel['Sample Securities CMA ••5678'].kind, 'cma')
@@ -101,6 +103,7 @@ test('one row per cash account, pension token, gold account and the gold price, 
     lagDays: 200,
     maxLagDays: 180,
     status: 'action_needed',
+    freshnessStatus: 'action_needed',
     action: 'Sample(IRP) 보유 현황을 캡처해 pension/irp-holdings-YYYYMMDD.csv로 넣으세요',
   })
   assert.equal(byLabel['Other(연금저축)'].status, 'missing')
@@ -400,4 +403,61 @@ test('CMA confirmed query end is independent of its last cash movement', async (
  const row=getSupplementaryCoverage().rows.find(row=>row.label==='fidelity Sample CMA')!
  assert.equal(row.latestDate,daysAgo(0))
  assert.equal(row.status,'current')
+})
+
+
+test('additive freshness preserves every legacy gap decision and action without changing fixture inputs', async () => {
+  const originalMap = readFileSync(mapPath)
+  const map = JSON.parse(originalMap.toString('utf8'))
+  const requested = daysAgo(20), periodStart = daysAgo(5), gapEnd = daysAgo(6)
+  const cases = [
+    { name: 'fresh-gap', end: daysAgo(1), from: requested, periodStart, freshness: 'current', stale: false },
+    { name: 'stale-gap', end: daysAgo(90), from: daysAgo(120), periodStart: daysAgo(100), freshness: 'action_needed', stale: true },
+    { name: 'soon-gap', end: daysAgo(27), from: daysAgo(60), periodStart: daysAgo(40), freshness: 'due_soon', stale: false },
+    { name: 'unknown-gap', end: daysAgo(1), from: requested, periodStart, freshness: 'unconfirmed', stale: false },
+    { name: 'no-gap', end: daysAgo(1), from: requested, periodStart: requested, freshness: 'current', stale: undefined },
+  ]
+  map.bankAccounts.push(...cases.map(c => ({ institution: 'Contract Bank', kind: 'checking', alias: c.name, historyFrom: c.from })), { institution: 'Contract Bank', kind: 'savings', alias: 'missing-source' })
+  map.pensionAccounts.push({ institution: 'Contract Pension', token: 'closed-contract', account: 'Contract closed pension', retiredOn: '2020-01-01' }, { institution: 'Contract Pension', account: 'Contract intentionally unloaded pension' })
+  writeFileSync(mapPath, JSON.stringify(map))
+  const conn = new Database(dbPath)
+  const insert = conn.prepare('insert into bank_statement_coverage values (?,?,?,?,?,?)')
+  for (const c of cases) insert.run('Contract Bank', c.name, 'invented-contract.csv', c.periodStart, c.end, 'b'.repeat(64))
+  // A contradictory newer metadata row has an invalid query end. Existing code
+  // keeps the overall query end unconfirmed while a valid older interval still
+  // records a gap. Preserve that unknown; do not repair the source/classifier.
+  insert.run('Contract Bank', 'unknown-gap', 'invented-unverified.csv', null, 'z-unverified', 'c'.repeat(64))
+  conn.close()
+  const hash = (file: string) => createHash('sha256').update(readFileSync(file)).digest('hex')
+  const before = { db: hash(dbPath), map: hash(mapPath) }
+  try {
+    const { getSupplementaryCoverage, portfolioToday } = await import('../lib/adapters/portfolio-db')
+    const result = getSupplementaryCoverage()
+    for (const c of cases) {
+      const label = `Contract Bank ${c.name}`, row = result.rows.find(r => r.label === label)!
+      assert.equal(row.freshnessStatus, c.freshness, c.name)
+      assert.equal(row.status, c.name === 'no-gap' ? 'current' : 'action_needed', c.name)
+      assert.equal(row.staleWithHistoryGap, c.stale, c.name)
+      if (c.name === 'no-gap') {
+        assert.equal(row.historyGap, undefined)
+        assert.equal(row.action, '추가 자료 필요 없음')
+      } else {
+        const endOfGap = c.name === 'stale-gap' ? daysAgo(101) : c.name === 'soon-gap' ? daysAgo(41) : gapEnd
+        assert.deepEqual(row.historyGap, { from: c.from, to: endOfGap })
+        const extra = c.stale ? ` ${label} 거래내역을 ${c.end} ~ ${portfolioToday()} 기간으로 받아 inbox에 넣으세요` : ''
+        assert.equal(row.action, `${label} 거래내역을 ${c.from} ~ ${endOfGap} 기간으로 받아 inbox에 넣으세요.${extra}`)
+      }
+    }
+    const missing = result.rows.find(r => r.label === 'Contract Bank missing-source')!
+    assert.equal(missing.freshnessStatus, 'missing'); assert.equal(missing.status, 'missing')
+    assert.equal(missing.action, `Contract Bank missing-source 거래내역을 가능한 전체 기간 ~ ${portfolioToday()}까지 받아 inbox에 넣으세요`)
+    assert.ok(!result.rows.some(row => /Contract (?:closed|intentionally unloaded) pension/.test(row.label)))
+    assert.ok(result.rows.every(row => typeof row.freshnessStatus === 'string'))
+    assert.deepEqual(result.failingChecks, ['cash_balance_continuity'])
+    assert.deepEqual({ db: hash(dbPath), map: hash(mapPath) }, before)
+  } finally {
+    const cleanup = new Database(dbPath)
+    cleanup.prepare('delete from bank_statement_coverage where institution=?').run('Contract Bank')
+    cleanup.close(); writeFileSync(mapPath, originalMap)
+  }
 })

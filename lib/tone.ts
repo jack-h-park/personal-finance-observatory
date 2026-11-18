@@ -97,3 +97,12 @@ export function priorityTone(priority: string | null | undefined): Tone {
 // pages that own them. They move here in P2, when those pages are rebuilt —
 // hoisting them now would add exports with no callers, which is what P0 spent
 // its time deleting.
+
+/** Explicit supplementary freshness only. Age is attention, not a failed combined review (shared UX D6). */
+export const SUPPLEMENTARY_FRESHNESS_TONE: Record<'current' | 'due_soon' | 'action_needed' | 'missing' | 'unconfirmed', Tone> = {
+  current: 'success',
+  due_soon: 'warning',
+  action_needed: 'warning',
+  missing: 'warning',
+  unconfirmed: 'warning',
+}

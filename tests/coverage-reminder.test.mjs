@@ -225,3 +225,21 @@ test('due-soon reminders do not request a download before it is needed',()=>{
  assert.match(message,/현재 추가 자료 필요 없음/)
  assert.doesNotMatch(message,/다운로드 →|inbox에/)
 })
+
+
+test('additive freshness metadata cannot change reminder text, ordering or silence', () => {
+  const original = withSupplementary([row({ status: 'due_soon' }), row({ account: 'Invented late investment' })], [
+    supRow({ status: 'action_needed', action: 'Keep the existing historical-gap request', historyGap: { from: '2024-02-01', to: '2024-02-09' } }),
+    supRow({ label: 'Invented current source', status: 'current', latestDate: '2026-10-08' }),
+    supRow({ label: 'Invented unknown period', status: 'unconfirmed', latestDate: null }),
+    supRow({ label: 'Invented missing pension', kind: 'pension', status: 'missing', latestDate: null }),
+  ], ['invented_supplementary_issue'])
+  const baseline = coverageMessage(original)
+  for (const freshnessStatus of ['current', 'due_soon', 'action_needed', 'missing', 'unconfirmed', null, 'unsupported']) {
+    const additive = structuredClone(original)
+    additive.supplementaryCoverage.rows.forEach(row => { row.freshnessStatus = freshnessStatus })
+    assert.equal(coverageMessage(additive), baseline)
+  }
+  const silent = withSupplementary([], [supRow({ status: 'current', freshnessStatus: 'action_needed' })])
+  assert.equal(coverageMessage(silent), null)
+})
