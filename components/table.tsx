@@ -49,7 +49,7 @@ export function Table({
 export function Thead({ children }: { children: ReactNode }) {
   return (
     <thead>
-      <tr className="border-b border-line text-left text-label uppercase tracking-[0.06em] text-ink-3">
+      <tr className="border-b border-line text-left text-label uppercase tracking-[0.06em] [&:lang(ko)]:tracking-normal text-ink-3">
         {children}
       </tr>
     </thead>

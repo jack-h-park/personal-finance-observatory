@@ -1,5 +1,6 @@
 import { clsx } from 'clsx'
 import React, { type ReactNode } from 'react'
+import { HelpPopover } from '@/components/HelpPopover'
 import { Label, type Tone } from '@/components/ui'
 
 /**
@@ -140,6 +141,7 @@ export function Stat({
   label,
   value,
   sub,
+  info,
   tone = 'neutral',
   size = 'title',
   dense,
@@ -147,6 +149,7 @@ export function Stat({
   label: ReactNode
   value: ReactNode
   sub?: ReactNode
+  info?: ReactNode
   tone?: Tone
   size?: keyof typeof STAT_SIZE
   /** Tighter vertical padding, for a strip inside an already dense panel. */
@@ -154,7 +157,10 @@ export function Stat({
 }) {
   return (
     <div className={clsx('bg-card px-3', dense ? 'py-2.5' : 'py-3')}>
-      <Label size="micro">{label}</Label>
+      <Label size="micro" className={info ? 'flex items-center' : undefined}>
+        {label}
+        {info ? <HelpPopover>{info}</HelpPopover> : null}
+      </Label>
       <div className={clsx('mt-1 font-medium tabular-nums', STAT_SIZE[size], VALUE_TONE[tone])}>{value}</div>
       {sub != null && <div className="mt-0.5 text-label tabular-nums text-ink-3">{sub}</div>}
     </div>

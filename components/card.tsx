@@ -263,7 +263,7 @@ export function MetricHeroCard({
       <div className="flex min-h-[16rem] flex-col justify-between gap-6">
         <div>
           <Label variant="eyebrow">{eyebrow}</Label>
-          <div className="mt-2 text-hero font-medium leading-none tracking-normal text-ink sm:text-display">{value}</div>
+          <div className="mt-2 text-hero-sm font-medium leading-none tracking-normal text-ink sm:text-hero">{value}</div>
           {hint ? <div className="mt-2 text-body text-ink-3">{hint}</div> : null}
         </div>
         {children}
