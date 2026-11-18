@@ -1,6 +1,6 @@
 # Read-only coverage summary and navigation scope
 
-Status: approved source scope after merged #346; implemented with synthetic validation for source review, without operating adoption or deployment. The November 17, 2026 (America/Los_Angeles) audit remains private. See the [implementation boundary](../architecture/account-coverage-summary.md); fixtures are invented, not private observations.
+Status: approved source scope after #346, implemented/merged in #347 and separately deployed with bounded [release acceptance](../operations/installation-status.md#coverage-summary-release-acceptance-november-17-2026), without private inventory adoption or completeness acceptance. The November 17, 2026 (America/Los_Angeles) audit remains private. See the [implementation boundary](../architecture/account-coverage-summary.md); fixtures are invented, not private observations.
 
 ## Observed problem and outcome
 
@@ -29,10 +29,10 @@ Implementation files include `components/AccountCoverageSummary.tsx`, `lib/ui-co
 | Legacy closed or intentionally unloaded pension | Preserve policy and formal ownership uncertainty; do not create a new source request or revive the account |
 | One row appears in several signal groups | Label overlapping signals and scope; no combined unique-account/completeness percentage |
 
-Pure tests and bilingual render checks must verify summary/link behavior, masking, unchanged input objects and no added write controls. Run existing inventory/coverage regressions and repository-required checks. Private observation data, screenshots and exact names must not become fixtures. Later deployment/browser acceptance requires separate authorization; this scope does not authorize it.
+Pure tests and bilingual render checks must verify summary/link behavior, masking, unchanged input objects and no added write controls. Run existing inventory/coverage regressions and repository-required checks. Private observation data, screenshots and exact names must not become fixtures. The later separately authorized deployment/browser verification is recorded in the release acceptance; this original source scope did not authorize it or any future rollout.
 
 ## Exclusions and stop conditions
 
 Do not apply the existing private candidate catalog, edit mappings, confirm an owner/lifecycle/scope, collect missing files, refresh generated inputs, repair a read issue, change coverage thresholds or alter the existing reminder/action queue. If a needed distinction cannot be derived from existing outputs, show it as unavailable and bring the contract gap back for review rather than inventing a classification.
 
-The actual 2025 tax comparison remains blocked. No actual generation, publication, Hometax, installation/deployment, automatic resume or operating change is part of this proposed PR.
+The actual 2025 tax comparison remains blocked. The original source PR included no generation, briefing publication, Hometax, deployment, automatic resume or operating change. Its later bounded application rollout is recorded separately and grants no further operating permission.
