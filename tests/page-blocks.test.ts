@@ -25,7 +25,7 @@ const BLOCKS: { path: string; absent: string[]; present: string[] }[] = [
   },
   {
     path: 'app/page.tsx',
-    absent: ['getTransactionTypes', 'getDividendByYear', 'StackedAssetChart', 'AssetEventList', 'topHoldingsByCost', 'freshnessTitle'],
+    absent: ['StackedAssetChart', 'AssetEventList', 'topHoldingsByCost', 'freshnessTitle'],
     present: ['copy.concentrationBasis', 'copy.openTotalAssets'],
   },
   {

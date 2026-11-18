@@ -5160,38 +5160,6 @@ export function getAccountAllocation() {
   }
 }
 
-export function getDividendByYear() {
-  const conn = db()
-  try {
-    return conn
-      .prepare(
-        `select currency, substr(date, 1, 4) as year, coalesce(sum(native_amount), 0) as amount, count(*) as count
-         from dividends
-         group by currency, year
-         order by currency, year`
-      )
-      .all() as { currency: string; year: string; amount: number; count: number }[]
-  } finally {
-    conn.close()
-  }
-}
-
-export function getTransactionTypes() {
-  const conn = db()
-  try {
-    return conn
-      .prepare(
-        `select market, type, count(*) as count
-         from transactions
-         group by market, type
-         order by count desc`
-      )
-      .all() as { market: string; type: string; count: number }[]
-  } finally {
-    conn.close()
-  }
-}
-
 export function getRecentTransactions(limit = 30) {
   const conn = db()
   try {

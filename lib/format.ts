@@ -65,16 +65,6 @@ export function fmtSigned(value: number | null | undefined, format: (n: number) 
   return `${n > 0 ? '+' : '-'}${body}`
 }
 
-/**
- * A dividend year for the trend chart: won in thousands, dollars as they are.
- *
- * Defined identically in the overview and the dividends page — the same two
- * lines, twice.
- */
-export function dividendChartAmount(currency: string, amount: number) {
-  return currency === 'KRW' ? Number((amount / 1000).toFixed(1)) : Number(amount.toFixed(2))
-}
-
 /** Byte size at human scale. Reclaimed from app/data-map, which defined it locally. */
 export function fmtBytes(value: number | null | undefined) {
   const n = Number(value ?? 0)

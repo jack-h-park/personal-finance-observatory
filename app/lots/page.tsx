@@ -89,10 +89,10 @@ export default async function LotsPage({
             }))}
           />
           {ticker ? (
-            <TickerFilterChip ticker={ticker} clearHref={withParam(BASE, params, 'ticker', null)} label={getUiCopy(language).common.tickerFilter(ticker)} />
+            <TickerFilterChip clearHref={withParam(BASE, params, 'ticker', null)} label={getUiCopy(language).common.tickerFilter(ticker)} removeLabel={getUiCopy(language).common.removeTickerFilter(ticker)} />
           ) : null}
           <TotalsStrip columns="sm-3">
-            <Total label={copy.filtered} value={<>{fmtNumber(filtered.length)} / {fmtNumber(rows.length)}</>} />
+            <Total label={copy.filtered} value={<>{fmtNumber(filtered.length)} / {fmtNumber(scoped.length)}</>} />
             <Total label={copy.openQuantity} value={fmtQuantity(totals.quantity, 2)} />
             <Total label={copy.baseCost} value={money(totals.cost, 'KRW')} />
           </TotalsStrip>

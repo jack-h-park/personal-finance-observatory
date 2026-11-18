@@ -880,10 +880,17 @@ test('app/cash-inflow/page.tsx: the header status opens the filter that renders 
 })
 
 test('OperatorDetails renders a closed details with the operator summary', () => {
-  const en = renderToStaticMarkup(h(OperatorDetails, null, h('p', null, 'x')))
+  const en = renderToStaticMarkup(h(OperatorDetails, { language: 'en', children: h('p', null, 'x') }))
   assert.ok(en.startsWith('<details'))
   assert.ok(!en.includes(' open'))
   assert.ok(en.includes('>Operator details</summary>'))
   const ko = renderToStaticMarkup(h(OperatorDetails, { language: 'ko', children: h('p', null, 'x') }))
   assert.ok(ko.includes('>운영 정보</summary>'))
 })
+
+// Every caller knows the reader's language; a default would let a new caller
+// render English on a Korean page without a type error.
+export function operatorDetailsNeedsLanguage() {
+  // @ts-expect-error language is required
+  return OperatorDetails({ children: null })
+}

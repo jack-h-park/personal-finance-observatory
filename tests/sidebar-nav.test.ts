@@ -58,3 +58,17 @@ test('the sidebar carries one gradient wordmark and puts the switchers after the
   }
   assert.ok(source.indexOf('{copy.readOnly}') > source.indexOf('<AssetViewSwitcher'))
 })
+
+// The Detailed Records summary sits inside Assets & Cash Flow, so it reads as
+// an item (item indent, body text), not as a sixth section label.
+test('the group summary is styled as an item, not as a section label', () => {
+  const html = render('/fx')
+  const summary = html.match(/<summary[^>]*class="([^"]*)"/)?.[1] ?? ''
+  const sectionLabel = html.match(/<div class="([^"]*)">Assets &amp; Cash Flow<\/div>/)?.[1] ?? ''
+  assert.ok(summary && sectionLabel, 'found the summary and the section label')
+  const classes = summary.split(/\s+/)
+  for (const cls of ['pl-3', 'text-body', 'text-ink-2']) assert.ok(classes.includes(cls), `summary has ${cls}`)
+  for (const cls of sectionLabel.split(/\s+/)) {
+    if (cls.startsWith('text-') || cls === 'font-medium') assert.ok(!classes.includes(cls), `summary does not use the section label's ${cls}`)
+  }
+})

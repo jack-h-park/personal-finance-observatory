@@ -21,8 +21,8 @@ const ROUTES = [
   '/cash-inflow', '/rebalance/settings', '/taxes', '/taxes/history', '/taxes/records/us-2025',
 ]
 const MIN_TARGET = 24
-// The overview is audited twice: once in the default stock view, once in the
-// all-assets view, which adds the stacked total-assets chart.
+// The overview is audited twice: once in the default all-assets view (no
+// cookie), once in the stocks view, which drops the total-assets card.
 const PASSES = [...ROUTES.map((route) => ({ route, view: null })), { route: '/', view: 'stocks' }]
 
 function arg(flag, fallback) {

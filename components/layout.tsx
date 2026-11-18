@@ -86,13 +86,18 @@ export function Split({
   return <div className={className}>{children}</div>
 }
 
+const KPI_BAND_COLUMNS = {
+  3: 'sm:grid-cols-3',
+  4: 'sm:grid-cols-2 xl:grid-cols-4',
+} as const
+
 /**
  * The strip of MetricFields under a hero card's headline value, divided from it
- * by a rule. Fixed at three across: every one of the eleven call sites uses
- * three, and a band that can be any width is a band that drifts.
+ * by a rule. Three across, or four where the headline splits into four parts
+ * (/data-ops): a band that can be any width is a band that drifts.
  */
-export function KpiBand({ className, children }: { className?: string; children: ReactNode }) {
-  return <div className={clsx('grid gap-4 border-t border-line-subtle pt-4 sm:grid-cols-3', className)}>{children}</div>
+export function KpiBand({ className, columns = 3, children }: { className?: string; columns?: keyof typeof KPI_BAND_COLUMNS; children: ReactNode }) {
+  return <div className={clsx('grid gap-4 border-t border-line-subtle pt-4', KPI_BAND_COLUMNS[columns], className)}>{children}</div>
 }
 
 // The value colour every strip below shares: a tone, with neutral as plain ink.

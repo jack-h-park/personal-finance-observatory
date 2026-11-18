@@ -92,3 +92,26 @@ test('every anchor a queue row links to is a Card id on its page', async () => {
     assert.ok(source.includes(`<Card id="${id}"`), `id="${id}" is not on a Card in ${pages[route]}`)
   }
 })
+
+// The Action Center hero counts the queue; the tiles under it split that
+// count, breaks included, so the visible parts add up to the headline.
+test('the action center tiles add up to the headline, position breaks included', async () => {
+  const { getDataOpsReview, getReconciliationReview } = await load()
+  const { dataOpsLinkedIssues, dataOpsQueueTiles } = await import('@/lib/header-status')
+  const { getPageCopy } = await import('@/lib/ui-copy')
+  const queue = getDataOpsReview().actionQueue
+  const tiles = dataOpsQueueTiles(queue)
+  assert.equal(tiles.breaks, getReconciliationReview().positionBreaks.length)
+  const headline = dataOpsLinkedIssues(getPageCopy('dataOps', 'en'), queue).issues.count
+  assert.equal(tiles.mapping + tiles.valuation + tiles.sourceCheck + tiles.breaks, headline)
+  assert.deepEqual(dataOpsQueueTiles([]), { mapping: 0, valuation: 0, sourceCheck: 0, breaks: 0 })
+})
+
+test('the action center KPI band reads every tile from the queue, breaks among them', () => {
+  const source = readFileSync('app/data-ops/page.tsx', 'utf8')
+  const band = source.slice(source.indexOf('<KpiBand'), source.indexOf('</KpiBand>'))
+  for (const tile of ['tiles.mapping', 'tiles.valuation', 'tiles.sourceCheck', 'tiles.breaks']) {
+    assert.ok(band.includes(`fmtNumber(${tile})`), `the band shows ${tile}`)
+  }
+  assert.ok(band.includes('copy.positionBreaks'), 'the breaks tile has its own label')
+})

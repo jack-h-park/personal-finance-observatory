@@ -5,7 +5,7 @@
     "lib/ui-copy/pages/cashInflow.ts": 2,
     "lib/ui-copy/pages/cryptoPremium.ts": 2,
     "lib/ui-copy/pages/dataMap.ts": 5,
-    "lib/ui-copy/pages/dataOps.ts": 6,
+    "lib/ui-copy/pages/dataOps.ts": 5,
     "lib/ui-copy/pages/fbar.ts": 1,
     "lib/ui-copy/pages/health.ts": 1,
     "lib/ui-copy/pages/netWorth.ts": 4,

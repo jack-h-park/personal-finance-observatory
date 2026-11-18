@@ -109,7 +109,7 @@ export default async function RealizedLotsPage({
             ]}
           />
           {ticker ? (
-            <TickerFilterChip ticker={ticker} clearHref={withParam(BASE, params, 'ticker', null)} label={getUiCopy(language).common.tickerFilter(ticker)} />
+            <TickerFilterChip clearHref={withParam(BASE, params, 'ticker', null)} label={getUiCopy(language).common.tickerFilter(ticker)} removeLabel={getUiCopy(language).common.removeTickerFilter(ticker)} />
           ) : null}
           <TotalsStrip columns="sm-4">
             <Total label={copy.filtered} value={<>{fmtNumber(filtered.length)} / {fmtNumber(inYear.length)}</>} />

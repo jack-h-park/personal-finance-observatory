@@ -1,4 +1,5 @@
 import { createElement, type ReactNode } from 'react'
+import type { DataOpsQueueKind } from '@/lib/adapters/portfolio-db'
 import { fmtNumber } from '@/lib/format'
 import { ISSUE_SEVERITY, type IssueSeverity, type Severity } from '@/lib/tone'
 import type { getPageCopy } from '@/lib/ui-copy'
@@ -63,6 +64,21 @@ export function dataMapLinkedIssues(
 /** The items an action queue holds: each row carries how many it stands for. */
 function queueCount(queue: readonly { count: number }[]) {
   return queue.reduce((sum, item) => sum + item.count, 0)
+}
+
+/**
+ * /data-ops: the KPI tiles under the queue headline, each read from the queue
+ * rows it stands for, so the tiles always sum to the headline. Mapping counts
+ * the income rows the suggested rules would map, as the queue row does.
+ */
+export function dataOpsQueueTiles(queue: readonly { kind: DataOpsQueueKind; count: number }[]) {
+  const of = (...kinds: DataOpsQueueKind[]) => queueCount(queue.filter((item) => kinds.includes(item.kind)))
+  return {
+    mapping: of('manual_mappings'),
+    valuation: of('valuation'),
+    sourceCheck: of('validation', 'source_freshness'),
+    breaks: of('position_breaks'),
+  }
 }
 
 /** /data-ops: the priority-work queue, counted by the items its rows stand for. */
