@@ -786,29 +786,35 @@ function statusBlock(source: string): string {
 }
 
 /**
- * A header pill that reports a problem links to the card that lists it. Each
- * row names the page, what its status prop must contain (its own `href:`, or
- * the helper whose href tests/header-status.test.ts pins) and the Card id it
- * lands on. Each of these cards renders unconditionally on its page, so the
- * target exists whenever the pill is linked; matching `<Card id=` means moving
- * the id onto an element that does not always render fails here.
+ * A header pill that reports a problem links to the card that lists it, and
+ * both read one `*LinkedIssues` pair from lib/header-status.ts: the status
+ * prop is the pair's `status`, the target Card's badge is the pair's `issues`.
+ * Each row names the page, the pair's variable, the helper that builds it
+ * (tests/linked-issues.test.ts pins its href, count and severity) and the Card
+ * id it lands on. Each of these cards renders unconditionally on its page, so
+ * the target exists whenever the pill is linked; matching `<Card id=` means
+ * moving the id onto an element that does not always render fails here.
  */
-const STATUS_ANCHORS: Array<{ page: string; status: string; id: string }> = [
-  { page: 'app/reconciliation/page.tsx', status: "href: '#reconciliation-action-queue'", id: 'reconciliation-action-queue' },
-  { page: 'app/health/page.tsx', status: "href: '#health-operational-status'", id: 'health-operational-status' },
-  { page: 'app/income/page.tsx', status: 'incomeHeaderStatus(', id: 'income-tickerless' },
-  { page: 'app/data-ops/page.tsx', status: "href: '#data-ops-priority-work'", id: 'data-ops-priority-work' },
-  { page: 'app/rebalance/page.tsx', status: "href: '#rebalance-hold-watch'", id: 'rebalance-hold-watch' },
-  { page: 'app/review/page.tsx', status: "href: '#review-operational-readiness'", id: 'review-operational-readiness' },
-  { page: 'app/data-map/page.tsx', status: "href: '#data-map-review-queue'", id: 'data-map-review-queue' },
+const STATUS_ANCHORS: Array<{ page: string; pair: string; helper: string; id: string }> = [
+  { page: 'app/reconciliation/page.tsx', pair: 'actionQueue', helper: 'reconciliationLinkedIssues', id: 'reconciliation-action-queue' },
+  { page: 'app/health/page.tsx', pair: 'operationalIssues', helper: 'healthLinkedIssues', id: 'health-operational-status' },
+  { page: 'app/income/page.tsx', pair: 'tickerless', helper: 'incomeLinkedIssues', id: 'income-tickerless' },
+  { page: 'app/data-ops/page.tsx', pair: 'priorityWork', helper: 'dataOpsLinkedIssues', id: 'data-ops-priority-work' },
+  { page: 'app/rebalance/page.tsx', pair: 'holdWatch', helper: 'rebalanceLinkedIssues', id: 'rebalance-hold-watch' },
+  { page: 'app/review/page.tsx', pair: 'readiness', helper: 'reviewLinkedIssues', id: 'review-operational-readiness' },
+  { page: 'app/data-map/page.tsx', pair: 'reviewQueue', helper: 'dataMapLinkedIssues', id: 'data-map-review-queue' },
 ]
 
-for (const { page, status, id } of STATUS_ANCHORS) {
-  test(`${page}: the header status links to the card #${id}`, () => {
+for (const { page, pair, helper, id } of STATUS_ANCHORS) {
+  test(`${page}: the header status links to the card #${id}, and both read one pair`, () => {
     const source = readFileSync(page, 'utf8')
-    assert.ok(statusBlock(source).includes(status), `status prop lacks ${status}`)
+    assert.ok(source.includes(`const ${pair} = ${helper}(`), `${pair} is not built by ${helper}`)
+    assert.equal(statusBlock(source), `status={${pair}.status}`)
     assert.equal((source.match(new RegExp(`id="${id}"`, 'g')) ?? []).length, 1, `exactly one id="${id}"`)
-    assert.ok(source.includes(`<Card id="${id}"`), `id="${id}" is not on a Card`)
+    const card = source.indexOf(`<Card id="${id}"`)
+    assert.ok(card >= 0, `id="${id}" is not on a Card`)
+    const openTag = source.slice(card, source.indexOf('>', source.indexOf(`issues=`, card)) + 1)
+    assert.ok(openTag.includes(`issues={${pair}.issues}`), `the card's badge is not ${pair}.issues`)
   })
 }
 

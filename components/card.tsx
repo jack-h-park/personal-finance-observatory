@@ -2,7 +2,7 @@ import { clsx } from 'clsx'
 import { Children, Fragment, createElement, isValidElement, type ComponentProps, type ReactNode } from 'react'
 import { HelpPopover } from '@/components/HelpPopover'
 import { IssueCountLabel } from '@/components/LanguageProvider'
-import { severityTone, type Severity } from '@/lib/tone'
+import { severityTone, type IssueSeverity } from '@/lib/tone'
 import { Badge, TONE_STYLES } from './controls'
 import { Label } from './metric'
 
@@ -24,7 +24,7 @@ type CardBaseProps = {
 }
 
 /** How many problems a card lists, and how bad they are. */
-export type CardIssues = { count: number; severity?: Extract<Severity, 'attention' | 'problem'> }
+export type CardIssues = { count: number; severity?: IssueSeverity }
 
 /**
  * A card that reports `issues` must have a `title`: the count badge renders

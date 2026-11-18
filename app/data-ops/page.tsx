@@ -25,6 +25,7 @@ import { routeMetadata, routeSection } from '@/lib/page-names'
 import { CardRow, KpiBand } from '@/components/layout'
 import { PositionCell } from '@/components/PositionCell'
 import { maskAccountLabel } from '@/lib/account-label'
+import { dataOpsLinkedIssues } from '@/lib/header-status'
 
 export const dynamic = 'force-dynamic'
 export const generateMetadata = routeMetadata('/data-ops')
@@ -55,7 +56,8 @@ export default async function DataOpsPage() {
   const ops = getDataOpsReview()
   const coverage = getAccountCoverage()
   const supplementary = getSupplementaryCoverage()
-  const issueCount = ops.actionQueue.reduce((sum, item) => sum + item.count, 0)
+  const priorityWork = dataOpsLinkedIssues(copy, ops.actionQueue)
+  const issueCount = priorityWork.issues.count
   const coverageCopy = copy.coverage
 
   return (
@@ -65,11 +67,7 @@ export default async function DataOpsPage() {
         title={copy.title}
         emphasis={copy.emphasis}
         subtitle={copy.subtitle}
-        status={
-          issueCount
-            ? { severity: 'attention', label: copy.needsReview(fmtNumber(issueCount)), href: '#data-ops-priority-work' }
-            : { severity: 'ok', label: copy.noPending }
-        }
+        status={priorityWork.status}
       />
 
       <Card title={coverageCopy.title} info={coverageCopy.info} issues={{ count: coverage.actionNeeded, severity: 'problem' }} className="mb-5" action={<TextLink href="#account-coverage">{coverageCopy.viewAll}</TextLink>}>
@@ -194,7 +192,7 @@ export default async function DataOpsPage() {
         </HeroAside>
       </CardRow>
 
-      <Card id="data-ops-priority-work" title={copy.priorityWork} info={copy.priorityWorkInfo} className="mb-5" issues={{ count: ops.actionQueue.length }}>
+      <Card id="data-ops-priority-work" title={copy.priorityWork} info={copy.priorityWorkInfo} className="mb-5" issues={priorityWork.issues}>
         {ops.actionQueue.length === 0 ? (
           <EmptyState ok>{copy.noPriorityWork}</EmptyState>
         ) : (

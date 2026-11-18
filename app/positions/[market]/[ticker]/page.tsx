@@ -216,7 +216,7 @@ export default async function PositionPage({ params }: { params: Promise<{ marke
         </div>
       </Card>
 
-      <Card title={copy.firstChecks} info={copy.firstChecksInfo} className="mb-5" issues={{ count: Number(hasReconIssue), severity: 'problem' }}>
+      <Card title={copy.firstChecks} info={copy.firstChecksInfo} className="mb-5">
         <div className="grid gap-3 lg:grid-cols-3">
           <Panel>
             <div className="mb-1 flex items-center justify-between gap-3">

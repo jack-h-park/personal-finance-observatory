@@ -1,6 +1,6 @@
 import { createElement, type ReactNode } from 'react'
 import { fmtNumber } from '@/lib/format'
-import type { Severity } from '@/lib/tone'
+import { ISSUE_SEVERITY, type IssueSeverity, type Severity } from '@/lib/tone'
 import type { getPageCopy } from '@/lib/ui-copy'
 
 /**
@@ -8,6 +8,105 @@ import type { getPageCopy } from '@/lib/ui-copy'
  * points at the card that lists it (`#<card id>`).
  */
 export type HeaderStatus = { severity: Severity; label: ReactNode; href?: string }
+
+/**
+ * A header pill that links to a card, and that card's count badge: one count
+ * and one severity for both. A pill that said "3" in yellow and led to a red
+ * "2" was reporting a different issue from the card it pointed at, so each page
+ * builds the pair here from one source and passes `status` to its PageHeader
+ * and `issues` to the card.
+ */
+export type LinkedIssues = { status: HeaderStatus | undefined; issues: { count: number; severity: IssueSeverity } }
+
+/** Every linked card on the pages below lists items to look at; only the pages that say why read worse. */
+const TO_REVIEW: IssueSeverity = 'attention'
+
+function linkedIssues(
+  count: number,
+  severity: IssueSeverity,
+  href: string,
+  label: (count: number) => ReactNode,
+  clear: HeaderStatus | undefined,
+): LinkedIssues {
+  return { status: count > 0 ? { severity, label: label(count), href } : clear, issues: { count, severity } }
+}
+
+/** /health: failed checks plus stale sources; an error check or a missing source makes it a problem. */
+export function healthLinkedIssues(
+  copy: ReturnType<typeof getPageCopy<'health'>>,
+  input: { failed: number; errors: number; stale: number; missing: number },
+): LinkedIssues {
+  const severity = ISSUE_SEVERITY[input.errors > 0 || input.missing > 0 ? 'error' : 'warning']
+  return linkedIssues(
+    input.failed + input.stale,
+    severity,
+    '#health-operational-status',
+    (n) => copy.needsReview(fmtNumber(n)),
+    { severity: 'ok', label: copy.allChecksPassed },
+  )
+}
+
+/** /data-map: drifted and missing files; a missing file makes it a problem. */
+export function dataMapLinkedIssues(
+  copy: ReturnType<typeof getPageCopy<'dataMap'>>,
+  summary: { missing: number; drift: number },
+): LinkedIssues {
+  return linkedIssues(
+    summary.missing + summary.drift,
+    ISSUE_SEVERITY[summary.missing > 0 ? 'error' : 'warning'],
+    '#data-map-review-queue',
+    (n) => copy.reviewItems(fmtNumber(n)),
+    { severity: 'ok', label: copy.allMapped },
+  )
+}
+
+/** The items an action queue holds: each row carries how many it stands for. */
+function queueCount(queue: readonly { count: number }[]) {
+  return queue.reduce((sum, item) => sum + item.count, 0)
+}
+
+/** /data-ops: the priority-work queue, counted by the items its rows stand for. */
+export function dataOpsLinkedIssues(copy: ReturnType<typeof getPageCopy<'dataOps'>>, queue: readonly { count: number }[]): LinkedIssues {
+  return linkedIssues(queueCount(queue), TO_REVIEW, '#data-ops-priority-work', (n) => copy.needsReview(fmtNumber(n)), {
+    severity: 'ok',
+    label: copy.noPending,
+  })
+}
+
+/** /reconciliation: the action queue, counted by the items its rows stand for (the adapter's `issue_count`). */
+export function reconciliationLinkedIssues(
+  copy: ReturnType<typeof getPageCopy<'reconciliation'>>,
+  queue: readonly { count: number }[],
+): LinkedIssues {
+  return linkedIssues(queueCount(queue), TO_REVIEW, '#reconciliation-action-queue', (n) => copy.reviewItems(fmtNumber(n)), {
+    severity: 'ok',
+    label: copy.reconciled,
+  })
+}
+
+/** /review: stale operational inputs. */
+export function reviewLinkedIssues(copy: ReturnType<typeof getPageCopy<'review'>>, stale: number): LinkedIssues {
+  return linkedIssues(stale, TO_REVIEW, '#review-operational-readiness', (n) => copy.freshnessIssues(n), {
+    severity: 'ok',
+    label: copy.ready,
+  })
+}
+
+/**
+ * /rebalance: what to hold or watch before acting — positions without a usable
+ * valuation plus stale inputs, the set the hold/watch card lists and the hero's
+ * "watch before action" figure counts. The pill used to count only the stale
+ * inputs, so it read "inputs ready" above a card listing valuation blockers.
+ */
+export function rebalanceLinkedIssues(
+  copy: ReturnType<typeof getPageCopy<'rebalance'>>,
+  input: { watch: number; freshness: number },
+): LinkedIssues {
+  return linkedIssues(input.watch + input.freshness, TO_REVIEW, '#rebalance-hold-watch', (n) => copy.holdWatchItems(n), {
+    severity: 'ok',
+    label: copy.inputsReady,
+  })
+}
 
 /**
  * One status for a header that has a linkable issue and a count of rows
@@ -22,7 +121,7 @@ function issueStatus(
   labels: { issue: () => ReactNode; undated: () => ReactNode; both: () => ReactNode },
   clear?: HeaderStatus,
 ): HeaderStatus | undefined {
-  if (issue > 0) return { severity: 'attention', label: undated > 0 ? labels.both() : labels.issue(), href }
+  if (issue > 0) return { severity: TO_REVIEW, label: undated > 0 ? labels.both() : labels.issue(), href }
   if (undated > 0) return { severity: 'attention', label: labels.undated() }
   return clear
 }
@@ -39,6 +138,11 @@ export function incomeHeaderStatus(copy: ReturnType<typeof getPageCopy<'income'>
     },
     { severity: 'ok', label: copy.tickerMapped },
   )!
+}
+
+/** /income: the pill counts tickerless rows, and so does the card's badge (the card lists them grouped, at most 20 groups). */
+export function incomeLinkedIssues(copy: ReturnType<typeof getPageCopy<'income'>>, tickerless: number, undated: number): LinkedIssues {
+  return { status: incomeHeaderStatus(copy, tickerless, undated), issues: { count: tickerless, severity: TO_REVIEW } }
 }
 
 /** `triageHref` is the page URL that opens the unclassified filter, keeping the source, currency and range. */

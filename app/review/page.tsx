@@ -8,6 +8,7 @@ import { createMoneyFormatter } from '@/lib/currency'
 import { getCurrencyPreferences } from '@/lib/currency-server'
 import { getGlossary } from '@/lib/glossary'
 import { getLanguage } from '@/lib/i18n-server'
+import { reviewLinkedIssues } from '@/lib/header-status'
 import { getPageCopy } from '@/lib/ui-copy'
 import { TO_REVIEW_SEVERITY, countTone, signTone } from '@/lib/tone'
 import { routeMetadata, routeSection } from '@/lib/page-names'
@@ -68,6 +69,7 @@ export default async function ReviewPage() {
   const totalReturnPct =
     review.totals.base_cost > 0 ? (review.totals.base_unrealized_gl / review.totals.base_cost) * 100 : 0
   const issueCount = operational.staleItems.length
+  const readiness = reviewLinkedIssues(copy, issueCount)
 
   return (
     <>
@@ -76,11 +78,7 @@ export default async function ReviewPage() {
         title={copy.title}
         emphasis={copy.emphasis}
         subtitle={copy.subtitle}
-        status={
-          issueCount
-            ? { severity: 'attention', label: copy.freshnessIssues(issueCount), href: '#review-operational-readiness' }
-            : { severity: 'ok', label: copy.ready }
-        }
+        status={readiness.status}
       />
 
       {/* No hero. The market value that used to headline this page is the same
@@ -150,7 +148,7 @@ export default async function ReviewPage() {
           </div>
         </Card>
 
-        <Card id="review-operational-readiness" title={copy.operationalReadiness} issues={{ count: issueCount }}>
+        <Card id="review-operational-readiness" title={copy.operationalReadiness} issues={readiness.issues}>
           {operational.staleItems.length === 0 ? (
             <EmptyState ok>{copy.noOperationalInputs}</EmptyState>
           ) : (

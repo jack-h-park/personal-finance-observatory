@@ -9,7 +9,7 @@ import { ProgressBar } from '@/components/bars'
 import { fmtDateShort, fmtDateTime, fmtKrw, fmtNumber, fmtPct, fmtSigned } from '@/lib/format'
 import { getLanguage } from '@/lib/i18n-server'
 import { buildMonthlySalePlanSet } from '@/lib/tax-planning'
-import { getSavedTaxPlan, savedTaxPlanProgress, type SavedTaxPlanStatus } from '@/lib/tax-plan-store'
+import { getSavedTaxPlan, savedTaxPlanProgress } from '@/lib/tax-plan-store'
 import { getTaxPolicyState } from '@/lib/tax-policy'
 import { updateSavedTaxPlanStatusAction } from '@/app/tax-planning/actions'
 import { getPageCopy, getUiCopy } from '@/lib/ui-copy'
@@ -18,7 +18,7 @@ import type { Metadata } from 'next'
 import { SubmitButton } from '@/components/SubmitButton'
 import { routeSection } from '@/lib/page-names'
 import { savedPlanHeading } from '@/lib/page-headings'
-import { CHANGE_SEVERITY, REVIEW_SEVERITY, deltaTone, statusTone, type Tone } from '@/lib/tone'
+import { CHANGE_SEVERITY, REVIEW_SEVERITY, TAX_PLAN_STATUS_SEVERITY, deltaTone, statusTone, type Tone } from '@/lib/tone'
 
 export const dynamic = 'force-dynamic'
 
@@ -26,14 +26,6 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const { id } = await params
   const saved = getSavedTaxPlan(id)
   return { title: saved?.name ?? id }
-}
-
-const STATUS_TONE: Record<SavedTaxPlanStatus, 'neutral' | 'info' | 'success' | 'warning'> = {
-  draft: 'neutral',
-  reviewed: 'info',
-  active: 'warning',
-  completed: 'success',
-  archived: 'neutral',
 }
 
 function deltaLabel(value: number, noChange: string, formatter: (amount: number) => string = fmtKrw) {
@@ -95,7 +87,7 @@ export default async function SavedTaxPlanPage({
         info={copy.executionOverviewInfo}
         className="mb-5"
         accent
-        action={<Badge tone={STATUS_TONE[saved.status]}>{copy.statusLabels[saved.status]}</Badge>}
+        action={<Badge tone={statusTone(TAX_PLAN_STATUS_SEVERITY, saved.status)}>{copy.statusLabels[saved.status]}</Badge>}
       >
         <Split side="18rem" at="lg" gap={5}>
           <div>
