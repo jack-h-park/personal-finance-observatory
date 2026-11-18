@@ -86,6 +86,7 @@ export default async function TaxSettingsPage({ searchParams }: { searchParams: 
             {copy.page.openPlanner}
           </TextLink>
         }
+        autoRefresh={false}
       />
 
       <CardRow columns="hero">

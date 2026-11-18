@@ -12,12 +12,14 @@ import {
   findDeadOpacity,
   findEnglishInKoreanCopy,
   findEnglishProseLiteral,
+  findFormPagePolls,
   findHandWrittenGrid,
   findHangulLiteral,
   findInlineLanguageBranch,
   findInlineSignTone,
   findNullLiteral,
   findRawEnumBadge,
+  groupByRoute,
   stripComments,
 } from '../scripts/ui-guardrails.mjs'
 
@@ -476,6 +478,100 @@ test('G13 leaves copy lookups, market codes, calls and literals alone', () => {
   assert.deepEqual(findRawEnumBadge('// <Badge>{y.filingScenario}</Badge>'), [])
 })
 
+type RouteFile = { file: string; source: string }
+const route = (files: Record<string, string>): RouteFile[] =>
+  Object.entries(files).map(([file, source]) => ({ file, source }))
+
+const POLLING_FORM_PAGE = [
+  "import { SubmitButton } from '@/components/SubmitButton'",
+  'export default function Page() {',
+  '  return (',
+  '    <>',
+  '      <PageHeader title={copy.title} />',
+  '      <form action={save}>',
+  '        <SubmitButton>{copy.save}</SubmitButton>',
+  '      </form>',
+  '    </>',
+  '  )',
+  '}',
+].join('\n')
+
+test('G14 catches a route with a submit button whose header still refreshes', () => {
+  const hits = findFormPagePolls(route({ 'app/planted/page.tsx': POLLING_FORM_PAGE })) as Hit[]
+  assert.equal(hits.length, 1)
+  assert.equal(hits[0].file, 'app/planted/page.tsx')
+  // Reported where the fix goes: the PageHeader line.
+  assert.equal(hits[0].line, 5)
+
+  // ConfirmSubmitButton counts too.
+  const confirm = POLLING_FORM_PAGE.replace(/SubmitButton/g, 'ConfirmSubmitButton')
+  assert.equal(findFormPagePolls(route({ 'app/planted/page.tsx': confirm })).length, 1)
+})
+
+test('G14 reads the route folder as one unit', () => {
+  // The submit button lives in a sibling file; the page only renders the header.
+  const split = route({
+    'app/planted/page.tsx': 'export default function Page() {\n  return <PageHeader title={copy.title} />\n}',
+    'app/planted/components.tsx': '<form action={save}>\n  <SubmitButton>{copy.save}</SubmitButton>\n</form>',
+  })
+  const hits = findFormPagePolls(split) as Hit[]
+  assert.deepEqual(hits.map((h) => [h.file, h.line]), [['app/planted/page.tsx', 2]])
+
+  // And autoRefresh={false} in a sibling view file clears it.
+  const offInView = route({
+    'app/planted/page.tsx': 'export default function Page() {\n  return <View />\n}',
+    'app/planted/view.tsx': '<PageHeader\n  title={copy.title}\n  autoRefresh={false}\n/>\n<SubmitButton>{copy.save}</SubmitButton>',
+  })
+  assert.deepEqual(findFormPagePolls(offInView), [])
+})
+
+test('G14 leaves a form page that turned the refresh off, and a GET filter form', () => {
+  const off = POLLING_FORM_PAGE.replace('<PageHeader title={copy.title} />', '<PageHeader title={copy.title} autoRefresh={false} />')
+  assert.deepEqual(findFormPagePolls(route({ 'app/planted/page.tsx': off })), [])
+
+  const getFilter = [
+    'export default function Page() {',
+    '  return (',
+    '    <>',
+    '      <PageHeader title={copy.title} />',
+    '      <form method="get">',
+    '        <button type="submit">{copy.apply}</button>',
+    '      </form>',
+    '    </>',
+    '  )',
+    '}',
+  ].join('\n')
+  assert.deepEqual(findFormPagePolls(route({ 'app/planted/page.tsx': getFilter })), [])
+
+  // An import or a comment is not a rendered button.
+  const importOnly = "import { SubmitButton } from '@/components/SubmitButton'\n// <SubmitButton>x</SubmitButton>\n<PageHeader title={copy.title} />"
+  assert.deepEqual(findFormPagePolls(route({ 'app/planted/page.tsx': importOnly })), [])
+})
+
+test('G14 groups files by their own folder, so a nested route is its own unit', () => {
+  const groups = groupByRoute([
+    'app/tax-planning/page.tsx',
+    'app/tax-planning/components.tsx',
+    'app/tax-planning/plans/[id]/page.tsx',
+    'app/page.tsx',
+    'app/layout.tsx',
+  ]) as Map<string, string[]>
+  assert.deepEqual(
+    [...groups.entries()],
+    [
+      ['app', ['app/layout.tsx', 'app/page.tsx']],
+      ['app/tax-planning', ['app/tax-planning/components.tsx', 'app/tax-planning/page.tsx']],
+      ['app/tax-planning/plans/[id]', ['app/tax-planning/plans/[id]/page.tsx']],
+    ],
+  )
+
+  // A parent's refresh switch does not cover the nested route, nor the reverse.
+  const parentOff = route({ 'app/planted/page.tsx': '<PageHeader title={copy.title} autoRefresh={false} />' })
+  const child = route({ 'app/planted/child/page.tsx': POLLING_FORM_PAGE })
+  assert.deepEqual(findFormPagePolls(parentOff), [])
+  assert.equal(findFormPagePolls(child).length, 1)
+})
+
 test('the counted checks are registered in order with their scopes', () => {
   type Check = { code: string; id: string; roots: string[]; exclude: string[]; include: RegExp | null }
   const checks = CHECKS as Check[]
@@ -494,6 +590,7 @@ test('the counted checks are registered in order with their scopes', () => {
       'G11 bare-footnote',
       'G12 english-in-korean-copy',
       'G13 raw-enum-badge',
+      'G14 form-page-polls',
     ],
   )
   const byCode = Object.fromEntries(checks.map((c) => [c.code, c]))
@@ -511,6 +608,11 @@ test('the counted checks are registered in order with their scopes', () => {
   assert.equal(byCode.G11.include, null)
   assert.deepEqual(byCode.G12.roots, ['lib/ui-copy'])
   assert.equal(byCode.G12.include, null)
+  assert.deepEqual(byCode.G14.roots, ['app'])
+  assert.equal((byCode.G14 as Check & { group?: string }).group, 'route')
+  for (const code of Object.keys(byCode).filter((c) => c !== 'G14')) {
+    assert.equal((byCode[code] as Check & { group?: string }).group, undefined, code)
+  }
 })
 
 // The baseline is what lets a check with existing hits still gate a pull

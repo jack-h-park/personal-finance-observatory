@@ -100,6 +100,7 @@ export default async function RebalancePage({ searchParams }: { searchParams: Pr
             : { severity: 'ok', label: copy.inputsReady }
         }
         actions={<TextLink href="/rebalance/settings">{copy.settingsLink}</TextLink>}
+        autoRefresh={false}
       />
 
       {errorMessage && <FormError title={proposalCopy.errorTitle} messages={[errorMessage]} />}

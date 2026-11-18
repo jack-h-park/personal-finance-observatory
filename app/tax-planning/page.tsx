@@ -152,6 +152,7 @@ export default async function TaxPlanningPage({
             {copy.page.editAssumptions}
           </TextLink>
         }
+        autoRefresh={false}
       />
 
       {/* The only way to land here with error=name is a form posted without

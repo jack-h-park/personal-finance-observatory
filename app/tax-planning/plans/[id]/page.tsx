@@ -87,6 +87,7 @@ export default async function SavedTaxPlanPage({
             {copy.backToPlanner}
           </TextLink>
         }
+        autoRefresh={false}
       />
 
       <Card

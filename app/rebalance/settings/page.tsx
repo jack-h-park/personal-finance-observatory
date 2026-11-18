@@ -113,6 +113,7 @@ export default async function RebalanceSettingsPage({ searchParams }: { searchPa
         subtitle={copy.subtitle}
         status={params.saved ? { severity: 'ok', label: copy.saved } : undefined}
         actions={<TextLink href="/rebalance">{copy.back}</TextLink>}
+        autoRefresh={false}
       />
 
       {params.error && (
