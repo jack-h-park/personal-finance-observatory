@@ -1,5 +1,7 @@
 # Personal Finance Observatory plan review — November 15, 2026
 
+Historical review: the sequencing below records November 15 decisions. Observer/producer integration, scoped backup/recovery and federal composition/caller source have since advanced. Follow the [current next increments](next-increment.md) and [latest observation](../operations/installation-status.md#account-coverage-and-private-tax-readiness-observation-november-17-2026); do not repeat completed steps or infer permission for the blocked actual 2025 comparison.
+
 Scope: compare the [original master plan](../superpowers/plans/2026-11-10-personal-finance-observatory.md), [status](implementation-status.md), [next increments](next-increment.md) and authority/path design with the completed source work and bounded operating evidence. This review is documentation/source verification; no new private operating acceptance, financial edit, configuration change or deployment occurs.
 
 ## Conclusion and corrections
