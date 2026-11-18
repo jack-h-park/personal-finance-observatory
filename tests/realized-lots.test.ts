@@ -138,3 +138,14 @@ test('the adapter reads the view, skips a replaced replay row and prices each lo
   assert.deepEqual(rows.map((r) => r.ticker), ['AAA'])
   assert.equal(rows[0].proceeds_usd, 665000 / 1330)
 })
+
+test('a ticker narrows the realized lots to that exact ticker', () => {
+  const rows = [
+    toRealizedView(lot({ ticker: 'A' }), at),
+    toRealizedView(lot({ ticker: 'AA' }), at),
+    toRealizedView(lot({ ticker: 'A', market: 'US' }), at),
+  ]
+  assert.deepEqual(queryRealized(rows, { ticker: 'A', year: ALL_YEARS }, '2026').filtered.map((r) => `${r.market}:${r.ticker}`).sort(), ['CRYPTO:A', 'US:A'])
+  assert.deepEqual(queryRealized(rows, { ticker: 'A', market: 'US', year: ALL_YEARS }, '2026').filtered.map((r) => `${r.market}:${r.ticker}`), ['US:A'])
+  assert.equal(queryRealized(rows, { year: ALL_YEARS }, '2026').filtered.length, 3)
+})

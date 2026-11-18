@@ -82,6 +82,8 @@ export const positionDetail = defineCopy({
       STAKING_REWARD: 'STAKING REWARD', STOCK_LENDING_INCOME: 'STOCK LENDING',
     } as Record<string, string>,
     sourceUsages: { snapshot: 'snapshot', 'tax lots': 'tax lots', transactions: 'transactions', dividends: 'dividends' } as Record<string, string>,
+    // The record pages this position's rows live on, filtered to it.
+    links: { lots: 'Tax lots', realized: 'Realized lots', transactions: 'Transactions' },
     columns: {
       broker: 'Broker',
       account: 'Account',
@@ -190,6 +192,8 @@ export const positionDetail = defineCopy({
       STAKING_REWARD: '스테이킹 보상', STOCK_LENDING_INCOME: '주식 대여 수익',
     } as Record<string, string>,
     sourceUsages: { snapshot: '스냅샷', 'tax lots': '세금 단위', transactions: '거래', dividends: '배당' } as Record<string, string>,
+    // The sidebar's names for the same three routes.
+    links: { lots: '세금 단위', realized: '실현 손익 내역', transactions: '거래 내역' },
     columns: {
       broker: '증권사',
       account: '계좌',

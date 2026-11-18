@@ -16,6 +16,7 @@ import { queryRealized, REALIZED_GROUPS } from '@/lib/realized-lots-query'
 import { getPageCopy, getUiCopy } from '@/lib/ui-copy'
 import { formatSort, parseSort, sortRows, type TableSort } from '@/lib/table-sort'
 import { withParam } from '@/lib/table-filter'
+import { TickerFilterChip } from '@/components/TickerFilterChip'
 import { bucketTone } from '@/lib/tone'
 import { routeMetadata, routeSection } from '@/lib/page-names'
 import { maskAccountLabel } from '@/lib/account-label'
@@ -35,7 +36,7 @@ export default async function RealizedLotsPage({
   const copy = getPageCopy('realized', language)
   const rows = getRealizedLots()
 
-  const { years, defaultYear, year, selected, options, query, inYear, filtered } = queryRealized(
+  const { years, defaultYear, year, selected, options, query, ticker, inYear, filtered } = queryRealized(
     rows,
     params,
     todayLosAngeles().slice(0, 4)
@@ -107,6 +108,9 @@ export default async function RealizedLotsPage({
               },
             ]}
           />
+          {ticker ? (
+            <TickerFilterChip ticker={ticker} clearHref={withParam(BASE, params, 'ticker', null)} label={getUiCopy(language).common.tickerFilter(ticker)} />
+          ) : null}
           <TotalsStrip columns="sm-4">
             <Total label={copy.filtered} value={<>{fmtNumber(filtered.length)} / {fmtNumber(inYear.length)}</>} />
             <Total label={copy.totals.cost} value={usd ? formatUsd(totals.cost_usd) : formatKrw(totals.cost_krw)} />

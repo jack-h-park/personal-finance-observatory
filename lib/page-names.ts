@@ -35,8 +35,6 @@ export const ROUTE_HREFS = [
   '/lots',
   '/realized',
   '/pension',
-  '/cost-basis',
-  '/dividends',
   '/transactions',
   '/fx',
   '/crypto-premium',

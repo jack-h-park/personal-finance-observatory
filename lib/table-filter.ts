@@ -102,3 +102,38 @@ export function withParam(
   const query = next.toString()
   return query ? `${basePath}?${query}` : basePath
 }
+
+/**
+ * Rows for one exact ticker; every row when none is asked for.
+ *
+ * A link from a position page names its ticker exactly. The search box would
+ * match it as a substring, and a one-letter US ticker is a substring of half the
+ * table, so a ticker link filters on equality instead. The market, when the link
+ * carries one, is the table's own market filter.
+ */
+export function applyTicker<T extends { ticker: string; market?: string }>(rows: T[], ticker: string | undefined): T[] {
+  if (!ticker) return rows
+  return rows.filter((row) => row.ticker === ticker)
+}
+
+/** The single `ticker` value in a query string, or undefined. */
+export function readTicker(params: Record<string, string | string[] | undefined>): string | undefined {
+  const raw = params.ticker
+  const value = Array.isArray(raw) ? raw[0] : raw
+  return value || undefined
+}
+
+/**
+ * A path carrying a query string over unchanged, for a route that moved. Every
+ * parameter is kept, and an array value is repeated, so a bookmarked filter
+ * lands on the same filter at the new address.
+ */
+export function redirectWithQuery(path: string, searchParams: Record<string, string | string[] | undefined>): string {
+  const next = new URLSearchParams()
+  for (const [key, value] of Object.entries(searchParams)) {
+    if (Array.isArray(value)) for (const item of value) next.append(key, item)
+    else if (value != null) next.append(key, value)
+  }
+  const query = next.toString()
+  return query ? `${path}?${query}` : path
+}

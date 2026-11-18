@@ -41,8 +41,6 @@ const ROUTES = [
   '/tax-settings',
   '/lots',
   '/realized',
-  '/cost-basis',
-  '/dividends',
   '/transactions',
   // Absent until now, which is how /fx went on returning 500 under sample data
   // while the capture reported full coverage. A route the net does not visit is

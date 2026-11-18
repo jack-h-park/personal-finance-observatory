@@ -11,7 +11,8 @@ import { fmtNumber, fmtQuantity } from '@/lib/format'
 import { getLanguage } from '@/lib/i18n-server'
 import { positionHref } from '@/lib/position-url'
 import { getPageCopy, getUiCopy } from '@/lib/ui-copy'
-import { applyFilters, applySearch, filterOptions, readFilters, withParam, type FilterGroup } from '@/lib/table-filter'
+import { TickerFilterChip } from '@/components/TickerFilterChip'
+import { applyFilters, applySearch, applyTicker, filterOptions, readFilters, readTicker, withParam, type FilterGroup } from '@/lib/table-filter'
 import { formatSort, parseSort, sortRows, type TableSort } from '@/lib/table-sort'
 import { bucketTone } from '@/lib/tone'
 import { routeMetadata, routeSection } from '@/lib/page-names'
@@ -40,16 +41,19 @@ export default async function LotsPage({
   const copy = getPageCopy('lots', language)
   const money = createMoneyFormatter(await getCurrencyPreferences())
   const rows = getTaxLots(1000)
+  // A position page links here with its exact ticker; the market is the ordinary filter.
+  const ticker = readTicker(params)
+  const scoped = applyTicker(rows, ticker)
 
   const selected = readFilters(params, GROUPS)
-  const options = filterOptions(rows, GROUPS, selected)
+  const options = filterOptions(scoped, GROUPS, selected)
   const query = typeof params.q === 'string' ? params.q : ''
   // Longest-held first: the question this page answers is what has crossed, or
   // is about to cross, the long-term boundary.
   const sort = parseSort(params.sort, { key: 'holding_days', direction: 'desc' })
 
   const filtered = sortRows(
-    applySearch(applyFilters(rows, GROUPS, selected), query, (r) => [r.ticker, r.name, r.account, r.brokerage, r.source]),
+    applySearch(applyFilters(scoped, GROUPS, selected), query, (r) => [r.ticker, r.name, r.account, r.brokerage, r.source]),
     sort,
     (row, key) => (row as Record<string, any>)[key]
   )
@@ -84,6 +88,9 @@ export default async function LotsPage({
               selected: selected[group.key],
             }))}
           />
+          {ticker ? (
+            <TickerFilterChip ticker={ticker} clearHref={withParam(BASE, params, 'ticker', null)} label={getUiCopy(language).common.tickerFilter(ticker)} />
+          ) : null}
           <TotalsStrip columns="sm-3">
             <Total label={copy.filtered} value={<>{fmtNumber(filtered.length)} / {fmtNumber(rows.length)}</>} />
             <Total label={copy.openQuantity} value={fmtQuantity(totals.quantity, 2)} />

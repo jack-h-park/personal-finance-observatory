@@ -18,6 +18,7 @@ import { getPageCopy } from '@/lib/ui-copy'
 import { CardRow, KpiBand } from '@/components/layout'
 import { positionHeading } from '@/lib/page-headings'
 import { displayAccount, maskAccountLabel } from '@/lib/account-label'
+import { ALL_YEARS } from '@/lib/realized-lots'
 
 export const dynamic = 'force-dynamic'
 
@@ -186,6 +187,8 @@ export default async function PositionPage({ params }: { params: Promise<{ marke
     .filter((event) => event.date)
     .sort((a, b) => String(b.date).localeCompare(String(a.date)))
     .slice(0, 40)
+  const recordHref = (path: string, extra: Record<string, string> = {}) =>
+    `${path}?${new URLSearchParams({ ticker: detail.ticker, market: detail.market, ...extra }).toString()}`
   const lineageSummary = detail.sources.map((source) => ({
     id: source.source,
     label: source.file?.filename ?? source.source,
@@ -291,6 +294,14 @@ export default async function PositionPage({ params }: { params: Promise<{ marke
           />
         </HeroAside>
       </CardRow>
+
+      {/* This position's rows on the record pages. An exact ticker, not a search:
+          a one-letter ticker is a substring of half the table. */}
+      <div className="mb-5 flex flex-wrap items-center gap-x-4 gap-y-1">
+        <TextLink href={recordHref('/lots')}>{copy.links.lots}</TextLink>
+        <TextLink href={recordHref('/realized', { year: ALL_YEARS })}>{copy.links.realized}</TextLink>
+        <TextLink href={recordHref('/transactions')}>{copy.links.transactions}</TextLink>
+      </div>
 
       <CardRow columns={3}>
         <Card title={copy.reconciliation} info={glossary.reconciliation.description}>

@@ -8,7 +8,8 @@ import { getCurrencyPreferences } from '@/lib/currency-server'
 import { EMPTY_VALUE, fmtNumber, fmtQuantity } from '@/lib/format'
 import { getLanguage } from '@/lib/i18n-server'
 import { getPageCopy, getUiCopy } from '@/lib/ui-copy'
-import { applyFilters, applySearch, filterOptions, readFilters, withParam, type FilterGroup } from '@/lib/table-filter'
+import { TickerFilterChip } from '@/components/TickerFilterChip'
+import { applyFilters, applySearch, applyTicker, filterOptions, readFilters, readTicker, withParam, type FilterGroup } from '@/lib/table-filter'
 import { formatSort, parseSort, sortRows, type TableSort } from '@/lib/table-sort'
 import { TRANSACTION_TYPE_TONE, categoryTone } from '@/lib/tone'
 import { routeMetadata, routeSection } from '@/lib/page-names'
@@ -35,14 +36,17 @@ export default async function TransactionsPage({
   const copy = getPageCopy('transactions', language)
   const money = createMoneyFormatter(await getCurrencyPreferences())
   const rows = getRecentTransactions(200)
+  // A position page links here with its exact ticker; the market is the ordinary filter.
+  const ticker = readTicker(params)
+  const scoped = applyTicker(rows, ticker)
 
   const selected = readFilters(params, GROUPS)
-  const options = filterOptions(rows, GROUPS, selected)
+  const options = filterOptions(scoped, GROUPS, selected)
   const query = typeof params.q === 'string' ? params.q : ''
   const sort = parseSort(params.sort, { key: 'date', direction: 'desc' })
 
   const filtered = sortRows(
-    applySearch(applyFilters(rows, GROUPS, selected), query, (r) => [r.ticker, r.name, r.account, r.brokerage, r.source]),
+    applySearch(applyFilters(scoped, GROUPS, selected), query, (r) => [r.ticker, r.name, r.account, r.brokerage, r.source]),
     sort,
     (row, key) => (row as Record<string, any>)[key]
   )
@@ -69,6 +73,9 @@ export default async function TransactionsPage({
               selected: selected[group.key],
             }))}
           />
+          {ticker ? (
+            <TickerFilterChip ticker={ticker} clearHref={withParam(BASE, params, 'ticker', null)} label={getUiCopy(language).common.tickerFilter(ticker)} />
+          ) : null}
           <DataTable
             rows={filtered}
             sort={sort}

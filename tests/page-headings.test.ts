@@ -41,8 +41,6 @@ const COPY_FOR: Record<RouteHref, PageKey | { page: PageKey; title: string }> = 
   '/lots': 'lots',
   '/realized': 'realized',
   '/pension': 'pension',
-  '/cost-basis': 'costBasis',
-  '/dividends': 'dividends',
   '/transactions': 'transactions',
   '/fx': 'fx',
   '/crypto-premium': 'cryptoPremium',

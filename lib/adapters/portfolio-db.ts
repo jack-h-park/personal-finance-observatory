@@ -98,32 +98,13 @@ export type Holding = {
   lot_count: number | null
 }
 
-export type CostBasisStatus = 'ready' | 'missing_cost' | 'estimated' | 'unpriced'
-
-export type CostBasisHolding = {
-  id: number
-  market: string
-  currency: string
-  brokerage: string | null
-  account: string
-  ticker: string
-  name: string
-  quantity: number
-  native_price: number | null
-  native_market_value: number | null
-  native_cost: number | null
-  native_unrealized_gl: number | null
-  native_unrealized_gl_pct: number | null
-  base_market_value: number | null
-  base_cost: number | null
-  day_change: number | null
-  day_change_pct: number | null
-  percent_of_total: number | null
+/** A Holdings-page row: the holding plus whether its cost can be relied on, and why. */
+export type HoldingWithCostStatus = Holding & {
   cost_status: CostBasisStatus
   cost_note: string
-  source_method: string
-  price_date: string | null
 }
+
+export type CostBasisStatus = 'ready' | 'missing_cost' | 'estimated' | 'unpriced'
 
 export type HealthCheck = {
   id: number
@@ -2154,26 +2135,36 @@ function steppedSum(points: { account: string; date: string; valueKrw: number }[
   return latest.size ? [...latest.values()].reduce((sum, value) => sum + value, 0) : null
 }
 
-export function getHoldings(limit = 200): Holding[] {
+export function getHoldings(limit = 200): HoldingWithCostStatus[] {
   const conn = db()
   try {
-    return conn
+    const rows = conn
       .prepare(
         `select id, market, currency, brokerage, account, ticker, name, quantity, native_cost, native_market_value,
           native_unrealized_gl, native_unrealized_gl_pct, base_cost, base_market_value, base_unrealized_gl,
-          total_cost_krw, long_term_qty, short_term_qty, lot_count
+          total_cost_krw, long_term_qty, short_term_qty, lot_count, source_system
          from holdings
          where ${STOCK_WRAPPER_SQL}
          order by market, currency, native_cost desc
          limit ?`
       )
-      .all(limit) as Holding[]
+      .all(limit) as (Holding & { source_system: string | null })[]
+    return rows.map(({ source_system, ...row }) => ({ ...row, ...costBasisStatus({ ...row, source_system }) }))
   } finally {
     conn.close()
   }
 }
 
-function costBasisStatus(row: any): Pick<CostBasisHolding, 'cost_status' | 'cost_note' | 'source_method'> {
+/**
+ * Whether a holding's cost can be relied on. Read from the holdings row alone:
+ * no cost, no current value, or cost that tax lots do not back.
+ */
+function costBasisStatus(row: {
+  native_cost: number | null
+  native_market_value: number | null
+  lot_count: number | null
+  source_system: string | null
+}): Pick<HoldingWithCostStatus, 'cost_status' | 'cost_note'> {
   const cost = Number(row.native_cost ?? 0)
   const value = row.native_market_value == null ? null : Number(row.native_market_value)
   const lotCount = row.lot_count == null ? null : Number(row.lot_count)
@@ -2182,118 +2173,23 @@ function costBasisStatus(row: any): Pick<CostBasisHolding, 'cost_status' | 'cost
     return {
       cost_status: 'missing_cost',
       cost_note: 'Total Cost is missing or zero; verify this before relying on the row.',
-      source_method: 'No usable cost basis is present in the holdings snapshot.',
     }
   }
   if (value == null) {
     return {
       cost_status: 'unpriced',
       cost_note: 'Cost exists, but current value/price is missing.',
-      source_method: 'Cost comes from source holdings data; current valuation is unavailable.',
     }
   }
   if (lotCount == null || lotCount === 0 || sourceSystem.includes('csv')) {
     return {
       cost_status: 'estimated',
       cost_note: 'Cost is usable for manual sync, but tax-lot coverage is incomplete or CSV-derived.',
-      source_method:
-        'Estimated from the source holdings feed. For crypto-style activity, use net purchase cost minus sales/reward disposals when reconciling manually.',
     }
   }
   return {
     cost_status: 'ready',
     cost_note: 'Cost and current value are present.',
-    source_method: 'Cost basis comes from tax-lot or gain/loss source data captured by the observatory ingest.',
-  }
-}
-
-export function getCostBasisHoldings(limit = 1000): CostBasisHolding[] {
-  const conn = db()
-  try {
-    const rows = conn
-      .prepare(
-        `with priced_holdings as (
-          select
-            h.id,
-            h.market,
-            h.currency,
-            h.brokerage,
-            h.account,
-            h.ticker,
-            h.name,
-            h.quantity,
-            h.native_price,
-            h.native_cost,
-            h.native_market_value,
-            h.native_unrealized_gl,
-            h.native_unrealized_gl_pct,
-            h.base_cost,
-            h.base_market_value,
-            h.lot_count,
-            h.source_system,
-            (
-              select hp.close
-              from historical_prices hp
-              where hp.market = h.market and hp.ticker = h.ticker
-              order by hp.price_date desc
-              limit 1 offset 1
-            ) as previous_close,
-            (
-              select hp.price_date
-              from historical_prices hp
-              where hp.market = h.market and hp.ticker = h.ticker
-              order by hp.price_date desc
-              limit 1
-            ) as price_date,
-            sum(coalesce(h.base_market_value, 0)) over () as portfolio_base_market_value
-          from holdings h
-          where h.quantity != 0 and ${stockWrapperFor("h")}
-        )
-        select *
-        from priced_holdings
-        order by coalesce(base_market_value, 0) desc, ticker
-        limit ?`
-      )
-      .all(limit) as any[]
-
-    return rows.map((row) => {
-      const price = row.native_price == null ? null : Number(row.native_price)
-      const previousClose = row.previous_close == null ? null : Number(row.previous_close)
-      const quantity = Number(row.quantity ?? 0)
-      const baseMarketValue = row.base_market_value == null ? null : Number(row.base_market_value)
-      const portfolioBaseMarketValue = Number(row.portfolio_base_market_value ?? 0)
-      const dayUnitChange = price == null || previousClose == null ? null : price - previousClose
-      const status = costBasisStatus(row)
-      return {
-        id: Number(row.id),
-        market: String(row.market),
-        currency: String(row.currency),
-        brokerage: row.brokerage == null ? null : String(row.brokerage),
-        account: String(row.account),
-        ticker: String(row.ticker),
-        name: String(row.name),
-        quantity,
-        native_price: price,
-        native_market_value: row.native_market_value == null ? null : Number(row.native_market_value),
-        native_cost: row.native_cost == null ? null : Number(row.native_cost),
-        native_unrealized_gl: row.native_unrealized_gl == null ? null : Number(row.native_unrealized_gl),
-        native_unrealized_gl_pct:
-          row.native_unrealized_gl_pct == null ? null : Number(row.native_unrealized_gl_pct),
-        base_market_value: baseMarketValue,
-        base_cost: row.base_cost == null ? null : Number(row.base_cost),
-        day_change: dayUnitChange == null ? null : dayUnitChange * quantity,
-        day_change_pct:
-          dayUnitChange == null || previousClose == null || previousClose === 0
-            ? null
-            : (dayUnitChange / previousClose) * 100,
-        percent_of_total:
-          baseMarketValue == null || portfolioBaseMarketValue <= 0 ? null : (baseMarketValue / portfolioBaseMarketValue) * 100,
-        ...status,
-        price_date: row.price_date == null ? null : String(row.price_date),
-      }
-    })
-  } finally {
-    conn.close()
   }
 }
 
