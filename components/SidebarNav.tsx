@@ -48,7 +48,7 @@ export function SidebarNav({
               style={{ backgroundImage: 'var(--gradient-mini)' }}
             />
           ) : null}
-          <span className={current ? 't-emph-gradient' : undefined}>{item.label}</span>
+          <span className={current ? 'font-medium text-ink' : undefined}>{item.label}</span>
         </Link>
       </li>
     )
