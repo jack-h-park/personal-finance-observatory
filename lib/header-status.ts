@@ -84,12 +84,13 @@ export function reconciliationLinkedIssues(
   })
 }
 
-/** /review: stale operational inputs. */
-export function reviewLinkedIssues(copy: ReturnType<typeof getPageCopy<'review'>>, stale: number): LinkedIssues {
-  return linkedIssues(stale, TO_REVIEW, '#review-operational-readiness', (n) => copy.freshnessIssues(n), {
-    severity: 'ok',
-    label: copy.ready,
-  })
+/**
+ * /review: stale operational inputs. The card that listed them moved to
+ * /health, so the pill still reports the count but links nowhere and no card
+ * on the page carries a matching badge.
+ */
+export function reviewLinkedIssues(copy: ReturnType<typeof getPageCopy<'review'>>, stale: number): { status: HeaderStatus } {
+  return { status: stale > 0 ? { severity: TO_REVIEW, label: copy.freshnessIssues(stale) } : { severity: 'ok', label: copy.ready } }
 }
 
 /**

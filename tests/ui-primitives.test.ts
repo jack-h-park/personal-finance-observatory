@@ -839,7 +839,6 @@ const STATUS_ANCHORS: Array<{ page: string; pair: string; helper: string; id: st
   { page: 'app/income/page.tsx', pair: 'tickerless', helper: 'incomeLinkedIssues', id: 'income-tickerless' },
   { page: 'app/data-ops/page.tsx', pair: 'priorityWork', helper: 'dataOpsLinkedIssues', id: 'data-ops-priority-work' },
   { page: 'app/rebalance/page.tsx', pair: 'holdWatch', helper: 'rebalanceLinkedIssues', id: 'rebalance-hold-watch' },
-  { page: 'app/review/page.tsx', pair: 'readiness', helper: 'reviewLinkedIssues', id: 'review-operational-readiness' },
   { page: 'app/data-map/page.tsx', pair: 'reviewQueue', helper: 'dataMapLinkedIssues', id: 'data-map-review-queue' },
 ]
 
@@ -855,6 +854,17 @@ for (const { page, pair, helper, id } of STATUS_ANCHORS) {
     assert.ok(openTag.includes(`issues={${pair}.issues}`), `the card's badge is not ${pair}.issues`)
   })
 }
+
+// /review keeps its stale-input pill with no card to link to (the list lives
+// on /health): the status still comes from its builder, which sets no href
+// (tests/linked-issues.test.ts), and no card on the page carries its badge.
+test('app/review/page.tsx: the header status is unlinked and no card reads its badge', () => {
+  const source = readFileSync('app/review/page.tsx', 'utf8')
+  assert.ok(source.includes('const readiness = reviewLinkedIssues('))
+  assert.equal(statusBlock(source), 'status={readiness.status}')
+  assert.ok(!source.includes('readiness.issues'))
+  assert.ok(!source.includes('id="review-'))
+})
 
 // The exception: cash-inflow's target is not an issues card and renders only
 // under the unclassified filter. The pill's href is what switches that filter

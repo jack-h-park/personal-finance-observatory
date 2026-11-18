@@ -1,7 +1,6 @@
 import { DataTable } from '@/components/DataTable'
-import { FreshnessRows } from '@/components/Freshness'
 import { PageHeader } from '@/components/PageHeader'
-import { Badge, Card, EmptyState, MetricField, Panel, Signed, marketTone } from '@/components/ui'
+import { Card, EmptyState, MetricField, Note, Panel, Signed } from '@/components/ui'
 import { getOperationalHealth, getPortfolioReview, type ReviewPosition } from '@/lib/adapters/portfolio-db'
 import { EMPTY_VALUE, fmtNumber, fmtPct, fmtQuantity } from '@/lib/format'
 import { createMoneyFormatter } from '@/lib/currency'
@@ -10,7 +9,7 @@ import { getGlossary } from '@/lib/glossary'
 import { getLanguage } from '@/lib/i18n-server'
 import { reviewLinkedIssues } from '@/lib/header-status'
 import { getPageCopy } from '@/lib/ui-copy'
-import { TO_REVIEW_SEVERITY, countTone, signTone } from '@/lib/tone'
+import { signTone } from '@/lib/tone'
 import { routeMetadata, routeSection } from '@/lib/page-names'
 import { CardRow } from '@/components/layout'
 import { ProgressBar } from '@/components/bars'
@@ -28,7 +27,7 @@ function PositionTable({
   money,
 }: {
   rows: ReviewPosition[]
-  mode: 'gain' | 'loss' | 'size' | 'term' | 'missing'
+  mode: 'gain' | 'loss' | 'term' | 'missing'
   copy: ReviewCopy
   money: (value: number | null | undefined, currency?: string | null | undefined) => string
 }) {
@@ -68,8 +67,7 @@ export default async function ReviewPage() {
   const operational = getOperationalHealth()
   const totalReturnPct =
     review.totals.base_cost > 0 ? (review.totals.base_unrealized_gl / review.totals.base_cost) * 100 : 0
-  const issueCount = operational.staleItems.length
-  const readiness = reviewLinkedIssues(copy, issueCount)
+  const readiness = reviewLinkedIssues(copy, operational.staleItems.length)
 
   return (
     <>
@@ -85,7 +83,7 @@ export default async function ReviewPage() {
           number the overview leads with, so the reader met it twice and learned
           nothing the second time. What is left is what only this page frames:
           how many positions, how they split, and how much needs attention. */}
-      <div className="mb-5 grid grid-cols-2 gap-4 rounded-md border border-line bg-card px-4 py-3 shadow-card sm:grid-cols-4">
+      <div className="mb-5 grid grid-cols-2 gap-4 rounded-md border border-line bg-card px-4 py-3 shadow-card sm:grid-cols-3">
         <MetricField
           label={copy.positions}
           value={fmtNumber(review.totals.position_count)}
@@ -103,81 +101,46 @@ export default async function ReviewPage() {
           hint={fmtPct(totalReturnPct)}
           tone={signTone(review.totals.base_unrealized_gl)}
         />
-        <MetricField
-          label={copy.freshnessIssuesLabel}
-          value={fmtNumber(issueCount)}
-          info={glossary.freshness.description}
-          hint={copy.inputsNeedingReview}
-          tone={countTone(TO_REVIEW_SEVERITY, issueCount)}
-        />
       </div>
 
       <Panel as="p" bordered={false} text="label-note" spacing="mb-5">{copy.readOrder}</Panel>
 
-      <CardRow columns={3}>
-        <Card title={copy.marketSummary}>
-          <ul className="divide-y divide-line-subtle">
-            {review.byMarket.map((row) => (
-              <li key={row.market} className="grid grid-cols-[4rem_1fr_auto] items-center gap-3 py-2 text-caption">
-                <Badge tone={marketTone(row.market)}>{row.market}</Badge>
-                <div className="min-w-0">
-                  <div className="font-medium tabular-nums text-ink">{money(row.base_market_value)}</div>
-                  <div className="text-label text-ink-3">{copy.positionCount(fmtNumber(row.position_count))}</div>
-                </div>
-                <div className="text-right"><Signed value={row.base_unrealized_gl} format={(m) => money(m, 'KRW')} /></div>
-              </li>
-            ))}
-          </ul>
-        </Card>
-
-        <Card title={copy.concentration}>
-          <div className="grid gap-3 text-caption">
-            <div className="flex items-center justify-between">
-              <span className="text-ink-3">Top 1</span>
-              <span className="font-medium tabular-nums text-ink">{fmtPct(review.concentration.top1Share)}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-ink-3">Top 5</span>
-              <span className="font-medium tabular-nums text-ink">{fmtPct(review.concentration.top5Share)}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-ink-3">Top 10</span>
-              <span className="font-medium tabular-nums text-ink">{fmtPct(review.concentration.top10Share)}</span>
-            </div>
-            <ProgressBar pct={review.concentration.top5Share} tone="info" track="surface" roundedFill />
+      <Card title={copy.concentration} className="mb-5">
+        <div className="grid gap-3 text-caption">
+          <div className="flex items-center justify-between">
+            <span className="text-ink-3">Top 1</span>
+            <span className="font-medium tabular-nums text-ink">{fmtPct(review.concentration.top1Share)}</span>
           </div>
-        </Card>
-
-        <Card id="review-operational-readiness" title={copy.operationalReadiness} issues={readiness.issues}>
-          {operational.staleItems.length === 0 ? (
-            <EmptyState ok>{copy.noOperationalInputs}</EmptyState>
-          ) : (
-            <FreshnessRows items={operational.staleItems.slice(0, 5)} language={language} />
-          )}
-        </Card>
-      </CardRow>
+          <div className="flex items-center justify-between">
+            <span className="text-ink-3">Top 5</span>
+            <span className="font-medium tabular-nums text-ink">{fmtPct(review.concentration.top5Share)}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-ink-3">Top 10</span>
+            <span className="font-medium tabular-nums text-ink">{fmtPct(review.concentration.top10Share)}</span>
+          </div>
+          <ProgressBar pct={review.concentration.top5Share} tone="info" track="surface" roundedFill />
+        </div>
+        <Note spacing="above-2">{copy.concentrationBasis}</Note>
+      </Card>
 
       <CardRow>
-        <Card title={copy.largestPositions}>
-          <PositionTable rows={review.largestPositions} mode="size" copy={copy} money={money} />
-        </Card>
         <Card title={copy.topGains}>
           <PositionTable rows={review.topGainers} mode="gain" copy={copy} money={money} />
         </Card>
-      </CardRow>
-
-      <CardRow>
         <Card title={copy.topLosses}>
           <PositionTable rows={review.topLosers} mode="loss" copy={copy} money={money} />
         </Card>
+      </CardRow>
+
+      <CardRow spacing="none">
         <Card title={copy.shortTermHeavy}>
           <PositionTable rows={review.shortTermHeavy} mode="term" copy={copy} money={money} />
         </Card>
+        <Card title={copy.missingMarketValue} issues={{ count: review.noMarketValue.length }}>
+          <PositionTable rows={review.noMarketValue} mode="missing" copy={copy} money={money} />
+        </Card>
       </CardRow>
-
-      <Card title={copy.missingMarketValue} issues={{ count: review.noMarketValue.length }}>
-        <PositionTable rows={review.noMarketValue} mode="missing" copy={copy} money={money} />
-      </Card>
     </>
   )
 }

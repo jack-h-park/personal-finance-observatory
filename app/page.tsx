@@ -1,26 +1,19 @@
-import Link from 'next/link'
 import { FinanceTaxSummary } from '@/components/FinanceTaxSummary'
 import { AssetCoverageNote } from '@/components/AssetCoverageNote'
 import { isSupplementarySource } from '@/lib/supplementary'
-import { FreshnessInline } from '@/components/Freshness'
 import { PageHeader } from '@/components/PageHeader'
-import { Badge, Card, EmptyState, HeroAside, Label, MetricField, MetricHeroCard, Note, Panel, TextLink, marketTone } from '@/components/ui'
-import { PortfolioMultiTrendChart, PortfolioTrendChart, StackedAssetChart, TrendBarChart } from '@/components/charts'
+import { Badge, Card, EmptyState, HeroAside, MetricField, MetricHeroCard, Note, Panel, TextLink, marketTone } from '@/components/ui'
+import { PortfolioMultiTrendChart, PortfolioTrendChart } from '@/components/charts'
 import {
   dbAvailable,
   getAccountAllocation,
-  getAssetEvents,
   getAssetCoverageReview,
-  getChildAssets,
-  getDividendByYear,
   getMeta,
   getNetWorth,
   getOperationalHealth,
   getOverview,
   getPortfolioSnapshots,
   getTopHoldings,
-  getTotalAssetsSeries,
-  getTransactionTypes,
   getWashSaleReview,
   withGoldScope,
 } from '@/lib/adapters/portfolio-db'
@@ -38,19 +31,14 @@ import {
   type TrendMetricKey,
 } from '@/lib/overview-trend'
 import { config } from '@/config'
-import { ASSET_CLASSES } from '@/lib/net-worth'
-import { chartMarkers, snapEventDates } from '@/lib/asset-events'
-import { AssetEventList } from '@/components/AssetEventList'
-import { EMPTY_VALUE, dividendChartAmount, fmtDate, fmtDateTime, fmtNumber, fmtPct, fmtSigned } from '@/lib/format'
-import { freshnessLabel } from '@/lib/freshness-text'
+import { EMPTY_VALUE, fmtDate, fmtDateTime, fmtNumber, fmtPct, fmtSigned } from '@/lib/format'
 import { convertMoney, createMoneyFormatter } from '@/lib/currency'
 import { getAssetView } from '@/lib/asset-view-server'
 import { getCurrencyPreferences } from '@/lib/currency-server'
 import { getGlossary } from '@/lib/glossary'
 import { getLanguage } from '@/lib/i18n-server'
-import { positionHref } from '@/lib/position-url'
-import { TRANSACTION_TYPE_TONE, categoryTone, signClass, signTone } from '@/lib/tone'
-import { getPageCopy, getUiCopy } from '@/lib/ui-copy'
+import { signClass, signTone } from '@/lib/tone'
+import { getPageCopy } from '@/lib/ui-copy'
 import { routeMetadata, routeSection } from '@/lib/page-names'
 import { CardRow, KpiBand, MiniStat, MiniStatGrid } from '@/components/layout'
 import { ShareBar } from '@/components/bars'
@@ -64,18 +52,13 @@ import { maskAccountLabel } from '@/lib/account-label'
 export const dynamic = 'force-dynamic'
 export const generateMetadata = routeMetadata('/')
 
-const shortAxisLabel = (value: string) => value.length > 20 ? `${value.slice(0, 19)}...` : value
-const positionAxisLabel = (market: string, name: string, ticker: string) => {
-  if (market === 'KR') return shortAxisLabel(name || ticker)
-  return shortAxisLabel(ticker || name)
-}
 type TrendViewKey = 'single' | 'combined'
 
 
 export default async function OverviewPage({
   searchParams,
 }: {
-  searchParams: Promise<{ trend?: string; metric?: string; scope?: string; view?: string; children?: string }>
+  searchParams: Promise<{ trend?: string; metric?: string; scope?: string; view?: string }>
 }) {
   const language = await getLanguage()
   const currencyPreferences = await getCurrencyPreferences()
@@ -125,21 +108,8 @@ export default async function OverviewPage({
   const storedSnapshots = getPortfolioSnapshots(trendRangeDays(selectedRange.days))
   // The gold scope is derived on read (lib/gold-trend.ts), so only that scope pays for it.
   const portfolioSnapshots = selectedScope === 'GOLD' ? withGoldScope(storedSnapshots) : storedSnapshots
-  // All-assets view only: every class stacked on the same snapshot dates, plus today.
-  const totalAssets = assetView === 'all' ? getTotalAssetsSeries(portfolioSnapshots.map((snapshot) => snapshot.snapshot_date), netWorthSummary) : null
-  // Self only unless ?children=1; then the children are their own band, never in the total.
-  const includeChildren = params.children === '1'
-  const childQuery = includeChildren ? '&children=1' : ''
-  const childAssets = totalAssets && includeChildren ? getChildAssets(totalAssets.points.map((point) => point.date)) : null
-  const childrenOn = new Map((childAssets?.points ?? []).map((point) => [point.date, point.total]))
-  const childCopy = getPageCopy('netWorth', language).children
-  // The large asset events, only where the total-assets chart renders.
-  const eventMarkers = totalAssets ? snapEventDates(getAssetEvents(), totalAssets.points.map((point) => point.date)) : []
-  const eventsCopy = getPageCopy('assetEvents', language)
   const top = getTopHoldings(10)
   const accounts = getAccountAllocation()
-  const dividendYears = getDividendByYear()
-  const txTypes = getTransactionTypes()
   const operational = getOperationalHealth()
   const usdKrw = overview.fxRates.find((r: any) => r.from_currency === 'USD' && r.to_currency === 'KRW')
   // Supplementary inputs (deposits, pensions, gold) report in the weekly reminder, not on the stock badge.
@@ -182,12 +152,6 @@ export default async function OverviewPage({
   const cryptoShare = globalValue > 0 ? Math.round((overview.totals.crypto_base_market_value / globalValue) * 100) : 0
   const topFiveBase = top.slice(0, 5).reduce((sum, r) => sum + (r.base_cost ?? 0), 0)
   const topFiveShare = globalBase > 0 ? Math.round((topFiveBase / globalBase) * 100) : 0
-  const largestPositions = top
-  const topHoldingChartData = top.map((r) => ({
-    name: positionAxisLabel(r.market, r.name, r.ticker),
-    market: r.market,
-    value: Math.round(displayBaseMillions(r.base_cost ?? 0)),
-  }))
   const marketBreakdown = [
     {
       market: 'KR',
@@ -341,7 +305,7 @@ export default async function OverviewPage({
             <Panel bordered={false} text="label-note" spacing="mt-3">{copy.unpricedCash(netWorth.unpricedCash.length)}</Panel>
           ) : null}
           <div className="mt-3">
-            <TextLink href="/net-worth">{copy.openNetWorth}</TextLink>
+            <TextLink href="/net-worth">{copy.openTotalAssets}</TextLink>
           </div>
         </Card>
       ) : null}
@@ -408,24 +372,13 @@ export default async function OverviewPage({
         </div>
       </Card>
 
-      <Card title={copy.freshnessTitle} info={glossary.freshness.description} className="mb-5">
-        <div className="grid gap-2 lg:grid-cols-3">
-          {operational.snapshots.map((item) => (
-            <Panel key={item.key}>
-              <Label className="mb-1">{freshnessLabel(item, language)}</Label>
-              <FreshnessInline item={item} language={language} />
-            </Panel>
-          ))}
-        </div>
-      </Card>
-
       <CardRow>
         <Card title={copy.concentration} info={copy.concentrationInfo}>
           <div className="flex h-full min-h-[190px] flex-col justify-center">
             <div className="text-hero font-medium leading-none tabular-nums text-ink">{fmtPct(topFiveShare, { digits: 0 })}</div>
             <div className="mt-1 text-caption text-ink-3">{copy.concentrationHint}</div>
             <div className="mt-5 space-y-2">
-              {largestPositions.map((p) => (
+              {top.map((p) => (
                 <div key={p.id} className="flex items-center justify-between gap-3 text-caption">
                   <div className="flex min-w-0 items-center gap-2">
                     <Badge tone={marketTone(p.market)}>{p.market}</Badge>
@@ -436,6 +389,7 @@ export default async function OverviewPage({
                 </div>
               ))}
             </div>
+            <Note spacing="above-2">{copy.concentrationBasis}</Note>
           </div>
         </Card>
 
@@ -478,7 +432,7 @@ export default async function OverviewPage({
         className="mb-5"
         action={
           <div className="flex flex-wrap items-center justify-end gap-1">
-            <TrendRangeLinks selected={selectedRange} hrefFor={(key) => `/?trend=${key}&scope=${selectedScope}&metric=${selectedMetric.key}&view=${selectedView}${childQuery}`} />
+            <TrendRangeLinks selected={selectedRange} hrefFor={(key) => `/?trend=${key}&scope=${selectedScope}&metric=${selectedMetric.key}&view=${selectedView}$`} />
           </div>
         }
       >
@@ -534,18 +488,18 @@ export default async function OverviewPage({
         ) : null}
         <div className="mb-3 flex flex-wrap items-center gap-1">
           <LinkChip
-            href={`/?trend=${selectedRange.key}&scope=${selectedScope}&metric=${selectedMetric.key}&view=single${childQuery}`}
+            href={`/?trend=${selectedRange.key}&scope=${selectedScope}&metric=${selectedMetric.key}&view=single$`}
             active={selectedView === 'single'}
           >{copy.individual}</LinkChip>
           <LinkChip
-            href={`/?trend=${selectedRange.key}&scope=${selectedScope}&metric=${selectedMetric.key}&view=combined${childQuery}`}
+            href={`/?trend=${selectedRange.key}&scope=${selectedScope}&metric=${selectedMetric.key}&view=combined$`}
             active={selectedView === 'combined'}
           >{copy.combined}</LinkChip>
           <span className="mx-1 h-4 w-px bg-line-subtle" />
           <LinkChips
             items={TREND_SCOPES.map((scope) => ({
               key: scope.key,
-              href: `/?trend=${selectedRange.key}&scope=${scope.key}&metric=${selectedMetric.key}&view=${selectedView}${childQuery}`,
+              href: `/?trend=${selectedRange.key}&scope=${scope.key}&metric=${selectedMetric.key}&view=${selectedView}$`,
               label: copy.scopeLabels[scope.key],
               title: scope.key === 'GOLD' ? copy.scopeHints.GOLD : undefined,
             }))}
@@ -556,7 +510,7 @@ export default async function OverviewPage({
             variant="subtle"
             items={TREND_METRICS.map((metric) => ({
               key: metric.key,
-              href: `/?trend=${selectedRange.key}&scope=${selectedScope}&metric=${metric.key}&view=single${childQuery}`,
+              href: `/?trend=${selectedRange.key}&scope=${selectedScope}&metric=${metric.key}&view=single$`,
               label: copy.metricLabels[metric.key],
             }))}
             current={selectedMetric.key}
@@ -600,143 +554,21 @@ export default async function OverviewPage({
         </div>
       </Card>
 
-      {totalAssets ? (
-        <Card
-          title={copy.totalAssetsTrend}
-          className="mb-5"
-          action={
-            <div className="flex flex-wrap items-center justify-end gap-1">
-              <TrendRangeLinks selected={selectedRange} hrefFor={(key) => `/?trend=${key}&scope=${selectedScope}&metric=${selectedMetric.key}&view=${selectedView}${childQuery}`} />
-              <LinkChip
-                href={`/?trend=${selectedRange.key}&scope=${selectedScope}&metric=${selectedMetric.key}&view=${selectedView}${includeChildren ? '' : '&children=1'}`}
-                active={includeChildren}
-                ariaCurrent="none"
-                aria-label={childCopy.toggleAria(includeChildren)}
-                title={childCopy.toggleHint}
-              >
-                {childCopy.toggle}
-              </LinkChip>
-            </div>
-          }
-        >
-          <StackedAssetChart
-            points={totalAssets.points.map((point) => ({
-              date: point.date,
-              stocks: point.stocks == null ? null : displayBaseMillions(point.stocks),
-              crypto: point.crypto == null ? null : displayBaseMillions(point.crypto),
-              cash: point.cash == null ? null : displayBaseMillions(point.cash),
-              pensions: point.pensions == null ? null : displayBaseMillions(point.pensions),
-              gold: point.gold == null ? null : displayBaseMillions(point.gold),
-              total: displayBaseMillions(point.total),
-              ...(includeChildren ? { children: childrenOn.get(point.date) == null ? null : displayBaseMillions(childrenOn.get(point.date)!) } : {}),
-            }))}
-            childrenBand={includeChildren ? { label: childCopy.band, combinedLabel: childCopy.combined } : undefined}
-            startsOn={totalAssets.startsOn}
-            currency={currencyPreferences.displayCurrency}
-            labels={{ ...copy.assetClasses, total: copy.totalAssets }}
-            axisLabel={displayAxisLabel}
-            markers={chartMarkers(eventMarkers, totalAssets.points[0]?.date)}
-          />
-          {(childAssets?.owners ?? [])
-            .filter((owner) => owner.derivation && owner.derivedFrom && owner.derivedUntil)
-            .map((owner) => (
-              <div key={owner.owner} className="mt-1 text-label text-ink-3">
-                {childCopy.derivedNote(owner.label, fmtDate(owner.derivedFrom!, language), fmtDate(owner.derivedUntil!, language), owner.derivation!)}
-              </div>
-            ))}
-          <div className="mt-1 text-label text-ink-3">
-            {copy.totalAssetsStarts(
-              ASSET_CLASSES.filter((key) => totalAssets.startsOn[key]).map((key) => copy.classSince(copy.assetClasses[key], fmtDate(totalAssets.startsOn[key]!, language)))
-            )}
-          </div>
-          <div className="mt-2 text-label leading-relaxed text-ink-3">{copy.totalAssetsTrendNote}</div>
-          <div className="mt-4">
-            <AssetEventList markers={eventMarkers} copy={eventsCopy} money={(krw) => money(krw)} language={language} />
-          </div>
-        </Card>
-      ) : null}
-
-      <CardRow>
-        <Card title={copy.topHoldingsByCost}>
-          <TrendBarChart
-            data={topHoldingChartData}
-            xKey="name"
-            yKey="value"
-            height={240}
-            xAxisInterval={0}
-            xAxisHeight={52}
-            xTickAngle={-16}
-            barColorKey="market"
-            yAxisPrefix={displayPrefix}
-            yAxisSuffix="M"
-            yAxisLabel={displayAxisLabel}
-          />
-          <Note spacing="above-2">{copy.topHoldingsNote}</Note>
-        </Card>
-
-        <Card title={copy.dividendTrend}>
-          <TrendBarChart
-            data={dividendYears.map((r) => ({ year: `${r.currency} ${r.year}`, currency: r.currency, amount: dividendChartAmount(r.currency, r.amount) }))}
-            xKey="year"
-            yKey="amount"
-            height={240}
-            color="var(--accent-success)"
-            barColorKey="currency"
-            allowDecimals
-            yAxisLabel={copy.dividendAxis}
-          />
-          <Note spacing="above-2">{copy.dividendTrendNote}</Note>
-        </Card>
-      </CardRow>
-
-      <CardRow spacing="none">
-        <Card title={copy.accountAllocation}>
-          {accounts.length === 0 ? (
-            <EmptyState>{copy.noAccountData}</EmptyState>
-          ) : (
-            <ul className="divide-y divide-line-subtle">
-              {accounts.map((a) => (
-                <li key={a.account} className="flex items-center gap-3 py-2">
-                  <div className="min-w-0 flex-1 truncate text-body text-ink">{maskAccountLabel(a.account)}</div>
-                  <div className="text-caption tabular-nums text-ink-3">{copy.holdingRows(a.count)}</div>
-                  <div className="w-36 text-right text-caption font-medium tabular-nums text-ink">{money(a.value, a.currency)}</div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
-
-        <Card title={copy.largestPositions}>
+      <Card title={copy.accountAllocation}>
+        {accounts.length === 0 ? (
+          <EmptyState>{copy.noAccountData}</EmptyState>
+        ) : (
           <ul className="divide-y divide-line-subtle">
-            {largestPositions.map((h) => (
-              <li key={h.id} className="flex items-center gap-3 py-2">
-                <Badge tone={marketTone(h.market)}>{h.market}</Badge>
-                <Badge tone="neutral">{h.ticker}</Badge>
-                <Link href={positionHref(h.market, h.ticker)} className="min-w-0 flex-1 truncate text-body font-medium text-ink hover:underline">
-                  {h.name}
-                </Link>
-                <span className="text-caption tabular-nums text-ink-3">{money(h.base_cost ?? 0, 'KRW')}</span>
+            {accounts.map((a) => (
+              <li key={a.account} className="flex items-center gap-3 py-2">
+                <div className="min-w-0 flex-1 truncate text-body text-ink">{maskAccountLabel(a.account)}</div>
+                <div className="text-caption tabular-nums text-ink-3">{copy.holdingRows(a.count)}</div>
+                <div className="w-36 text-right text-caption font-medium tabular-nums text-ink">{money(a.value, a.currency)}</div>
               </li>
             ))}
           </ul>
-        </Card>
-
-        <Card title={copy.transactionTypes}>
-          <ul className="divide-y divide-line-subtle">
-            {txTypes.map((t) => (
-              <li key={`${t.market}:${t.type}`} className="flex items-center justify-between gap-3 py-2">
-                <div className="flex min-w-0 items-center gap-2">
-                  <Badge tone={marketTone(t.market)}>{t.market}</Badge>
-                  <Badge tone={categoryTone(TRANSACTION_TYPE_TONE, t.type, 'info')}>
-                    {getUiCopy(language).transactionTypes[t.type] ?? t.type}
-                  </Badge>
-                </div>
-                <span className="text-caption tabular-nums text-ink-3">{copy.count(fmtNumber(t.count))}</span>
-              </li>
-            ))}
-          </ul>
-        </Card>
-      </CardRow>
+        )}
+      </Card>
     </>
   )
 }
