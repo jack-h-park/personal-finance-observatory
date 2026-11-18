@@ -781,6 +781,16 @@ test('PageHeader parent renders Section > Parent in a labelled nav, in the eyebr
   assert.match(nav[0], /t-eyebrow/)
 })
 
+test('PageHeader breadcrumb wraps between crumbs, never inside one', () => {
+  const html = renderHeader({ parent: '/holdings', language: 'ko', autoRefresh: false })
+  const nav = html.match(/<nav [^>]*>(.*?)<\/nav>/)
+  assert.ok(nav, html)
+  assert.match(nav[0], /flex-wrap/)
+  const crumbs = [...nav[1].matchAll(/<(span|a)\b(?![^>]*aria-hidden)[^>]*>/g)]
+  assert.equal(crumbs.length, 2, nav[1])
+  for (const crumb of crumbs) assert.match(crumb[0], /whitespace-nowrap/, crumb[0])
+})
+
 test('PageHeader parent names the nav in Korean', () => {
   const html = renderHeader({ parent: '/rebalance', language: 'ko', autoRefresh: false })
   assert.match(html, /<nav aria-label="현재 위치"/)

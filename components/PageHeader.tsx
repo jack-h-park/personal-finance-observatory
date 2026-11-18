@@ -105,11 +105,11 @@ export function PageHeader({
 function Breadcrumb({ parent, language }: { parent: RouteHref; language: Language }) {
   return (
     <nav aria-label={getUiCopy(language).common.breadcrumb} className="t-eyebrow mb-1 flex flex-wrap items-center gap-x-1.5">
-      <span>{routeSection(parent, language)}</span>
+      <span className="whitespace-nowrap">{routeSection(parent, language)}</span>
       <span aria-hidden="true">›</span>
       <Link
         href={parent}
-        className="rounded-sm text-info hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info/40"
+        className="whitespace-nowrap rounded-sm text-info hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info/40"
       >
         {routeName(parent, language)}
       </Link>
