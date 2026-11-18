@@ -236,3 +236,30 @@ test('parseLlmJson prefers an object with an outlook key over an earlier one', (
   // A nested outlook key does not count; only a top-level one does.
   assert.deepEqual(parseLlmJson('{"x":{"outlook":1}} {"outlook":2}'), { outlook: 2 })
 })
+
+test('optional Korean renderings are kept when usable and dropped, never rejected, otherwise', () => {
+  const hold = (o: Record<string, unknown>, ideas: unknown[]) => ({
+    outlook: { ...outlook(), ...o },
+    targetChange: { decision: 'hold', sleeves: {} },
+    ideas,
+    questionsForMaintainer: [],
+  })
+  const idea = (whyKo: unknown) => ({ market: 'US', ticker: 'zzz', sleeve: 'us_equity', why: 'Cheap.', whyKo })
+  const kept = validateLlmOutput(hold({ summaryKo: '  금리가 내려가고 있습니다.  ' }, [idea('실적 대비 저렴합니다.')]), policy())
+  assert.equal(kept.ok, true)
+  if (!kept.ok) return
+  assert.equal(kept.output.outlook.summaryKo, '금리가 내려가고 있습니다.')
+  assert.equal(kept.output.ideas[0].whyKo, '실적 대비 저렴합니다.')
+
+  for (const bad of [42, '', '   ', null, ['a'], 'ㄱ'.repeat(801)]) {
+    const r = validateLlmOutput(hold({ summaryKo: bad }, [idea(typeof bad === 'string' ? 'ㄴ'.repeat(301) : bad)]), policy())
+    assert.equal(r.ok, true, `a bad Korean value never fails validation: ${JSON.stringify(bad)?.slice(0, 20)}`)
+    if (!r.ok) continue
+    assert.equal('summaryKo' in r.output.outlook, false)
+    assert.equal('whyKo' in r.output.ideas[0], false)
+  }
+  // At the caps exactly, kept.
+  const edge = validateLlmOutput(hold({ summaryKo: 'ㄱ'.repeat(800) }, [idea('ㄴ'.repeat(300))]), policy())
+  assert.equal(edge.ok && edge.output.outlook.summaryKo?.length, 800)
+  assert.equal(edge.ok && edge.output.ideas[0].whyKo?.length, 300)
+})

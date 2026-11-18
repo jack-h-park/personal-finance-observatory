@@ -199,9 +199,10 @@ rb_thread_id() { # <proposal id>
 }
 
 # Parses the notify JSON once. Prints one tab-separated line per event:
-#   index, id, kind, proposalId, telegram pending (0/1), discord pending (0/1), prior Discord attempts
-# and writes the text fields to <dir>/<index>.{telegram,discord,title,material,prompt} (only the non-null ones),
-# so multi-line text never has to survive a shell split.
+#   index, id, kind, proposalId, telegram pending (0/1), discord pending (0/1), prior Discord attempts,
+#   whether the Korean opening quotes model-written text (0/1)
+# and writes the text fields to <dir>/<index>.{telegram,discord,title,material,prompt,opening} (only the non-null
+# ones), so multi-line text never has to survive a shell split.
 rb_index_events() { # <json> <dir>
   RB_IN="$1" RB_DIR="$2" RB_ATT="$RB_ATTEMPTS_FILE" node -e '
     const fs = require("fs"), path = require("path")
@@ -209,14 +210,14 @@ rb_index_events() { # <json> <dir>
     let attempts = {}
     try { attempts = JSON.parse(fs.readFileSync(process.env.RB_ATT, "utf8")).attempts || {} } catch {}
     const clean = (s) => String(s).replace(/[\t\n\r]/g, " ")
-    const files = { telegram: "telegram", discord: "discord", threadTitle: "title", threadMaterial: "material", threadPrompt: "prompt" }
+    const files = { telegram: "telegram", discord: "discord", threadTitle: "title", threadMaterial: "material", threadPrompt: "prompt", discordOpening: "opening" }
     events.forEach((e, i) => {
       for (const [field, name] of Object.entries(files)) {
         if (e[field] != null) fs.writeFileSync(path.join(process.env.RB_DIR, `${i}.${name}`), String(e[field]))
       }
       const ch = Array.isArray(e.channels) ? e.channels : []
       const tg = ch.includes("telegram") && e.telegram != null ? 1 : 0
-      process.stdout.write([i, clean(e.id), clean(e.kind), clean(e.proposalId), tg, ch.includes("discord") ? 1 : 0, Number(attempts[e.id]) || 0].join("\t") + "\n")
+      process.stdout.write([i, clean(e.id), clean(e.kind), clean(e.proposalId), tg, ch.includes("discord") ? 1 : 0, Number(attempts[e.id]) || 0, e.discordOpeningQuotesModel === true ? 1 : 0].join("\t") + "\n")
     })
   '
 }
@@ -250,6 +251,31 @@ rb_opening_prompt() { # <cp> <dir> <index> <proposal id>
   else
     cat "$dir/$i.prompt" 2>/dev/null
   fi
+}
+
+# True when the control plane's run-agent-request.sh can deliver a caller-rendered opening verbatim
+# (`--body-file`, no composer). Detected by the flag's name in the script, so an older control plane
+# checkout keeps the contract/prompt path below unchanged.
+rb_supports_flag() { # <script> <flag>
+  grep -F -e "$2" "$1" >/dev/null 2>&1
+}
+
+# The thread for a proposal's `created` event. With the Korean opening (<dir>/<index>.opening) and a
+# control plane that takes --body-file, the opening is delivered exactly as rendered, no model involved
+# (docs/rebalancing.md § Operations (the notify flow)). The footer names the job that wrote any quoted model text when the
+# control plane takes --body-stored-from. Otherwise the composed opening from the contract/prompt, as before.
+RB_OUTLOOK_JOB="rebalance-monthly"
+rb_open_thread() { # <rar> <cp> <dir> <index> <proposal id> <quotes model 0/1>
+  local rar="$1" cp="$2" dir="$3" i="$4" pid="$5" qm="$6" title stored=()
+  title="$(cat "$dir/$i.title" 2>/dev/null)"
+  if [ -n "$(tr -d '[:space:]' < "$dir/$i.opening" 2>/dev/null)" ] && rb_supports_flag "$rar" --body-file; then
+    [ "$qm" = 1 ] && rb_supports_flag "$rar" --body-stored-from && stored=(--body-stored-from "$RB_OUTLOOK_JOB")
+    CRON_JOB_NAME="${CRON_JOB_NAME:-rebalance-notify}" "$rar" --kind proposal --key "proposal:$pid" --title "$title" \
+      --body-file "$dir/$i.opening" ${stored[@]+"${stored[@]}"} --origin sweep >/dev/null 2>&1
+    return
+  fi
+  "$rar" --kind proposal --key "proposal:$pid" --title "$title" \
+    --prompt "$(rb_opening_prompt "$cp" "$dir" "$i" "$pid")" --origin sweep >/dev/null 2>&1
 }
 
 # Applies this run's Discord outcomes (lines "<id>\t<n>|ok|gaveup") to the attempts
@@ -295,10 +321,10 @@ rb_notify_flow() {
   index="$(rb_index_events "$RB_JSON" "$RB_TMP")" || { echo "⚠️ Rebalance notify could not run: unreadable events"; return 1; }
   [ -n "$index" ] || return 0
 
-  local i id kind pid tg dc att
+  local i id kind pid tg dc att qm
   # Telegram: stdout is the delivery, so print first and record after.
   local tg_ids="" printed_created=0
-  while IFS=$'\t' read -r i id kind pid tg dc att; do
+  while IFS=$'\t' read -r i id kind pid tg dc att qm; do
     [ "$tg" = 1 ] || continue
     printf '%s\n' "$(cat "$RB_TMP/$i.telegram")"
     tg_ids="${tg_ids:+$tg_ids,}$id"
@@ -337,12 +363,11 @@ rb_notify_flow() {
   # marked as given up so it stops being retried, and recorded in the attempts file.
   local updates="$RB_TMP/updates" n rc thread unmarked=0
   : > "$updates"
-  while IFS=$'\t' read -r i id kind pid tg dc att; do
+  while IFS=$'\t' read -r i id kind pid tg dc att qm; do
     [ "$dc" = 1 ] || continue
     n=$((att + 1))
     if [ "$kind" = created ]; then
-      if "$rar" --kind proposal --key "proposal:$pid" --title "$(cat "$RB_TMP/$i.title" 2>/dev/null)" \
-        --prompt "$(rb_opening_prompt "$cp" "$RB_TMP" "$i" "$pid")" --origin sweep >/dev/null 2>&1; then
+      if rb_open_thread "$rar" "$cp" "$RB_TMP" "$i" "$pid" "$qm"; then
         rb_mark "$id" discord || unmarked=1
         printf '%s\tok\n' "$id" >> "$updates"
       else

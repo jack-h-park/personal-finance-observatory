@@ -104,7 +104,7 @@ test('status change yields one status_changed per transition', async () => {
   const events = pendingEvents([after], state, T0)
   assert.deepEqual(events.map((e) => e.id), ['rb-2026-10:status_changed:targets_approved', 'rb-2026-10:status_changed:plan_approved', 'rb-2026-10:status_changed:executing'])
   assert.deepEqual(events.map((e) => e.channels), [['discord'], ['discord'], ['discord']])
-  assert.equal(events[1].discord, 'Status → plan approved.')
+  assert.equal(events[1].discord, '상태 변경 → 계획 승인됨')
   assert.equal(events[1].telegram, null)
 })
 
@@ -125,7 +125,7 @@ test('reminder once after 3 days in draft', async () => {
   const due = pendingEvents([p], state, new Date(T0.getTime() + 3 * DAY))
   assert.equal(due.length, 1)
   assert.equal(due[0].id, 'rb-2026-10:reminder:draft3d')
-  assert.equal(due[0].discord, 'Reminder: this proposal has been in draft for 3 days; it expires on 2026-10-08.')
+  assert.equal(due[0].discord, '알림: 이 제안은 3일째 초안 상태입니다. 2026-10-08에 만료됩니다. /rebalance/proposals/rb-2026-10')
   assert.equal(due[0].telegram, null)
   state = markSent(state, [due[0].id], 'discord', T0)
   assert.deepEqual(pendingEvents([p], state, new Date(T0.getTime() + 5 * DAY)), [])
@@ -286,4 +286,286 @@ test('an answered question sends nothing, and answers stay out of the thread mat
   const fresh = pendingEvents([after], { version: 1, seeded: true, announced: {} }, T0)
   assert.ok(!fresh.some((e) => JSON.stringify(e).includes('ANSWER-MARKER')))
   assert.ok(!fresh.some((e) => e.id.includes('answered')))
+})
+
+// --- The Korean thread messages --------------------------------------------------------------------------
+//
+// The Discord opening and status lines are a Korean template built from the proposal's data alone. Fixture
+// figures are invented; the account labels and instruction tickers below must never appear.
+
+const policyAtCreation = {
+  version: 1,
+  bounds: { sleeves: {}, positionCapPct: 10, maxTargetShiftPctPerCycle: 5, maxTurnoverPctPerProposal: 20, minTradeKrw: 100_000, staleDataDays: 7, harvestThresholdKrw: 1_000_000 },
+  targets: {
+    kr_equity: { target: 20, band: 5 },
+    us_equity: { target: 45, band: 5 },
+    bonds: { target: 5, band: 2.5 },
+    gold: { target: 10, band: 2 },
+    crypto: { target: 5, band: 2 },
+    cash: { target: 15, band: 5 },
+  },
+  preferredInstruments: {},
+  accounts: {},
+  history: [],
+}
+
+/** A trigger proposal: gold above its band, held, no trades, warnings and a harvest scenario, no LLM. */
+const bandHold = (over: Partial<Proposal> = {}) =>
+  proposal({
+    id: 'rb-2026-10-01-band',
+    kind: 'trigger',
+    triggers: ['band:gold', 'harvest'],
+    outlook: null,
+    llm: null,
+    ideas: [],
+    questionsForMaintainer: [],
+    policyAtCreation,
+    targetChange: { decision: 'hold', sleeves: {}, boundsErrors: [] },
+    plan: {
+      moves: [{ sleeve: 'gold', fromPct: 12.4321, toPct: 12, amountKrw: -4_000_000 }],
+      instructions: [],
+      warnings: [
+        { code: 'wash_sale_block', message: 'Secret Broker ACC-1 blocked' },
+        { code: 'unclassified', message: 'x' },
+        { code: 'unclassified', message: 'y' },
+        { code: 'mystery_code', message: 'z' },
+      ],
+      taxSummary: { estimatedTaxKrw: 0 },
+    },
+    harvest: { totalLossKrw: 12_345_678, taxEffectKrw: -2_345_678 },
+    ...over,
+  } as unknown as Partial<Proposal>)
+
+/** A monthly proposal with a Korean outlook summary, ideas and a target change. */
+const monthlyChange = (over: Partial<Proposal> = {}) =>
+  proposal({
+    policyAtCreation,
+    triggers: ['monthly'],
+    outlook: { summary: 'Rates are easing.', summaryKo: '금리가 내려가고 있습니다. 채권 비중을 조금 늘립니다.', drivers: [], risks: [], whatWouldChangeMyView: [], sources: [], confidence: 'high' },
+    ideas: [
+      { market: 'US', ticker: 'ZZZ', sleeve: 'us_equity', why: 'Cheap on earnings.', whyKo: '실적 대비 저렴합니다.' },
+      { market: 'KR', ticker: '000001', sleeve: 'kr_equity', why: 'Margins recovering.' },
+    ],
+    questionsForMaintainer: ['Is the cash floor still right?'],
+    targetChange: { decision: 'change', sleeves: { us_equity: { from: 45, to: 42, reason: 'r' }, bonds: { from: 5, to: 8, reason: 'r' } }, boundsErrors: [] },
+    ...over,
+  } as unknown as Partial<Proposal>)
+
+const openingOf = async (p: Proposal, opts: Record<string, unknown> = {}) => {
+  const { pendingEvents } = await import('../lib/rebalance/notify')
+  const e = pendingEvents([p], { version: 1, seeded: true, announced: {} }, T0, opts).find((x) => x.kind === 'created')
+  assert.ok(e?.discordOpening)
+  return { text: e.discordOpening, quotesModel: e.discordOpeningQuotesModel }
+}
+
+test('Korean opening: a band trigger held with no LLM, warnings and a harvest scenario', async () => {
+  const { text, quotesModel } = await openingOf(bandHold())
+  assert.equal(
+    text,
+    [
+      '🧭 리밸런싱 제안 rb-2026-10-01-band · 범위 이탈(금), 손실 확정 기회',
+      '판단: 유지 · 매매 지시 0건 · 예상 세금 영향 0원',
+      '금: 현재 12.43% / 목표 10% (허용 8–12%)',
+      '⚠️ 경고 4건: wash sale 차단 1 · 미분류 종목 2 · mystery_code 1',
+      '참고 · 손실 확정 시나리오(계획에 없음): 손실 약 1,235만 원 확정 시 올해 세금 약 -235만 원',
+      '할 일: 경고 확인 후 페이지에서 종료',
+      '/rebalance/proposals/rb-2026-10-01-band',
+    ].join('\n'),
+  )
+  assert.equal(quotesModel, false, 'nothing in it was written by a model')
+  // No outlook means no outlook line, and never the English in its place.
+  assert.doesNotMatch(text, /전망|아이디어|질문/)
+})
+
+test('Korean opening: a monthly proposal with summaryKo, ideas, a target change and a question', async () => {
+  const { text, quotesModel } = await openingOf(monthlyChange(), { baseUrl: 'https://stock.example.test/' })
+  assert.equal(
+    text,
+    [
+      '🧭 리밸런싱 제안 rb-2026-10 · 월간 점검',
+      '판단: 목표 변경 · 매매 지시 2건 · 예상 세금 영향 +123만 원',
+      '목표 변경: 미국주식 45% → 42% · 채권 5% → 8%',
+      '전망(신뢰도 높음): 금리가 내려가고 있습니다. 채권 비중을 조금 늘립니다.',
+      '아이디어(자동 매매 없음):',
+      '- US:ZZZ (미국주식) — 실적 대비 저렴합니다.',
+      '- KR:000001 (한국주식)',
+      '⚠️ 경고 1건: wash sale 차단 1',
+      '질문 1개 — 페이지에서 답변할 수 있습니다',
+      '할 일: 페이지에서 목표 변경을 검토하고 목표 승인',
+      'https://stock.example.test/rebalance/proposals/rb-2026-10',
+    ].join('\n'),
+  )
+  assert.equal(quotesModel, true)
+  assert.doesNotMatch(text, /Rates are easing|Cheap on earnings|Margins recovering/)
+})
+
+test('Korean opening: an outlook without summaryKo prints no outlook line; ideas beyond five are counted', async () => {
+  const ideas = Array.from({ length: 7 }, (_, i) => ({ market: 'US', ticker: `T${i}`, sleeve: 'gold', why: 'English only.' }))
+  const p = monthlyChange({ outlook: { summary: 'English only.', drivers: [], risks: [], whatWouldChangeMyView: [], sources: [], confidence: 'low' }, ideas } as never)
+  const { text, quotesModel } = await openingOf(p)
+  assert.doesNotMatch(text, /전망|English only/)
+  assert.match(text, /^- US:T4 \(금\)$/m)
+  assert.doesNotMatch(text, /T5|T6/)
+  assert.match(text, /^- 외 2건은 페이지에서$/m)
+  assert.equal(quotesModel, false)
+})
+
+test('Korean opening: the page link is absolute only with a usable http(s) base', async () => {
+  for (const baseUrl of [undefined, null, '', 'not a url', 'ftp://x']) {
+    const { text } = await openingOf(bandHold(), { baseUrl })
+    assert.equal(text.split('\n').at(-1), '/rebalance/proposals/rb-2026-10-01-band', String(baseUrl))
+  }
+  const { text } = await openingOf(bandHold(), { baseUrl: 'https://stock.example.test' })
+  assert.equal(text.split('\n').at(-1), 'https://stock.example.test/rebalance/proposals/rb-2026-10-01-band')
+})
+
+test('Korean opening: the notify CLI reads STOCK_OBSERVATORY_BASE_URL', async () => {
+  const { runRebalanceCli } = await import('../lib/rebalance/cli')
+  const dir = process.env.STOCK_REBALANCE_PROPOSALS_DIR as string
+  fs.mkdirSync(dir, { recursive: true })
+  fs.writeFileSync(path.join(dir, 'rb-2026-10-01-band.json'), JSON.stringify(bandHold()))
+  fs.writeFileSync(process.env.STOCK_REBALANCE_NOTIFY_STATE_PATH as string, JSON.stringify({ version: 1, seeded: true, announced: {} }))
+  const listed = async () => {
+    let out = ''
+    await runRebalanceCli(['notify'], { out: (t) => (out += t), err: () => {} }, T0)
+    return (JSON.parse(out).events as { kind: string; discordOpening: string }[]).find((e) => e.kind === 'created')!.discordOpening
+  }
+  try {
+    process.env.STOCK_OBSERVATORY_BASE_URL = 'https://stock.example.test'
+    assert.match(await listed(), /\nhttps:\/\/stock\.example\.test\/rebalance\/proposals\/rb-2026-10-01-band$/)
+    delete process.env.STOCK_OBSERVATORY_BASE_URL
+    assert.match(await listed(), /\n\/rebalance\/proposals\/rb-2026-10-01-band$/)
+  } finally {
+    delete process.env.STOCK_OBSERVATORY_BASE_URL
+    fs.rmSync(path.join(dir, 'rb-2026-10-01-band.json'))
+    fs.rmSync(process.env.STOCK_REBALANCE_NOTIFY_STATE_PATH as string)
+  }
+})
+
+test('Korean opening: a cap trigger shows the frozen position weight when the classes are given', async () => {
+  const p = bandHold({
+    triggers: ['cap:US:QQQ'],
+    harvest: undefined,
+    plan: { moves: [], instructions: [{ kind: 'sell', brokerage: 'Secret Broker', account: 'ACC-1', ticker: 'QQQ', estimatedKrw: 5 }], warnings: [], taxSummary: { estimatedTaxKrw: 345_000 } },
+    inputSnapshot: {
+      positions: [
+        { brokerage: 'Secret Broker', account: 'ACC-1', market: 'US', currency: 'USD', ticker: 'QQQ', name: 'q', asset_class: 'etf', quantity: 1, valueKrw: 1_250_000, costKrw: 1, dataAsOf: null },
+        { brokerage: 'Secret Broker', account: 'ACC-1', market: 'US', currency: 'USD', ticker: 'BIG', name: 'b', asset_class: 'etf', quantity: 1, valueKrw: 8_750_000, costKrw: 1, dataAsOf: null },
+      ],
+      cash: [],
+    },
+  } as never)
+  const withClasses = (await openingOf(p, { classes: { 'US:QQQ': 'us_equity', 'US:BIG': 'us_equity' } })).text
+  assert.match(withClasses, /^🧭 리밸런싱 제안 rb-2026-10-01-band · 종목 비중 한도 초과\(US:QQQ\)$/m)
+  assert.match(withClasses, /^US:QQQ: 비중 12\.5% \/ 한도 10%$/m)
+  assert.match(withClasses, /예상 세금 영향 \+35만 원/)
+  assert.match(withClasses, /^할 일: 페이지에서 매매 계획을 검토하고 계획 승인$/m)
+  // Without classes (or with an empty file) the weight is left out rather than measured against cash alone.
+  for (const classes of [undefined, {}]) {
+    assert.match((await openingOf(p, { classes })).text, /^US:QQQ: 한도 10% 초과$/m)
+  }
+})
+
+test('Korean labels cover every sleeve, warning code, confidence and trigger kind', async () => {
+  const sleeves = ['kr_equity', 'us_equity', 'bonds', 'gold', 'crypto', 'cash']
+  const codes = ['wash_sale_block', 'near_long_term', 'unclassified', 'unpriced', 'transfer_needed', 'stale_account', 'turnover_capped', 'below_min_trade', 'cash_floor', 'no_sellable_lots', 'no_buy_price', 'no_buy_list', 'managed_account']
+  const p = bandHold({
+    triggers: [...sleeves.map((s) => `band:${s}`), 'yearend:2026-11-15', 'manual', 'free text trigger'],
+    plan: { moves: [], instructions: [], warnings: codes.map((code) => ({ code, message: '' })), taxSummary: { estimatedTaxKrw: -5_000 } },
+    harvest: undefined,
+  } as never)
+  const { text } = await openingOf(p)
+  assert.match(text, /범위 이탈\(한국주식·미국주식·채권·금·암호화폐·현금\), 연말 점검, 수동 요청, free text trigger/)
+  // A band line without a frozen move still names target and band.
+  assert.match(text, /^채권: 목표 5% \(허용 2\.5–7\.5%\)$/m)
+  for (const code of codes) assert.doesNotMatch(text.split('\n').find((l) => l.startsWith('⚠️'))!, new RegExp(`\\b${code}\\b`), code)
+  assert.match(text, /⚠️ 경고 13건: /)
+  // A tax effect under 5,000 rounds to zero, the way the English material rounds it.
+  assert.match(text, /예상 세금 영향 0원/)
+  for (const [confidence, ko] of [['low', '낮음'], ['medium', '보통'], ['high', '높음']]) {
+    const m = monthlyChange({ outlook: { summary: 's', summaryKo: '요약', drivers: [], risks: [], whatWouldChangeMyView: [], sources: [], confidence } } as never)
+    assert.match((await openingOf(m)).text, new RegExp(`^전망\\(신뢰도 ${ko}\\): 요약$`, 'm'))
+  }
+})
+
+test('Korean opening: the next step follows the status and the plan', async () => {
+  const steps = async (p: Proposal) => (await openingOf(p)).text.split('\n').find((l) => l.startsWith('할 일:')) ?? null
+  assert.equal(await steps(bandHold({ plan: { moves: [], instructions: [], warnings: [], taxSummary: { estimatedTaxKrw: 0 } } } as never)), '할 일: 매매할 것이 없으니 페이지에서 종료')
+  assert.equal(await steps(monthlyChange({ status: 'targets_approved' })), '할 일: 페이지에서 매매 계획을 검토하고 계획 승인')
+  assert.equal(await steps(monthlyChange({ status: 'executing' })), '할 일: 지시대로 직접 주문하고 체결을 페이지에 기록')
+  assert.equal(await steps(monthlyChange({ status: 'reconciled' })), '할 일: 페이지에서 종료')
+  assert.equal(await steps(monthlyChange({ status: 'rejected' })), null)
+})
+
+test('Korean opening has no account label, instruction ticker or unrounded amount', async () => {
+  for (const p of [proposal(), bandHold(), monthlyChange()]) {
+    const { text } = await openingOf(p)
+    assert.doesNotMatch(text, /Secret Broker|ACC-1|AAA|BBB|123456789|987654321|123,456,789|987,654,321/)
+  }
+})
+
+test('Korean opening is only on created events and only while discord is pending', async () => {
+  const { pendingEvents, markSent } = await import('../lib/rebalance/notify')
+  const p = monthlyChange({ status: 'plan_approved' }, )
+  const withStatus = proposal({ ...p, status: 'plan_approved' } as never, [{ at: T0.toISOString(), type: 'plan_approved', detail: '' }])
+  const events = pendingEvents([withStatus], { version: 1, seeded: true, announced: {} }, T0)
+  for (const e of events.filter((x) => x.kind !== 'created')) {
+    assert.equal(e.discordOpening, null)
+    assert.equal(e.discordOpeningQuotesModel, false)
+  }
+  const tgOnly = markSent({ version: 1, seeded: true, announced: {} }, ['rb-2026-10:created:new'], 'discord', T0)
+  const created = pendingEvents([withStatus], tgOnly, T0).find((x) => x.kind === 'created')!
+  assert.deepEqual(created.channels, ['telegram'])
+  assert.equal(created.discordOpening, null)
+})
+
+test('Korean status lines: every status, a close without trades, and an expiry; Telegram stays English', async () => {
+  const { pendingEvents } = await import('../lib/rebalance/notify')
+  const seen = { 'rb-2026-10:created:new': { telegram: 'x', discord: 'x' } }
+  const linesFor = (events: ProposalEvent[], status: string) =>
+    pendingEvents([proposal({ status } as never, events)], { version: 1, seeded: true, announced: seen }, T0).filter((e) => e.kind === 'status_changed')
+  const at = T0.toISOString()
+  const full = linesFor(
+    ['targets_approved', 'plan_approved', 'fill', 'reconciled', 'closed'].map((type) => ({ at, type, detail: '' }) as ProposalEvent),
+    'closed',
+  )
+  assert.deepEqual(full.map((e) => e.discord), ['상태 변경 → 목표 승인됨', '상태 변경 → 계획 승인됨', '상태 변경 → 실행 중', '상태 변경 → 거래 대조 완료', '상태 변경 → 종료됨'])
+  assert.deepEqual(linesFor([{ at, type: 'closed', detail: '' }], 'closed').map((e) => e.discord), ['상태 변경 → 거래 없이 종료됨'])
+  assert.deepEqual(linesFor([{ at, type: 'rejected', detail: '' }], 'rejected').map((e) => e.discord), ['상태 변경 → 거절됨'])
+  const expired = linesFor([{ at, type: 'expired', detail: '' }], 'expired')
+  assert.equal(expired[0].discord, '상태 변경 → 만료됨 (승인 없이 기한이 지났습니다)')
+  assert.equal(expired[0].telegram, '⌛ Rebalance rb-2026-10 expired without approval.')
+})
+
+// A trigger appended while the proposal was open is stored as `<key>: <label>`, and the same key can be appended
+// again on later days. The opening reads each key once, groups the sleeves, and takes an appended band trigger's
+// distance from its latest label, since no move was frozen for it.
+test('Korean opening: appended triggers are read by key, once each, grouped in the first line', async () => {
+  const p = bandHold({
+    triggers: [
+      'band:gold',
+      'yearend:2026-11-15: year-end review from 2026-11-15',
+      'band:kr_equity: kr_equity 0.5pp outside band',
+      'band:gold: gold 0.1pp outside band',
+      'band:kr_equity: kr_equity 0.8pp outside band',
+      'harvest: harvestable loss at or above the threshold',
+    ],
+  } as never)
+  const { text } = await openingOf(p)
+  const first = text.split('\n')[0]
+  assert.equal(first, '🧭 리밸런싱 제안 rb-2026-10-01-band · 범위 이탈(금·한국주식), 연말 점검, 손실 확정 기회')
+  assert.doesNotMatch(text, /outside band|year-end review|harvestable loss/, 'no English label leaks into the message')
+  assert.match(text, /^금: 현재 12\.43% \/ 목표 10% \(허용 8–12%\)$/m)
+  assert.match(text, /^한국주식: 범위를 0\.8pp 벗어남\(제안 생성 후 추가\) \/ 목표 /m)
+  assert.equal(text.split('\n').filter((l) => l.startsWith('금:')).length, 1, 'a key appended twice prints one line')
+})
+
+test('triggerKeyOf reads both stored shapes', async () => {
+  const { triggerKeyOf } = await import('../lib/rebalance/notify')
+  assert.equal(triggerKeyOf('band:gold'), 'band:gold')
+  assert.equal(triggerKeyOf('band:kr_equity: kr_equity 0.8pp outside band'), 'band:kr_equity')
+  assert.equal(triggerKeyOf('cap:KR:005930: weight above cap'), 'cap:KR:005930')
+  assert.equal(triggerKeyOf('yearend:2026-11-15: year-end review from 2026-11-15'), 'yearend:2026-11-15')
+  assert.equal(triggerKeyOf('harvest: harvestable loss at or above the threshold'), 'harvest')
+  assert.equal(triggerKeyOf('free text trigger'), 'free text trigger')
 })
