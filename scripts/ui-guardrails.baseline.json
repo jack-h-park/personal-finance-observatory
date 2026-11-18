@@ -25,7 +25,7 @@
     "app/net-worth/page.tsx": 2,
     "app/page.tsx": 2,
     "app/pension/page.tsx": 1,
-    "app/positions/[market]/[ticker]/page.tsx": 4,
+    "app/positions/[market]/[ticker]/page.tsx": 2,
     "app/rebalance/page.tsx": 1,
     "app/rebalance/proposals/[id]/page.tsx": 1,
     "app/rebalance/settings/page.tsx": 1,

@@ -90,10 +90,28 @@ test('operator detail sits behind OperatorDetails', () => {
   const position = source('app/positions/[market]/[ticker]/page.tsx')
   const wrapper = position.indexOf('<OperatorDetails')
   assert.ok(wrapper >= 0)
-  for (const marker of ['copy.evidenceSummary', 'copy.lineage']) {
+  // One merged sources card: its table (the sha column) and the evidence-count line.
+  for (const marker of ['copy.evidenceSummary', 'copy.evidenceDetail', 'shortHash(']) {
     const at = position.indexOf(marker)
     assert.ok(at > wrapper && at < position.indexOf('</OperatorDetails>'), `${marker} is inside OperatorDetails`)
   }
+})
+
+// A position reads lead figure, wash-sale warning, reconciliation, accounts,
+// lots, then activity; the checks and mixes that repeated those cards are gone.
+test('app/positions/[market]/[ticker]/page.tsx renders the Decision 10 cards in order', () => {
+  const text = source('app/positions/[market]/[ticker]/page.tsx')
+  for (const gone of ['copy.firstChecks', 'copy.holdingMix', 'copy.transactionMix', 'copy.accountLotProfile', 'copy.freshness}']) {
+    assert.ok(!text.includes(gone), `still references ${gone}`)
+  }
+  assert.ok(text.includes('washSaleForTicker('))
+  assert.ok(text.includes('id="position-lead"'))
+  const order = ['<MetricHeroCard', 'copy.reconciliation}', 'copy.accountHoldings', 'copy.openTaxLots', 'copy.activityTimeline']
+  const at = order.map((marker) => text.indexOf(marker))
+  for (const [i, marker] of order.entries()) assert.ok(at[i] >= 0, `missing ${marker}`)
+  for (let i = 1; i < at.length; i++) assert.ok(at[i - 1] < at[i], `${order[i - 1]} before ${order[i]}`)
+  const sources = text.indexOf('rows={detail.sources}')
+  assert.ok(sources > text.indexOf('<OperatorDetails') && sources < text.indexOf('</OperatorDetails>'), 'sources table inside OperatorDetails')
 })
 
 // The tax planner leads with the monthly plan's overview, above the toolbar
