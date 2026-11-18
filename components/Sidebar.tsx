@@ -1,6 +1,5 @@
 'use client'
 
-import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { clsx } from 'clsx'
@@ -11,7 +10,7 @@ import type { Language } from '@/lib/i18n'
 import { Label } from '@/components/ui'
 import { getPageCopy } from '@/lib/ui-copy'
 import { BRAND } from '@/lib/brand'
-import { activeHref, navItems } from '@/lib/nav'
+import { SidebarNav } from '@/components/SidebarNav'
 
 
 export function Sidebar({
@@ -29,7 +28,9 @@ export function Sidebar({
   const copy = getPageCopy('sidebar', language)
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
-  const active = activeHref(pathname, navItems(copy.sections, { supplementary: showAllAssets }).map((item) => item.href))
+  // The reader's open/closed collapsible groups, keyed by label. Held here, not
+  // keyed by pathname, so a group stays as the reader left it across navigation.
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
     setOpen(false)
@@ -110,19 +111,16 @@ export function Sidebar({
           </div>
         </div>
 
-        <div className="mt-3 px-1">
-          <Label size="micro" variant="eyebrow">{BRAND.eyebrow}</Label>
-          <div
-            className="bg-clip-text text-title font-semibold leading-tight tracking-tight text-transparent"
-            style={{ backgroundImage: 'var(--gradient-text)' }}
-          >
-            {BRAND.wordmark}
-          </div>
-        </div>
+        <SidebarNav
+          sections={copy.sections}
+          pathname={pathname}
+          showAllAssets={showAllAssets}
+          openGroups={openGroups}
+          onToggle={(group, isOpen) => setOpenGroups((prev) => (prev[group] === isOpen ? prev : { ...prev, [group]: isOpen }))}
+          label={copy.navLabel}
+        />
 
-        <div className="mx-1 mt-3 h-px rounded-pill opacity-70" style={{ backgroundImage: 'var(--gradient-mini)' }} />
-
-        <div className="mt-4 grid gap-2 px-1">
+        <div className="mt-6 grid gap-2 px-1">
           <div>
             <div className="mb-1.5 px-0.5 text-micro font-medium text-ink-3">{copy.language}</div>
             <LanguageSwitcher language={language} label={copy.language} />
@@ -136,58 +134,6 @@ export function Sidebar({
             <AssetViewSwitcher assetView={assetView} label={copy.assets} labels={copy.assetViews} />
           </div>
         </div>
-
-        <nav className="mt-5 flex flex-col gap-4" aria-label={copy.navLabel}>
-          {copy.sections.map((section) => {
-            // Interim rendering until the sidebar is rebuilt on lib/nav: one
-            // active item, supplementary links gated per item, groups as a
-            // collapsible <details>.
-            const link = (item: { href: string; label: string }) => (
-              <li key={item.href}>
-                <Link
-                  href={item.href}
-                  aria-current={item.href === active ? 'page' : undefined}
-                  className={clsx(
-                    'relative block min-h-10 rounded-sm py-2 pl-3 pr-2 text-body transition-colors lg:min-h-0 lg:py-1.5',
-                    item.href === active
-                      ? 'bg-surface font-medium'
-                      : 'text-ink-2 hover:bg-surface hover:text-ink'
-                  )}
-                >
-                  {item.href === active ? (
-                    <span
-                      aria-hidden
-                      className="absolute bottom-1 left-0 top-1 w-[2.5px] rounded-pill"
-                      style={{ backgroundImage: 'var(--gradient-mini)' }}
-                    />
-                  ) : null}
-                  <span className={item.href === active ? 't-emph-gradient' : undefined}>{item.label}</span>
-                </Link>
-              </li>
-            )
-            return (
-              <div key={section.label}>
-                <div className="px-2 text-label font-medium text-ink-3">{section.label}</div>
-                <ul className="mt-1.5 flex flex-col gap-0.5">
-                  {section.items.map((entry) => {
-                    if (!('group' in entry)) return showAllAssets || !entry.supplementary ? link(entry) : null
-                    return (
-                      <li key={entry.group}>
-                        <details key={`${entry.group}:${pathname}`} open={entry.items.some((item) => item.href === active)} className="group">
-                          <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between rounded-sm px-2 text-label font-medium text-ink-2 hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-info">
-                            {entry.group}
-                            <span aria-hidden className="transition-transform group-open:rotate-90">›</span>
-                          </summary>
-                          <ul className="mt-1.5 flex flex-col gap-0.5">{entry.items.map(link)}</ul>
-                        </details>
-                      </li>
-                    )
-                  })}
-                </ul>
-              </div>
-            )
-          })}
-        </nav>
 
         <div className="mt-auto px-2 pt-6 text-micro leading-relaxed text-ink-3">
           <div className="text-ink-2">{copy.readOnly}</div>
