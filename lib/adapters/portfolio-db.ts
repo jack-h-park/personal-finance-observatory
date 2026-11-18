@@ -4195,6 +4195,8 @@ export type SupplementaryCoverageRow = {
   lagDays: number | null
   maxLagDays: number
   status: AccountCoverageStatus
+  /** Existing source status captured before historical-gap action overrides. Absent in older producers. */
+  freshnessStatus?: AccountCoverageStatus
   /** What to file next, in the reminder's words. */
   action: string
   historyGap?: { from: string; to: string }
@@ -4243,7 +4245,7 @@ export function getSupplementaryCoverage(): SupplementaryCoverage {
       const lagDays = calendarAgeDays(latestDate)
       const maxLagDays = SUPPLEMENTARY_MAX_LAG_DAYS[kind]
       const status = unconfirmed && !latestDate ? 'unconfirmed' : coverageStatus(lagDays, maxLagDays)
-      rows.push({ kind, label, latestDate, lagDays, maxLagDays, status, action: status === 'current' ? '추가 자료 필요 없음' : status === 'due_soon' ? '현재 추가 자료 필요 없음 · 곧 갱신 예정' : action })
+      rows.push({ kind, label, latestDate, lagDays, maxLagDays, status, freshnessStatus: status, action: status === 'current' ? '추가 자료 필요 없음' : status === 'due_soon' ? '현재 추가 자료 필요 없음 · 곧 갱신 예정' : action })
     }
 
     // The map's retired accounts, and its pension list. An unreadable map is the
