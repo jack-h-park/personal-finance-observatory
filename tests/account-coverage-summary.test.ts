@@ -88,3 +88,13 @@ test('supplementary navigation preserves unknown inventory and closed/non-loaded
   }
   assert.deepEqual(review, before)
 })
+
+test('additive freshness metadata leaves existing summary states and rendered UI unchanged', () => {
+  const original = rows(), baseline = summarizeAccountCoverage(original)
+  const additive = { ...original, supplementaryRows: original.supplementaryRows.map(row => ({ ...row, freshnessStatus: 'current' as const })) }
+  assert.deepEqual(summarizeAccountCoverage(additive), baseline)
+  for (const language of ['en', 'ko'] as const) {
+    const render = (summary: ReturnType<typeof summarizeAccountCoverage>) => renderToStaticMarkup(React.createElement(AccountCoverageSummary, { summary, language }))
+    assert.equal(render(summarizeAccountCoverage(additive)), render(baseline))
+  }
+})
