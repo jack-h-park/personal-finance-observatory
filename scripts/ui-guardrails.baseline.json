@@ -14,7 +14,7 @@
     "lib/ui-copy/pages/rebalanceProposal.ts": 2,
     "lib/ui-copy/pages/rebalanceSettings.ts": 3,
     "lib/ui-copy/pages/reconciliation.ts": 2,
-    "lib/ui-copy/pages/taxPlanning.ts": 34,
+    "lib/ui-copy/pages/taxPlanning.ts": 30,
     "lib/ui-copy/pages/taxSettings.ts": 7,
     "lib/ui-copy/pages/transactions.ts": 1,
     "lib/ui-copy/pages/washSale.ts": 1
@@ -32,7 +32,7 @@
     "app/review/page.tsx": 1,
     "app/tax-planning/components.tsx": 4,
     "app/tax-planning/opportunity-analysis.tsx": 4,
-    "app/tax-planning/page.tsx": 2,
+    "app/tax-planning/page.tsx": 1,
     "app/tax-planning/plans/[id]/page.tsx": 1,
     "app/tax-settings/page.tsx": 5,
     "app/taxes/records/[id]/page.tsx": 1,

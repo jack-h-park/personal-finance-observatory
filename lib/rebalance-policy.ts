@@ -1,5 +1,4 @@
 import fs from 'node:fs'
-import path from 'node:path'
 import { config } from '@/config'
 
 /**
@@ -11,6 +10,12 @@ import { config } from '@/config'
  * US" a code change.
  */
 export const DEFAULT_US_TARGET_PCT = 50
+
+/** A market within this many points of its target is held, not added to or reduced. */
+export const MARKET_GAP_HOLD_PCT = 2
+
+/** A position with at least this share of short-term lots is flagged as tax-sensitive. */
+export const SHORT_TERM_WATCH_PCT = 50
 
 export type RebalanceMarketTarget = { market: string; targetPct: number }
 
@@ -58,11 +63,4 @@ export function getRebalancePolicy(filePath = config.stockRebalancePolicyPath): 
     updatedAt: null,
     source: 'default',
   }
-}
-
-export function saveRebalancePolicy(usTargetPct: number, filePath = config.stockRebalancePolicyPath) {
-  fs.mkdirSync(path.dirname(filePath), { recursive: true })
-  const temporaryPath = `${filePath}.${process.pid}.tmp`
-  fs.writeFileSync(temporaryPath, `${JSON.stringify({ version: 1, usTargetPct }, null, 2)}\n`)
-  fs.renameSync(temporaryPath, filePath)
 }

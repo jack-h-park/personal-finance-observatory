@@ -240,6 +240,7 @@ export function HeroAside({
 }
 
 export function MetricHeroCard({
+  id,
   title,
   info,
   eyebrow,
@@ -248,6 +249,7 @@ export function MetricHeroCard({
   children,
   className,
 }: {
+  id?: string
   title: ReactNode
   info?: ReactNode
   eyebrow: ReactNode
@@ -257,7 +259,7 @@ export function MetricHeroCard({
   className?: string
 }) {
   return (
-    <Card title={title} info={info} accent className={className}>
+    <Card id={id} title={title} info={info} accent className={className}>
       <div className="flex min-h-[16rem] flex-col justify-between gap-6">
         <div>
           <Label variant="eyebrow">{eyebrow}</Label>

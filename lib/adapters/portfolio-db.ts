@@ -11,7 +11,7 @@ import { config } from '@/config'
 import { datedAmountSql, NET_DIVIDEND_SQL, type DisplayCurrency } from '@/lib/adapters/income-fx'
 import { buildTaxPlan, summarizeTaxCandidates, type TaxPlanningLot } from '@/lib/tax-planning'
 import { allocateTax, buildInvestmentEpisodes, mergeAssetEvents, type AssetEvent, type ClosedLot, type DividendRow, type InflowEvent, type OpenLot } from '@/lib/asset-events'
-import { getRebalancePolicy, marketTargetsFor } from '@/lib/rebalance-policy'
+import { MARKET_GAP_HOLD_PCT, SHORT_TERM_WATCH_PCT, getRebalancePolicy, marketTargetsFor } from '@/lib/rebalance-policy'
 import { deriveUsTargetPct, getAllocationPolicy } from '@/lib/rebalance/allocation-policy'
 import { getTaxPolicyState, usTaxableWrappers, wrapperTreatment, type TaxPolicy, type WrapperTreatment } from '@/lib/tax-policy'
 import { ASSET_CLASSES, depositsSeries, totalAssetsSeries, type CashBalanceRow, type HistoricalGoldTrade, type NetWorth, type TotalAssetsSeries } from '@/lib/net-worth'
@@ -643,6 +643,8 @@ export type IncomeReview = {
   }[]
 }
 
+export type RebalanceReasonCode = 'missing_market_value' | 'short_term_heavy'
+
 export type RebalanceReview = {
   policy: {
     baseCurrency: 'KRW'
@@ -673,8 +675,8 @@ export type RebalanceReview = {
     gapPct: number
     candidateCount: number
   }[]
-  watchCandidates: (ReviewPosition & { reason: string })[]
-  taxSensitive: (ReviewPosition & { reason: string })[]
+  watchCandidates: (ReviewPosition & { reason: string; reasonCode: RebalanceReasonCode })[]
+  taxSensitive: (ReviewPosition & { reason: string; reasonCode: RebalanceReasonCode })[]
   untargetedMarkets: {
     market: string
     currentValue: number
@@ -3511,7 +3513,7 @@ export function getRebalanceReview(): RebalanceReview {
         targetValue,
         gapValue,
         gapPct,
-        action: Math.abs(gapPct) < 2 ? 'Hold' : gapValue > 0 ? 'Add' : 'Reduce',
+        action: Math.abs(gapPct) < MARKET_GAP_HOLD_PCT ? 'Hold' : gapValue > 0 ? 'Add' : 'Reduce',
       } as RebalanceReview['marketGaps'][number]
     })
 
@@ -3534,11 +3536,11 @@ export function getRebalanceReview(): RebalanceReview {
       }))
     const watchCandidates = positions
       .filter((row) => row.base_market_value == null || row.native_market_value == null)
-      .map((row) => ({ ...row, reason: 'Missing market value; refresh price data before sizing action.' }))
+      .map((row) => ({ ...row, reason: 'Missing market value; refresh price data before sizing action.', reasonCode: 'missing_market_value' as const }))
       .slice(0, 10)
     const taxSensitive = positions
-      .filter((row) => Number(row.short_term_ratio ?? 0) >= 50 && Number(row.base_market_value ?? row.base_cost ?? 0) > 0)
-      .map((row) => ({ ...row, reason: 'Short-term lot exposure is high; review lots before reducing.' }))
+      .filter((row) => Number(row.short_term_ratio ?? 0) >= SHORT_TERM_WATCH_PCT && Number(row.base_market_value ?? row.base_cost ?? 0) > 0)
+      .map((row) => ({ ...row, reason: 'Short-term lot exposure is high; review lots before reducing.', reasonCode: 'short_term_heavy' as const }))
       .slice(0, 10)
     return {
       policy: {

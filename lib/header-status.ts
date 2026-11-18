@@ -127,6 +127,29 @@ export function rebalanceLinkedIssues(
 }
 
 /**
+ * /tax-planning: planner warnings plus stale inputs, the set its warnings card
+ * lists (the card renders only when there are some). With warnings the pill
+ * also names the example assumptions, so that caveat never drops out; the
+ * example assumptions alone have no card to link to, and a page with neither
+ * shows no pill.
+ */
+export function taxPlanningLinkedIssues(
+  copy: ReturnType<typeof getPageCopy<'taxPlanning'>>,
+  input: { warnings: number; example: boolean },
+): LinkedIssues {
+  const example: HeaderStatus | undefined = input.example
+    ? { severity: TO_REVIEW, label: copy.page.usingExampleAssumptions }
+    : undefined
+  return linkedIssues(
+    input.warnings,
+    TO_REVIEW,
+    '#tax-planning-warnings',
+    (n) => (input.example ? copy.page.warningsAndExample(n) : copy.page.warningsCount(n)),
+    example,
+  )
+}
+
+/**
  * One status for a header that has a linkable issue and a count of rows
  * converted at today's rate. The issue wins and carries the link; when both
  * are non-zero one label names both, so the header never shows an all-clear

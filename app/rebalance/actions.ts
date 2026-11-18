@@ -2,17 +2,8 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import { parseUsTargetPct, saveRebalancePolicy } from '@/lib/rebalance-policy'
 import { portfolioToday } from '@/lib/adapters/portfolio-db'
 import { proposeEngineOnly } from '@/lib/rebalance/propose'
-
-export async function saveRebalanceTargets(formData: FormData) {
-  const usTargetPct = parseUsTargetPct(formData.get('usTargetPct'))
-  if (usTargetPct == null) redirect('/rebalance?target=invalid')
-  saveRebalancePolicy(usTargetPct)
-  revalidatePath('/rebalance')
-  redirect('/rebalance?target=saved')
-}
 
 /**
  * Builds a manual proposal from the current targets (no target change), then opens it. Only a fixed

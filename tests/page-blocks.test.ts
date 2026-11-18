@@ -33,6 +33,13 @@ const BLOCKS: { path: string; absent: string[]; present: string[] }[] = [
     absent: ['marketSummary', 'operationalReadiness', 'largestPositions'],
     present: ['copy.concentrationBasis'],
   },
+  {
+    // Annual filing flags and base assumptions are edited and shown on
+    // /tax-settings; the planner leads with its own plan.
+    path: 'app/tax-planning/page.tsx',
+    absent: ['annualFilingProfile', 'baseAssumptions'],
+    present: ['copy.sections.monthlyPlan', 'copy.sections.lotEstimate'],
+  },
 ]
 
 for (const { path, absent, present } of BLOCKS) {
@@ -87,4 +94,65 @@ test('operator detail sits behind OperatorDetails', () => {
     const at = position.indexOf(marker)
     assert.ok(at > wrapper && at < position.indexOf('</OperatorDetails>'), `${marker} is inside OperatorDetails`)
   }
+})
+
+// The tax planner leads with the monthly plan's overview, above the toolbar
+// that changes it and the scenario comparison that follows.
+test('app/tax-planning/page.tsx puts the plan overview first', () => {
+  const text = source('app/tax-planning/page.tsx')
+  const overview = text.indexOf('<MasterPlanOverview')
+  assert.ok(overview >= 0)
+  assert.equal((text.match(/<form\b/g) ?? []).length, 1, 'one toolbar form')
+  assert.ok(overview < text.indexOf('<form'), 'overview before the toolbar')
+  assert.ok(overview < text.indexOf('<MasterScenarioComparison'), 'overview before the scenario comparison')
+})
+
+test('getRebalanceReview reads its thresholds from named constants', () => {
+  const full = source('lib/adapters/portfolio-db.ts')
+  const start = full.indexOf('export function getRebalanceReview')
+  assert.ok(start >= 0)
+  const next = full.indexOf('\nexport function', start + 1)
+  const body = full.slice(start, next < 0 ? undefined : next)
+  assert.ok(body.includes('MARKET_GAP_HOLD_PCT'))
+  assert.ok(body.includes('SHORT_TERM_WATCH_PCT'))
+  assert.ok(!body.includes('< 2 ?'))
+  assert.ok(!body.includes('>= 50 &&'))
+})
+
+test('every rebalance row reason code has copy in both languages', () => {
+  const codes = ['missing_market_value', 'short_term_heavy'] as const
+  for (const language of ['en', 'ko'] as const) {
+    const copy = getPageCopy('rebalance', language)
+    for (const code of codes) {
+      assert.ok(copy.reasons[code].length > 0, `${language} ${code}`)
+    }
+    assert.ok(copy.guardrails('2%', '10%', '50%').length > 0)
+  }
+})
+
+// The allocation policy is the one model on /rebalance: no second target
+// editor, no hand-typed thresholds, and the lead figure comes first.
+test('app/rebalance/page.tsx reads one policy model and leads with the hero', () => {
+  const text = source('app/rebalance/page.tsx')
+  for (const token of ['saveRebalanceTargets', 'targetEditor', "'2%'", "'50%+'", '>2%<', '>50%+<', 'addContext.map']) {
+    assert.ok(!text.includes(token), `app/rebalance/page.tsx still references ${token}`)
+  }
+  // A reason column must render copy, never the raw code.
+  for (const line of text.split('\n').filter((l) => l.includes("key: 'reason'"))) {
+    assert.ok(line.includes('render:') && line.includes('copy.reasons['), `reason column without copy: ${line.trim()}`)
+  }
+  for (const token of ['MARKET_GAP_HOLD_PCT', 'copy.reasons[', 'id="rebalance-lead"']) {
+    assert.ok(text.includes(token), `app/rebalance/page.tsx is missing ${token}`)
+  }
+  const hero = text.indexOf('<MetricHeroCard')
+  assert.ok(hero > -1, 'no MetricHeroCard')
+  for (const later of ['title={ac.title}', 'id="rebalance-hold-watch"', 'title={copy.marketTargetGaps}']) {
+    assert.ok(text.indexOf(later) > hero, `${later} renders before the hero`)
+  }
+  assert.ok(text.indexOf('id="rebalance-hold-watch"') < text.indexOf('title={copy.marketTargetGaps}'), 'hold/watch must follow the hero row')
+})
+
+test('app/rebalance/actions.ts no longer saves a market split', () => {
+  assert.ok(!/export async function saveRebalanceTargets/.test(source('app/rebalance/actions.ts')))
+  assert.ok(!source('lib/rebalance-policy.ts').includes('saveRebalancePolicy'))
 })
