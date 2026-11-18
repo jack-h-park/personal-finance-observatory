@@ -1,6 +1,6 @@
 # Read-only annual federal history comparison adapter
 
-Status: implemented source library and synthetic validation; no private execution, CLI/route activation, writer or deployment.
+Status: implemented source library and synthetic validation; no private execution, route activation, writer or deployment. A separately documented [explicit-file CLI](annual-comparison-cli.md) is source-only.
 
 ## Scope and explicit inputs
 
@@ -42,4 +42,4 @@ A successful adapter result says `selected-history-evidence-and-review-pins-chec
 
 Synthetic tests cover accepted/assessed selection, explicit authority and membership, stale revisions/content, supersession, deleted/empty evidence, hash/path/link failures, strict review pinning, missing/malformed/oversized/non-UTF-8 sources, no write calls and mid-read changes. Filesystem fixtures and numerical inputs are invented and disposable. No current private tax record or original was opened to validate this PR.
 
-The next boundary is a separately reviewed read-only caller and owner-reviewed private preview, with current pins and permitted paths. No CLI, web route, background refresh, input adoption, import, filing/payment, generator/publisher, access change or write activation follows from this library. Automatic briefing publication remains paused; actual generation, web publication, Hometax and deployment remain held. Unresolved owner/curator/account decisions remain unchanged.
+The [read-only CLI](annual-comparison-cli.md) now exposes explicit files and external pins with synthetic-only validation. The next boundary is an owner-reviewed private preview with accepted current pins, authority and permitted paths. No private invocation, web route, background refresh, input adoption, import, filing/payment, generator/publisher, access change or write activation follows from this library. Automatic briefing publication remains paused; actual generation, web publication, Hometax and deployment remain held. Unresolved owner/curator/account decisions remain unchanged.
