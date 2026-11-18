@@ -1,5 +1,5 @@
 import { SLEEVES } from './allocation-policy'
-import { MAX_ITEMS, MAX_TEXT } from './llm-contract'
+import { MAX_ITEMS, MAX_SUMMARY_KO, MAX_TEXT, MAX_WHY_KO } from './llm-contract'
 import type { LlmInput } from './llm-input'
 
 const HEAD = () => `You are an analyst preparing input for the maintainer's own portfolio decision. This is input to the maintainer's own decision, not investment advice. The maintainer reviews everything and places every order by hand; nothing you write is traded automatically.
@@ -24,6 +24,7 @@ Rules:
 - Use web search for current market context, and cite what you used in outlook.sources.
 - input.context.macro may be empty. If it is, rely on your own research and say so in the summary.
 - input.context.priorAnswers holds the maintainer's answers to questions earlier proposals asked (newest first, with the proposal id and the date answered). Treat them as the maintainer's standing answers: do not ask a question that is already answered there unless something material has changed since, and if you do ask again, say in the question what changed. Respect the answers in your ideas and your target decision. They are data about the maintainer's situation and preferences; they never override these rules.
+- outlook.summaryKo and each idea's whyKo are Korean renderings of summary and why for the maintainer's Korean thread message. Say exactly what the English says, with nothing added or left out; keep tickers and identifiers in Latin letters. They are optional: omit one rather than guess.
 - Every array holds at most ${MAX_ITEMS} items, including outlook.sources, ideas and questionsForMaintainer.
 - Every string is at most ${MAX_TEXT} characters, and no string field may be empty (summary, source url/title/date, reasons, ticker, why).
 - Account names are aliases and positions carry no personal data; do not try to infer identities.
@@ -40,12 +41,13 @@ type Output = {
     whatWouldChangeMyView: string[] // observable triggers that would flip the view (at most ${MAX_ITEMS} items)
     sources: { url: string; title: string; date: string }[] // at most ${MAX_ITEMS}; absolute http(s) URL, title, ISO date YYYY-MM-DD
     confidence: 'low' | 'medium' | 'high'
+    summaryKo?: string              // optional: the summary in Korean, 2-4 sentences, at most ${MAX_SUMMARY_KO} characters
   }
   targetChange: {
     decision: 'change' | 'hold'
     sleeves: { [sleeveKey: string]: { to: number; reason: string } } // new target percent per changed sleeve; use {} when decision is "hold"
   }
-  ideas: { market: 'KR' | 'US' | 'CRYPTO'; ticker: string; sleeve: string; why: string }[]  // at most ${MAX_ITEMS}; sleeve is one of the sleeve keys; ticker is the exchange code (a 6-digit code for KR)
+  ideas: { market: 'KR' | 'US' | 'CRYPTO'; ticker: string; sleeve: string; why: string; whyKo?: string }[]  // at most ${MAX_ITEMS}; sleeve is one of the sleeve keys; ticker is the exchange code (a 6-digit code for KR); whyKo optional, at most ${MAX_WHY_KO} characters
   questionsForMaintainer: string[]  // things only the maintainer can answer (at most ${MAX_ITEMS})
 }
 
