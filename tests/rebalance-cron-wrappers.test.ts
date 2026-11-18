@@ -649,3 +649,87 @@ test('notify: without nudge_prompt.py, or without material, the CLI prompt is us
   assert.equal(promptOf(noMaterial), 'Line one\nLine two')
   assert.equal(read(path.join(noMaterial.root, 'nudge.log')), '', 'the contract is not asked for without material')
 })
+
+// --- thread opening: the Korean template delivered verbatim (--body-file) -----------------------------
+
+// A control plane new enough to deliver a caller-rendered opening. The flag names below are what the wrapper
+// detects; the copy of the body file is taken during the call, because the wrapper's temp dir is gone after it.
+const FAKE_RAR_BODY = `#!/usr/bin/env bash
+# accepts: --body-file <path> --body-stored-from <job>
+for a in "$@"; do printf '%s\\n' "$a" >> "$FAKE_RAR_LOG"; done
+echo "--end--" >> "$FAKE_RAR_LOG"
+echo "\${CRON_JOB_NAME:-unset}" >> "$FAKE_RAR_LOG.job"
+prev=""
+for a in "$@"; do [ "$prev" = --body-file ] && cat "$a" > "$FAKE_RAR_LOG.body"; prev="$a"; done
+exit "\${FAKE_RAR_RC:-0}"
+`
+// Older than --body-stored-from but with --body-file.
+const FAKE_RAR_BODY_ONLY = FAKE_RAR_BODY.replace(' --body-stored-from <job>', '')
+
+const KOREAN_OPENING = '🧭 리밸런싱 제안 rb-1 · 밴드 이탈(금)\n판단: 유지 · 매매 지시 0건\n/rebalance/proposals/rb-1'
+const withOpening = (over: Record<string, unknown> = {}) =>
+  event({ channels: ['discord'], telegram: null, threadMaterial: 'Fact one', discordOpening: KOREAN_OPENING, discordOpeningQuotesModel: false, ...over })
+const useRar = (f: Fixture, body: string) => write(path.join(f.root, 'control-plane', 'gateway', 'scripts', 'run-agent-request.sh'), body, 0o755)
+const rarArgs = (f: Fixture) => read(f.rarLog).split('--end--\n')[0].split('\n').filter(Boolean)
+
+test('notify: with --body-file support the Korean opening goes verbatim, with no prompt and no contract', opts, () => {
+  const f = fixture({ FAKE_NOTIFY_JSON: notifyJson([withOpening()]) }, { nudge: true })
+  useRar(f, FAKE_RAR_BODY)
+  const r = run(f, 'rebalance-notify-cron.sh')
+  assert.equal(r.code, 0, r.err)
+  const args = rarArgs(f)
+  const at = (flag: string) => args[args.indexOf(flag) + 1]
+  assert.equal(at('--kind'), 'proposal')
+  assert.equal(at('--key'), 'proposal:rb-1')
+  assert.equal(at('--title'), 'Rebalance rb-1')
+  assert.equal(at('--origin'), 'sweep')
+  assert.ok(at('--body-file').endsWith('/0.opening'))
+  assert.ok(!args.includes('--prompt'), 'no prompt with a body file')
+  assert.ok(!args.includes('--body-stored-from'), 'nothing model-written in this opening')
+  assert.equal(read(`${f.rarLog}.body`), KOREAN_OPENING)
+  assert.equal(read(`${f.rarLog}.job`).trim(), 'rebalance-notify')
+  assert.equal(read(path.join(f.root, 'nudge.log')), '', 'the contract is not asked for')
+  assert.deepEqual(marks(f), ['rebalance:notify --mark rb-1:created:new --channel discord'])
+})
+
+test('notify: an opening quoting model text names the job that wrote it, when the control plane takes the flag', opts, () => {
+  const f = fixture({ FAKE_NOTIFY_JSON: notifyJson([withOpening({ discordOpeningQuotesModel: true })]) })
+  useRar(f, FAKE_RAR_BODY)
+  assert.equal(run(f, 'rebalance-notify-cron.sh').code, 0)
+  const args = rarArgs(f)
+  assert.equal(args[args.indexOf('--body-stored-from') + 1], 'rebalance-monthly')
+
+  const older = fixture({ FAKE_NOTIFY_JSON: notifyJson([withOpening({ discordOpeningQuotesModel: true })]) })
+  useRar(older, FAKE_RAR_BODY_ONLY)
+  assert.equal(run(older, 'rebalance-notify-cron.sh').code, 0)
+  assert.ok(rarArgs(older).includes('--body-file'))
+  assert.ok(!rarArgs(older).includes('--body-stored-from'))
+})
+
+test('notify: a control plane without --body-file gets the prompt path unchanged', opts, () => {
+  const f = fixture({ FAKE_NOTIFY_JSON: notifyJson([withOpening()]) })
+  const r = run(f, 'rebalance-notify-cron.sh')
+  assert.equal(r.code, 0, r.err)
+  const args = rarArgs(f)
+  assert.ok(!args.includes('--body-file'))
+  assert.equal(promptOf(f), 'Line one\nLine two')
+})
+
+test('notify: an empty or missing opening falls back to the prompt even with --body-file support', opts, () => {
+  for (const discordOpening of [null, '', '  \n ']) {
+    const f = fixture({ FAKE_NOTIFY_JSON: notifyJson([withOpening({ discordOpening })]) })
+    useRar(f, FAKE_RAR_BODY)
+    assert.equal(run(f, 'rebalance-notify-cron.sh').code, 0)
+    assert.ok(!rarArgs(f).includes('--body-file'), JSON.stringify(discordOpening))
+    assert.equal(promptOf(f), 'Line one\nLine two')
+  }
+})
+
+test('notify: a failed body-file call retries like any thread call', opts, () => {
+  const f = fixture({ FAKE_NOTIFY_JSON: notifyJson([withOpening()]), FAKE_RAR_RC: '2' })
+  useRar(f, FAKE_RAR_BODY)
+  const r = run(f, 'rebalance-notify-cron.sh')
+  assert.deepEqual(r.lines, ['Discord thread for rb-1 not opened (exit 2); will retry'])
+  assert.equal(JSON.parse(read(f.attempts)).attempts['rb-1:created:new'], 1)
+  assert.deepEqual(marks(f), [])
+})

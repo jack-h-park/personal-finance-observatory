@@ -8,12 +8,18 @@ export type LlmOutlook = {
   whatWouldChangeMyView: string[]
   sources: LlmSource[]
   confidence: 'low' | 'medium' | 'high'
+  /**
+   * Optional Korean rendering of `summary` for the Discord thread opening (notify.ts). Kept only when it is a
+   * non-empty string within MAX_SUMMARY_KO; anything else is dropped without failing validation.
+   */
+  summaryKo?: string
 }
 export type LlmTargetChange = { decision: 'change' | 'hold'; sleeves: Partial<Record<Sleeve, { to: number; reason: string }>> }
 export const IDEA_MARKETS = ['KR', 'US', 'CRYPTO'] as const
 export type IdeaMarket = (typeof IDEA_MARKETS)[number]
 /** `market` is required of new output; ideas stored before it existed have none, and only those can lack it. */
-export type LlmIdea = { market?: IdeaMarket; ticker: string; sleeve: Sleeve; why: string }
+/** `whyKo` is an optional Korean rendering of `why` (≤ MAX_WHY_KO), dropped rather than rejected when unusable. */
+export type LlmIdea = { market?: IdeaMarket; ticker: string; sleeve: Sleeve; why: string; whyKo?: string }
 export type LlmOutput = {
   outlook: LlmOutlook
   targetChange: LlmTargetChange
@@ -32,6 +38,9 @@ export type LlmRecord = {
 
 export const MAX_TEXT = 2000
 export const MAX_ITEMS = 10
+/** Caps for the optional Korean renderings. Over the cap, the value is dropped, not cut: half a sentence misleads. */
+export const MAX_SUMMARY_KO = 800
+export const MAX_WHY_KO = 300
 const MAX_ECHO = 80
 const MAX_RAW = 200_000
 const MAX_ATTEMPTS = 50
@@ -108,6 +117,12 @@ function balancedEnd(text: string, start: number, budget: { chars: number }): nu
 }
 
 const isObject = (v: unknown): v is Record<string, unknown> => v !== null && typeof v === 'object' && !Array.isArray(v)
+/** An optional translation: kept trimmed when it is a non-empty string within `max`, otherwise undefined. Never an error. */
+const optionalKo = (v: unknown, max: number): string | undefined => {
+  if (typeof v !== 'string') return undefined
+  const t = v.trim()
+  return t !== '' && t.length <= max ? t : undefined
+}
 /** Quotes and caps a value for an error string. Only primitives are stringified; containers echo a type tag. */
 const echo = (v: unknown): string => {
   let s: string
@@ -183,6 +198,8 @@ function validate(value: unknown, policy: AllocationPolicy): ValidationResult {
     sources: [],
     confidence: 'low',
   }
+  const summaryKo = optionalKo(o?.summaryKo, MAX_SUMMARY_KO)
+  if (summaryKo !== undefined) outlook.summaryKo = summaryKo
   if (!CONFIDENCE.includes(o?.confidence as never)) {
     errors.push(`outlook.confidence: must be one of low, medium, high, got ${echo(o?.confidence)}`)
   } else outlook.confidence = o?.confidence as LlmOutlook['confidence']
@@ -249,7 +266,10 @@ function validate(value: unknown, policy: AllocationPolicy): ValidationResult {
       errors.push(`${f}.sleeve: must be one of ${SLEEVES.join(', ')}, got ${echo(item.sleeve)}`)
       return
     }
-    ideas.push({ market: item.market as IdeaMarket, ticker: ticker.trim().toUpperCase(), sleeve: item.sleeve as Sleeve, why })
+    const idea: LlmIdea = { market: item.market as IdeaMarket, ticker: ticker.trim().toUpperCase(), sleeve: item.sleeve as Sleeve, why }
+    const whyKo = optionalKo(item.whyKo, MAX_WHY_KO)
+    if (whyKo !== undefined) idea.whyKo = whyKo
+    ideas.push(idea)
   })
   const questionsForMaintainer = strings(value.questionsForMaintainer, 'questionsForMaintainer')
 

@@ -4,7 +4,7 @@ import { getRebalanceInput } from '@/lib/adapters/rebalance-input'
 import { refreshLockHeld } from '@/lib/cli/common'
 import { getTaxPolicyState } from '@/lib/tax-policy'
 import { getAllocationPolicy, rebalanceWrappers } from '@/lib/rebalance/allocation-policy'
-import { getInstrumentClasses } from '@/lib/rebalance/instrument-classes'
+import { getInstrumentClasses, type InstrumentClasses } from '@/lib/rebalance/instrument-classes'
 import { loadTransactions, reconcile } from '@/lib/rebalance/reconcile'
 import { KNOWN_RUNNERS, runnerFromConfig, type LlmRunner } from '@/lib/rebalance/llm-runner'
 import { proposeEngineOnly, proposeMonthly, skippedLlm } from '@/lib/rebalance/propose'
@@ -233,6 +233,15 @@ function runNotify(parsed: Parsed, now: Date, emit: (payload: Record<string, unk
     emit({ ok: true, marked: parsed.mark, channel: parsed.channel })
     return 0
   }
-  emit({ ok: true, events: pendingEvents(proposals, state, now) })
+  // The Korean thread opening links the page absolutely when the cron env names the site's origin, and reads a cap
+  // trigger's position weight through the instrument classes. Neither is required: without them the opening uses
+  // the bare path and leaves the weight out.
+  let classes: InstrumentClasses | null = null
+  try {
+    classes = getInstrumentClasses(config.stockInstrumentClassesPath)
+  } catch {
+    classes = null
+  }
+  emit({ ok: true, events: pendingEvents(proposals, state, now, { baseUrl: process.env.STOCK_OBSERVATORY_BASE_URL ?? null, classes }) })
   return 0
 }
