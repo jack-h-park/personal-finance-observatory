@@ -1,3 +1,4 @@
+import { readCoverageFreshness } from '@/lib/application/coverage-freshness'
 import {AccountUpdateAction} from '@/components/AccountUpdateAction'
 import { getPageCopy } from '@/lib/ui-copy'
 import type { Language } from '@/lib/i18n'
@@ -17,6 +18,7 @@ export function SupplementaryCoverageTable({ rows, language, accounts }: {
   accounts?: AccountDataRange[]
 }) {
   const copy = getPageCopy('accountUpdates', language)
+  const freshnessCopy = getPageCopy('coverageSummary', language)
   const nextAction = (coverage: SupplementaryCoverageRow) => coverage.historyGap ? <>{copy.historyGap(fmtDate(coverage.historyGap.from, language), fmtDate(coverage.historyGap.to, language))}{coverage.staleWithHistoryGap ? <> {copy.action(coverage.kind, coverage.latestDate ? fmtDate(coverage.latestDate, language) : null, coverage.action, fmtDate(portfolioToday(), language))}</> : null}</> : maskAccountLabel(copy.action(
     coverage.kind, coverage.latestDate ? fmtDate(coverage.latestDate, language) : null, coverage.action, fmtDate(portfolioToday(), language),
   ))
@@ -47,6 +49,18 @@ export function SupplementaryCoverageTable({ rows, language, accounts }: {
         <div className="whitespace-nowrap tabular-nums">{fmtDate(row.coverage?.latestDate, language)}</div>
         {row.coverage ? <div className="text-label text-ink-3">{copy.kinds[row.coverage.kind]} · {copy.window(row.coverage.maxLagDays)}</div> : null}
       </> },
+      { key: 'freshness', label: freshnessCopy.sourceFreshness, render: (row: typeof data[number]) => {
+        if (!row.coverage) return copy.none
+        const state = readCoverageFreshness(row.coverage)
+        return state === null ? <span className="text-label text-ink-3">{freshnessCopy.unavailable}</span>
+          : <Badge tone={statusTone(COVERAGE_SEVERITY, state)}>{copy.statuses[state]}</Badge>
+      } },
+      { key: 'historyGap', label: freshnessCopy.recordedGap, render: (row: typeof data[number]) => {
+        if (!row.coverage) return copy.none
+        const gap = row.coverage.historyGap
+        return gap ? <span className="tabular-nums">{fmtDate(gap.from, language)} ~ {fmtDate(gap.to, language)}</span>
+          : <span className="text-label text-ink-3">{freshnessCopy.noRecordedGap}</span>
+      } },
       { key: 'status', label: copy.status, render: (row: typeof data[number]) => row.coverage
         ? <Badge tone={statusTone(COVERAGE_SEVERITY, row.coverage.status)}>{copy.statuses[row.coverage.status]}</Badge>
         : <Badge>{copy.closed}</Badge> },

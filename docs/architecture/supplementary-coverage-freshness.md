@@ -1,6 +1,6 @@
 # Supplementary source freshness and historical-gap contract
 
-Status: additive source contract implemented with synthetic validation; not installed or deployed. Actual 2025 tax comparison, financial-data changes, generation, briefing publication and Hometax remain held. The existing [#347 summary](account-coverage-summary.md) and its isolated deployed release retain their prior behavior.
+Status: additive source contract merged in #350; the read-only display consumer is implemented for source review with synthetic validation. Neither is installed or deployed. Actual 2025 tax comparison, financial-data changes, generation, briefing publication and Hometax remain held. The existing [#347 summary](account-coverage-summary.md) and its isolated deployed release retain their prior behavior.
 
 ## Compatibility fields
 
@@ -22,9 +22,13 @@ For example, an invented recent bank statement with an earlier gap can now carry
 
 The reader accepts no inference from legacy status, dates, lag, gap presence or staleWithHistoryGap. Unknown enum values, malformed/missing fields, inherited values and accessor properties are unavailable; getters are not evaluated. Older objects that only say status=current do not gain a new reviewed freshness fact. The reader does not validate or repair an entire source record, inspect originals or authenticate its provenance.
 
-## Consumers and transport remain unchanged
+## Read-only consumer and unchanged transport
 
-This PR adds no UI consumer. The #347 projector/component still count and display the existing combined status and gap signals, with the pre-gap-unavailable explanation on that surface. Their output/rendering remains equal when additive metadata is present; any independent freshness display requires a separate reviewed source change.
+The source UI adds `summarizeSupplementaryFreshness(rows)` in `lib/application/coverage-freshness-summary.ts`. It counts explicit reader states, unavailable metadata and recorded gaps independently for bank/CMA and other supplementary rows. It reads no clock or files, performs no status/date fallback, and leaves its input and the existing combined summary projector unchanged. The five source-state counts plus unavailable equal supplied rows; gaps overlap those counts, never a separate account denominator.
+
+`/data-ops` passes the supplementary rows it already loaded to this pure projection. `AccountCoverageSummary` keeps the existing combined-state table and links, adding a separately labelled supplementary freshness table and scope explanation. Investment freshness is not inferred. `SupplementaryCoverageTable`, including its existing `/accounts` use, adds explicit freshness and recorded-gap columns while leaving status, actions, dates, sorting and historical-only closure behavior intact. Missing/invalid metadata says unavailable; an explicit unconfirmed state still says query-period confirmation is required. No recorded gap means only no recorded gap, never full historical coverage. Historical-only rows show dashes in both new columns.
+
+The operating #347 build still lacks this consumer and metadata capture. This source change is not live behavior or owner acceptance. A future rollout needs explicit authorization and must account for the separate held main changes.
 
 The existing briefing summary writer explicitly selects legacy supplementary fields and does not include freshnessStatus. Its projection, masking and version are unchanged. The reminder continues to consume legacy status/action, with byte-identical synthetic text/order and unchanged silence when supplied additive/conflicting freshness metadata. No summary writer, generator, publisher or schedule was run against operating data. This is not a new persisted-file schema, migration, delivery proof or automatic compatibility rollout to external consumers.
 
@@ -32,6 +36,6 @@ The existing briefing summary writer explicitly selects legacy supplementary fie
 
 Real adapter fixtures cover recent, stale, due-soon and unconfirmed-query gap cases, no-gap and absent-source cases. A contradictory invalid newer query end plus valid older interval exercises the existing unconfirmed-plus-gap behavior without changing the classifier. Tests assert both freshness and exact legacy status/action/gap/Boolean values, unchanged failing-check scope and inactive pension exclusions. Fixture DB/map hashes are unchanged across the read-only projection.
 
-Pure compatibility tests cover all explicit states, older payloads, invalid/inherited/accessor metadata and frozen input preservation. Existing summary/render and reminder tests establish that additive metadata cannot change current displays, filters, ordering or notification text. All institutions, labels, dates and metadata are invented; no actual account or filed return is a fixture.
+Pure compatibility tests cover all explicit states, older payloads, invalid/inherited/accessor metadata and frozen input preservation. Legacy summary-projector and reminder tests establish that additive metadata cannot change combined counts, filters, ordering or notification text. Consumer tests cover all five explicit detail states, old/invalid metadata, current-plus-gap, due-soon/no-gap, empty groups, frozen inputs, historical-only rows and bilingual read-only rendering. All institutions, labels, dates and metadata are invented; no actual account or filed return is a fixture.
 
 Operating source/build, financial data, original evidence, mappings, access and disabled web editing remain untouched. Unresolved decisions remain unresolved. Automatic briefing publication stays paused; actual comparison, generation, briefing web publication, Hometax and further deployment remain held. No private runtime replay, installation, backup/restore or cleanup is part of this source contract.
