@@ -432,7 +432,7 @@ export default async function OverviewPage({
         className="mb-5"
         action={
           <div className="flex flex-wrap items-center justify-end gap-1">
-            <TrendRangeLinks selected={selectedRange} hrefFor={(key) => `/?trend=${key}&scope=${selectedScope}&metric=${selectedMetric.key}&view=${selectedView}$`} />
+            <TrendRangeLinks selected={selectedRange} hrefFor={(key) => `/?trend=${key}&scope=${selectedScope}&metric=${selectedMetric.key}&view=${selectedView}`} />
           </div>
         }
       >
@@ -488,18 +488,18 @@ export default async function OverviewPage({
         ) : null}
         <div className="mb-3 flex flex-wrap items-center gap-1">
           <LinkChip
-            href={`/?trend=${selectedRange.key}&scope=${selectedScope}&metric=${selectedMetric.key}&view=single$`}
+            href={`/?trend=${selectedRange.key}&scope=${selectedScope}&metric=${selectedMetric.key}&view=single`}
             active={selectedView === 'single'}
           >{copy.individual}</LinkChip>
           <LinkChip
-            href={`/?trend=${selectedRange.key}&scope=${selectedScope}&metric=${selectedMetric.key}&view=combined$`}
+            href={`/?trend=${selectedRange.key}&scope=${selectedScope}&metric=${selectedMetric.key}&view=combined`}
             active={selectedView === 'combined'}
           >{copy.combined}</LinkChip>
           <span className="mx-1 h-4 w-px bg-line-subtle" />
           <LinkChips
             items={TREND_SCOPES.map((scope) => ({
               key: scope.key,
-              href: `/?trend=${selectedRange.key}&scope=${scope.key}&metric=${selectedMetric.key}&view=${selectedView}$`,
+              href: `/?trend=${selectedRange.key}&scope=${scope.key}&metric=${selectedMetric.key}&view=${selectedView}`,
               label: copy.scopeLabels[scope.key],
               title: scope.key === 'GOLD' ? copy.scopeHints.GOLD : undefined,
             }))}
@@ -510,7 +510,7 @@ export default async function OverviewPage({
             variant="subtle"
             items={TREND_METRICS.map((metric) => ({
               key: metric.key,
-              href: `/?trend=${selectedRange.key}&scope=${selectedScope}&metric=${metric.key}&view=single$`,
+              href: `/?trend=${selectedRange.key}&scope=${selectedScope}&metric=${metric.key}&view=single`,
               label: copy.metricLabels[metric.key],
             }))}
             current={selectedMetric.key}
