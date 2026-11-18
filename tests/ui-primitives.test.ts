@@ -10,6 +10,7 @@ import { PositionCell } from '@/components/PositionCell'
 import { Badge, Callout, Card, FormError, FormSaved, HeroAside, MetricField, Note, Panel, SectionHeading } from '@/components/ui'
 import { LinkChip, LinkChips } from '@/components/LinkChips'
 import { Tabs } from '@/components/Tabs'
+import { OperatorDetails } from '@/components/OperatorDetails'
 import { PageHeader } from '@/components/PageHeader'
 import { routeName, routeSection } from '@/lib/page-names'
 import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared-runtime'
@@ -876,4 +877,13 @@ test('app/cash-inflow/page.tsx: the header status opens the filter that renders 
   const target = source.indexOf('id="cash-inflow-unclassified"')
   assert.ok(branch >= 0 && target > branch, 'the target sits inside the unclassified branch')
   assert.equal((source.match(/id="cash-inflow-unclassified"/g) ?? []).length, 1)
+})
+
+test('OperatorDetails renders a closed details with the operator summary', () => {
+  const en = renderToStaticMarkup(h(OperatorDetails, null, h('p', null, 'x')))
+  assert.ok(en.startsWith('<details'))
+  assert.ok(!en.includes(' open'))
+  assert.ok(en.includes('>Operator details</summary>'))
+  const ko = renderToStaticMarkup(h(OperatorDetails, { language: 'ko', children: h('p', null, 'x') }))
+  assert.ok(ko.includes('>운영 정보</summary>'))
 })

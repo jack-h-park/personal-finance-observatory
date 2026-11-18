@@ -126,6 +126,63 @@ button is `type="button"`, and a submission without a submitter is cancelled.
 `confirmStep` is pure and tested; the click, timer and blur wiring has no DOM
 test, so check it by hand.
 
+## Information architecture
+
+The sidebar has five sections. `lib/nav.ts` holds the model (`navItems`, and
+`activeHref` with its aliases `/positions` to `/holdings` and `/taxes/records`
+to `/taxes/history`); the eyebrow above a heading is the top-level section.
+
+| section | what belongs in it |
+|---|---|
+| Overview | `/` and `/daily-briefing`: the summary a reader opens first, and only blocks no other page owns |
+| Assets & Cash Flow | `/holdings`, `/net-worth`, `/pension`, `/income`, `/cash-inflow`, and the collapsible Detailed Records group (`/transactions`, `/fx`, `/crypto-premium`). `/net-worth` and `/pension` are hidden when the database has no supplementary data |
+| Taxes | `/taxes`, `/taxes/history`, `/tax-planning`, `/lots`, `/realized`, `/fbar` |
+| Review & Data | `/review`, `/rebalance`, `/data-ops`, `/reconciliation`, `/accounts`, `/health`, `/data-map` |
+| Settings | `/tax-settings`, `/rebalance/settings` |
+
+`/cost-basis` redirects to `/holdings` with every parameter kept, and
+`/dividends` redirects to `/income`, so old links still land.
+
+### Breadcrumbs
+
+A page under another page passes `PageHeader parent={...} language={...}`
+instead of `eyebrow`; the two are exclusive. The header then reads
+`Section › Parent` above the heading, and the way back is that breadcrumb, never
+a back link in `actions`.
+
+### One home per data block
+
+A block of data renders on one page, and other pages link to it. The overview
+and the review page keep only their own blocks; the all-view cumulative
+total-assets chart lives only on `/net-worth`; `/data-ops` is the one work
+queue, and its rows link to card anchors on that page, never to their own page;
+the FBAR worksheet lives on `/fbar`. The allowed repeats are:
+
+- a header pill that summarises another page's count (it links there);
+- the archive figures on `/daily-briefing`, which is the archive's own page;
+- the position page's per-ticker slices of data whose full list lives elsewhere.
+
+`tests/page-blocks.test.ts` asserts the absences, so a block cannot drift back
+quietly.
+
+### Operator detail
+
+Paths, hashes, stderr tails and commands are for whoever runs the pipeline, not
+for the reader of a figure. Put them in `<OperatorDetails language={language}>`
+(`components/OperatorDetails.tsx`): a closed `<details>` whose summary is
+`common.operatorDetails`. It goes at the bottom of the page, except that a
+stderr tail stays inside its own step on `/health`. On `/data-map` it holds the
+data directory, on `/health` the stderr tail and the refresh-runs path, and on
+the position page the evidence-summary and lineage cards. Keep these out of
+subtitles and out of the main flow.
+
+### Ticker links
+
+A position links to `/lots`, `/realized` and `/transactions` with an exact
+`ticker` parameter, plus `market` where the ticker alone is ambiguous. The
+target page shows the filter as a removable `TickerFilterChip`, so the reader
+can see why the list is short and clear it in one press.
+
 ## All assets
 
 Deposits, CMA balances, pensions and gold are supplementary data (see

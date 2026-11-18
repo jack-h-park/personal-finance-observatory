@@ -62,3 +62,29 @@ test('review copy describes only the blocks the page shows', () => {
     for (const value of [copy.subtitle, copy.readOrder]) assert.doesNotMatch(value, gone, `${language}: ${value}`)
   }
 })
+
+test('operator detail sits behind OperatorDetails', () => {
+  const health = source('app/health/page.tsx')
+  const tail = health.indexOf('stderrTail')
+  assert.ok(tail >= 0)
+  for (let at = health.indexOf('stderrTail'); at >= 0; at = health.indexOf('stderrTail', at + 1)) {
+    // The guard that decides whether to render at all is not output.
+    if (health.slice(health.lastIndexOf('\n', at), at).includes('.some(')) continue
+    const open = health.lastIndexOf('<OperatorDetails', at)
+    const close = health.lastIndexOf('</OperatorDetails>', at)
+    assert.ok(open >= 0 && open > close, 'stderrTail is outside an OperatorDetails element')
+  }
+  const hint = health.indexOf('refreshRunsHint')
+  assert.ok(health.lastIndexOf('<OperatorDetails', hint) > health.lastIndexOf('</OperatorDetails>', hint))
+  const dataMap = source('app/data-map/page.tsx')
+  assert.ok(!/copy\.subtitle\([^)]*dataDir/.test(dataMap))
+  assert.ok(dataMap.includes('copy.dataDir(inventory.dataDir)'))
+  assert.ok(dataMap.indexOf('copy.dataDir(') > dataMap.indexOf('<OperatorDetails'))
+  const position = source('app/positions/[market]/[ticker]/page.tsx')
+  const wrapper = position.indexOf('<OperatorDetails')
+  assert.ok(wrapper >= 0)
+  for (const marker of ['copy.evidenceSummary', 'copy.lineage']) {
+    const at = position.indexOf(marker)
+    assert.ok(at > wrapper && at < position.indexOf('</OperatorDetails>'), `${marker} is inside OperatorDetails`)
+  }
+})

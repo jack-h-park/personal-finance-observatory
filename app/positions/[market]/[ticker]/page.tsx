@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { DataTable } from '@/components/DataTable'
 import { FreshnessInline } from '@/components/Freshness'
+import { OperatorDetails } from '@/components/OperatorDetails'
 import { PageHeader } from '@/components/PageHeader'
 import { Badge, Card, EmptyState, HeroAside, Label, MetricField, MetricHeroCard, Panel, TextLink } from '@/components/ui'
 import { getOperationalHealth, getPositionDetail, type FreshnessItem } from '@/lib/adapters/portfolio-db'
@@ -406,34 +407,6 @@ export default async function PositionPage({ params }: { params: Promise<{ marke
         )}
       </Card>
 
-      <CardRow>
-        <Card title={copy.evidenceSummary}>
-          <DataTable
-            rows={lineageSummary}
-            columns={[
-              { key: 'status', label: copy.columns.status, render: (r: { status: 'linked' | 'unlinked' }) => <Badge tone={statusTone(EVIDENCE_LINK_SEVERITY, r.status)}>{copy.linkStatus[r.status] ?? r.status}</Badge> },
-              { key: 'label', label: copy.columns.file, render: (r) => <span className="max-w-[20rem] break-words">{r.label}</span> },
-              { key: 'usage', label: copy.columns.usage },
-              { key: 'rows', label: copy.columns.rows, align: 'right', render: (r) => (r.rows == null ? EMPTY_VALUE : fmtNumber(r.rows)) },
-              { key: 'modified', label: copy.columns.modified, render: (r) => (r.modified ? fmtDateTime(r.modified, language) : EMPTY_VALUE) },
-            ]}
-          />
-        </Card>
-
-        <Card title={copy.lineage}>
-          <DataTable
-            rows={detail.sources}
-            columns={[
-              { key: 'source', label: copy.columns.source, render: (r) => <span className="max-w-[18rem] break-words">{r.source}</span> },
-              { key: 'usages', label: copy.columns.usage, render: (r) => r.usages.map((usage) => translated(usage, copy.sourceUsages)).join(', ') },
-              { key: 'row_count', label: copy.columns.rows, align: 'right', render: (r) => (r.file ? fmtNumber(r.file.row_count) : EMPTY_VALUE) },
-              { key: 'mtime_ms', label: copy.columns.modified, render: (r) => (r.file ? fmtDateTime(new Date(r.file.mtime_ms).toISOString(), language) : EMPTY_VALUE) },
-              { key: 'sha256', label: copy.columns.sha, render: (r) => (r.file ? <code className="font-mono text-label">{shortHash(r.file.sha256)}</code> : EMPTY_VALUE) },
-            ]}
-          />
-        </Card>
-      </CardRow>
-
       <CardRow columns={1}>
         <Card
           title={copy.taxPreview}
@@ -532,6 +505,36 @@ export default async function PositionPage({ params }: { params: Promise<{ marke
           )}
         </Card>
       </CardRow>
+
+      <OperatorDetails language={language}>
+        <CardRow>
+          <Card title={copy.evidenceSummary}>
+            <DataTable
+              rows={lineageSummary}
+              columns={[
+                { key: 'status', label: copy.columns.status, render: (r: { status: 'linked' | 'unlinked' }) => <Badge tone={statusTone(EVIDENCE_LINK_SEVERITY, r.status)}>{copy.linkStatus[r.status] ?? r.status}</Badge> },
+                { key: 'label', label: copy.columns.file, render: (r) => <span className="max-w-[20rem] break-words">{r.label}</span> },
+                { key: 'usage', label: copy.columns.usage },
+                { key: 'rows', label: copy.columns.rows, align: 'right', render: (r) => (r.rows == null ? EMPTY_VALUE : fmtNumber(r.rows)) },
+                { key: 'modified', label: copy.columns.modified, render: (r) => (r.modified ? fmtDateTime(r.modified, language) : EMPTY_VALUE) },
+              ]}
+            />
+          </Card>
+
+          <Card title={copy.lineage}>
+            <DataTable
+              rows={detail.sources}
+              columns={[
+                { key: 'source', label: copy.columns.source, render: (r) => <span className="max-w-[18rem] break-words">{r.source}</span> },
+                { key: 'usages', label: copy.columns.usage, render: (r) => r.usages.map((usage) => translated(usage, copy.sourceUsages)).join(', ') },
+                { key: 'row_count', label: copy.columns.rows, align: 'right', render: (r) => (r.file ? fmtNumber(r.file.row_count) : EMPTY_VALUE) },
+                { key: 'mtime_ms', label: copy.columns.modified, render: (r) => (r.file ? fmtDateTime(new Date(r.file.mtime_ms).toISOString(), language) : EMPTY_VALUE) },
+                { key: 'sha256', label: copy.columns.sha, render: (r) => (r.file ? <code className="font-mono text-label">{shortHash(r.file.sha256)}</code> : EMPTY_VALUE) },
+              ]}
+            />
+          </Card>
+        </CardRow>
+      </OperatorDetails>
     </>
   )
 }
