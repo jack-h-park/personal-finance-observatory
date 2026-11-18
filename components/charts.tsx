@@ -55,6 +55,12 @@ type ChartContract = {
 
 const tickFormatter = (unit: ChartUnit, language: Language) => (value: number) => axisTick(value, unit, language)
 
+/**
+ * Percent ticks print whole percents, so a half-percent step would repeat a
+ * label (0.5% and 1% both read "1%"). Percent axes ask recharts for integer ticks.
+ */
+const integerTicks = (unit: ChartUnit, allowDecimals?: boolean) => (unit.kind === 'percent' ? false : allowDecimals)
+
 const tooltipFormatter = (unit: ChartUnit, language: Language) => (value: number, name: string) =>
   [tooltipValue(value, unit, language), name] as [string, string]
 
@@ -144,7 +150,7 @@ export function TrendBarChart({
           tick={AXIS}
           tickLine={false}
           axisLine={false}
-          allowDecimals={allowDecimals}
+          allowDecimals={integerTicks(unit, allowDecimals)}
           domain={yDomain}
           tickFormatter={tickFormatter(unit, language)}
           label={yAxisLabel ? { value: yAxisLabel, angle: -90, position: 'insideLeft', style: AXIS } : undefined}
@@ -213,6 +219,7 @@ export function PortfolioTrendChart({
           tick={AXIS}
           tickLine={false}
           axisLine={false}
+          allowDecimals={integerTicks(unit)}
           tickFormatter={tickFormatter(unit, language)}
           label={axisLabel ? { value: axisLabel, angle: -90, position: 'insideLeft', style: AXIS } : undefined}
         />
@@ -269,6 +276,7 @@ export function PortfolioMultiTrendChart({
           tick={AXIS}
           tickLine={false}
           axisLine={false}
+          allowDecimals={integerTicks(unit)}
           tickFormatter={formatTick}
           label={axisLabel ? { value: axisLabel, angle: -90, position: 'insideLeft', style: AXIS } : undefined}
         />
@@ -279,6 +287,7 @@ export function PortfolioMultiTrendChart({
             tick={rightTick}
             tickLine={false}
             axisLine={false}
+            allowDecimals={integerTicks(unit)}
             tickFormatter={formatTick}
             label={rightAxisLabel ? { value: rightAxisLabel, angle: 90, position: 'insideRight', style: rightTick } : undefined}
           />
@@ -360,6 +369,7 @@ export function StackedAssetChart({
           tick={AXIS}
           tickLine={false}
           axisLine={false}
+          allowDecimals={integerTicks(unit)}
           tickFormatter={tickFormatter(unit, language)}
           label={axisLabel ? { value: axisLabel, angle: -90, position: 'insideLeft', style: AXIS } : undefined}
         />
@@ -497,7 +507,7 @@ export function StackedBarChart({
           tick={AXIS}
           tickLine={false}
           axisLine={false}
-          allowDecimals={allowDecimals}
+          allowDecimals={integerTicks(unit, allowDecimals)}
           tickFormatter={tickFormatter(unit, language)}
           label={yAxisLabel ? { value: yAxisLabel, angle: -90, position: 'insideLeft', style: AXIS } : undefined}
         />

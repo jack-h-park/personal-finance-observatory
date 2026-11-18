@@ -10,6 +10,8 @@ test('axisTick ko KRW reads in 만 and 억', () => {
   assert.equal(axisTick(0, KRW, 'ko'), '0')
   assert.equal(axisTick(9_999, KRW, 'ko'), '9,999')
   assert.equal(axisTick(10_000, KRW, 'ko'), '1만')
+  assert.equal(axisTick(35_000, KRW, 'ko'), '3.5만')
+  assert.equal(axisTick(99_999, KRW, 'ko'), '10만')
   assert.equal(axisTick(35_000_000, KRW, 'ko'), '3,500만')
   // Rounding reaches 10,000만, so the tick promotes to the next unit.
   assert.equal(axisTick(99_999_999, KRW, 'ko'), '1억')
@@ -21,7 +23,7 @@ test('axisTick ko KRW reads in 만 and 억', () => {
 test('axisTick ko KRW rounds half away from zero', () => {
   assert.equal(axisTick(125_000_000, KRW, 'ko'), '1.3억')
   assert.equal(axisTick(-125_000_000, KRW, 'ko'), '-1.3억')
-  assert.equal(axisTick(15_000, KRW, 'ko'), '2만')
+  assert.equal(axisTick(15_000, KRW, 'ko'), '1.5만')
   assert.equal(axisTick(-9_999, KRW, 'ko'), '-9,999')
 })
 
@@ -51,6 +53,11 @@ test('axisTick percent and number', () => {
   assert.equal(axisTick(12.34, { kind: 'percent' }, 'en'), fmtPct(12.34, { digits: 0 }))
   assert.equal(axisTick(1_380.5, { kind: 'number' }, 'ko'), '1,381')
   assert.equal(axisTick(5, { kind: 'number', suffix: 'x' }, 'en'), '5x')
+})
+
+test('axisTick prints a small negative that rounds to zero as zero', () => {
+  assert.equal(axisTick(-0.4, { kind: 'percent' }, 'en'), '0%')
+  assert.equal(axisTick(-0.3, { kind: 'number' }, 'ko'), '0')
 })
 
 test('axisTick never prints NaN', () => {

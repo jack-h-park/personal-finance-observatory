@@ -13,10 +13,12 @@ export type ChartUnit =
 type Scale = { min: number; div: number; digits: number; label: string }
 
 // Korean reads won in 만 (10^4) and 억 (10^8). These two strings are the only
-// Korean outside lib/ui-copy, and the tests assert them verbatim.
+// Korean outside lib/ui-copy, and the tests assert them verbatim. Below 10만 the
+// 만 tick keeps one decimal, so 15,000 (1.5만) never reads like 20,000 (2만).
 const KO_KRW: readonly Scale[] = [
   { min: 0, div: 1, digits: 0, label: '' },
-  { min: 1e4, div: 1e4, digits: 0, label: '만' },
+  { min: 1e4, div: 1e4, digits: 1, label: '만' },
+  { min: 1e5, div: 1e4, digits: 0, label: '만' },
   { min: 1e8, div: 1e8, digits: 1, label: '억' },
 ]
 
@@ -52,9 +54,10 @@ function scaled(abs: number, scales: readonly Scale[]) {
 /** A short Y-axis tick: `1.2억` / `3,500만` in Korean won, `₩1.2M` / `$350K` otherwise. */
 export function axisTick(value: number, unit: ChartUnit, language: Language): string {
   if (!Number.isFinite(value)) return ''
-  if (unit.kind === 'percent') return fmtPct(value, { digits: 0 })
-  if (unit.kind === 'number') {
-    const rounded = Math.sign(value) * roundAbs(Math.abs(value), 0)
+  if (unit.kind !== 'money') {
+    // A small negative that rounds to zero prints 0, never -0. `|| 0` turns -0 into 0.
+    const rounded = Math.sign(value) * roundAbs(Math.abs(value), 0) || 0
+    if (unit.kind === 'percent') return fmtPct(rounded, { digits: 0 })
     return `${fmtNumber(rounded)}${unit.suffix ?? ''}`
   }
   const korean = unit.currency === 'KRW' && language === 'ko'
