@@ -10,7 +10,6 @@ export const positionDetail = defineCopy({
   en: {
     subtitle: (accounts: string, lots: string, transactions: string) =>
       `${accounts} accounts · ${lots} open tax lots · ${transactions} transactions`,
-    backToHoldings: 'Back to holdings',
     freshness: 'Valuation Data Freshness',
     firstChecks: 'First Checks',
     firstChecksInfo: "Summarizes whether this position's quantity, cost basis, and evidence agree.",
@@ -83,6 +82,8 @@ export const positionDetail = defineCopy({
       STAKING_REWARD: 'STAKING REWARD', STOCK_LENDING_INCOME: 'STOCK LENDING',
     } as Record<string, string>,
     sourceUsages: { snapshot: 'snapshot', 'tax lots': 'tax lots', transactions: 'transactions', dividends: 'dividends' } as Record<string, string>,
+    // The record pages this position's rows live on, filtered to it.
+    links: { lots: 'Tax lots', realized: 'Realized lots', transactions: 'Transactions' },
     columns: {
       broker: 'Broker',
       account: 'Account',
@@ -120,7 +121,6 @@ export const positionDetail = defineCopy({
   ko: {
     subtitle: (accounts: string, lots: string, transactions: string) =>
       `계좌 ${accounts}개 · 미결제 세금 단위 ${lots}개 · 거래 ${transactions}건`,
-    backToHoldings: '보유종목으로 돌아가기',
     freshness: '평가 데이터 신선도',
     firstChecks: '먼저 확인할 것',
     firstChecksInfo: '이 종목의 수량·취득원가·증빙이 서로 맞는지 요약합니다.',
@@ -192,6 +192,8 @@ export const positionDetail = defineCopy({
       STAKING_REWARD: '스테이킹 보상', STOCK_LENDING_INCOME: '주식 대여 수익',
     } as Record<string, string>,
     sourceUsages: { snapshot: '스냅샷', 'tax lots': '세금 단위', transactions: '거래', dividends: '배당' } as Record<string, string>,
+    // The sidebar's names for the same three routes.
+    links: { lots: '세금 단위', realized: '실현 손익 내역', transactions: '거래 내역' },
     columns: {
       broker: '증권사',
       account: '계좌',

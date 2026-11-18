@@ -17,6 +17,8 @@ test('every sortable holdings column is a field getHoldings selects', () => {
   const select = adapter.match(/export function getHoldings[\s\S]*?select([\s\S]*?)from holdings/)
   assert.ok(select, 'getHoldings select list not found')
   const selected = new Set(select[1].split(',').map((s) => s.trim()).filter(Boolean))
+  // Computed by getHoldings from the selected columns rather than selected.
+  for (const derived of ['cost_status', 'cost_note']) selected.add(derived)
 
   const columnKeys = [...page.matchAll(/\{ key: '([a-z_]+)',\s*label: copy\./g)].map((m) => m[1])
   assert.ok(columnKeys.length > 5, 'holdings columns not found')

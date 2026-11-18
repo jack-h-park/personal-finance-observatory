@@ -3,6 +3,7 @@ import type { Language } from '@/lib/i18n'
 import { getLanguage } from '@/lib/i18n-server'
 import { getPageCopy } from '@/lib/ui-copy'
 import { APP_NAME } from '@/lib/brand'
+import { navItems } from '@/lib/nav'
 
 /**
  * One name per route, taken from the sidebar.
@@ -24,6 +25,7 @@ export const ROUTE_HREFS = [
   '/holdings',
   '/review',
   '/rebalance',
+  '/rebalance/settings',
   '/income',
   '/cash-inflow',
   '/tax-planning',
@@ -33,8 +35,6 @@ export const ROUTE_HREFS = [
   '/lots',
   '/realized',
   '/pension',
-  '/cost-basis',
-  '/dividends',
   '/transactions',
   '/fx',
   '/crypto-premium',
@@ -51,18 +51,16 @@ export { APP_NAME, BRAND } from '@/lib/brand'
 
 /** The sidebar's label for a route, in one language. */
 export function routeName(href: RouteHref, language: Language): string {
-  for (const section of getPageCopy('sidebar', language).sections) {
-    for (const item of section.items) {
-      if (item.href === href) return item.label
-    }
-  }
+  const item = navItems(getPageCopy('sidebar', language).sections, { supplementary: true }).find((entry) => entry.href === href)
+  if (item) return item.label
   // Unreachable while tests/page-names.test.ts passes. Falling back to the href
   // keeps a future gap visible in the tab rather than blank.
   return href
 }
 
 /**
- * The sidebar section a route sits in — "Core Workflows", "Tax", "상세 기록".
+ * The sidebar section a route sits in — "Overview", "Taxes", "자산 · 현금 흐름".
+ * A route inside a group (Detailed Records) reports its section, not the group.
  *
  * This is what the eyebrow above each heading says. It used to say whatever the
  * page happened to choose: sixteen of eighteen routes carried an overline that
@@ -76,9 +74,8 @@ export function routeName(href: RouteHref, language: Language): string {
  * routeName is: a copy of a name is a name that drifts.
  */
 export function routeSection(href: RouteHref, language: Language): string {
-  for (const section of getPageCopy('sidebar', language).sections) {
-    if (section.items.some((item) => item.href === href)) return section.label
-  }
+  const item = navItems(getPageCopy('sidebar', language).sections, { supplementary: true }).find((entry) => entry.href === href)
+  if (item) return item.section
   // Unreachable while tests/page-names.test.ts passes.
   return ''
 }

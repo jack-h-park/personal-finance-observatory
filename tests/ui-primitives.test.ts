@@ -11,6 +11,7 @@ import { Badge, Callout, Card, FormError, FormSaved, HeroAside, MetricField, Not
 import { LinkChip, LinkChips } from '@/components/LinkChips'
 import { Tabs } from '@/components/Tabs'
 import { PageHeader } from '@/components/PageHeader'
+import { routeName, routeSection } from '@/lib/page-names'
 import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared-runtime'
 
 // tsx compiles the component's JSX with the classic runtime, which reads a
@@ -711,9 +712,10 @@ test('FormError with no messages renders the title alone', () => {
 /** A stand-in for the App Router, which AutoRefresh needs mounted to render. */
 const ROUTER = { back() {}, forward() {}, refresh() {}, push() {}, replace() {}, prefetch() {} }
 
-function renderHeader(props: Partial<React.ComponentProps<typeof PageHeader>>): string {
+// Loose on purpose: Partial of the trail union would let eyebrow and parent mix, which the type forbids.
+function renderHeader(props: Record<string, unknown>): string {
   return renderToStaticMarkup(
-    h(AppRouterContext.Provider, { value: ROUTER as never }, h(PageHeader, { title: 'T', ...props }))
+    h(AppRouterContext.Provider, { value: ROUTER as never }, h(PageHeader, { title: 'T', ...props } as React.ComponentProps<typeof PageHeader>))
   )
 }
 
@@ -762,6 +764,42 @@ test('PageHeader clock shows no refresh interval; the title still names it', () 
 test('PageHeader no longer takes action', () => {
   // @ts-expect-error status and actions replaced it; tsc fails any caller left behind
   const props: React.ComponentProps<typeof PageHeader> = { title: 'T', action: 'x' }
+  assert.ok(props)
+})
+
+test('PageHeader parent renders Section > Parent in a labelled nav, in the eyebrow place', () => {
+  const html = renderHeader({ parent: '/holdings', language: 'en', autoRefresh: false })
+  const nav = html.match(/<nav aria-label="Breadcrumb"[^>]*>(.*?)<\/nav>/)
+  assert.ok(nav, html)
+  const link = nav[1].match(/<a [^>]*href="\/holdings"[^>]*>(.*?)<\/a>/)
+  assert.ok(link, nav[1])
+  assert.equal(link[1], routeName('/holdings', 'en'))
+  assert.ok(nav[1].includes(routeSection('/holdings', 'en').replace('&', '&amp;')), nav[1])
+  assert.match(nav[1], /<span aria-hidden="true"[^>]*>\u203a<\/span>/)
+  // The eyebrow class lives on the nav; no second eyebrow element outside it.
+  assert.equal((html.match(/t-eyebrow/g) ?? []).length, 1, html)
+  assert.match(nav[0], /t-eyebrow/)
+})
+
+test('PageHeader breadcrumb wraps between crumbs, never inside one', () => {
+  const html = renderHeader({ parent: '/holdings', language: 'ko', autoRefresh: false })
+  const nav = html.match(/<nav [^>]*>(.*?)<\/nav>/)
+  assert.ok(nav, html)
+  assert.match(nav[0], /flex-wrap/)
+  const crumbs = [...nav[1].matchAll(/<(span|a)\b(?![^>]*aria-hidden)[^>]*>/g)]
+  assert.equal(crumbs.length, 2, nav[1])
+  for (const crumb of crumbs) assert.match(crumb[0], /whitespace-nowrap/, crumb[0])
+})
+
+test('PageHeader parent names the nav in Korean', () => {
+  const html = renderHeader({ parent: '/rebalance', language: 'ko', autoRefresh: false })
+  assert.match(html, /<nav aria-label="현재 위치"/)
+  assert.ok(html.includes(routeName('/rebalance', 'ko')), html)
+})
+
+test('PageHeader parent and eyebrow are exclusive', () => {
+  // @ts-expect-error a header names its parent or carries an eyebrow, not both
+  const props: React.ComponentProps<typeof PageHeader> = { title: 'T', parent: '/holdings', language: 'en', eyebrow: 'E' }
   assert.ok(props)
 })
 

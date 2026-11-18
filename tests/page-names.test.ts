@@ -2,6 +2,7 @@ import { strict as assert } from 'node:assert'
 import { test } from 'node:test'
 
 import { APP_NAME, BRAND, ROUTE_HREFS, routeName, routeSection } from '@/lib/page-names'
+import { navItems } from '@/lib/nav'
 import { getPageCopy } from '@/lib/ui-copy'
 
 const LANGUAGES = ['en', 'ko'] as const
@@ -23,7 +24,7 @@ test('every route has a sidebar label in both languages', () => {
 // would be invisible here, since routeName only reads what ROUTE_HREFS asks for.
 test('every sidebar entry is covered by ROUTE_HREFS', () => {
   for (const language of LANGUAGES) {
-    const linked = getPageCopy('sidebar', language).sections.flatMap((section) => section.items.map((item) => item.href))
+    const linked = navItems(getPageCopy('sidebar', language).sections, { supplementary: true }).map((item) => item.href)
     for (const href of linked) {
       assert.ok(
         (ROUTE_HREFS as readonly string[]).includes(href),
@@ -56,7 +57,10 @@ test('every route resolves to its sidebar section', () => {
     const sections = getPageCopy('sidebar', language).sections
     for (const href of ROUTE_HREFS) {
       const label = routeSection(href, language)
-      const owner = sections.find((section) => section.items.some((item) => item.href === href))
+      // A link sits either directly in a section or inside one of its groups.
+      const owner = sections.find((section) =>
+        section.items.some((entry) => ('group' in entry ? entry.items.some((item) => item.href === href) : entry.href === href))
+      )
       assert.ok(owner, `${href} is in ROUTE_HREFS but in no ${language} sidebar section`)
       assert.equal(label, owner.label, `${href} (${language}) resolved to "${label}", not "${owner.label}"`)
     }

@@ -2,11 +2,10 @@ import { defineCopy } from '@/lib/ui-copy/define'
 
 export const rebalanceSettings = defineCopy({
   en: {
-    metaTitle: 'Rebalancing settings',
-    title: 'Rebalancing settings',
-    emphasis: 'settings',
+    metaTitle: 'Rebalancing Settings',
+    title: 'Rebalancing Settings',
+    emphasis: 'Settings',
     subtitle: 'Bounds, targets, limits, account rules and buy lists. This writes only to the ignored policy files on this host.',
-    back: 'Back to rebalancing',
     saved: 'Saved',
     errorsTitle: 'Not saved',
     errorsNote: 'The policy file was not changed.',
@@ -98,7 +97,6 @@ export const rebalanceSettings = defineCopy({
     title: '리밸런싱 설정',
     emphasis: '설정',
     subtitle: '허용 범위, 목표, 한도, 계좌별 규칙, 매수 후보를 정합니다. 이 호스트의 로컬 정책 파일(git에 올라가지 않음)에만 저장됩니다.',
-    back: '리밸런싱으로 돌아가기',
     saved: '저장됨',
     errorsTitle: '저장되지 않음',
     errorsNote: '정책 파일은 변경되지 않았습니다.',

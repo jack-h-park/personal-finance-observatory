@@ -176,9 +176,8 @@ create table dividends_all (id integer primary key, market text not null, curren
 create table bank_inflows (id integer primary key, institution text not null, account text not null, currency text not null, date text not null, amount real not null, description text not null default '', counterparty text not null default '', category text not null, rule text, rule_note text, usd_krw_rate real, usd_krw_rate_dated integer not null default 0);
 create table validation_checks (id integer primary key, name text not null, status text not null, detail text not null, severity text not null, scope text not null default 'stock');
 create table evidence_reports (id integer primary key, name text not null, category text not null, filename text not null, path text not null, account_hint text, pages integer, row_count integer, metrics_json text);
--- /cost-basis reads the previous close from here. Without the table the page
--- is a 500 under sample data, which made it the one route the screenshot
--- baseline could never actually check.
+-- Price history for the charts that read it. The cost-basis page that once
+-- needed it for a previous close is now part of /holdings and reads no prices.
 create table historical_prices (id integer primary key, market text not null, ticker text not null, price_date text not null, close real not null, source text);
 -- /fx reads these three. Without them the page was a 500 under sample data, so
 -- the screenshot baseline had been photographing an error for that route while

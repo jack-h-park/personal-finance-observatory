@@ -178,7 +178,6 @@ export const taxPlanning = defineCopy({
     },
     savedPlanDetail: {
       subtitle: (date: string, revision: string | number) => `Immutable calculation snapshot from ${date} · revision ${revision}`,
-      backToPlanner: 'Back to planner',
       executionOverview: 'Execution overview',
       executionOverviewInfo: 'The tax calculation snapshot stays unchanged. Review and execution updates are recorded separately so the original plan remains auditable.',
       plannedSales: 'Planned sales',
@@ -595,7 +594,6 @@ export const taxPlanning = defineCopy({
     },
     savedPlanDetail: {
       subtitle: (date: string, revision: string | number) => `${date} 기준 변경 불가능한 계산 snapshot · revision ${revision}`,
-      backToPlanner: '플래너로 돌아가기',
       executionOverview: '실행 개요',
       executionOverviewInfo: '세금 계산 snapshot은 바뀌지 않습니다. 원래 계획을 감사 가능하게 유지하기 위해 검토와 실행 업데이트는 별도로 기록됩니다.',
       plannedSales: '계획 매도',

@@ -1,4 +1,5 @@
 import { strict as assert } from 'node:assert'
+import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 import * as React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
@@ -30,6 +31,7 @@ const COPY_FOR: Record<RouteHref, PageKey | { page: PageKey; title: string }> = 
   '/holdings': 'holdings',
   '/review': 'review',
   '/rebalance': 'rebalance',
+  '/rebalance/settings': 'rebalanceSettings',
   '/income': 'income',
   '/cash-inflow': 'cashInflow',
   '/tax-planning': 'taxPlanning',
@@ -39,8 +41,6 @@ const COPY_FOR: Record<RouteHref, PageKey | { page: PageKey; title: string }> = 
   '/lots': 'lots',
   '/realized': 'realized',
   '/pension': 'pension',
-  '/cost-basis': 'costBasis',
-  '/dividends': 'dividends',
   '/transactions': 'transactions',
   '/fx': 'fx',
   '/crypto-premium': 'cryptoPremium',
@@ -122,10 +122,6 @@ test('the heading matches the sidebar label', () => {
 
 /** The routes outside the sidebar, each giving the heading its page renders. Inputs are invented. */
 const NESTED: Record<string, (language: Lang) => Heading> = {
-  '/rebalance/settings': (language) => {
-    const copy = getPageCopy('rebalanceSettings', language)
-    return { title: copy.title, emphasis: copy.emphasis }
-  },
   '/rebalance/proposals/[id]': (language) => proposalHeading(getPageCopy('rebalanceProposal', language), 'rp-0001-test'),
   '/positions/[market]/[ticker]': () => positionHeading('Example Holdings Corp'),
   '/tax-planning/plans/[id]': () => savedPlanHeading('Sample sale plan'),
@@ -188,4 +184,23 @@ test('PageHeader throws on an emphasis that is not the end of the title', () => 
   )
   assert.match(renderHeader('Rebalance proposal', 'proposal'), /t-emph-gradient">proposal</)
   assert.doesNotMatch(renderHeader('Tax Record'), /t-emph-gradient/)
+})
+
+// The back link beside the heading is gone: a nested page names its parent in
+// the breadcrumb above the title (PageHeader parent), and /rebalance/settings,
+// now a sidebar route, takes its section as an ordinary eyebrow.
+test('no page puts a back link in its header', () => {
+  const pages = [
+    'app/rebalance/proposals/[id]/page.tsx',
+    'app/tax-planning/plans/[id]/page.tsx',
+    'app/positions/[market]/[ticker]/page.tsx',
+    'app/taxes/records/[id]/page.tsx',
+    'app/rebalance/settings/page.tsx',
+  ]
+  for (const file of pages) {
+    const source = readFileSync(file, 'utf8')
+    for (const key of ['copy.back}', 'copy.backToPlanner', 'copy.backToHoldings']) {
+      assert.ok(!source.includes(key), `${file} still renders ${key}`)
+    }
+  }
 })

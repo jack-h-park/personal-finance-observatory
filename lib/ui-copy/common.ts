@@ -7,6 +7,7 @@ export const UI_COPY_BY_LANG = {
   en: {
     common: {
       all: 'All',
+      breadcrumb: 'Breadcrumb',
       search: 'Search',
       sort: 'Sort',
       market: 'Market',
@@ -15,6 +16,7 @@ export const UI_COPY_BY_LANG = {
       status: 'Status',
       details: 'Details',
       clearFilters: 'Clear filters',
+      tickerFilter: (ticker: string) => `Ticker: ${ticker}`,
       filters: 'Filters',
       noValue: EMPTY_VALUE,
       noRows: 'No rows to display.',
@@ -147,6 +149,7 @@ export const UI_COPY_BY_LANG = {
   ko: {
     common: {
       all: '전체',
+      breadcrumb: '현재 위치',
       search: '검색',
       sort: '정렬',
       market: '시장',
@@ -155,6 +158,7 @@ export const UI_COPY_BY_LANG = {
       status: '상태',
       details: '상세 보기',
       clearFilters: '필터 초기화',
+      tickerFilter: (ticker: string) => `종목: ${ticker}`,
       filters: '필터',
       noValue: EMPTY_VALUE,
       noRows: '표시할 데이터가 없습니다.',

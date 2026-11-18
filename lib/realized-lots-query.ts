@@ -1,5 +1,5 @@
 import { ALL_YEARS, defaultSoldYear, type RealizedLotView } from '@/lib/realized-lots'
-import { applyFilters, applySearch, filterOptions, readFilters, type FilterGroup } from '@/lib/table-filter'
+import { applyFilters, applySearch, applyTicker, filterOptions, readFilters, readTicker, type FilterGroup } from '@/lib/table-filter'
 
 type Params = Record<string, string | string[] | undefined>
 
@@ -29,7 +29,11 @@ export function queryRealized(rows: RealizedLotView[], params: Params, currentYe
   const requested = first(params.year)
   const year = requested === ALL_YEARS || (requested && years.includes(requested)) ? requested : defaultYear
 
-  const inYear = year === ALL_YEARS ? rows : rows.filter((row) => row.sold_year === year)
+  // A position page links here with its exact ticker. It narrows before the
+  // year's count, so "n of m" counts that instrument's lots.
+  const ticker = readTicker(params)
+  const scoped = applyTicker(rows, ticker)
+  const inYear = year === ALL_YEARS ? scoped : scoped.filter((row) => row.sold_year === year)
   const selected = readFilters(params, REALIZED_GROUPS)
   const options = filterOptions(inYear, REALIZED_GROUPS, selected)
   const rawQuery = first(params.q)
@@ -40,5 +44,5 @@ export function queryRealized(rows: RealizedLotView[], params: Params, currentYe
     row.account,
     row.brokerage,
   ])
-  return { years, defaultYear, year: year as string, selected, options, query, inYear, filtered }
+  return { years, defaultYear, year: year as string, selected, options, query, ticker, inYear, filtered }
 }

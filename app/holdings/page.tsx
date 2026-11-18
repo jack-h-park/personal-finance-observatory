@@ -13,6 +13,7 @@ import { positionHref } from '@/lib/position-url'
 import { getPageCopy, getUiCopy } from '@/lib/ui-copy'
 import { applyFilters, applySearch, filterOptions, readFilters, withParam, type FilterGroup } from '@/lib/table-filter'
 import { formatSort, parseSort, sortRows, type TableSort } from '@/lib/table-sort'
+import { COST_BASIS_STATUS_TONE } from '@/lib/tone'
 import { routeMetadata, routeSection } from '@/lib/page-names'
 import { maskAccountLabel } from '@/lib/account-label'
 
@@ -21,11 +22,13 @@ export const generateMetadata = routeMetadata('/holdings')
 
 const BASE = '/holdings'
 
-
+// `status` keeps the parameter name /cost-basis used, so its old links land on
+// the same filter here.
 const GROUPS: FilterGroup<any>[] = [
   { key: 'market', label: 'Market' },
   { key: 'brokerage', label: 'Broker' },
   { key: 'account', label: 'Account' },
+  { key: 'status', label: 'Status', valueFor: (row) => row.cost_status },
 ]
 
 export default async function HoldingsPage({
@@ -62,6 +65,7 @@ export default async function HoldingsPage({
     market: copy.market,
     brokerage: copy.broker,
     account: copy.account,
+    status: copy.costStatusFilter,
   }
 
   return (
@@ -81,7 +85,12 @@ export default async function HoldingsPage({
             groups={GROUPS.map((group) => ({
               key: group.key,
               label: groupLabels[group.key] ?? group.label,
-              options: options[group.key].map((value: string) => ({ value, label: value })),
+              // The status column stores a machine value; the chip shows the
+              // wording, and the URL keeps the value.
+              options: options[group.key].map((value: string) => ({
+                value,
+                label: group.key === 'status' ? (copy.costStatus[value] ?? value) : value,
+              })),
               selected: selected[group.key],
             }))}
           />
@@ -126,6 +135,15 @@ export default async function HoldingsPage({
               { key: 'long_term_qty', label: copy.longTerm, description: copy.longTermDescription, align: 'right', sortable: true, priority: 'tertiary', render: (r) => fmtNumber(r.long_term_qty, 2) },
               { key: 'short_term_qty', label: copy.shortTerm, description: copy.shortTermDescription, align: 'right', sortable: true, priority: 'tertiary', render: (r) => fmtNumber(r.short_term_qty, 2) },
               { key: 'lot_count', label: copy.taxLots, description: copy.lotDescription, align: 'right', sortable: true, priority: 'tertiary' },
+              {
+                key: 'cost_status',
+                label: copy.costStatusColumn,
+                sortable: true,
+                sortFirst: 'asc',
+                nowrap: true,
+                render: (r) => <Badge tone={COST_BASIS_STATUS_TONE[r.cost_status] ?? 'neutral'}>{copy.costStatus[r.cost_status] ?? r.cost_status}</Badge>,
+              },
+              { key: 'cost_note', label: copy.costNote, priority: 'tertiary', render: (r) => <div className="max-w-[20rem] text-label text-ink-3">{r.cost_note}</div> },
             ]}
           />
         </div>

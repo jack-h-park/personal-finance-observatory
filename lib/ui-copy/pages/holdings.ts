@@ -34,6 +34,15 @@ export const holdings = defineCopy({
     longTermDescription: 'Quantity that satisfies the long-term holding-period rule.',
     shortTermDescription: 'Quantity that has not yet satisfied the long-term holding-period rule.',
     lotDescription: 'Number of tax-calculation groups split by purchase date and price.',
+    costStatusFilter: 'Status',
+    costStatus: {
+      ready: 'Ready',
+      missing_cost: 'Missing cost',
+      estimated: 'Estimated',
+      unpriced: 'Unpriced',
+    } as Record<string, string>,
+    costStatusColumn: 'Sync Status',
+    costNote: 'Why',
   },
   ko: {
     title: '보유종목',
@@ -68,5 +77,14 @@ export const holdings = defineCopy({
     longTermDescription: '세금상 장기 보유 요건을 충족한 수량입니다.',
     shortTermDescription: '장기 보유 요건을 아직 충족하지 않은 수량입니다.',
     lotDescription: '매수 시점과 가격별로 나뉜 세금 계산용 묶음 수입니다.',
+    costStatusFilter: '상태',
+    costStatus: {
+      ready: '확인됨',
+      missing_cost: '원가 없음',
+      estimated: '추정',
+      unpriced: '가격 없음',
+    } as Record<string, string>,
+    costStatusColumn: '동기화 상태',
+    costNote: '사유',
   },
 })
