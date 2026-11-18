@@ -11,6 +11,7 @@ import {
   rebalanceLinkedIssues,
   reconciliationLinkedIssues,
   reviewLinkedIssues,
+  taxPlanningLinkedIssues,
   type LinkedIssues,
 } from '@/lib/header-status'
 import { getPageCopy } from '@/lib/ui-copy'
@@ -96,6 +97,20 @@ for (const language of ['en', 'ko'] as const) {
       count: 9,
       severity: 'attention',
     },
+    {
+      page: 'tax-planning, warnings only',
+      href: '#tax-planning-warnings',
+      build: () => taxPlanningLinkedIssues(getPageCopy('taxPlanning', language), { warnings: 4, example: false }),
+      count: 4,
+      severity: 'attention',
+    },
+    {
+      page: 'tax-planning, warnings on example assumptions',
+      href: '#tax-planning-warnings',
+      build: () => taxPlanningLinkedIssues(getPageCopy('taxPlanning', language), { warnings: 6, example: true }),
+      count: 6,
+      severity: 'attention',
+    },
   ]
 
   for (const c of CASES) {
@@ -123,5 +138,22 @@ for (const language of ['en', 'ko'] as const) {
     const clear = reviewLinkedIssues(copy, 0)
     assert.deepEqual(clear.status, { severity: 'ok', label: copy.ready })
     assert.equal('issues' in clear, false)
+  })
+
+  // With warnings the pill names the example assumptions too, so it never
+  // drops that caveat; without warnings the example pill has no card to link
+  // to, and a page with neither shows no pill.
+  test(`tax-planning (${language}): warnings name the example assumptions; the example alone is unlinked`, () => {
+    const copy = getPageCopy('taxPlanning', language)
+    const both = taxPlanningLinkedIssues(copy, { warnings: 3, example: true })
+    assert.equal(text(both.status?.label), text(copy.page.warningsAndExample(3)))
+    const warningsOnly = taxPlanningLinkedIssues(copy, { warnings: 3, example: false })
+    assert.equal(text(warningsOnly.status?.label), text(copy.page.warningsCount(3)))
+    const example = taxPlanningLinkedIssues(copy, { warnings: 0, example: true })
+    assert.deepEqual(example.status, { severity: 'attention', label: copy.page.usingExampleAssumptions })
+    assert.equal(example.issues?.count ?? 0, 0)
+    const clear = taxPlanningLinkedIssues(copy, { warnings: 0, example: false })
+    assert.equal(clear.status, undefined)
+    assert.equal(clear.issues?.count ?? 0, 0)
   })
 }

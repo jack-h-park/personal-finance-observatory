@@ -14,7 +14,7 @@
     "lib/ui-copy/pages/rebalanceProposal.ts": 2,
     "lib/ui-copy/pages/rebalanceSettings.ts": 3,
     "lib/ui-copy/pages/reconciliation.ts": 2,
-    "lib/ui-copy/pages/taxPlanning.ts": 34,
+    "lib/ui-copy/pages/taxPlanning.ts": 30,
     "lib/ui-copy/pages/taxSettings.ts": 7,
     "lib/ui-copy/pages/transactions.ts": 1,
     "lib/ui-copy/pages/washSale.ts": 1

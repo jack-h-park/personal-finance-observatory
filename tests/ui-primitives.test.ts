@@ -830,8 +830,8 @@ function statusBlock(source: string): string {
  * prop is the pair's `status`, the target Card's badge is the pair's `issues`.
  * Each row names the page, the pair's variable, the helper that builds it
  * (tests/linked-issues.test.ts pins its href, count and severity) and the Card
- * id it lands on. Each of these cards renders unconditionally on its page, so
- * the target exists whenever the pill is linked; matching `<Card id=` means
+ * id it lands on. Each of these cards renders whenever the pill is linked (all
+ * but tax-planning's unconditionally), so the target exists; matching `<Card id=` means
  * moving the id onto an element that does not always render fails here.
  */
 const STATUS_ANCHORS: Array<{ page: string; pair: string; helper: string; id: string }> = [
@@ -841,6 +841,8 @@ const STATUS_ANCHORS: Array<{ page: string; pair: string; helper: string; id: st
   { page: 'app/data-ops/page.tsx', pair: 'priorityWork', helper: 'dataOpsLinkedIssues', id: 'data-ops-priority-work' },
   { page: 'app/rebalance/page.tsx', pair: 'holdWatch', helper: 'rebalanceLinkedIssues', id: 'rebalance-hold-watch' },
   { page: 'app/data-map/page.tsx', pair: 'reviewQueue', helper: 'dataMapLinkedIssues', id: 'data-map-review-queue' },
+  // Renders only when it has warnings, the same condition that links the pill.
+  { page: 'app/tax-planning/page.tsx', pair: 'warnings', helper: 'taxPlanningLinkedIssues', id: 'tax-planning-warnings' },
 ]
 
 for (const { page, pair, helper, id } of STATUS_ANCHORS) {

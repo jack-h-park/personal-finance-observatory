@@ -33,6 +33,13 @@ const BLOCKS: { path: string; absent: string[]; present: string[] }[] = [
     absent: ['marketSummary', 'operationalReadiness', 'largestPositions'],
     present: ['copy.concentrationBasis'],
   },
+  {
+    // Annual filing flags and base assumptions are edited and shown on
+    // /tax-settings; the planner leads with its own plan.
+    path: 'app/tax-planning/page.tsx',
+    absent: ['annualFilingProfile', 'baseAssumptions'],
+    present: ['copy.sections.monthlyPlan', 'copy.sections.lotEstimate'],
+  },
 ]
 
 for (const { path, absent, present } of BLOCKS) {
@@ -87,4 +94,15 @@ test('operator detail sits behind OperatorDetails', () => {
     const at = position.indexOf(marker)
     assert.ok(at > wrapper && at < position.indexOf('</OperatorDetails>'), `${marker} is inside OperatorDetails`)
   }
+})
+
+// The tax planner leads with the monthly plan's overview, above the toolbar
+// that changes it and the scenario comparison that follows.
+test('app/tax-planning/page.tsx puts the plan overview first', () => {
+  const text = source('app/tax-planning/page.tsx')
+  const overview = text.indexOf('<MasterPlanOverview')
+  assert.ok(overview >= 0)
+  assert.equal((text.match(/<form\b/g) ?? []).length, 1, 'one toolbar form')
+  assert.ok(overview < text.indexOf('<form'), 'overview before the toolbar')
+  assert.ok(overview < text.indexOf('<MasterScenarioComparison'), 'overview before the scenario comparison')
 })

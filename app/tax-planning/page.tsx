@@ -1,12 +1,12 @@
 import { PageHeader } from '@/components/PageHeader'
 import { TaxPlanTimeline } from '@/components/TaxPlanTimeline'
-import { Badge, Button, Card, EmptyState, FormError, HelpPopover, Label, Panel, Signed, TextLink, marketTone } from '@/components/ui'
+import { Badge, Button, Card, FormError, HelpPopover, Label, Panel, SectionHeading, Signed, TextLink, marketTone } from '@/components/ui'
 import { getOperationalHealth, getOverview, getTaxPlanningLots, getWashSaleReview, getWrapperReview } from '@/lib/adapters/portfolio-db'
 import { WrapperEstimateNote } from '@/components/WrapperReviewCard'
 import { WashSaleBanner } from '@/components/WashSaleBanner'
 import { createMoneyFormatter } from '@/lib/currency'
 import { getCurrencyPreferences } from '@/lib/currency-server'
-import { EMPTY_VALUE, fmtKrw, fmtMoney, fmtNumber, fmtPct, fmtSigned } from '@/lib/format'
+import { fmtKrw, fmtMoney, fmtNumber, fmtPct, fmtSigned } from '@/lib/format'
 import { getLanguage } from '@/lib/i18n-server'
 import {
   buildMonthlySalePlanSet,
@@ -16,15 +16,7 @@ import {
 } from '@/lib/tax-planning'
 import { planningInputs } from '@/lib/tax-planning-params'
 import { listSavedTaxPlans } from '@/lib/tax-plan-store'
-import {
-  annualProfiles,
-  assumptionNumber,
-  assumptionString,
-  getTaxPolicyState,
-  projectedWagesUsd,
-  scenarioFromTaxYearProfile,
-  type TaxYearProfile,
-} from '@/lib/tax-policy'
+import { annualProfiles, getTaxPolicyState } from '@/lib/tax-policy'
 
 import { CandidateTable, MasterPlanAnnualTax, MasterPlanOverview, MasterScenarioComparison, SavedPlansPanel } from './components'
 import { DecisionSummary, PlanningMap, buildOpportunityRows, opportunitySummary, type OpportunityCoverage } from './opportunity-analysis'
@@ -34,7 +26,8 @@ import { DataTable } from '@/components/DataTable'
 import { getPageCopy, getUiCopy } from '@/lib/ui-copy'
 import { routeMetadata, routeSection } from '@/lib/page-names'
 import { CardRow, Split } from '@/components/layout'
-import { TAX_DUE_SEVERITY, TAX_PROFILE_STATUS_SEVERITY, countTone, statusTone } from '@/lib/tone'
+import { taxPlanningLinkedIssues } from '@/lib/header-status'
+import { TAX_DUE_SEVERITY, countTone } from '@/lib/tone'
 
 export const dynamic = 'force-dynamic'
 export const generateMetadata = routeMetadata('/tax-planning')
@@ -112,6 +105,10 @@ export default async function TaxPlanningPage({
   }
   const opportunities = opportunitySummary(opportunityRows)
   const hasPlanningTarget = annualTargetCashKrw > 0
+  const warnings = taxPlanningLinkedIssues(copy, {
+    warnings: plan.summary.warnings.length + operational.staleItems.length,
+    example: taxPolicy.source === 'example',
+  })
   const tiedTax = scenarioTaxTie(multiYearPlan)
 
   return (
@@ -121,7 +118,7 @@ export default async function TaxPlanningPage({
         title={copy.page.title}
         emphasis={copy.page.emphasis}
         subtitle={copy.page.subtitle}
-        status={taxPolicy.source === 'example' ? { severity: 'attention', label: copy.page.usingExampleAssumptions } : undefined}
+        status={warnings.status}
         actions={
           <TextLink href="/tax-settings">
             {copy.page.editAssumptions}
@@ -136,6 +133,27 @@ export default async function TaxPlanningPage({
       {params.error === 'name' && <FormError messages={[getUiCopy(language).form.nameRequired]} />}
 
       <WashSaleBanner review={getWashSaleReview()} copy={getPageCopy('washSale', language)} />
+
+      <MasterPlanOverview
+        planSet={masterPlanSet}
+        inputIssueCount={plan.summary.missingValuationCount + operational.staleItems.length}
+        fullHoldingsValueKrw={opportunityCoverage.holdingsMarketValueKrw}
+        copy={copy}
+        money={money}
+        language={language}
+      />
+
+      {/* Renders only when it lists something, the same condition that links the header pill here. */}
+      {warnings.issues.count > 0 && (
+        <Card id="tax-planning-warnings" title={copy.page.warnings} issues={warnings.issues} className="mb-5">
+          <ul className="space-y-2 text-caption text-ink-2">
+            {operational.staleItems.length > 0 && <li><Badge tone="warning">{copy.page.inputs}</Badge> {copy.page.resolveFreshness(fmtNumber(operational.staleItems.length))}</li>}
+            {plan.summary.warnings.map((warning) => (
+              <li key={warning}><Badge tone="warning">{copy.page.review}</Badge> {warning}</li>
+            ))}
+          </ul>
+        </Card>
+      )}
 
       <WrapperEstimateNote rows={wrapperReview} copy={copy.wrapperReview} />
 
@@ -192,24 +210,9 @@ export default async function TaxPlanningPage({
         </Button>
       </form>
 
-      <MasterPlanOverview
-        planSet={masterPlanSet}
-        inputIssueCount={plan.summary.missingValuationCount + operational.staleItems.length}
-        fullHoldingsValueKrw={opportunityCoverage.holdingsMarketValueKrw}
-        copy={copy}
-        money={money}
-        language={language}
-      />
-
-      <SavedPlansPanel
-        plans={savedPlans}
-        selectedStrategy={selectedMasterStrategy}
-        executionMonths={executionMonths}
-        horizonYears={horizonYears}
-        copy={copy}
-        money={money}
-        language={language}
-      />
+      <SectionHeading size="section" tracking layout="band" subtitle={copy.sections.monthlyPlanNote}>
+        {copy.sections.monthlyPlan}
+      </SectionHeading>
 
       <MasterScenarioComparison
         planSet={masterPlanSet}
@@ -229,111 +232,45 @@ export default async function TaxPlanningPage({
 
       <MasterPlanAnnualTax plan={masterPlanSet.selectedPlan} copy={copy} money={money} />
 
-      <details className="mb-5 rounded-md border border-line bg-card shadow-card">
-        <summary className="cursor-pointer px-4 py-3 text-body font-medium text-ink">
-          {copy.page.openStaticOpportunityAnalysis}
-        </summary>
-        <div className="border-t border-line-subtle p-4">
-          <DecisionSummary
-            hasPlanningTarget={hasPlanningTarget}
-            tiedTax={tiedTax}
-            bestScenario={multiYearPlan.bestScenario}
-            opportunities={opportunities}
-            inputIssueCount={plan.summary.missingValuationCount + operational.staleItems.length}
-            openLotCount={plan.summary.candidateCount}
-            copy={copy}
-          />
-          <PlanningMap
-            scenario={multiYearPlan.bestScenario}
-            hasPlanningTarget={hasPlanningTarget}
-            annualTargetCashKrw={annualTargetCashKrw}
-            opportunityRows={opportunityRows}
-            coverage={opportunityCoverage}
-            policy={taxPolicy.policy}
-            assumptionsAreExample={taxPolicy.source === 'example'}
-            copy={copy}
-          />
+      <SavedPlansPanel
+        plans={savedPlans}
+        selectedStrategy={selectedMasterStrategy}
+        executionMonths={executionMonths}
+        horizonYears={horizonYears}
+        copy={copy}
+        money={money}
+        language={language}
+      />
+
+      <SectionHeading size="section" tracking layout="band" subtitle={copy.sections.lotEstimateNote}>
+        {copy.sections.lotEstimate}
+      </SectionHeading>
+
+      <Card title={copy.page.selectedSingleYearTaxSplit} info={copy.page.singleYearTaxSplitInfo} className="mb-5">
+        <div className="space-y-2 text-caption text-ink-2">
+          <div className="flex items-center justify-between gap-3"><span>{copy.page.federalShortTerm}</span><span className="tabular-nums text-ink">{fmtKrw(plan.summary.usFederalShortTermTaxKrw)}</span></div>
+          <div className="flex items-center justify-between gap-3"><span>{copy.page.federalLongTerm}</span><span className="tabular-nums text-ink">{fmtKrw(plan.summary.usFederalLongTermTaxKrw)}</span></div>
+          <div className="flex items-center justify-between gap-3"><span>{copy.page.niit}</span><span className="tabular-nums text-ink">{fmtKrw(plan.summary.usNiitTaxKrw)}</span></div>
+          <div className="flex items-center justify-between gap-3"><span>{copy.page.californiaState}</span><span className="tabular-nums text-ink">{fmtKrw(plan.summary.usStateTaxKrw)}</span></div>
+          <div className="flex items-center justify-between gap-3 border-t border-line-subtle pt-2"><span>{copy.page.usGrossEstimate}</span><span className="tabular-nums text-ink">{fmtMoney(plan.summary.usTaxUsd, 'USD')} / {fmtKrw(plan.summary.usTaxKrw)}</span></div>
+          <div className="flex items-center justify-between gap-3"><span>{copy.page.krGrossTax}</span><span className="tabular-nums text-ink">{fmtKrw(plan.summary.krTaxKrw)}</span></div>
+          <div className="flex items-center justify-between gap-3"><span>{copy.page.usFtcLimitUsed}</span><span className="tabular-nums text-ink">{fmtKrw(plan.summary.usForeignTaxCreditLimitKrw)} / <span className="text-success">{fmtSigned(-plan.summary.usForeignTaxCreditKrw, fmtKrw)}</span></span></div>
+          <div className="flex items-center justify-between gap-3"><span>{copy.page.krCreditUsed}</span><span className="tabular-nums text-success">{fmtSigned(-plan.summary.krForeignTaxCreditKrw, fmtKrw)}</span></div>
+          <div className="flex items-center justify-between gap-3"><span>{copy.page.combinedAfterCredit}</span><span className="tabular-nums text-ink">{fmtKrw(plan.summary.estimatedTaxKrw)}</span></div>
+          <div className="flex items-center justify-between gap-3"><span>{copy.page.afterTaxProceeds}</span><span className="tabular-nums text-ink">{fmtKrw(plan.summary.estimatedAfterTaxKrw)}</span></div>
+          <div className="text-label leading-relaxed text-ink-3">{copy.page.methodNote(plan.summary.taxCalculationMethod)}</div>
         </div>
-      </details>
+      </Card>
 
-      <CardRow columns="main">
-        <Card
-          title={copy.page.annualFilingProfile}
-          info={copy.page.annualFilingProfileInfo}
-        >
-          <DataTable
-            caption={copy.page.annualFilingProfile}
-            rows={filingProfiles}
-            getRowKey={(profile: TaxYearProfile) => profile.year}
-            columns={[
-              { key: 'year', label: copy.page.year, render: (p: TaxYearProfile) => <span className="font-mono text-ink">{p.year}</span> },
-              { key: 'scenario', label: copy.page.taxCalc, render: (p: TaxYearProfile) => <Badge tone="info">{copy.enums.filingScenario[scenarioFromTaxYearProfile(p)] ?? scenarioFromTaxYearProfile(p)}</Badge> },
-              {
-                key: 'wages',
-                label: copy.page.projectedWages,
-                description: copy.page.projectedWagesInfo,
-                align: 'right',
-                render: (p: TaxYearProfile) => fmtMoney(projectedWagesUsd(taxPolicy.policy, p.year), 'USD'),
-              },
-              {
-                key: 'us',
-                label: copy.page.usFiling,
-                description: copy.page.usFilingInfo,
-                render: (p: TaxYearProfile) =>
-                  p.jurisdictions.find((item) => item.code === 'US')?.filingRequired ? (
-                    <Badge tone="success">{copy.page.required}</Badge>
-                  ) : (
-                    <Badge>{copy.page.off}</Badge>
-                  ),
-              },
-              {
-                key: 'kr',
-                label: copy.page.krFiling,
-                description: copy.page.krFilingInfo,
-                render: (p: TaxYearProfile) =>
-                  p.jurisdictions.find((item) => item.code === 'KR')?.filingRequired ? (
-                    <Badge tone="success">{copy.page.required}</Badge>
-                  ) : (
-                    <Badge>{copy.page.off}</Badge>
-                  ),
-              },
-              { key: 'status', label: copy.page.status, render: (p: TaxYearProfile) => <Badge tone={statusTone(TAX_PROFILE_STATUS_SEVERITY, p.status)}>{copy.enums.taxYearProfileStatus[p.status] ?? p.status}</Badge> },
-            ]}
-          />
-        </Card>
-
-        <Card title={copy.page.baseAssumptions}>
-          <div className="space-y-2 text-caption text-ink-2">
-            <div className="flex items-center justify-between gap-3"><span>{copy.page.scenario}</span><Badge tone="info">{copy.enums.filingScenario[plan.assumptions.scenario] ?? plan.assumptions.scenario}</Badge></div>
-            <div className="flex items-center justify-between gap-3"><span>{copy.page.filingState}</span><span className="text-ink">{assumptionString(taxPolicy.policy, 'US', 'filingStatus', EMPTY_VALUE)} / {assumptionString(taxPolicy.policy, 'US', 'stateCode', EMPTY_VALUE)}</span></div>
-            <div className="flex items-center justify-between gap-3"><span>{copy.page.w2WageBase}</span><span className="tabular-nums text-ink">{assumptionNumber(taxPolicy.policy, 'US', 'wageBaseYear', 0)} · {fmtMoney(assumptionNumber(taxPolicy.policy, 'US', 'wageBaseUsd', 0), 'USD')}</span></div>
-            <div className="flex items-center justify-between gap-3"><span>{copy.page.annualIncomeGrowth}</span><span className="tabular-nums text-ink">{fmtPct(assumptionNumber(taxPolicy.policy, 'US', 'annualIncomeGrowthPct', 0))}</span></div>
-            <div className="flex items-center justify-between gap-3"><span>{copy.page.federalMethod}</span><Badge tone="success">{copy.page.federalMethodValue}</Badge></div>
-            <div className="flex items-center justify-between gap-3"><span>{copy.page.fallbackShortLong}</span><span className="tabular-nums text-ink">{fmtPct(plan.assumptions.usShortRatePct)} / {fmtPct(plan.assumptions.usLongRatePct)}</span></div>
-            <div className="flex items-center justify-between gap-3"><span>{copy.page.fallbackStateNiit}</span><span className="tabular-nums text-ink">{fmtPct(plan.assumptions.usStateRatePct)} / {fmtPct(plan.assumptions.usNiitRatePct)}</span></div>
-            <div className="flex items-center justify-between gap-3">
-              <span>{copy.page.ytdCarryovers}</span>
-              <span className="tabular-nums text-ink">
-                {fmtMoney(
-                  assumptionNumber(taxPolicy.policy, 'US', 'ytdRealizedShortGainLossUsd', 0) +
-                    assumptionNumber(taxPolicy.policy, 'US', 'ytdRealizedLongGainLossUsd', 0),
-                  'USD'
-                )}{' '}
-                /{' '}
-                {fmtMoney(
-                  assumptionNumber(taxPolicy.policy, 'US', 'shortTermCapitalLossCarryoverUsd', 0) +
-                    assumptionNumber(taxPolicy.policy, 'US', 'longTermCapitalLossCarryoverUsd', 0),
-                  'USD'
-                )}
-              </span>
-            </div>
-            <div className="flex items-center justify-between gap-3"><span>{copy.page.krStockDeduction}</span><span className="tabular-nums text-ink">{fmtKrw(plan.assumptions.krBasicDeductionKrw)}</span></div>
-            <div className="flex items-center justify-between gap-3"><span>{copy.page.krYtdRealized}</span><span className="tabular-nums text-ink">{fmtKrw(assumptionNumber(taxPolicy.policy, 'KR', 'ytdRealizedTaxableGainKrw', 0))}</span></div>
-            <div className="flex items-center justify-between gap-3"><span>{copy.page.krForeignStockRate}</span><span className="tabular-nums text-ink">{fmtPct(plan.assumptions.krForeignStockRatePct)}</span></div>
-            <div className="flex items-center justify-between gap-3"><span>{copy.page.creditModel}</span><span className="text-right text-ink">{plan.assumptions.krForeignTaxCreditMode}</span></div>
+      <Card title={copy.page.recommendedSaleLotSequence} className="mb-5">
+        <CandidateTable rows={plan.recommended} copy={copy} money={money} />
+        <details className="mt-4 border-t border-line-subtle pt-3">
+          <summary className="cursor-pointer text-body font-medium text-ink">{copy.page.allOpenLotCandidates}</summary>
+          <div className="mt-3">
+            <CandidateTable rows={plan.candidates.slice(0, 80)} copy={copy} money={money} />
           </div>
-        </Card>
-      </CardRow>
+        </details>
+      </Card>
 
       {hasPlanningTarget ? (
         <Card
@@ -374,6 +311,11 @@ export default async function TaxPlanningPage({
               { key: 'lots', label: copy.page.lotsUsed, align: 'right', priority: 'secondary', render: (row: MultiYearTaxScenario) => fmtNumber(row.summary.lotCount) },
             ]}
           />
+          <CardRow spacing="above">
+            {multiYearPlan.scenarios.slice(0, 4).map((scenarioRow) => (
+              <ScenarioTimeline key={scenarioRow.key} scenario={scenarioRow} copy={copy} />
+            ))}
+          </CardRow>
         </Card>
       ) : (
         <Card title={copy.page.annualTargetScenarioComparison} className="mb-5">
@@ -388,62 +330,46 @@ export default async function TaxPlanningPage({
         </Card>
       )}
 
-      {hasPlanningTarget && (
-        <CardRow>
-        {multiYearPlan.scenarios.slice(0, 4).map((scenarioRow) => (
-          <ScenarioTimeline key={scenarioRow.key} scenario={scenarioRow} copy={copy} />
-        ))}
-        </CardRow>
-      )}
-
-      <CardRow>
-        <Card title={copy.page.selectedSingleYearTaxSplit} info={copy.page.singleYearTaxSplitInfo}>
-          <div className="space-y-2 text-caption text-ink-2">
-            <div className="flex items-center justify-between gap-3"><span>{copy.page.federalShortTerm}</span><span className="tabular-nums text-ink">{fmtKrw(plan.summary.usFederalShortTermTaxKrw)}</span></div>
-            <div className="flex items-center justify-between gap-3"><span>{copy.page.federalLongTerm}</span><span className="tabular-nums text-ink">{fmtKrw(plan.summary.usFederalLongTermTaxKrw)}</span></div>
-            <div className="flex items-center justify-between gap-3"><span>{copy.page.niit}</span><span className="tabular-nums text-ink">{fmtKrw(plan.summary.usNiitTaxKrw)}</span></div>
-            <div className="flex items-center justify-between gap-3"><span>{copy.page.californiaState}</span><span className="tabular-nums text-ink">{fmtKrw(plan.summary.usStateTaxKrw)}</span></div>
-            <div className="flex items-center justify-between gap-3 border-t border-line-subtle pt-2"><span>{copy.page.usGrossEstimate}</span><span className="tabular-nums text-ink">{fmtMoney(plan.summary.usTaxUsd, 'USD')} / {fmtKrw(plan.summary.usTaxKrw)}</span></div>
-            <div className="flex items-center justify-between gap-3"><span>{copy.page.krGrossTax}</span><span className="tabular-nums text-ink">{fmtKrw(plan.summary.krTaxKrw)}</span></div>
-            <div className="flex items-center justify-between gap-3"><span>{copy.page.usFtcLimitUsed}</span><span className="tabular-nums text-ink">{fmtKrw(plan.summary.usForeignTaxCreditLimitKrw)} / <span className="text-success">{fmtSigned(-plan.summary.usForeignTaxCreditKrw, fmtKrw)}</span></span></div>
-            <div className="flex items-center justify-between gap-3"><span>{copy.page.krCreditUsed}</span><span className="tabular-nums text-success">{fmtSigned(-plan.summary.krForeignTaxCreditKrw, fmtKrw)}</span></div>
-            <div className="flex items-center justify-between gap-3"><span>{copy.page.combinedAfterCredit}</span><span className="tabular-nums text-ink">{fmtKrw(plan.summary.estimatedTaxKrw)}</span></div>
-            <div className="flex items-center justify-between gap-3"><span>{copy.page.afterTaxProceeds}</span><span className="tabular-nums text-ink">{fmtKrw(plan.summary.estimatedAfterTaxKrw)}</span></div>
-            <div className="text-label leading-relaxed text-ink-3">{copy.page.methodNote(plan.summary.taxCalculationMethod)}</div>
-          </div>
-        </Card>
-
-        <Card title={copy.page.warnings} issues={{ count: plan.summary.warnings.length + operational.staleItems.length }}>
-          {plan.summary.warnings.length === 0 && operational.staleItems.length === 0 ? (
-            <EmptyState ok>{copy.page.noPlannerWarnings}</EmptyState>
-          ) : (
-            <ul className="space-y-2 text-caption text-ink-2">
-              {operational.staleItems.length > 0 && <li><Badge tone="warning">{copy.page.inputs}</Badge> {copy.page.resolveFreshness(fmtNumber(operational.staleItems.length))}</li>}
-              {plan.summary.warnings.map((warning) => (
-                <li key={warning}><Badge tone="warning">{copy.page.review}</Badge> {warning}</li>
-              ))}
-            </ul>
-          )}
-        </Card>
-      </CardRow>
-
-      <Card title={copy.page.recommendedSaleLotSequence} className="mb-5">
-        <CandidateTable rows={plan.recommended} copy={copy} money={money} />
-      </Card>
-
-      <Card title={copy.page.allOpenLotCandidates}>
-        <CandidateTable rows={plan.candidates.slice(0, 80)} copy={copy} money={money} />
-      </Card>
+      <details className="mb-5 rounded-md border border-line bg-card shadow-card">
+        <summary className="cursor-pointer px-4 py-3 text-body font-medium text-ink">
+          {copy.page.openStaticOpportunityAnalysis}
+        </summary>
+        <div className="border-t border-line-subtle p-4">
+          <DecisionSummary
+            hasPlanningTarget={hasPlanningTarget}
+            tiedTax={tiedTax}
+            bestScenario={multiYearPlan.bestScenario}
+            opportunities={opportunities}
+            inputIssueCount={plan.summary.missingValuationCount + operational.staleItems.length}
+            openLotCount={plan.summary.candidateCount}
+            copy={copy}
+          />
+          <PlanningMap
+            scenario={multiYearPlan.bestScenario}
+            hasPlanningTarget={hasPlanningTarget}
+            annualTargetCashKrw={annualTargetCashKrw}
+            opportunityRows={opportunityRows}
+            coverage={opportunityCoverage}
+            policy={taxPolicy.policy}
+            assumptionsAreExample={taxPolicy.source === 'example'}
+            copy={copy}
+          />
+        </div>
+      </details>
     </>
   )
 }
 
+/** One scenario's years, as a panel inside the annual-target card. */
 function ScenarioTimeline({ scenario, copy }: { scenario: MultiYearTaxScenario; copy: ReturnType<typeof getPageCopy<'taxPlanning'>> }) {
   return (
-    <Card title={scenario.label} action={<Badge tone={countTone(TAX_DUE_SEVERITY, scenario.summary.taxKrw)}>{fmtKrw(scenario.summary.taxKrw)}</Badge>}>
-      <div className="space-y-3">
+    <Panel pad="md">
+      <SectionHeading level={3} size="sub" action={<Badge tone={countTone(TAX_DUE_SEVERITY, scenario.summary.taxKrw)}>{fmtKrw(scenario.summary.taxKrw)}</Badge>}>
+        {scenario.label}
+      </SectionHeading>
+      <div className="mt-3 divide-y divide-line-subtle">
         {scenario.years.map((year) => (
-          <Panel key={year.year} pad="md">
+          <div key={year.year} className="py-3 first:pt-0 last:pb-0">
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <span className="font-mono text-body text-ink">{year.year}</span>
@@ -472,9 +398,9 @@ function ScenarioTimeline({ scenario, copy }: { scenario: MultiYearTaxScenario; 
                 ))
               )}
             </div>
-          </Panel>
+          </div>
         ))}
       </div>
-    </Card>
+    </Panel>
   )
 }
