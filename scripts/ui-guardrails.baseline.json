@@ -29,7 +29,6 @@
     "app/rebalance/page.tsx": 1,
     "app/rebalance/proposals/[id]/page.tsx": 1,
     "app/rebalance/settings/page.tsx": 1,
-    "app/review/page.tsx": 1,
     "app/tax-planning/components.tsx": 4,
     "app/tax-planning/opportunity-analysis.tsx": 4,
     "app/tax-planning/page.tsx": 1,

@@ -185,3 +185,30 @@ test('app/tax-planning/page.tsx gives the lot-candidates summary a 24px target',
   assert.match(open, /\bmin-h-6\b/)
   assert.doesNotMatch(open, /\bflex\b/)
 })
+
+test('app/cash-inflow/page.tsx puts the view switch in the filter bar and folds the JSON rule', () => {
+  const text = source('app/cash-inflow/page.tsx')
+  const actions = text.indexOf('actions=')
+  assert.ok(actions < 0 || !text.slice(actions, actions + 600).includes('copy.monthly'))
+  assert.match(text, /key: 'view'/)
+  assert.match(text, /id="cash-inflow-lead"/)
+  const pre = text.indexOf('<pre')
+  const summary = text.lastIndexOf('<summary', text.indexOf('copy.triage.group('))
+  const nested = text.lastIndexOf('<details', pre)
+  assert.ok(pre > 0 && nested > summary, 'the <pre is inside a <details opened after the group summary')
+  assert.ok(text.slice(nested, pre).includes('copy.triage.rule'))
+  const rule = text.slice(text.indexOf('<summary', nested), text.indexOf('</summary>', nested))
+  assert.match(rule, /\bmin-h-6\b/)
+  assert.doesNotMatch(rule, /\bflex\b/)
+})
+
+test('app/review/page.tsx draws its summary with StatStrip and names the concentration rows from copy', () => {
+  const text = source('app/review/page.tsx')
+  assert.match(text, /StatStrip/)
+  assert.match(text, /topShare/)
+  assert.doesNotMatch(text, /'Top 1'|>Top 1</)
+  assert.doesNotMatch(text, /grid-cols/)
+  for (const language of ['en', 'ko'] as const) {
+    assert.ok(getPageCopy('review', language).topShare(5).includes('5'))
+  }
+})

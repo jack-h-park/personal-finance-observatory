@@ -4,7 +4,7 @@ import { FilterBar } from '@/components/FilterBar'
 import { PageHeader } from '@/components/PageHeader'
 import { ScrollOnHash } from '@/components/ScrollOnHash'
 import { StackedBarChart } from '@/components/charts'
-import { Button, Card, MetricField, MetricHeroCard, Note, Panel } from '@/components/ui'
+import { Card, MetricField, MetricHeroCard, Note, Panel } from '@/components/ui'
 import {
   CASH_INFLOW_CURRENCIES,
   CASH_INFLOW_FILTERS,
@@ -192,18 +192,13 @@ export default async function CashInflowPage({
         emphasis={copy.emphasis}
         subtitle={copy.subtitle}
         status={cashInflowHeaderStatus(copy, data.unclassifiedCount, data.undatedCount, href({ category: 'unclassified' }))}
-        actions={
-          <div className="flex flex-wrap items-center gap-2">
-            <Button href={href({ view: 'month' })} variant={view === 'month' ? 'solid' : 'outline'}>{copy.monthly}</Button>
-            <Button href={href({ view: 'year' })} variant={view === 'year' ? 'solid' : 'outline'}>{copy.yearly}</Button>
-          </div>
-        }
       />
 
       <FilterBar
         basePath={BASE}
         params={filterParams}
         groups={[
+          { key: 'view', label: copy.viewLabel, options: [{ value: 'month', label: copy.monthly }, { value: 'year', label: copy.yearly }], selected: view, defaultValue: 'month', countsAsFilter: false },
           { key: 'category', label: copy.filter.label, options: CASH_INFLOW_FILTERS.map((value) => ({ value, label: copy.filter.options[value] })), selected: filter },
           { key: 'source', label: copy.scope.source.label, options: CASH_INFLOW_SOURCES.map((value) => ({ value, label: copy.scope.source.options[value] })), selected: source },
           { key: 'currency', label: copy.scope.currency.label, options: CASH_INFLOW_CURRENCIES.map((value) => ({ value, label: copy.scope.currency.options[value] })), selected: currency },
@@ -220,6 +215,7 @@ export default async function CashInflowPage({
 
       <CardRow columns={1}>
         <MetricHeroCard
+          id="cash-inflow-lead"
           title={copy.scope.range.options[range]}
           info={copy.rangeInfo(copy.scope.range.options[range], filter === 'All' ? copy.headlineEyebrow : copy.filter.options[filter])}
           eyebrow={filter === 'All' ? copy.headlineEyebrow : copy.filter.options[filter]}
@@ -351,8 +347,10 @@ export default async function CashInflowPage({
                         </li>
                       ))}
                     </ul>
-                    <Note size="micro" weight="medium" spacing="above-2">{copy.triage.rule}</Note>
-                    <pre className="mt-1 overflow-x-auto rounded-sm bg-surface px-2 py-1 text-micro text-ink-2">{ruleSnippet(g)}</pre>
+                    <details className="mt-2">
+                      <summary className="min-h-6 cursor-pointer text-micro font-medium leading-6 text-ink-2">{copy.triage.rule}</summary>
+                      <pre className="mt-1 overflow-x-auto rounded-sm bg-surface px-2 py-1 text-micro text-ink-2">{ruleSnippet(g)}</pre>
+                    </details>
                   </details>
                 ))
               )}

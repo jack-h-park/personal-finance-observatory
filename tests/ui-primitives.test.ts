@@ -868,12 +868,13 @@ for (const { page, pair, helper, id } of STATUS_ANCHORS) {
 // /review keeps its stale-input pill with no card to link to (the list lives
 // on /health): the status still comes from its builder, which sets no href
 // (tests/linked-issues.test.ts), and no card on the page carries its badge.
+// The summary strip's plain wrapper id is not a card and is not a link target.
 test('app/review/page.tsx: the header status is unlinked and no card reads its badge', () => {
   const source = readFileSync('app/review/page.tsx', 'utf8')
   assert.ok(source.includes('const readiness = reviewLinkedIssues('))
   assert.equal(statusBlock(source), 'status={readiness.status}')
   assert.ok(!source.includes('readiness.issues'))
-  assert.ok(!source.includes('id="review-'))
+  assert.ok(!source.includes('<Card id="review-'))
 })
 
 // The exception: cash-inflow's target is not an issues card and renders only
