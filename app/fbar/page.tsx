@@ -77,7 +77,7 @@ export default async function FbarPage({ searchParams }: { searchParams: Promise
         emphasis={copy.emphasis}
         subtitle={copy.subtitle}
       />
-      <CardRow columns={1} spacing="above">
+      <CardRow columns={1}>
         <Card
           title={copy.card}
           action={

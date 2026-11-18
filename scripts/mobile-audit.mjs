@@ -14,7 +14,7 @@
  */
 const ROUTES = [
   '/', '/net-worth', '/pension', '/daily-briefing', '/holdings', '/review', '/rebalance', '/income',
-  '/tax-planning', '/tax-settings', '/lots', '/realized',
+  '/tax-planning', '/tax-settings', '/lots', '/realized', '/fbar',
   '/transactions', '/fx', '/crypto-premium', '/accounts', '/health', '/data-ops',
   '/reconciliation', '/data-map', '/positions/KR/005930', '/tax-planning/plans/none',
   // The surfaces R2's primitives touch that the net never checked.
