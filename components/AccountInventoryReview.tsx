@@ -55,7 +55,7 @@ export function AccountInventoryReview({ review, language }: { review: AccountIn
           return <div className="max-w-64 text-label leading-relaxed">{preserved ? copy.preservePensionPolicy : copy.actions[row.action]}</div>
         } },
       ]} />
-      <div className="mt-3 flex flex-wrap gap-4 text-label"><TextLink href="/data-map">{copy.sourcesLink}</TextLink><TextLink href="/data-ops#account-coverage">{copy.details}</TextLink></div>
+      <div className="mt-3 flex flex-wrap gap-4 text-label"><TextLink href="/data-map">{copy.sourcesLink}</TextLink><TextLink href="/data-ops#account-coverage">{copy.details}</TextLink><TextLink href="/data-ops#supplementary-coverage">{copy.supplementaryDetails}</TextLink></div>
       {projection.laterObservations.length ? <Note spacing="above-2">{copy.later}</Note> : null}
     </Card>
   </section>
