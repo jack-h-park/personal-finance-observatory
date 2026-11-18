@@ -65,6 +65,8 @@ a leading substring instead.
 | tabs that change the page | `<Tabs>` — the current tab carries `aria-current="page"` |
 | an inset box inside a card | `<Panel>` — `pad`, `text`, `bordered`, `as="a"` for a link tile |
 | a toned message box | `<Callout>` — `tone`, `emphasis` strong / soft / rule |
+| the result of a form post | `<FormSaved>` in the header's `status` slot, `<FormError>` above the first card |
+| a button that changes policy | `<ConfirmSubmitButton>` instead of `<SubmitButton>` |
 | a muted footnote | `<Note>` — `size`, `spacing`, `row`, `band`; phrasing content only |
 | a heading inside a page or card body | `<SectionHeading>` — `size`, `eyebrow`, `subtitle`, `layout` |
 | a share or progress bar | `<ShareBar>` for segments, `<ProgressBar>` for one percentage (clamped to 0–100) |
@@ -84,8 +86,40 @@ re-exports four modules: `components/card.tsx` (`Card`, `MetricHeroCard`,
 `TextLink`, `Badge`). The rest are imported from their own files:
 `components/layout.tsx` (`CardRow`, `Split`, `KpiBand` and the strips, the one
 file allowed to write `grid-cols-*`), `components/bars.tsx`,
-`components/PositionCell.tsx`, `components/LinkChips.tsx` and
-`components/Tabs.tsx`.
+`components/PositionCell.tsx`, `components/LinkChips.tsx`,
+`components/Tabs.tsx`, `components/FormNotice.tsx` and
+`components/ConfirmSubmitButton.tsx`.
+
+### Page header
+
+`PageHeader` has three slots in a fixed order: one `status` pill, then
+`actions` (back links, buttons), then the refresh clock. A page therefore never
+shows two verdicts, and the thing that is clickable is always in the same place.
+
+- **`status` is `{ severity, label, href? }`.** The pill's colour comes from the
+  severity scale below. When it reports a problem, `href` is `#<card id>` of the
+  card that lists it, so the pill is the way to the rows and not only a sign
+  that they exist. `lib/header-status.ts` builds it where a verdict has two
+  causes: the linkable issue wins, and one label names both, so the header never
+  shows an all-clear beside a warning.
+- **Form pages pass `autoRefresh={false}`.** The clock calls `router.refresh()`
+  every 30 seconds, which re-renders a form mid-entry and discards what was
+  typed. G14 checks this per route folder.
+- **A form's outcome is `FormSaved` or `FormError`**, not a hand-built callout:
+  the saved badge takes the `status` slot, the error sits above the first card.
+
+### Confirming an action
+
+An action that rewrites policy (approving targets or a plan, closing or
+rejecting a proposal) uses `ConfirmSubmitButton`, which asks for a second press
+inline, in the button, with no dialog. The first press arms it and swaps the
+label for the confirm wording; a second press submits. It disarms after six
+seconds or on blur, and a press within 400 ms of arming, or the second click of
+a double-click, is ignored, so one gesture cannot arm and confirm before the
+reader has read the new label. Enter in a text field never confirms: idle, the
+button is `type="button"`, and a submission without a submitter is cancelled.
+`confirmStep` is pure and tested; the click, timer and blur wiring has no DOM
+test, so check it by hand.
 
 ## All assets
 
@@ -122,6 +156,44 @@ sizes before that.
 Colours are tokens (`text-ink-3`, `bg-surface`, `border-line`) bound to CSS
 variables in `styles/jp-theme.css`.
 
+### Status colour
+
+`lib/tone.ts` owns the meaning-to-colour step. A status that says how much
+something needs the reader maps to one of five severities, and the severity
+alone picks the tone: `quiet` neutral, `info` info, `ok` success, `attention`
+warning, `problem` danger. Two statuses that mean the same can then no longer
+be drawn in different colours, and `quiet` (nothing to do) stays distinct from
+`info` (worth knowing).
+
+- **Read a status through a table.** `statusTone(TABLE, value)` for a string
+  status, `countTone(TABLE, count)` for a count (`TO_REVIEW_SEVERITY`,
+  `FAULT_SEVERITY`, `CAVEAT_SEVERITY`, `TAX_DUE_SEVERITY` differ in whether zero
+  is `ok` or only `quiet`). Add a status as a table row, not a ternary: a
+  ternary decides zero and null its own way, and its branches can be swapped
+  without anything objecting (G5).
+- **Category colours are not severities.** A sell is not worse than a dividend.
+  Categories read a named `Record<string, Tone>` through
+  `categoryTone(map, value, fallback)`, so the colour is chosen in `lib/tone.ts`
+  and not in a page-local function.
+- **A plain figure or bar takes `toneTextClass` or `toneBgClass`**, static
+  tables, so Tailwind still sees every class.
+
+### The accent bar
+
+`accent` on a `Card` is the page's lead figure, the one to read first. Use it
+once per page and never bind it to a condition: a conditional bar turns into a
+status light, and a second one means none of them stands out (G8). A card that
+lists problems says so with `issues={{ count, severity? }}`, which puts a count
+badge beside the title (`attention` unless you pass `problem`) and needs a
+`title`. Give that card an `id` so a header status can link to it.
+
+### Words in badges
+
+Market codes (`KR`, `US`, `CRYPTO`) stay raw: the code is the name. Every other
+enum value in a badge reads a copy map, `labels[value] ?? value`, so the reader
+sees a word in their language and an unknown value still shows instead of a
+blank (G13). Properties named `market`, `ticker` or `label` are exempt.
+
 **`styles/jp-theme.css` is shared with `nextjs-react-notion-x`.** Changing a
 token there splits the two projects unless both move together. Two known items
 are waiting on that decision: the `--text-tertiary` contrast fix (`#74736D` →
@@ -156,14 +228,15 @@ request, so it records how many each file has and stops the count from growing.
 | G2 `hangul-literal` | Korean written into a component, which the language toggle cannot switch |
 | G3 `english-prose-literal` | English sentences written into a component, which never reach the Korean page |
 | G4 `hand-written-grid` | a `grid-cols-*` class outside `components/layout.tsx` |
-| G5 `inline-sign-tone` | a gain/loss colour picked by a ternary instead of `signTone` or `Signed` |
+| G5 `inline-sign-tone` | a colour picked by a ternary between two tones instead of `signTone`, `Signed`, a severity table or a named map |
 | G6 `null-literal` | a missing value written as `'n/a'` or `'—'` instead of by a formatter |
-| G7 `metric-value-size` | a font size passed to a metric through `valueClassName` |
-| G8 `accent-per-page` | `accent` props on a page; the target is at most one |
+| G8 `accent-per-page` | an `accent` bound to a condition, or a second bare `accent` on a page |
 | G9 `date-format-without-language` | `fmtDateTime` or `fmtDateShort` called without the language, so it prints English |
 | G10 `browser-locale-number` | `toLocaleString()` or `toLocaleDateString()`, which formats in the server's locale and then the browser's |
 | G11 `bare-footnote` | a footnote written as a bare `<p className="… text-ink-3">` |
 | G12 `english-in-korean-copy` | an English word left in the `ko` half of a copy module (`lot`, `snapshot`, `pnpm refresh`) |
+| G13 `raw-enum-badge` | `<Badge>{row.status}</Badge>`: an enum code shown where a copy label belongs |
+| G14 `form-page-polls` | a route folder with `SubmitButton` or `ConfirmSubmitButton` and no `autoRefresh={false}` |
 
 Each of these mistakes passes everything else: types, lint and build.
 
