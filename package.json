@@ -71,6 +71,7 @@
     "ui:guardrails": "node scripts/ui-guardrails.mjs",
     "ui:a11y": "node scripts/a11y-audit.mjs",
     "ui:mobile": "node scripts/mobile-audit.mjs",
+    "ui:shape": "node scripts/page-shape.mjs",
     "ui:snap": "node scripts/snap-ui.mjs",
     "ui:compare": "node scripts/snap-ui.mjs --compare"
   },

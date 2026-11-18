@@ -7,7 +7,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { CardRow, MiniStat, MiniStatGrid, Split, Stat, StatStrip, Total, TotalsStrip } from '@/components/layout'
 import { ProgressBar, ShareBar } from '@/components/bars'
 import { PositionCell } from '@/components/PositionCell'
-import { Badge, Callout, Card, FormError, FormSaved, HeroAside, MetricField, Note, Panel, SectionHeading } from '@/components/ui'
+import { Badge, Callout, Card, MetricHeroCard, FormError, FormSaved, HeroAside, MetricField, Note, Panel, SectionHeading } from '@/components/ui'
 import { LinkChip, LinkChips } from '@/components/LinkChips'
 import { Tabs } from '@/components/Tabs'
 import { OperatorDetails } from '@/components/OperatorDetails'
@@ -894,3 +894,8 @@ export function operatorDetailsNeedsLanguage() {
   // @ts-expect-error language is required
   return OperatorDetails({ children: null })
 }
+
+test('MetricHeroCard puts its id on the section so a page can name its lead', () => {
+  const html = renderToStaticMarkup(h(MetricHeroCard, { id: 'x', title: 'Title', eyebrow: 'Eyebrow', value: '1' }))
+  assert.match(html, /<section[^>]*\bid="x"/)
+})
