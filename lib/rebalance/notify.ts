@@ -171,15 +171,53 @@ const IDEAS_MAX = 5
 
 const sleeveKo = (sleeve: string) => SLEEVE_KO[sleeve] ?? sleeve
 
-/** A trigger key in Korean (triggers.ts keys: band:<sleeve>, cap:<market>:<ticker>, harvest, yearend:<date>). Unknown keys print raw. */
-function triggerKo(key: string): string {
-  if (key === 'monthly') return '월간 점검'
-  if (key === 'manual') return '수동 요청'
-  if (key === 'harvest') return '손실 확정 기회'
-  if (key.startsWith('band:')) return `밴드 이탈(${sleeveKo(key.slice(5))})`
-  if (key.startsWith('cap:')) return `종목 비중 한도 초과(${key.slice(4)})`
-  if (key.startsWith('yearend:')) return `연말 점검(${key.slice(8)})`
-  return key
+/**
+ * The key of one stored trigger entry. The trigger a proposal was created for is stored as its bare key
+ * (`band:gold`); one appended while the proposal was open is stored as `<key>: <label>`
+ * (`band:kr_equity: kr_equity 0.8pp outside band`), and the same key can be appended more than once.
+ */
+const TRIGGER_KEY = /^(band:[a-z_]+|cap:[A-Za-z]+:[^:\s]+|yearend:\d{4}-\d{2}-\d{2}|harvest|monthly|manual)(?=:\s|$)/
+export function triggerKeyOf(entry: string): string {
+  const m = TRIGGER_KEY.exec(entry)
+  return m ? m[1] : entry
+}
+
+/** The proposal's trigger keys, each once, in the order they first appeared. */
+function triggerKeys(p: Proposal): string[] {
+  return [...new Set(p.triggers.map(triggerKeyOf))]
+}
+
+/** The label of the latest appended entry for a key (the text after `<key>: `), or null. */
+function latestTriggerLabel(p: Proposal, key: string): string | null {
+  for (let i = p.triggers.length - 1; i >= 0; i--) {
+    const entry = p.triggers[i]
+    if (entry.startsWith(`${key}: `)) return entry.slice(key.length + 2)
+  }
+  return null
+}
+
+/**
+ * The trigger keys in Korean for the opening's first line, grouped so several sleeves read as one item:
+ * `범위 이탈(금·한국주식), 연말 점검, 손실 확정 기회`. Groups keep the order their first key appeared in;
+ * an unknown key prints raw.
+ */
+function triggersKo(keys: string[]): string {
+  const groups = new Map<string, string[]>()
+  const add = (group: string, item?: string) => {
+    const items = groups.get(group) ?? []
+    if (item && !items.includes(item)) items.push(item)
+    groups.set(group, items)
+  }
+  for (const key of keys) {
+    if (key.startsWith('band:')) add('범위 이탈', sleeveKo(key.slice(5)))
+    else if (key.startsWith('cap:')) add('종목 비중 한도 초과', key.slice(4))
+    else if (key.startsWith('yearend:')) add('연말 점검')
+    else if (key === 'harvest') add('손실 확정 기회')
+    else if (key === 'monthly') add('월간 점검')
+    else if (key === 'manual') add('수동 요청')
+    else add(key)
+  }
+  return [...groups.entries()].map(([group, items]) => (items.length ? `${group}(${items.join('·')})` : group)).join(', ')
 }
 
 /** Percent with at most one decimal and no trailing ".0": 10, 12.5. */
@@ -223,8 +261,15 @@ function triggerFigures(p: Proposal, key: string, classes: InstrumentClasses | n
     const t = p.policyAtCreation?.targets?.[sleeve as keyof NonNullable<Proposal['policyAtCreation']>['targets']]
     if (!t || !Number.isFinite(t.target) || !Number.isFinite(t.band)) return null
     const { lower, upper } = bandEdges(t.target, t.band)
+    // Two decimals: a share just past an edge (2.01% against a 2% upper edge) must not read as inside it.
     const move = Array.isArray(p.plan?.moves) ? p.plan.moves.find((m) => m.sleeve === sleeve) : undefined
-    const now = move && Number.isFinite(move.fromPct) ? `현재 ${move.fromPct.toFixed(1)}% / ` : ''
+    let now = ''
+    if (move && Number.isFinite(move.fromPct)) now = `현재 ${move.fromPct.toFixed(2)}% / `
+    else {
+      // A trigger appended after creation has no frozen move; its own label says how far out it was.
+      const pp = /(\d+(?:\.\d+)?)pp outside band/.exec(latestTriggerLabel(p, key) ?? '')
+      if (pp) now = `범위를 ${pp[1]}pp 벗어남(제안 생성 후 추가) / `
+    }
     return `${sleeveKo(sleeve)}: ${now}목표 ${pct1(t.target)}% (허용 ${pct1(lower)}–${pct1(upper)}%)`
   }
   if (key.startsWith('cap:')) {
@@ -271,13 +316,14 @@ function pageUrl(id: string, baseUrl: string | null | undefined): string {
  * out rather than printed blank.
  */
 function discordOpening(p: Proposal, opts: NotifyOptions): { text: string; quotesModel: boolean } {
-  const triggers = p.triggers.length ? p.triggers.map(triggerKo).join(', ') : (KIND_KO[p.kind] ?? p.kind)
+  const keys = triggerKeys(p)
+  const triggers = keys.length ? triggersKo(keys) : (KIND_KO[p.kind] ?? p.kind)
   const lines: (string | null)[] = []
   let quotesModel = false
   lines.push(`🧭 리밸런싱 제안 ${p.id} · ${triggers}`)
   const decision = p.targetChange.decision === 'change' ? '목표 변경' : '유지'
   lines.push(`판단: ${decision} · 매매 지시 ${p.plan.instructions.length}건 · 예상 세금 영향 ${manwon(p.plan.taxSummary.estimatedTaxKrw, true)}`)
-  for (const key of p.triggers) lines.push(triggerFigures(p, key, opts.classes))
+  for (const key of keys) lines.push(triggerFigures(p, key, opts.classes))
   if (p.targetChange.decision === 'change') {
     const changes = Object.entries(p.targetChange.sleeves)
       .filter(([, c]) => Number.isFinite(c?.from) && Number.isFinite(c?.to))

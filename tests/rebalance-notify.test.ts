@@ -363,9 +363,9 @@ test('Korean opening: a band trigger held with no LLM, warnings and a harvest sc
   assert.equal(
     text,
     [
-      '🧭 리밸런싱 제안 rb-2026-10-01-band · 밴드 이탈(금), 손실 확정 기회',
+      '🧭 리밸런싱 제안 rb-2026-10-01-band · 범위 이탈(금), 손실 확정 기회',
       '판단: 유지 · 매매 지시 0건 · 예상 세금 영향 0원',
-      '금: 현재 12.4% / 목표 10% (허용 8–12%)',
+      '금: 현재 12.43% / 목표 10% (허용 8–12%)',
       '⚠️ 경고 4건: wash sale 차단 1 · 미분류 종목 2 · mystery_code 1',
       '참고 · 손실 확정 시나리오(계획에 없음): 손실 약 1,235만 원 확정 시 올해 세금 약 -235만 원',
       '할 일: 경고 확인 후 페이지에서 종료',
@@ -475,7 +475,7 @@ test('Korean labels cover every sleeve, warning code, confidence and trigger kin
     harvest: undefined,
   } as never)
   const { text } = await openingOf(p)
-  assert.match(text, /밴드 이탈\(한국주식\), 밴드 이탈\(미국주식\), 밴드 이탈\(채권\), 밴드 이탈\(금\), 밴드 이탈\(암호화폐\), 밴드 이탈\(현금\), 연말 점검\(2026-11-15\), 수동 요청, free text trigger/)
+  assert.match(text, /범위 이탈\(한국주식·미국주식·채권·금·암호화폐·현금\), 연말 점검, 수동 요청, free text trigger/)
   // A band line without a frozen move still names target and band.
   assert.match(text, /^채권: 목표 5% \(허용 2\.5–7\.5%\)$/m)
   for (const code of codes) assert.doesNotMatch(text.split('\n').find((l) => l.startsWith('⚠️'))!, new RegExp(`\\b${code}\\b`), code)
@@ -535,4 +535,37 @@ test('Korean status lines: every status, a close without trades, and an expiry; 
   const expired = linesFor([{ at, type: 'expired', detail: '' }], 'expired')
   assert.equal(expired[0].discord, '상태 변경 → 만료됨 (승인 없이 기한이 지났습니다)')
   assert.equal(expired[0].telegram, '⌛ Rebalance rb-2026-10 expired without approval.')
+})
+
+// A trigger appended while the proposal was open is stored as `<key>: <label>`, and the same key can be appended
+// again on later days. The opening reads each key once, groups the sleeves, and takes an appended band trigger's
+// distance from its latest label, since no move was frozen for it.
+test('Korean opening: appended triggers are read by key, once each, grouped in the first line', async () => {
+  const p = bandHold({
+    triggers: [
+      'band:gold',
+      'yearend:2026-11-15: year-end review from 2026-11-15',
+      'band:kr_equity: kr_equity 0.5pp outside band',
+      'band:gold: gold 0.1pp outside band',
+      'band:kr_equity: kr_equity 0.8pp outside band',
+      'harvest: harvestable loss at or above the threshold',
+    ],
+  } as never)
+  const { text } = await openingOf(p)
+  const first = text.split('\n')[0]
+  assert.equal(first, '🧭 리밸런싱 제안 rb-2026-10-01-band · 범위 이탈(금·한국주식), 연말 점검, 손실 확정 기회')
+  assert.doesNotMatch(text, /outside band|year-end review|harvestable loss/, 'no English label leaks into the message')
+  assert.match(text, /^금: 현재 12\.43% \/ 목표 10% \(허용 8–12%\)$/m)
+  assert.match(text, /^한국주식: 범위를 0\.8pp 벗어남\(제안 생성 후 추가\) \/ 목표 /m)
+  assert.equal(text.split('\n').filter((l) => l.startsWith('금:')).length, 1, 'a key appended twice prints one line')
+})
+
+test('triggerKeyOf reads both stored shapes', async () => {
+  const { triggerKeyOf } = await import('../lib/rebalance/notify')
+  assert.equal(triggerKeyOf('band:gold'), 'band:gold')
+  assert.equal(triggerKeyOf('band:kr_equity: kr_equity 0.8pp outside band'), 'band:kr_equity')
+  assert.equal(triggerKeyOf('cap:KR:005930: weight above cap'), 'cap:KR:005930')
+  assert.equal(triggerKeyOf('yearend:2026-11-15: year-end review from 2026-11-15'), 'yearend:2026-11-15')
+  assert.equal(triggerKeyOf('harvest: harvestable loss at or above the threshold'), 'harvest')
+  assert.equal(triggerKeyOf('free text trigger'), 'free text trigger')
 })
