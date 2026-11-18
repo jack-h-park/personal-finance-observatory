@@ -174,3 +174,14 @@ test('app/rebalance/actions.ts no longer saves a market split', () => {
   assert.ok(!/export async function saveRebalanceTargets/.test(source('app/rebalance/actions.ts')))
   assert.ok(!source('lib/rebalance-policy.ts').includes('saveRebalancePolicy'))
 })
+
+// A phone tap needs a 24px target; the summary stays a block (flex drops the
+// disclosure marker in Chromium), so the height comes from min-h-6 and leading-6.
+test('app/tax-planning/page.tsx gives the lot-candidates summary a 24px target', () => {
+  const text = source('app/tax-planning/page.tsx')
+  const at = text.indexOf('{copy.page.allOpenLotCandidates}</summary>')
+  assert.ok(at >= 0)
+  const open = text.slice(text.lastIndexOf('<summary', at), at)
+  assert.match(open, /\bmin-h-6\b/)
+  assert.doesNotMatch(open, /\bflex\b/)
+})
