@@ -1,0 +1,211 @@
+/*
+ * jhp-app-theme.css — the shared theme for Jack H. Park Studio apps.
+ *
+ * kit-version: 1 (2026-11-18)
+ * Source of truth: workspace-governance docs/ux/kit/jhp-app-theme.css
+ * Brand values mirror jackhpark-studio styles/jp-theme.css at 240f45d, except
+ * the decisions marked [D#], which are explained in docs/ux/guidelines.md.
+ *
+ * Copy this file into an app unchanged (keep the header, it is how the
+ * conformance check recognises the copy and its version). Put app-specific
+ * tokens in a separate file loaded after this one; do not edit the copy.
+ * Nothing here is loaded across repos at runtime.
+ *
+ * What it gives you:
+ *   tokens   brand, neutrals, tones, status, radius, space, shadow, type, motion
+ *   themes   light by default, dark from prefers-color-scheme, and a manual
+ *            override with <html data-theme="light|dark"> (or .dark)
+ *   pieces   .jhp-dot (service status), .jhp-locked (owner only),
+ *            .jhp-whoami, .jhp-num, focus ring, reduced motion
+ * Layout, components and copy stay in each app.
+ */
+
+:root {
+  /* Brand (jackhpark-studio) */
+  --brand-pink: #f06292;
+  --brand-purple: #b439df;
+  --brand-blue: #5b8def;
+  --brand-cyan: #4dd0e1;
+  --gradient-full: linear-gradient(90deg, #f06292 0%, #b439df 30%, #5b8def 60%, #4dd0e1 100%);
+  --gradient-mini: linear-gradient(90deg, #b439df 0%, #5b8def 50%, #4dd0e1 100%);
+
+  /* Neutrals, light */
+  --bg-page: #FFFFFF;
+  --bg-surface: #F7F6F3;
+  --bg-card: #FFFFFF;
+  --text-primary: #37352F;
+  --text-secondary: #6B6A65;
+  --text-tertiary: #72716B; /* [D4] studio #9B9A97 fails AA (2.81:1) */
+  --border-subtle: rgba(55, 53, 47, 0.09);
+  --border-default: #EFEEEA;
+
+  /* Tones, light */
+  --accent-info: #0B6E99;
+  --accent-success: #3B6D11;
+  --accent-warning: #BA7517;      /* fills, dots, borders (3.72:1) */
+  --accent-warning-text: #8F5A0E; /* [D2] warning as text (5.77:1) */
+  --accent-danger: #A32D2D;       /* [D3] */
+  --accent-link: var(--brand-blue);
+
+  /* Service status [D5] */
+  --status-up: var(--accent-success);
+  --status-off: var(--text-tertiary);
+  --status-down: var(--accent-danger);
+  --status-unknown: var(--text-tertiary);
+
+  /* Shape and depth */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 24px;
+  --radius-pill: 999px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+  --shadow-card: 0 1px 2px rgba(15, 15, 15, 0.04), 0 4px 12px rgba(15, 15, 15, 0.05);
+  --shadow-elevated: 0 10px 20px rgba(15, 15, 15, 0.05);
+  --shadow-popover: 0 18px 35px rgba(15, 15, 15, 0.08);
+
+  /* Type: families */
+  --font-sans: var(--font-geist-sans, "Geist"), "Pretendard", "Apple SD Gothic Neo",
+    ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: var(--font-geist-mono, "Geist Mono"), ui-monospace, "SFMono-Regular", monospace;
+
+  /* Type: console profile [D9] (size / line-height) */
+  --t-page: 28px;      --lh-page: 1.2;
+  --t-page-narrow: 24px;
+  --t-section: 20px;   --lh-section: 1.3;
+  --t-panel: 16px;     --lh-panel: 1.4;
+  --t-reading: 16px;   --lh-reading: 1.7;
+  --t-ui: 14px;        --lh-ui: 1.5;
+  --t-meta: 12px;      --lh-meta: 1.5;
+  --t-label: 11px;     --tr-label: 0.1em;
+  --t-metric: 28px;    --lh-metric: 1.1;
+  --measure: 72ch;
+
+  /* Motion (jackhpark-studio) */
+  --ease-std: cubic-bezier(0.4, 0, 0.2, 1);
+  --dur-1: 80ms;
+  --dur-2: 150ms;
+  --dur-3: 250ms;
+  --dur-4: 400ms;
+
+  /* Focus */
+  --focus-ring: 0 0 0 2px var(--bg-page), 0 0 0 4px var(--brand-blue);
+
+  color-scheme: light;
+}
+
+/* Dark, from the system setting unless the page forces light [D7] */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg-page: #191919;
+    --bg-surface: #252525;
+    --bg-card: #252525;
+    --text-primary: #F2F0EA;
+    --text-secondary: #B4B2A9;
+    --text-tertiary: #9B9A97;
+    --border-subtle: rgba(255, 255, 255, 0.10);
+    --border-default: #2A2A2A;
+    --accent-info: #529CCA;
+    --accent-success: #97C459;
+    --accent-warning: #FFA344;
+    --accent-warning-text: #FFA344;
+    --accent-danger: #FF7369;
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.30), 0 4px 12px rgba(0, 0, 0, 0.40);
+    color-scheme: dark;
+  }
+}
+
+/* Dark, forced by the page. Same values as the block above. */
+:root[data-theme="dark"],
+:root.dark {
+  --bg-page: #191919;
+  --bg-surface: #252525;
+  --bg-card: #252525;
+  --text-primary: #F2F0EA;
+  --text-secondary: #B4B2A9;
+  --text-tertiary: #9B9A97;
+  --border-subtle: rgba(255, 255, 255, 0.10);
+  --border-default: #2A2A2A;
+  --accent-info: #529CCA;
+  --accent-success: #97C459;
+  --accent-warning: #FFA344;
+  --accent-warning-text: #FFA344;
+  --accent-danger: #FF7369;
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.30), 0 4px 12px rgba(0, 0, 0, 0.40);
+  color-scheme: dark;
+}
+
+/* Focus: visible on keyboard focus, never removed without a replacement */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: var(--radius-sm);
+}
+
+/* Numbers that line up */
+.jhp-num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Service status dot: <span class="jhp-dot" data-state="up" role="img" aria-label="실행 중"></span> */
+.jhp-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+  background: var(--status-unknown);
+}
+.jhp-dot[data-state="up"] { background: var(--status-up); }
+.jhp-dot[data-state="off"] { background: var(--status-off); }
+.jhp-dot[data-state="down"] { background: var(--status-down); }
+.jhp-dot[data-state="unknown"],
+.jhp-dot:not([data-state]) {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--status-unknown);
+}
+
+/* Owner only, shown locked rather than hidden (guidelines §6).
+   Remove the href, set aria-disabled="true", add the class and a label. */
+.jhp-locked {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.jhp-locked a { pointer-events: none; }
+.jhp-lock-label {
+  font-size: var(--t-meta);
+  color: var(--text-secondary);
+}
+
+/* Who is viewing: <span class="jhp-whoami" data-group="owner">소유자</span> */
+.jhp-whoami {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-default);
+  font-size: var(--t-meta);
+  color: var(--text-secondary);
+}
+.jhp-whoami[data-group="owner"] { color: var(--accent-success); }
+.jhp-whoami[data-group="unknown"] { color: var(--accent-warning-text); }
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

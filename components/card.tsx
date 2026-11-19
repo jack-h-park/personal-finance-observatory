@@ -44,7 +44,7 @@ export function Card({ children, id, className, title, info, action, fill, accen
     <section
       id={id}
       className={clsx(
-        'relative rounded-md border border-line bg-card shadow-card',
+        'relative rounded-md border border-line bg-card',
         fill && 'flex flex-col',
         // A link lands below the phone's sticky top bar, as other anchors do.
         id && 'scroll-mt-24',
@@ -56,7 +56,7 @@ export function Card({ children, id, className, title, info, action, fill, accen
         <span
           aria-hidden
           className="pointer-events-none absolute inset-x-0 top-0 h-[3px]"
-          style={{ backgroundImage: 'var(--gradient-full)', borderRadius: 'var(--radius-md) var(--radius-md) 0 0' }}
+          style={{ background: 'var(--accent-info)', borderRadius: 'var(--radius-md) var(--radius-md) 0 0' }}
         />
       )}
       {(title || action || badge) && (

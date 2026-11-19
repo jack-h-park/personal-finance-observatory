@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "groups": {
+    "operations": {"ko": "운영", "en": "Operations"},
+    "creation": {"ko": "창작", "en": "Creation"},
+    "family": {"ko": "가족·집", "en": "Family & Home"},
+    "external": {"ko": "외부 도구", "en": "External tools"}
+  },
+  "services": [
+    {"id": "pm", "name": {"ko": "PM Console", "en": "PM Console"}, "url": "https://pm.jackpark.me", "group": "operations", "access": "owner", "opens": "same-tab"},
+    {"id": "stock", "name": {"ko": "Personal Finance Observatory", "en": "Personal Finance Observatory"}, "url": "https://stock.jackpark.me", "group": "operations", "access": "owner", "opens": "same-tab"},
+    {"id": "meeting", "name": {"ko": "Meetings", "en": "Meetings"}, "url": "https://meeting.jackpark.me", "group": "operations", "access": "owner", "opens": "same-tab"},
+    {"id": "briefing", "name": {"ko": "Daily Briefing", "en": "Daily Briefing"}, "url": "https://briefing.jackpark.me", "group": "operations", "access": "owner", "opens": "same-tab"},
+    {"id": "storage", "name": {"ko": "Storage", "en": "Storage"}, "url": "https://storage.jackpark.me", "group": "operations", "access": "owner", "opens": "same-tab"},
+    {"id": "render", "name": {"ko": "Render Lab", "en": "Render Lab"}, "url": "https://render.jackpark.me", "group": "creation", "access": "tailnet", "opens": "same-tab"},
+    {"id": "music", "name": {"ko": "Music Lab", "en": "Music Lab"}, "url": "https://music.jackpark.me", "group": "creation", "access": "owner", "opens": "same-tab"},
+    {"id": "homecam", "name": {"ko": "Home Cam", "en": "Home Cam"}, "url": "https://homecam.jackpark.me", "group": "family", "access": "tailnet", "opens": "same-tab"},
+    {"id": "frame", "name": {"ko": "WiseFrame", "en": "WiseFrame"}, "url": "https://frame.jackpark.me", "group": "family", "access": "owner", "opens": "same-tab"},
+    {"id": "nas", "name": {"ko": "Synology NAS", "en": "Synology NAS"}, "url": "https://nas.jackpark.me", "group": "external", "access": "owner", "opens": "new-tab"},
+    {"id": "acestep", "name": {"ko": "ACE-Step UI", "en": "ACE-Step UI"}, "url": "https://acestep.jackpark.me", "group": "external", "access": "owner", "opens": "new-tab"},
+    {"id": "hermes", "name": {"ko": "Hermes Dashboard", "en": "Hermes Dashboard"}, "url": "https://hermes.jackpark.me", "group": "external", "access": "owner", "opens": "new-tab"},
+    {"id": "immich", "name": {"ko": "Immich", "en": "Immich"}, "url": "https://immich.jackpark.me", "group": "external", "access": "tailnet", "opens": "new-tab"},
+    {"id": "chat", "name": {"ko": "Open WebUI", "en": "Open WebUI"}, "url": "https://chat.jackpark.me", "group": "external", "access": "tailnet", "opens": "new-tab"},
+    {"id": "invokeai", "name": {"ko": "InvokeAI", "en": "InvokeAI"}, "url": "https://invokeai.jackpark.me", "group": "external", "access": "tailnet", "opens": "new-tab"}
+  ]
+}

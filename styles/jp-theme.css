@@ -1,67 +1,12 @@
-/* A copy of the J·P theme, not shared with any other repo: edit it here.
-   Live classes: .t-h2, .t-eyebrow, .t-emph-gradient, .ai-page-header, .jp-stagger.
-   Gradient budget: at most three per screen. The sidebar's active marker bar
-   (--gradient-mini), the lead card's accent bar (--gradient-full), and one in
-   the title: the emphasis word (.t-emph-gradient), or, when a title has none,
-   the tick above it (.ai-page-header). Eyebrows and wordmarks are plain text.
-   Entrance motion plays on first load only: EntranceMotion sets
-   data-entered on <html> after the fade, and .jp-stagger stops applying. */
-
-/* ── Light mode neutrals (Notion-ink foundation) ───────────────── */
+/* Console aliases and layout layered over the shared workspace-governance theme. */
 [data-theme="jp"] {
-  /* 3.3 · Surfaces */
-  --bg-page:        #FFFFFF;
-  --bg-surface:     #F7F6F3;
-  --bg-card:        #FFFFFF;
-
-  /* 3.3 · Text */
-  --text-primary:   #37352F;
-  --text-secondary: #6B6A65;
-  /* 4.76:1 on white: safe for the 11–12px helper copy used throughout the dashboard. */
-  /* Was #74736D — 4.40:1 on --bg-surface, just under WCAG AA (4.5:1). This
-     token carries almost every 11px label, hint and metric caption in the app,
-     so the smallest text was also the least legible; axe reported it on all 38
-     route-language combinations. #72716B is 4.53:1 on surface, 4.65 on page and
-     4.90 on card, so it clears AA on every background the app uses, and is
-     still a step lighter than --text-secondary.
-     jackhpark-pm-console made the same fix from #9B9A97 and chose #767570,
-     which is 4.6:1 against white but only 4.27:1 on this app's surface — it
-     measured against a background this app does not use for this text. */
-  --text-tertiary:  #72716B;
-
-  /* 3.3 · Borders */
-  --border-subtle:  rgba(55, 53, 47, 0.09);
-  --border-default: #EFEEEA;
-
-  /* 3.4 · Semantic status */
-  --accent-info:    #0B6E99;
-  --accent-success: #3B6D11;
-  /* 4.79:1 inside its own 10% pill on --bg-surface (#F7F6F3), 5.15:1 inside the pill on white,
-     and 5.50:1 as plain text on surface. Warning labels stay readable without relying on color alone. */
-  --accent-warning: #8F570A;
-  --accent-danger:  #A32D2D;
-
-  /* 5.3 · Elevation */
-  --shadow-card:     0 1px 2px rgba(15,15,15,0.04), 0 4px 12px rgba(15,15,15,0.05);
-  --shadow-elevated: 0 10px 20px rgba(15,15,15,0.05);
-  --shadow-popover:  0 18px 35px rgba(15,15,15,0.08);
-
-  /* 5.2 · Radius */
-  --radius-sm:   6px;
-  --radius-md:   10px;
-  --radius-lg:   14px;
-  --radius-xl:   24px;
-  --radius-pill: 999px;
-
-  /* 4.3 · Type scale */
-  --t-h2:      22px;  --lh-h2:     1.25;  --tr-h2:      -0.015em;
-  --t-body:    14px;  --lh-body:   1.65;
-  --t-eyebrow: 11px;  --tr-eyebrow: 0.10em;
-
-  /* Font families — resolved from next/font CSS variables on the root element */
-  --font-sans: var(--font-geist-sans, ui-sans-serif, system-ui, -apple-system, sans-serif);
-  --font-mono: var(--font-geist-mono, ui-monospace, "SFMono-Regular", monospace);
-
+  --t-h2: var(--t-section);
+  --lh-h2: var(--lh-section);
+  --tr-h2: -0.015em;
+  --t-body: var(--t-ui);
+  --lh-body: var(--lh-ui);
+  --t-eyebrow: var(--t-label);
+  --tr-eyebrow: var(--tr-label);
 }
 
 /* ── Component overrides ─────────────────────────────────────────── */
@@ -80,8 +25,7 @@
    Full gradient: once per surface — logo, page header stripe, primary CTA.
    Mini gradient: inside interactions only — active nav, link hover, focus
                   rings. May repeat per interaction.
-   Text gradient: anything clipped to text. Same sweep, stops that pass 4.5:1;
-                  see the note beside --gradient-text in globals.css.
+   Emphasized text uses the shared contrast-safe info token.
    ─────────────────────────────────────────────────────────────────── */
 
 /* Page header card — gradient top stripe */
@@ -156,12 +100,9 @@
   color: var(--text-secondary);
 }
 
-/* Gradient text emphasis — for a single key word per heading */
+/* Emphasis for a single key word per heading */
 [data-theme="jp"] .t-emph-gradient {
-  background-image: var(--gradient-text);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  color: var(--accent-info);
   font-weight: 500;
 }
 
