@@ -1,18 +1,16 @@
 import { EMPTY_VALUE } from '@/lib/format'
 import type { TaxPlanCandidate } from '@/lib/tax-planning'
-import type { FilingScenario, TaxYearProfile } from '@/lib/tax-policy'
+import type { FilingScenario } from '@/lib/tax-policy'
 import { defineCopy } from '@/lib/ui-copy/define'
 
 // Named here so the Korean half carries no English string literal in a type (G12).
 type HoldingBucket = TaxPlanCandidate['holdingBucket']
-type TaxYearProfileStatus = TaxYearProfile['status']
 
 export const taxPlanning = defineCopy({
   en: {
     /** Enum values a badge shows. Read with `labels[value] ?? value`, so an unknown value still shows. */
     enums: {
       holdingBucket: { short: 'Short-term', long: 'Long-term' } satisfies Record<HoldingBucket, string>,
-      taxYearProfileStatus: { assumed: 'Assumed', confirmed: 'Confirmed' } satisfies Record<TaxYearProfileStatus, string>,
       filingScenario: { US_ONLY: 'US only', KR_ONLY: 'KR only', US_AND_KR: 'US + KR' } satisfies Record<FilingScenario, string>,
     },
     page: {
@@ -409,7 +407,6 @@ export const taxPlanning = defineCopy({
   ko: {
     enums: {
       holdingBucket: { short: '단기', long: '장기' } satisfies Record<HoldingBucket, string>,
-      taxYearProfileStatus: { assumed: '가정', confirmed: '확정' } satisfies Record<TaxYearProfileStatus, string>,
       filingScenario: { US_ONLY: '미국만', KR_ONLY: '한국만', US_AND_KR: '미국 + 한국' } satisfies Record<FilingScenario, string>,
     },
     page: {
