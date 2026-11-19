@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { test } from 'node:test'
 import { axisTick, hasPlottablePoint, tooltipValue, type ChartUnit } from '../lib/chart-format'
 import { EMPTY_VALUE, fmtMoney, fmtPct } from '../lib/format'
@@ -21,10 +23,23 @@ test('axisTick ko KRW reads in 만 and 억', () => {
 })
 
 test('axisTick ko KRW rounds half away from zero', () => {
-  assert.equal(axisTick(125_000_000, KRW, 'ko'), '1.3억')
-  assert.equal(axisTick(-125_000_000, KRW, 'ko'), '-1.3억')
   assert.equal(axisTick(15_000, KRW, 'ko'), '1.5만')
   assert.equal(axisTick(-9_999, KRW, 'ko'), '-9,999')
+})
+
+test('axisTick keeps two decimals in 억, K and M so a quarter step stays exact', () => {
+  assert.equal(axisTick(125_000_000, KRW, 'ko'), '1.25억')
+  assert.equal(axisTick(-125_000_000, KRW, 'ko'), '-1.25억')
+  assert.equal(axisTick(105_000_000, KRW, 'ko'), '1.05억')
+  assert.equal(axisTick(120_000_000, KRW, 'ko'), '1.2억')
+  assert.equal(axisTick(1_250, USD, 'en'), '$1.25K')
+  assert.equal(axisTick(1_250_000, KRW, 'en'), '₩1.25M')
+})
+
+test('axisTick keeps one decimal in 만 at every size', () => {
+  assert.equal(axisTick(15_000, KRW, 'ko'), '1.5만')
+  assert.equal(axisTick(125_000, KRW, 'ko'), '12.5만')
+  assert.equal(axisTick(35_000_000, KRW, 'ko'), '3,500만')
 })
 
 test('axisTick en KRW reads in K and M', () => {
@@ -80,4 +95,20 @@ test('hasPlottablePoint needs one finite value in a series key', () => {
   assert.equal(hasPlottablePoint([{ date: 'a', value: Number.NaN }], ['value']), false)
   assert.equal(hasPlottablePoint([{ date: 'a', value: null }, { date: 'b', value: 3 }], ['value']), true)
   assert.equal(hasPlottablePoint([{ date: 'a', other: 3 }], ['value']), false)
+})
+
+test('every chart series carries a name, so no tooltip falls back to a data key', () => {
+  const src = readFileSync(join(process.cwd(), 'components/charts.tsx'), 'utf8')
+  // Each opening tag of a series element, up to the line that closes it with
+  // `>` or `/>` (a prop's arrow function also contains `>`).
+  const series = [...src.matchAll(/<(Bar|Line|Area)\s/g)].map((m) => {
+    const rest = src.slice(m.index)
+    const end = rest.search(/\n\s*\/?>\s*\n/)
+    return end === -1 ? rest : rest.slice(0, end)
+  })
+  assert.ok(series.length >= 5)
+  for (const tag of series) assert.match(tag, /\sname=\{/, tag)
+  assert.match(src, /valueName: string/)
+  const income = readFileSync(join(process.cwd(), 'app/income/page.tsx'), 'utf8')
+  assert.match(income, /<TrendBarChart[^]*?valueName=\{copy\.[A-Za-z]+\}/)
 })

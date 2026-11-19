@@ -146,14 +146,17 @@ a currency), `percent` or `number`; `axisTick` formats a tick; `tooltipValue`
 formats the hover value (money uses `fmtMoney`, the full amount, so the axis can
 abbreviate and the tooltip cannot); `hasPlottablePoint` guards the empty state.
 A series that is all `null`, or an empty `data` array, shows `emptyMessage`
-instead of an axis drawn from `-Infinity`. `tests/chart-format.test.ts` checks
-the ticks, the tooltip and the plottable guard.
+instead of an axis drawn from `-Infinity`. Every series carries a `name` from
+copy (`valueName` on the single-series charts), so a tooltip never shows a data
+key. `tests/chart-format.test.ts` checks the ticks, the tooltip, the plottable
+guard and the series names.
 
 Tick rules:
 
-- Korean KRW is 억 with one decimal; 만 with one decimal below 10만 and whole 만
-  from 10만; otherwise the plain number.
-- English KRW is ₩M and ₩K. USD is $M and $K in both languages.
+- Korean KRW is 억 with up to two decimals (1.25억); 만 with up to one decimal
+  (1.5만, 12.5만, 3,500만); otherwise the plain number.
+- English KRW is ₩M and ₩K, USD is $M and $K in both languages, each with up to
+  two decimals ($1.25K). Trailing zeros are dropped.
 - A value rounds half away from zero and promotes to the next unit.
 - Percent axes use `allowDecimals={false}` and whole-percent labels.
 - Negative zero prints `0`.

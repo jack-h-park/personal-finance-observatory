@@ -13,19 +13,19 @@ export type ChartUnit =
 type Scale = { min: number; div: number; digits: number; label: string }
 
 // Korean reads won in 만 (10^4) and 억 (10^8). These two strings are the only
-// Korean outside lib/ui-copy, and the tests assert them verbatim. Below 10만 the
-// 만 tick keeps one decimal, so 15,000 (1.5만) never reads like 20,000 (2만).
+// Korean outside lib/ui-copy, and the tests assert them verbatim. Each tier keeps
+// enough decimals that recharts' usual steps print exactly: 억, K and M keep two
+// (1.25억, $1.25K), 만 keeps one (1.5만, 12.5만). Trailing zeros are dropped.
 const KO_KRW: readonly Scale[] = [
   { min: 0, div: 1, digits: 0, label: '' },
   { min: 1e4, div: 1e4, digits: 1, label: '만' },
-  { min: 1e5, div: 1e4, digits: 0, label: '만' },
-  { min: 1e8, div: 1e8, digits: 1, label: '억' },
+  { min: 1e8, div: 1e8, digits: 2, label: '억' },
 ]
 
 const THOUSANDS: readonly Scale[] = [
   { min: 0, div: 1, digits: 0, label: '' },
-  { min: 1e3, div: 1e3, digits: 1, label: 'K' },
-  { min: 1e6, div: 1e6, digits: 1, label: 'M' },
+  { min: 1e3, div: 1e3, digits: 2, label: 'K' },
+  { min: 1e6, div: 1e6, digits: 2, label: 'M' },
 ]
 
 /** Round a non-negative value half away from zero at `digits` decimals. */
