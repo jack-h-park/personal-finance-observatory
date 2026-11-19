@@ -355,7 +355,10 @@ in `SidebarNav`), one title mark, and the lead card's accent bar. The title mark
 is `t-emph-gradient` when the header renders `emphasis`; otherwise `PageHeader`
 adds `ai-page-header` (the tick), so a header never carries both.
 `tests/gradient-budget.test.ts` pins the files that may name a gradient; a new
-file that does fails it until the budget is argued again.
+file that does fails it until the budget is argued again. It also fails on any
+inline `linear-gradient(` in `app/`, `components/` or `styles/` other than the
+`--gradient-*` token definitions in `styles/globals.css`; swatches and share
+bars use solid colours from `lib/palette.ts`.
 
 Motion happens once. `components/EntranceMotion.tsx` sets `data-entered` on
 `<html>` 600 ms after mount, and the stagger rule is
