@@ -37,8 +37,9 @@ empty :=
 space := $(empty) $(empty)
 TOOL_PATH := $(subst $(space),:,$(strip $(TOOL_DIRS)))
 PNPM := PATH="$(NODE_BIN):$(TOOL_PATH):$$PATH" $(PNPM_BIN)
+UV_BIN := $(call find-tool,uv)
 
-.PHONY: install ingest refresh dev build start stop restart redeploy status refresh-status wait-listen require-tools install-service install-refresh-service uninstall-service uninstall-refresh-service install-push-service uninstall-push-service push-status push-sources pull-prod-db pull-prod-db-dry file-downloads file-downloads-dry logs typecheck
+.PHONY: python-env install ingest refresh dev build start stop restart redeploy status refresh-status wait-listen require-tools install-service install-refresh-service uninstall-service uninstall-refresh-service install-push-service uninstall-push-service push-status push-sources pull-prod-db pull-prod-db-dry file-downloads file-downloads-dry logs typecheck
 
 # Every pnpm-invoking target depends on this, so a stripped PATH fails here —
 # before a target has done anything — instead of part-way through.
@@ -53,6 +54,14 @@ require-tools:
 
 install: require-tools
 	$(PNPM) install
+
+# The extract scripts' venv: .python-version + pyproject.toml + uv.lock -> .venv.
+# --managed-python keeps it on a uv-managed CPython, never Homebrew's or the
+# system one (workspace-governance docs/python-runtimes.md, P1/P3).
+python-env:
+	@test -n "$(UV_BIN)" || { echo "uv not found: not on PATH, and not in $(TOOL_DIRS)."; exit 1; }
+	$(UV_BIN) sync --frozen --managed-python
+	@.venv/bin/python -c 'import sys, pdfplumber, openpyxl; print("extract venv:", sys.version.split()[0], sys.executable)'
 
 ingest: require-tools
 	$(PNPM) ingest

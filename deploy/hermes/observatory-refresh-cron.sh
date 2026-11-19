@@ -39,12 +39,15 @@ unset _d
 
 # The extract steps import pdfplumber and openpyxl, and a bare python3 is whatever
 # PATH finds first, which on a scheduler is not the interpreter that has them.
-# Prefer a dedicated virtualenv at a fixed location when one exists. An explicit
-# STOCK_PYTHON_BIN in the environment still wins; the app's own .env.local does
-# not reach this shell, so it cannot override this default, and the wrapper is
-# the only place a scheduled run can be steered.
-if [ -z "${STOCK_PYTHON_BIN:-}" ] && [ -x "$HOME/.local/share/stock-observatory/venv/bin/python" ]; then
-  export STOCK_PYTHON_BIN="$HOME/.local/share/stock-observatory/venv/bin/python"
+# Prefer the repo's own venv, built by `make python-env` from .python-version,
+# pyproject.toml and uv.lock, so the interpreter is pinned in the repo rather
+# than borrowed (it used to be a venv on the Hermes agent's own 3.11). An
+# explicit STOCK_PYTHON_BIN in the environment still wins; the app's .env.local
+# is read by the node scripts only for variables not already set, so this
+# default beats it, and the wrapper is the only place a scheduled run can be
+# steered.
+if [ -z "${STOCK_PYTHON_BIN:-}" ] && [ -x "$REPO/.venv/bin/python" ]; then
+  export STOCK_PYTHON_BIN="$REPO/.venv/bin/python"
 fi
 
 if [ ! -f "$REPO/package.json" ]; then

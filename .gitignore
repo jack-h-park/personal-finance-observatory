@@ -28,6 +28,8 @@ out/
 .playwright-cli/
 tsconfig.tsbuildinfo
 __pycache__/
+# The extract venv, built by `make python-env` (pyproject.toml + uv.lock).
+.venv/
 *.py[cod]
 
 # Generated or private portfolio data.

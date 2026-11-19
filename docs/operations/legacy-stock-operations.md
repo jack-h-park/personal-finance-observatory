@@ -71,9 +71,9 @@ pnpm install
 cp .env.example .env.local
 
 # Configure STOCK_DATA_DIR and STOCK_DB_PATH in .env.local.
-# Set STOCK_PYTHON_BIN to an ABSOLUTE python3 that has the extract modules
-# (pdfplumber, openpyxl — see below), installing them into that interpreter:
-#   "$STOCK_PYTHON_BIN" -m pip install --user pdfplumber openpyxl
+# Build the pinned extract venv (pdfplumber, openpyxl — see below) and set
+# STOCK_PYTHON_BIN in .env.local to its ABSOLUTE path, $PWD/.venv/bin/python:
+make python-env        # uv sync --frozen --managed-python -> .venv
 # Then create local generated-data files from public examples
 # (fx-rates.json is fetched by pnpm refresh, not copied):
 cp data/us-pdf-evidence.example.json data/us-pdf-evidence.json
@@ -560,23 +560,36 @@ ever reinstalled (`make install-refresh-service`), keep this job paused. Two
 schedulers on one `pnpm refresh` write the same database and the same
 `data/refresh-runs.json`.
 
+#### Python for the extract steps
+
 **Pin `STOCK_PYTHON_BIN` to an absolute path.** A bare `python3` resolves through
 `PATH`, and the scheduler does not hand the job the `PATH` an interactive shell
 has: Hermes cron puts its own virtualenv first, so `python3` resolved to that
 venv's 3.11 — which has no `pdfplumber` — and the PDF extract step failed on
-every scheduled run while succeeding every time it was tested by hand. The
-interpreter that has the dependency is the system one, so name it outright.
+every scheduled run while succeeding every time it was tested by hand.
 
-**Install every extract module into that same interpreter**, not just the one
-that fails loudly. The extracts need `pdfplumber` and `openpyxl`; a missing
-`pdfplumber` aborts the step, but a missing `openpyxl` only degrades — the
-Bithumb reason lookup returns nothing, prints one line to stderr, and the
-`crypto_cash_deposits_classified` check fails as a warning that exits 0. That is
-survivable by design, and therefore easy to run for weeks without noticing:
+**The interpreter is pinned in the repo.** `.python-version` (3.13),
+`pyproject.toml` (`requires-python >=3.13`, `pdfplumber`, `openpyxl`) and
+`uv.lock` define one venv, built into the checkout's `.venv`:
 
 ```bash
-"$STOCK_PYTHON_BIN" -m pip install --user pdfplumber openpyxl
+make python-env        # uv sync --frozen --managed-python
 ```
+
+Run it once per checkout and again whenever a `git pull` changes `uv.lock`.
+`--managed-python` takes a uv-managed CPython 3.13, never Homebrew's or the
+system one, which their own updaters replace (workspace-governance
+`docs/python-runtimes.md`, P1 and P3). Both cron wrappers
+(`observatory-refresh-cron.sh`, `refresh-now.sh`) default `STOCK_PYTHON_BIN` to
+`$REPO/.venv/bin/python`; set the same path in `.env.local` for `make refresh`,
+the launchd refresh job and anything else that reads it.
+
+**Both extract modules come from the lock**, not just the one that fails
+loudly. A missing `pdfplumber` aborts the step, but a missing `openpyxl` only
+degrades — the Bithumb reason lookup returns nothing, prints one line to
+stderr, and the `crypto_cash_deposits_classified` check fails as a warning that
+exits 0. That is survivable by design, and therefore easy to run for weeks
+without noticing; a venv built from the lock cannot be missing either.
 
 This applies to either scheduler — the launchd job inherits `.env.local` from the
 repo working directory just as the cron wrapper does.

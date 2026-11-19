@@ -106,6 +106,10 @@ See the [operating reference](docs/operations/legacy-stock-operations.md#the-hol
 
 See the [operating reference](docs/operations/legacy-stock-operations.md#macos-launchd-deployment) for this legacy interface.
 
+## macOS permissions
+
+No macOS privacy (TCC) grants are needed: not Full Disk Access, Local Network, Camera or any other. The web service, the scheduled refresh and the Hermes cron wrappers read and write only the checkout and the configured data directories under the running account's own home, and reach the network only through ordinary outbound HTTPS. The extract steps run on the repo's pinned venv (`.python-version` 3.13, `uv.lock`, built with `make python-env`), which holds no grant and must not be given one; see workspace-governance `docs/python-runtimes.md`.
+
 ## Data posture
 
 See the [operating reference](docs/operations/legacy-stock-operations.md#data-posture) for this legacy interface.
