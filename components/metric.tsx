@@ -269,6 +269,7 @@ export function Label({
         'font-medium uppercase text-ink-3',
         size === 'micro' ? 'text-micro' : 'text-label',
         variant === 'eyebrow' ? 'tracking-[0.1em]' : 'tracking-[0.08em]',
+        '[&:lang(ko)]:tracking-normal',
         className
       )}
     >

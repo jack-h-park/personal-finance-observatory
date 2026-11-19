@@ -69,12 +69,7 @@ export function Sidebar({
         </button>
         <div className="flex min-w-0 items-baseline gap-1.5">
           <Label as="span" size="micro" variant="eyebrow">{BRAND.eyebrow}</Label>
-          <span
-            className="bg-clip-text text-body-lg font-semibold leading-tight tracking-tight text-transparent"
-            style={{ backgroundImage: 'var(--gradient-text)' }}
-          >
-            {BRAND.wordmark}
-          </span>
+          <span className="text-body-lg font-semibold leading-tight tracking-tight text-ink">{BRAND.wordmark}</span>
         </div>
       </header>
 

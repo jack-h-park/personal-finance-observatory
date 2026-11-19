@@ -21,7 +21,7 @@ export type PageHeaderStatus = HeaderStatus
  */
 type HeaderTrail =
   | {
-      /** Small overline above the title, rendered as mini-gradient brand text. */
+      /** Small overline above the title, rendered in the secondary text colour. */
       eyebrow?: string
       parent?: never
       language?: never
@@ -72,7 +72,7 @@ export function PageHeader({
   const head = showEmph && emphasis ? title.slice(0, title.length - emphasis.length) : title
 
   return (
-    <header className="ai-page-header mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
+    <header className={`${showEmph ? '' : 'ai-page-header '}mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between sm:gap-4`}>
       <div className="min-w-0">
         {trail.parent ? (
           <Breadcrumb parent={trail.parent} language={trail.language} />

@@ -375,7 +375,7 @@ export default async function OverviewPage({
       <CardRow>
         <Card title={copy.concentration} info={copy.concentrationInfo}>
           <div className="flex h-full min-h-[190px] flex-col justify-center">
-            <div className="text-hero font-medium leading-none tabular-nums text-ink">{fmtPct(topFiveShare, { digits: 0 })}</div>
+            <div className="text-metric font-medium leading-none tabular-nums text-ink">{fmtPct(topFiveShare, { digits: 0 })}</div>
             <div className="mt-1 text-caption text-ink-3">{copy.concentrationHint}</div>
             <div className="mt-5 space-y-2">
               {top.map((p) => (
@@ -395,7 +395,7 @@ export default async function OverviewPage({
 
         <Card title={copy.termMix} info={copy.termMixInfo}>
           <div className="flex h-full min-h-[190px] flex-col justify-center">
-            <div className="text-hero font-medium leading-none tabular-nums text-ink">{fmtPct(termCoveragePct, { digits: 0 })}</div>
+            <div className="text-metric font-medium leading-none tabular-nums text-ink">{fmtPct(termCoveragePct, { digits: 0 })}</div>
             <div className="mt-1 text-caption text-ink-3">{copy.termCoverage} · {copy.shortTermExposure} {fmtPct(shortTermExposurePct, { digits: 0 })}</div>
             <ShareBar
               height="md"

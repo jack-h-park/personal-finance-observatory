@@ -5,6 +5,7 @@ import '@/styles/jp-theme.css'
 import '@/styles/globals.css'
 import { LanguageProvider } from '@/components/LanguageProvider'
 import { Sidebar } from '@/components/Sidebar'
+import { EntranceMotion } from '@/components/EntranceMotion'
 import { DevCopyBadge } from '@/components/DevCopyBadge'
 import { PrivateAccessNotice } from '@/components/PrivateAccessNotice'
 import { config } from '@/config'
@@ -55,6 +56,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         <a href="#main-content" className="sr-only z-[100] rounded-sm bg-card px-4 py-3 text-ink focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:ring-2 focus:ring-info">
           {skipLabel}
         </a>
+        <EntranceMotion />
         <LanguageProvider language={language} currencyPreferences={currencyPreferences}>
           <div className="flex min-h-screen flex-col lg:flex-row">
             <Sidebar language={language} displayCurrency={currencyPreferences.displayCurrency} assetView={assetView} showAllAssets={showAllAssets} />

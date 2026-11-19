@@ -1,5 +1,11 @@
 /* A copy of the J·P theme, not shared with any other repo: edit it here.
-   Live classes: .t-h2, .t-eyebrow, .t-emph-gradient, .ai-page-header, .jp-stagger. */
+   Live classes: .t-h2, .t-eyebrow, .t-emph-gradient, .ai-page-header, .jp-stagger.
+   Gradient budget: at most three per screen. The sidebar's active marker bar
+   (--gradient-mini), the lead card's accent bar (--gradient-full), and one in
+   the title: the emphasis word (.t-emph-gradient), or, when a title has none,
+   the tick above it (.ai-page-header). Eyebrows and wordmarks are plain text.
+   Entrance motion plays on first load only: EntranceMotion sets
+   data-entered on <html> after the fade, and .jp-stagger stops applying. */
 
 /* ── Light mode neutrals (Notion-ink foundation) ───────────────── */
 [data-theme="jp"] {
@@ -30,8 +36,9 @@
   /* 3.4 · Semantic status */
   --accent-info:    #0B6E99;
   --accent-success: #3B6D11;
-  /* 5.48:1 on white so warning labels remain readable without relying on color alone. */
-  --accent-warning: #965C0B;
+  /* 4.79:1 inside its own 10% pill on --bg-surface (#F7F6F3), 5.15:1 inside the pill on white,
+     and 5.50:1 as plain text on surface. Warning labels stay readable without relying on color alone. */
+  --accent-warning: #8F570A;
   --accent-danger:  #A32D2D;
 
   /* 5.3 · Elevation */
@@ -77,15 +84,6 @@
                   see the note beside --gradient-text in globals.css.
    ─────────────────────────────────────────────────────────────────── */
 
-/* Eyebrow / overline → gradient text (accessible stops) */
-[data-theme="jp"] .t-eyebrow {
-  background-image: var(--gradient-text);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-}
-
-
 /* Page header card — gradient top stripe */
 
 /* Page header — short gradient brand tick above the title.
@@ -114,17 +112,17 @@
   to   { opacity: 1; transform: none; }
 }
 @media (prefers-reduced-motion: no-preference) {
-  [data-theme="jp"] .jp-stagger > * {
+  [data-theme="jp"]:not([data-entered]) .jp-stagger > * {
     animation: jp-fade-up var(--dur-4) var(--ease-std) both;
   }
-  [data-theme="jp"] .jp-stagger > *:nth-child(1) { animation-delay: 0ms; }
-  [data-theme="jp"] .jp-stagger > *:nth-child(2) { animation-delay: 50ms; }
-  [data-theme="jp"] .jp-stagger > *:nth-child(3) { animation-delay: 100ms; }
-  [data-theme="jp"] .jp-stagger > *:nth-child(4) { animation-delay: 150ms; }
-  [data-theme="jp"] .jp-stagger > *:nth-child(5) { animation-delay: 200ms; }
-  [data-theme="jp"] .jp-stagger > *:nth-child(6) { animation-delay: 250ms; }
-  [data-theme="jp"] .jp-stagger > *:nth-child(7) { animation-delay: 300ms; }
-  [data-theme="jp"] .jp-stagger > *:nth-child(n+8) { animation-delay: 350ms; }
+  [data-theme="jp"]:not([data-entered]) .jp-stagger > *:nth-child(1) { animation-delay: 0ms; }
+  [data-theme="jp"]:not([data-entered]) .jp-stagger > *:nth-child(2) { animation-delay: 50ms; }
+  [data-theme="jp"]:not([data-entered]) .jp-stagger > *:nth-child(3) { animation-delay: 100ms; }
+  [data-theme="jp"]:not([data-entered]) .jp-stagger > *:nth-child(4) { animation-delay: 150ms; }
+  [data-theme="jp"]:not([data-entered]) .jp-stagger > *:nth-child(5) { animation-delay: 200ms; }
+  [data-theme="jp"]:not([data-entered]) .jp-stagger > *:nth-child(6) { animation-delay: 250ms; }
+  [data-theme="jp"]:not([data-entered]) .jp-stagger > *:nth-child(7) { animation-delay: 300ms; }
+  [data-theme="jp"]:not([data-entered]) .jp-stagger > *:nth-child(n+8) { animation-delay: 350ms; }
 }
 
 /* Gradient primary button — one per surface for the primary CTA */

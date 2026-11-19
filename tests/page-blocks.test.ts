@@ -24,6 +24,11 @@ const BLOCKS: { path: string; absent: string[]; present: string[] }[] = [
     present: ['getForeignAccountMaxima'],
   },
   {
+    path: 'app/positions/[market]/[ticker]/page.tsx',
+    absent: [],
+    present: ['<HelpPopover>{glossary.freshness.description}</HelpPopover>'],
+  },
+  {
     path: 'app/page.tsx',
     absent: ['StackedAssetChart', 'AssetEventList', 'topHoldingsByCost', 'freshnessTitle'],
     present: ['copy.concentrationBasis', 'copy.openTotalAssets'],

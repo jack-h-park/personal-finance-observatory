@@ -7,7 +7,8 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { CardRow, MiniStat, MiniStatGrid, Split, Stat, StatStrip, Total, TotalsStrip } from '@/components/layout'
 import { ProgressBar, ShareBar } from '@/components/bars'
 import { PositionCell } from '@/components/PositionCell'
-import { Badge, Callout, Card, MetricHeroCard, FormError, FormSaved, HeroAside, MetricField, Note, Panel, SectionHeading } from '@/components/ui'
+import { getUiCopy } from '@/lib/ui-copy'
+import { Badge, Callout, Card, EmptyState, Label, MetricHeroCard, FormError, FormSaved, HeroAside, MetricField, Note, Panel, SectionHeading } from '@/components/ui'
 import { LinkChip, LinkChips } from '@/components/LinkChips'
 import { Tabs } from '@/components/Tabs'
 import { OperatorDetails } from '@/components/OperatorDetails'
@@ -104,7 +105,7 @@ test('StatStrip columns="sm-5" adds sm:grid-cols-5', () => {
   assert.equal(outerClass(html), `${STAT_STRIP} sm:grid-cols-5`)
 })
 
-const MICRO_LABEL = 'font-medium uppercase text-ink-3 text-micro tracking-[0.08em]'
+const MICRO_LABEL = 'font-medium uppercase text-ink-3 text-micro tracking-[0.08em] [&amp;:lang(ko)]:tracking-normal'
 
 test('Stat defaults to py-3, the title size and neutral ink, with no sub', () => {
   const html = renderToStaticMarkup(h(Stat, { label: 'L', value: 'V' }))
@@ -179,7 +180,7 @@ test('Total is a bare div with the default Label and a neutral value', () => {
   const html = renderToStaticMarkup(h(Total, { label: 'L', value: 'V' }))
   assert.equal(
     html,
-    '<div><div class="font-medium uppercase text-ink-3 text-label tracking-[0.08em]">L</div><div class="font-medium tabular-nums text-ink">V</div></div>'
+    '<div><div class="font-medium uppercase text-ink-3 text-label tracking-[0.08em] [&amp;:lang(ko)]:tracking-normal">L</div><div class="font-medium tabular-nums text-ink">V</div></div>'
   )
 })
 
@@ -494,7 +495,7 @@ test('SectionHeading eyebrow: micro label above a tight page heading with mt-1',
   const html = renderToStaticMarkup(h(SectionHeading, { size: 'page', tight: true, eyebrow: 'E', children: 'T' }))
   assert.equal(
     html,
-    '<div><div class="font-medium uppercase text-ink-3 text-micro tracking-[0.08em]">E</div>' +
+    '<div><div class="font-medium uppercase text-ink-3 text-micro tracking-[0.08em] [&amp;:lang(ko)]:tracking-normal">E</div>' +
       '<h2 class="mt-1 text-title font-medium leading-tight text-ink">T</h2></div>'
   )
 })
@@ -919,4 +920,50 @@ export function operatorDetailsNeedsLanguage() {
 test('MetricHeroCard puts its id on the section so a page can name its lead', () => {
   const html = renderToStaticMarkup(h(MetricHeroCard, { id: 'x', title: 'Title', eyebrow: 'Eyebrow', value: '1' }))
   assert.match(html, /<section[^>]*\bid="x"/)
+})
+
+test('MetricHeroCard renders the hero at 36px on a phone and 42px from sm', () => {
+  const html = renderToStaticMarkup(h(MetricHeroCard, { title: 't', eyebrow: 'e', value: '1' }))
+  assert.match(html, /text-hero-sm/)
+  assert.match(html, /sm:text-hero/)
+  assert.doesNotMatch(html, /text-display/)
+})
+
+test('Label sets Korean solid', () => {
+  assert.ok(renderToStaticMarkup(h(Label, { children: 'x' })).includes('[&amp;:lang(ko)]:tracking-normal'))
+  assert.ok(renderToStaticMarkup(h(Label, { variant: 'eyebrow', children: 'x' })).includes('[&amp;:lang(ko)]:tracking-normal'))
+})
+
+test('Stat renders an info popover when given info', () => {
+  const help = getUiCopy('en').common.help
+  assert.ok(renderToStaticMarkup(h(Stat, { label: 'l', value: 'v', info: 'why' })).includes(help))
+  assert.ok(!renderToStaticMarkup(h(Stat, { label: 'l', value: 'v' })).includes(help))
+})
+
+function relativeLuminance(hex: string) {
+  const [r, g, b] = [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
+  const lin = (c: number) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4)
+  return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b)
+}
+
+function contrastRatio(a: string, b: string) {
+  const [hi, lo] = [relativeLuminance(a), relativeLuminance(b)].sort((x, y) => y - x)
+  return (hi + 0.05) / (lo + 0.05)
+}
+
+test('the warning token clears AA inside its own pill', () => {
+  const css = readFileSync('styles/jp-theme.css', 'utf8')
+  const match = css.match(/--accent-warning:\s*#([0-9A-Fa-f]{6})\b/)
+  assert.ok(match, '--accent-warning is a 6-digit hex in jp-theme.css')
+  const fg = [0, 2, 4].map((i) => parseInt(match[1].slice(i, i + 2), 16))
+  const bg = [0xf7, 0xf6, 0xf3]
+  const blend = fg.map((c, i) => Math.round(c * 0.1 + bg[i] * 0.9).toString(16).padStart(2, '0')).join('')
+  const ratio = contrastRatio(match[1], blend)
+  assert.ok(ratio >= 4.5, `warning pill contrast is ${ratio.toFixed(2)}:1, need 4.5:1`)
+})
+
+test('EmptyState hint is full-strength tertiary', () => {
+  const html = renderToStaticMarkup(h(EmptyState, { hint: 'h', children: 'x' }))
+  assert.match(html, /class="[^"]*\btext-ink-3\b[^"]*">h</)
+  assert.doesNotMatch(html, /text-ink-3\/80/)
 })

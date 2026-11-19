@@ -5,6 +5,7 @@ import { getOperationalHealth, getPortfolioReview, type ReviewPosition } from '@
 import { EMPTY_VALUE, fmtNumber, fmtPct, fmtQuantity } from '@/lib/format'
 import { createMoneyFormatter } from '@/lib/currency'
 import { getCurrencyPreferences } from '@/lib/currency-server'
+import { getGlossary } from '@/lib/glossary'
 import { getLanguage } from '@/lib/i18n-server'
 import { reviewLinkedIssues } from '@/lib/header-status'
 import { getPageCopy } from '@/lib/ui-copy'
@@ -61,6 +62,7 @@ export default async function ReviewPage() {
   const language = await getLanguage()
   const money = createMoneyFormatter(await getCurrencyPreferences())
   const copy = getPageCopy('review', language)
+  const glossary = getGlossary(language)
   const review = getPortfolioReview()
   const operational = getOperationalHealth()
   const totalReturnPct =
@@ -91,6 +93,7 @@ export default async function ReviewPage() {
           />
           <Stat
             label={copy.unrealizedGl}
+            info={glossary.unrealizedGl.description}
             value={money(review.totals.base_unrealized_gl)}
             sub={fmtPct(totalReturnPct)}
             tone={signTone(review.totals.base_unrealized_gl)}
