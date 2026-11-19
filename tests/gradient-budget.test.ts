@@ -92,7 +92,7 @@ test('EntranceMotion marks the document entered after the fade settles', async (
   const src = read('components/EntranceMotion.tsx')
   assert.match(src, /^'use client'/)
   assert.match(src, /dataset\.entered = 'true'/)
-  assert.match(src, /setTimeout\([^]*600\)/)
+  assert.match(src, /setTimeout\([^]*800\)/)
   assert.match(src, /clearTimeout/)
   assert.equal(renderToStaticMarkup(React.createElement(EntranceMotion)), '')
 })

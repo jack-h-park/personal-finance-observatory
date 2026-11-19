@@ -8,7 +8,7 @@
 
 **Tech Stack:** Next.js 15 app router, React 19 server components, Tailwind 3 with the tokenized theme (`tailwind.config.ts`, `styles/jp-theme.css`, `styles/globals.css`), recharts (`components/charts.tsx`), `node:test` through `tsx --test`, `renderToStaticMarkup` for component tests, Playwright (`scripts/snap-ui.mjs`, `scripts/a11y-audit.mjs`, `scripts/mobile-audit.mjs`, `scripts/page-shape.mjs`).
 
-**Spec:** `docs/superpowers/specs/2026-11-10-personal-finance-observatory-design.md` §5 (binding). The second GUI refactoring plan (Claude Docs, 2026-10-30, https://claude.ai/artifact/DWkduh8vd3v8xEA1kUauwJ) argues the work: "R6 — 시인성·심미 마감 (3 PR)" and decisions 7–12. Where the two disagree, §5 wins. `docs/ui-guide.md` binds every task.
+**Spec:** `docs/superpowers/specs/2026-11-10-personal-finance-observatory-design.md` §5 (binding). The second GUI refactoring plan (2026-10-30) argues the work: its R6 section ("legibility and finish, 3 PRs") and decisions 7–12. Where the two disagree, §5 wins. `docs/ui-guide.md` binds every task.
 
 ## Survey (main at 9680b68, R5 merged)
 
@@ -154,7 +154,7 @@ The rest are mine:
 
 ## Review Focus
 
-- **An old sort bookmark** (`/holdings?sort=brokerage:asc`, and the same on `/lots`, `/transactions` and `/realized`) renders the page's default sort with no error and no header marked sorted. Task 4 tests `parseSort` + `sortRows` with an unknown key.
+- **An old sort bookmark** (`/holdings?sort=brokerage:asc`, and the same on `/lots`, `/transactions` and `/realized`) falls back to the default sort (its header marked), with no error. Task 4 tests `parseSort` + `sortRows` with an unknown key.
 - **Axis values at the edges:**
   - `0`, `-120,000,000`, `9,999`, `10,000`, `99,999,999` and `100,000,000` in KRW, in both languages;
   - `1,500` in USD with `language: 'ko'`;

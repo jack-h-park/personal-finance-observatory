@@ -128,7 +128,7 @@ masked" and never the raw account number. The account column sorts by
 A page defines its columns once. `sortableKeys(columns)` and `knownSort` in
 `lib/table-sort.ts` derive the sort keys the page accepts from that list, so a
 key that no longer exists (an old `sort=brokerage:…` bookmark) falls back to the
-default sort with no error and no header marked as sorted. Sorting honours each
+default sort (its header marked), with no error. Sorting honours each
 column's `sortValue`. `tests/table-sort.test.ts` covers `knownSort`, including an
 unknown key.
 
@@ -361,7 +361,7 @@ inline `linear-gradient(` in `app/`, `components/` or `styles/` other than the
 bars use solid colours from `lib/palette.ts`.
 
 Motion happens once. `components/EntranceMotion.tsx` sets `data-entered` on
-`<html>` 600 ms after mount, and the stagger rule is
+`<html>` 800 ms after mount (the last staggered child ends at 750 ms), and the stagger rule is
 `:not([data-entered]) .jp-stagger > *` inside `prefers-reduced-motion:
 no-preference`. A client-side navigation after the first load therefore does not
 replay the fade, and nothing animates under reduced motion. The first-load fade
