@@ -11,7 +11,7 @@ import { formatKrw, formatUsd } from '@/lib/currency'
 import { EMPTY_VALUE, fmtNumber, fmtQuantity } from '@/lib/format'
 import { getLanguage } from '@/lib/i18n-server'
 import { positionHref } from '@/lib/position-url'
-import { ALL_YEARS, sumRealized, type RealizedLotView } from '@/lib/realized-lots'
+import { ALL_YEARS, realizedAmountSortValue, sumRealized, type RealizedLotView } from '@/lib/realized-lots'
 import { queryRealized, REALIZED_GROUPS } from '@/lib/realized-lots-query'
 import { getPageCopy, getUiCopy } from '@/lib/ui-copy'
 import { columnSortValue, formatSort, knownSort, parseSort, sortRows, sortableKeys, type TableSort } from '@/lib/table-sort'
@@ -49,6 +49,7 @@ export default async function RealizedLotsPage({
   const currency: 'krw' | 'usd' = rawCurrency === 'usd' ? 'usd' : 'krw'
   const usd = currency === 'usd'
   const money = (krw: number | null, dollars: number | null) => (usd ? (dollars == null ? null : formatUsd(dollars)) : formatKrw(krw))
+  const amountSort = realizedAmountSortValue(usd)
 
   const columns: DataTableColumn<RealizedLotView>[] = [
     { key: 'market', label: copy.columns.market, sortable: true, sortFirst: 'asc', render: (r: RealizedLotView) => <Badge tone={marketTone(r.market)}>{r.market}</Badge> },
@@ -70,17 +71,19 @@ export default async function RealizedLotsPage({
     { key: 'sold_date', label: copy.columns.sold, sortable: true, nowrap: true },
     { key: 'quantity_sold', label: copy.columns.quantity, align: 'right', sortable: true, render: (r: RealizedLotView) => fmtQuantity(r.quantity_sold, 2) },
     {
-      key: usd ? 'cost_usd' : 'cost_basis_krw',
+      key: 'cost',
       label: copy.columns.cost,
       align: 'right',
       sortable: true,
+      sortValue: amountSort.cost,
       render: (r: RealizedLotView) => money(r.cost_basis_krw, r.cost_usd) ?? EMPTY_VALUE,
     },
     {
-      key: usd ? 'proceeds_usd' : 'proceeds_krw',
+      key: 'proceeds',
       label: copy.columns.proceeds,
       align: 'right',
       sortable: true,
+      sortValue: amountSort.proceeds,
       render: (r: RealizedLotView) => (
         <span title={usd && r.rate_approximate ? copy.approximateRate : undefined}>
           {money(r.proceeds_krw, r.proceeds_usd) ?? EMPTY_VALUE}
@@ -89,10 +92,11 @@ export default async function RealizedLotsPage({
       ),
     },
     {
-      key: usd ? 'gain_usd' : 'realized_gl_krw',
+      key: 'gain',
       label: copy.columns.gain,
       align: 'right',
       sortable: true,
+      sortValue: amountSort.gain,
       render: (r: RealizedLotView) => (
         <Signed value={usd ? r.gain_usd : r.realized_gl_krw} format={(m) => (usd ? formatUsd(m) : formatKrw(m))} />
       ),

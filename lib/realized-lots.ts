@@ -110,6 +110,24 @@ export function toRealizedView(row: RealizedLotRow, rateAt: (date: string) => Us
   }
 }
 
+type RealizedAmounts = Pick<
+  RealizedLotView,
+  'cost_basis_krw' | 'cost_usd' | 'proceeds_krw' | 'proceeds_usd' | 'realized_gl_krw' | 'gain_usd'
+>
+
+/**
+ * What the /realized `cost`, `proceeds` and `gain` columns sort on. The column
+ * keys stay the same in both currencies, so a sort survives the currency
+ * switch; only the field behind each one follows the selected currency.
+ */
+export function realizedAmountSortValue(usd: boolean) {
+  return {
+    cost: (row: RealizedAmounts) => (usd ? row.cost_usd : row.cost_basis_krw),
+    proceeds: (row: RealizedAmounts) => (usd ? row.proceeds_usd : row.proceeds_krw),
+    gain: (row: RealizedAmounts) => (usd ? row.gain_usd : row.realized_gl_krw),
+  }
+}
+
 export type RealizedTotals = {
   count: number
   cost_krw: number
