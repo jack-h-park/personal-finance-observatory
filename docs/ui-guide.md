@@ -71,7 +71,7 @@ a leading substring instead.
 | a heading inside a page or card body | `<SectionHeading>` — `size`, `eyebrow`, `subtitle`, `layout` |
 | a share or progress bar | `<ShareBar>` for segments, `<ProgressBar>` for one percentage (clamped to 0–100) |
 | a broker and account in a table cell | `<AccountCell>` (`components/PositionCell.tsx`) — broker over `maskAccountLabel(account)`, each line truncated |
-| a help note beside a label or figure | `<HelpPopover>`; `<Stat info>` renders one for you |
+| a help note beside a label or figure | `<HelpPopover>`; `<Stat info>` renders one for you (`Stat renders an info popover when given info`) |
 | a route's loading state | `app/loading.tsx` renders `<PageSkeleton>` |
 | a position in a table cell | `<PositionCell>` — market badge and ticker link, with the name under them or alone |
 | a main column and a fixed side column inside a card | `<Split>` — `side`, `at`, `gap`, `sideFirst` |
@@ -97,18 +97,23 @@ file allowed to write `grid-cols-*`), `components/bars.tsx`,
 
 `KpiBand` is two across below `sm`, so four figures take two rows instead of
 four. The language, currency and asset-view controls sit in the sidebar's
-footer rather than the header.
+footer rather than the header. `KpiBand is two across on a phone` in
+`tests/ui-primitives.test.ts` pins the band.
 
 Touch targets are 24 px, with two recipes. A `<summary>` gets `min-h-6
 leading-6` (never `flex`, which drops the disclosure marker in Chromium). An
-inline text link gets `inline-flex min-h-6 items-center`. `pnpm ui:mobile` is the
-check.
+inline text link gets `inline-flex min-h-6 items-center`. `pnpm ui:mobile` checks
+the routes, and the unit tests pin the primitives (`OperatorDetails summary has a
+24px target`, `AnnualTaxSummary links…`, `AssetCoverageNote summaries and
+links…`).
 
 ### Loading
 
 `app/loading.tsx` renders `PageSkeleton`: a `role="status" aria-busy="true"`
 region whose only text is `common.loading` in `sr-only`, with the blocks
-`aria-hidden`. It pulses with `motion-safe:animate-pulse` and not otherwise.
+`aria-hidden`. It pulses with `motion-safe:animate-pulse` and not otherwise. `PageSkeleton
+announces loading without motion by default` in `tests/ui-primitives.test.ts`
+pins it.
 
 ### Tables
 
@@ -116,12 +121,16 @@ An account cell shows the broker over the masked account label, each line
 truncated, so a long name stays on one line at 375 px. Its `title` is "broker ·
 masked" and never the raw account number. The account column sorts by
 `accountSortValue` (`lib/account-label.ts`), not by the displayed string.
+`AccountCell shows broker over the masked account…` in
+`tests/ui-primitives.test.ts` pins the cell; `tests/table-sort.test.ts` covers
+`accountSortValue`.
 
 A page defines its columns once. `sortableKeys(columns)` and `knownSort` in
 `lib/table-sort.ts` derive the sort keys the page accepts from that list, so a
 key that no longer exists (an old `sort=brokerage:…` bookmark) falls back to the
 default sort with no error and no header marked as sorted. Sorting honours each
-column's `sortValue`.
+column's `sortValue`. `tests/table-sort.test.ts` covers `knownSort`, including an
+unknown key.
 
 Priority below `md`: in a table with six or more columns, at most four stay
 `primary`. Those are the identity column, the amount the card exists for, and any
@@ -137,7 +146,8 @@ a currency), `percent` or `number`; `axisTick` formats a tick; `tooltipValue`
 formats the hover value (money uses `fmtMoney`, the full amount, so the axis can
 abbreviate and the tooltip cannot); `hasPlottablePoint` guards the empty state.
 A series that is all `null`, or an empty `data` array, shows `emptyMessage`
-instead of an axis drawn from `-Infinity`.
+instead of an axis drawn from `-Infinity`. `tests/chart-format.test.ts` checks
+the ticks, the tooltip and the plottable guard.
 
 Tick rules:
 
@@ -325,10 +335,12 @@ before that.
 The lead figure is the only thing set at hero size: `MetricHeroCard` is
 `text-hero-sm sm:text-hero` (36 below `sm`, 42 from it). The companion figures
 beside it on Overview are `text-metric`. A second hero-sized number on a screen
-means none of them leads.
+means none of them leads. `tests/ui-primitives.test.ts` pins it (`MetricHeroCard
+renders the hero at 36px on a phone and 42px from sm`).
 
 Korean labels are set solid. Letter-spacing opens up uppercase Latin and pulls
-Hangul apart, so `Label` and the table header carry `[&:lang(ko)]:tracking-normal`.
+Hangul apart, so `Label` and the table header carry `[&:lang(ko)]:tracking-normal`, pinned by
+`Label sets Korean solid` in `tests/ui-primitives.test.ts`.
 
 Colours are tokens (`text-ink-3`, `bg-surface`, `border-line`) bound to CSS
 variables in `styles/jp-theme.css`.
@@ -346,14 +358,17 @@ Motion happens once. `components/EntranceMotion.tsx` sets `data-entered` on
 `<html>` 600 ms after mount, and the stagger rule is
 `:not([data-entered]) .jp-stagger > *` inside `prefers-reduced-motion:
 no-preference`. A client-side navigation after the first load therefore does not
-replay the fade, and nothing animates under reduced motion.
+replay the fade, and nothing animates under reduced motion. The first-load fade
+and `EntranceMotion` tests sit in `tests/gradient-budget.test.ts`.
 
 ### Warning contrast
 
 `--accent-warning` is `#8F570A`: 4.79:1 in its 10% pill on the surface, 5.15:1
 in the pill on white and 5.50:1 as plain text. The `EmptyState` hint is
-`text-ink-3`. `pnpm ui:a11y` (axe) is the check; do not lighten the token to
-make a pill look softer.
+`text-ink-3`. `the warning token clears AA inside its own pill` and `EmptyState
+hint is full-strength tertiary` in `tests/ui-primitives.test.ts` hold the ratios,
+and `pnpm ui:a11y` (axe) checks the pages; do not lighten the token to make a
+pill look softer.
 
 ### Already decided
 
