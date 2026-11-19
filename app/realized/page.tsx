@@ -228,7 +228,7 @@ export default async function RealizedLotsPage({
             <p className="text-caption text-ink-2">{copy.taxExport.counts(exportSummary.rows, exportSummary.blankDollar, exportSummary.superseded)}</p>
             <Note size="caption">{copy.taxExport.filtersIgnored}</Note>
             <details open className="text-caption text-ink-3">
-              <summary className="cursor-pointer">{copy.taxExport.notCovered}</summary>
+              <summary className="min-h-6 cursor-pointer leading-6">{copy.taxExport.notCovered}</summary>
               <ul className="mt-1 list-disc space-y-1 pl-5">
                 {NOT_COVERED_LINES.map((line) => (
                   <li key={line}>{line}</li>
