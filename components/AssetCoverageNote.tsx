@@ -25,7 +25,7 @@ export function AssetCoverageNote({ summary, language, review }: { summary: NetW
     <section aria-label={copy.title} className="mt-3 space-y-3 text-body text-ink-2">
       <p>{copy.boundary(summary.coverage?.omittedAssetCount ?? 0)}</p>
       <details className="rounded-md border border-line-subtle p-3">
-        <summary className="cursor-pointer font-medium text-ink">{copy.title}</summary>
+        <summary className="min-h-6 cursor-pointer font-medium leading-6 text-ink">{copy.title}</summary>
         <CardRow columns={2} spacing="none" className="mt-3">
           <div className="space-y-2">
             <h3 className="text-caption font-medium">{copy.balances}</h3>
@@ -46,7 +46,7 @@ export function AssetCoverageNote({ summary, language, review }: { summary: NetW
             </dl>
             <Note>{copy.periodHint}</Note>
             {review?.statementEvidence?.length ? <details className="mt-2">
-              <summary className="cursor-pointer text-label font-medium">{copy.evidenceTitle}</summary>
+              <summary className="min-h-6 cursor-pointer text-label font-medium leading-6">{copy.evidenceTitle}</summary>
               <Note spacing="above-2">{copy.evidenceHint}</Note>
               <ul className="mt-2 space-y-2">
                 {review.statementEvidence.map((entry, index) => <li key={index} className="text-label break-words">
@@ -62,7 +62,7 @@ export function AssetCoverageNote({ summary, language, review }: { summary: NetW
         <Note spacing="above-3">{copy.freshnessHint}</Note>
         <Note spacing="above-2">{copy.history}</Note>
         <nav aria-label={copy.title} className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-label">
-          {([['/health', copy.healthLink], ['/accounts', copy.accountsLink], ['/data-ops', copy.dataLink], ['/reconciliation', copy.reconciliationLink]] as const).map(([href, label]) => <Link key={href} href={href} className="underline underline-offset-4">{label}</Link>)}
+          {([['/health', copy.healthLink], ['/accounts', copy.accountsLink], ['/data-ops', copy.dataLink], ['/reconciliation', copy.reconciliationLink]] as const).map(([href, label]) => <Link key={href} href={href} className="inline-flex min-h-6 items-center underline underline-offset-4">{label}</Link>)}
         </nav>
       </details>
     </section>

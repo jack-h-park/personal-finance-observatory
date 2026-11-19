@@ -98,7 +98,7 @@ const KPI_BAND_COLUMNS = {
  * (/data-ops): a band that can be any width is a band that drifts.
  */
 export function KpiBand({ className, columns = 3, children }: { className?: string; columns?: keyof typeof KPI_BAND_COLUMNS; children: ReactNode }) {
-  return <div className={clsx('grid gap-4 border-t border-line-subtle pt-4', KPI_BAND_COLUMNS[columns], className)}>{children}</div>
+  return <div className={clsx('grid grid-cols-2 gap-4 border-t border-line-subtle pt-4', KPI_BAND_COLUMNS[columns], className)}>{children}</div>
 }
 
 // The value colour every strip below shares: a tone, with neutral as plain ink.

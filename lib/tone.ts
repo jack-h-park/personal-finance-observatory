@@ -333,12 +333,6 @@ export const FILL_STATUS_SEVERITY: Record<string, Severity> = {
   skipped: 'quiet',
 }
 
-/** A tax year's profile: confirmed, or still an assumption to check. */
-export const TAX_PROFILE_STATUS_SEVERITY: Record<string, Severity> = {
-  confirmed: 'ok',
-  assumed: 'attention',
-}
-
 /** The tax-planning decision card: no target set yet, a tie between scenarios, or a recommendation. */
 export const TAX_DECISION_SEVERITY: Record<string, Severity> = {
   explore: 'attention',

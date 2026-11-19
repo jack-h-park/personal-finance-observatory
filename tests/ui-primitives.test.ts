@@ -4,7 +4,7 @@ import { test } from 'node:test'
 import * as React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 
-import { CardRow, MiniStat, MiniStatGrid, Split, Stat, StatStrip, Total, TotalsStrip } from '@/components/layout'
+import { CardRow, KpiBand, MiniStat, MiniStatGrid, Split, Stat, StatStrip, Total, TotalsStrip } from '@/components/layout'
 import { ProgressBar, ShareBar } from '@/components/bars'
 import { AccountCell, PositionCell } from '@/components/PositionCell'
 import { maskAccountLabel } from '@/lib/account-label'
@@ -12,9 +12,17 @@ import { getUiCopy } from '@/lib/ui-copy'
 import { Badge, Callout, Card, EmptyState, Label, MetricHeroCard, FormError, FormSaved, HeroAside, MetricField, Note, Panel, SectionHeading } from '@/components/ui'
 import { LinkChip, LinkChips } from '@/components/LinkChips'
 import { Tabs } from '@/components/Tabs'
+import { PageSkeleton } from '@/components/PageSkeleton'
 import { OperatorDetails } from '@/components/OperatorDetails'
 import { PageHeader } from '@/components/PageHeader'
 import { routeName, routeSection } from '@/lib/page-names'
+import { AnnualTaxSummary } from '@/components/AnnualTaxSummary'
+import { AssetCoverageNote } from '@/components/AssetCoverageNote'
+import { getAnnualTaxSummary } from '@/lib/application/annual-tax-summary'
+import { collectAssetCoverage } from '@/lib/application/asset-coverage'
+import { summarizeNetWorth } from '@/lib/net-worth'
+import { validateTaxHistory } from '@/lib/domain/taxes/history'
+import taxExample from '@/examples/tax-history.synthetic.json'
 import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared-runtime'
 
 // tsx compiles the component's JSX with the classic runtime, which reads a
@@ -986,4 +994,43 @@ test('AccountCell with no broker shows the account alone', () => {
   assert.equal(html.match(/truncate/g)?.length, 1)
   assert.ok(html.includes('title="Sample 1234"'))
   assert.ok(!html.includes('·'))
+})
+
+test('KpiBand is two across on a phone', () => {
+  for (const columns of [3, 4] as const) {
+    const html = renderToStaticMarkup(h(KpiBand, { columns, children: h('div', null, 'a') }))
+    assert.ok(/class="[^"]*\bgrid-cols-2\b/.test(html), html)
+  }
+})
+
+test('AnnualTaxSummary links have a 24px target', () => {
+  const summary = getAnnualTaxSummary(validateTaxHistory(structuredClone(taxExample)))
+  const html = renderToStaticMarkup(h(AnnualTaxSummary, { summary, language: 'en' }))
+  const links = [...html.matchAll(/<a [^>]*href="\/taxes[^"]*"[^>]*>/g)].map((m) => m[0])
+  assert.ok(links.length >= 3)
+  for (const link of links) assert.ok(link.includes('min-h-6') && link.includes('inline-flex'), link)
+})
+
+test('AssetCoverageNote summaries and links have a 24px target', () => {
+  const s = summarizeNetWorth({ stocksKrw: 100, cryptoKrw: 0, usdKrw: null, cash: [] })
+  const review = {
+    ...collectAssetCoverage(s, { cash: () => null } as never),
+    statementEvidence: [{ account: 'Sample', state: 'unconfirmed', periodEnd: null, sources: [] }],
+  } as never
+  const html = renderToStaticMarkup(h(AssetCoverageNote, { summary: s, language: 'en', review }))
+  const summaries = html.match(/<summary [^>]*>/g) ?? []
+  assert.equal(summaries.length, 2)
+  for (const tag of summaries) assert.ok(tag.includes('min-h-6') && tag.includes('leading-6'), tag)
+  const links = html.match(/<a [^>]*>/g) ?? []
+  assert.equal(links.length, 4)
+  for (const tag of links) assert.ok(tag.includes('min-h-6') && tag.includes('inline-flex'), tag)
+})
+
+test('PageSkeleton announces loading without motion by default', () => {
+  const html = renderToStaticMarkup(h(PageSkeleton, { language: 'ko' }))
+  assert.ok(html.includes('role="status"') && html.includes('aria-busy="true"'))
+  assert.match(html, new RegExp(`<[a-z]+ class="sr-only">${getUiCopy('ko').common.loading}</`))
+  assert.ok(html.includes('motion-safe:animate-pulse'))
+  assert.ok(!/(^|[\s"])animate-pulse/.test(html))
+  assert.equal((html.match(/rounded-md/g) ?? []).length, 3)
 })

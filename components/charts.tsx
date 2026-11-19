@@ -90,6 +90,7 @@ export function TrendBarChart({
   barColorMap = MARKET_BARS,
   allowDecimals = false,
   yAxisLabel,
+  valueName,
   unit,
   language,
   emptyMessage,
@@ -97,6 +98,8 @@ export function TrendBarChart({
   data: Record<string, unknown>[]
   xKey: string
   yKey: string
+  /** The series name in the tooltip, in the page language. */
+  valueName: string
   color?: string
   // Cycle each bar through the brand palette (pink→purple→blue→cyan). Leave off
   // for categorical charts that encode meaning with a single deliberate color.
@@ -162,6 +165,7 @@ export function TrendBarChart({
         />
         <Bar
           dataKey={yKey}
+          name={valueName}
           fill={color}
           radius={[3, 3, 0, 0]}
           maxBarSize={28}

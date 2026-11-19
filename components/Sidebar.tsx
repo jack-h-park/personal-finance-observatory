@@ -115,22 +115,21 @@ export function Sidebar({
           label={copy.navLabel}
         />
 
-        <div className="mt-6 grid gap-2 px-1">
-          <div>
-            <div className="mb-1.5 px-0.5 text-micro font-medium text-ink-3">{copy.language}</div>
-            <LanguageSwitcher language={language} label={copy.language} />
-          </div>
-          <div>
-            <div className="mb-1.5 px-0.5 text-micro font-medium text-ink-3">{copy.currency}</div>
-            <CurrencySwitcher displayCurrency={displayCurrency} label={copy.currency} labels={copy.currencies} />
-          </div>
-          <div>
-            <div className="mb-1.5 px-0.5 text-micro font-medium text-ink-3">{copy.assets}</div>
-            <AssetViewSwitcher assetView={assetView} label={copy.assets} labels={copy.assetViews} />
-          </div>
-        </div>
-
         <div className="mt-auto px-2 pt-6 text-micro leading-relaxed text-ink-3">
+          <div className="mt-6 grid gap-2 px-1">
+            <div>
+              <div className="mb-1.5 px-0.5 text-micro font-medium text-ink-3">{copy.language}</div>
+              <LanguageSwitcher language={language} label={copy.language} />
+            </div>
+            <div>
+              <div className="mb-1.5 px-0.5 text-micro font-medium text-ink-3">{copy.currency}</div>
+              <CurrencySwitcher displayCurrency={displayCurrency} label={copy.currency} labels={copy.currencies} />
+            </div>
+            <div>
+              <div className="mb-1.5 px-0.5 text-micro font-medium text-ink-3">{copy.assets}</div>
+              <AssetViewSwitcher assetView={assetView} label={copy.assets} labels={copy.assetViews} />
+            </div>
+          </div>
           <div className="text-ink-2">{copy.readOnly}</div>
           <div className="mt-1.5">{copy.source}</div>
         </div>

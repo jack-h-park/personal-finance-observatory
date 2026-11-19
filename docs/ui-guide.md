@@ -70,6 +70,9 @@ a leading substring instead.
 | a muted footnote | `<Note>` — `size`, `spacing`, `row`, `band`; phrasing content only |
 | a heading inside a page or card body | `<SectionHeading>` — `size`, `eyebrow`, `subtitle`, `layout` |
 | a share or progress bar | `<ShareBar>` for segments, `<ProgressBar>` for one percentage (clamped to 0–100) |
+| a broker and account in a table cell | `<AccountCell>` (`components/PositionCell.tsx`) — broker over `maskAccountLabel(account)`, each line truncated |
+| a help note beside a label or figure | `<HelpPopover>`; `<Stat info>` renders one for you (`Stat renders an info popover when given info`) |
+| a route's loading state | `app/loading.tsx` renders `<PageSkeleton>` |
 | a position in a table cell | `<PositionCell>` — market badge and ticker link, with the name under them or alone |
 | a main column and a fixed side column inside a card | `<Split>` — `side`, `at`, `gap`, `sideFirst` |
 
@@ -89,6 +92,74 @@ file allowed to write `grid-cols-*`), `components/bars.tsx`,
 `components/PositionCell.tsx`, `components/LinkChips.tsx`,
 `components/Tabs.tsx`, `components/FormNotice.tsx` and
 `components/ConfirmSubmitButton.tsx`.
+
+### Phone width
+
+`KpiBand` is two across below `sm`, so four figures take two rows instead of
+four. The language, currency and asset-view controls sit in the sidebar's
+footer rather than the header. `KpiBand is two across on a phone` in
+`tests/ui-primitives.test.ts` pins the band.
+
+Touch targets are 24 px, with two recipes. A `<summary>` gets `min-h-6
+leading-6` (never `flex`, which drops the disclosure marker in Chromium). An
+inline text link gets `inline-flex min-h-6 items-center`. `pnpm ui:mobile` checks
+the routes, and the unit tests pin the primitives (`OperatorDetails summary has a
+24px target`, `AnnualTaxSummary links…`, `AssetCoverageNote summaries and
+links…`).
+
+### Loading
+
+`app/loading.tsx` renders `PageSkeleton`: a `role="status" aria-busy="true"`
+region whose only text is `common.loading` in `sr-only`, with the blocks
+`aria-hidden`. It pulses with `motion-safe:animate-pulse` and not otherwise. `PageSkeleton
+announces loading without motion by default` in `tests/ui-primitives.test.ts`
+pins it.
+
+### Tables
+
+An account cell shows the broker over the masked account label, each line
+truncated, so a long name stays on one line at 375 px. Its `title` is "broker ·
+masked" and never the raw account number. The account column sorts by
+`accountSortValue` (`lib/account-label.ts`), not by the displayed string.
+`AccountCell shows broker over the masked account…` in
+`tests/ui-primitives.test.ts` pins the cell; `tests/table-sort.test.ts` covers
+`accountSortValue`.
+
+A page defines its columns once. `sortableKeys(columns)` and `knownSort` in
+`lib/table-sort.ts` derive the sort keys the page accepts from that list, so a
+key that no longer exists (an old `sort=brokerage:…` bookmark) falls back to the
+default sort (its header marked), with no error. Sorting honours each
+column's `sortValue`. `tests/table-sort.test.ts` covers `knownSort`, including an
+unknown key.
+
+Priority below `md`: in a table with six or more columns, at most four stay
+`primary`. Those are the identity column, the amount the card exists for, and any
+status or action column. Source, page and identifier columns go `tertiary`
+first. `tests/table-priority.test.ts` checks the four pages.
+
+### Charts
+
+Every chart in `components/charts.tsx` takes raw values plus `unit`,
+`language` and `emptyMessage`; a page never pre-scales a series, and axis titles
+come from copy. `lib/chart-format.ts` owns the rest: `ChartUnit` is `money` (with
+a currency), `percent` or `number`; `axisTick` formats a tick; `tooltipValue`
+formats the hover value (money uses `fmtMoney`, the full amount, so the axis can
+abbreviate and the tooltip cannot); `hasPlottablePoint` guards the empty state.
+A series that is all `null`, or an empty `data` array, shows `emptyMessage`
+instead of an axis drawn from `-Infinity`. Every series carries a `name` from
+copy (`valueName` on the single-series charts), so a tooltip never shows a data
+key. `tests/chart-format.test.ts` checks the ticks, the tooltip, the plottable
+guard and the series names.
+
+Tick rules:
+
+- Korean KRW is 억 with up to two decimals (1.25억); 만 with up to one decimal
+  (1.5만, 12.5만, 3,500만); otherwise the plain number.
+- English KRW is ₩M and ₩K, USD is $M and $K in both languages, each with up to
+  two decimals ($1.25K). Trailing zeros are dropped.
+- A value rounds half away from zero and promotes to the next unit.
+- Percent axes use `allowDecimals={false}` and whole-percent labels.
+- Negative zero prints `0`.
 
 ### Page header
 
@@ -260,12 +331,56 @@ certificate and snapshot dates, so the note says so.
 ## Type and colour
 
 Sizes are named by role in `tailwind.config.ts` — `micro` 10, `label` 11,
-`caption` 12, `body` 13, `body-lg` 14, `title` 18, `metric` 28, `hero` 42,
-`display` 52. There were 514 arbitrary `text-[Npx]` literals across sixteen
-sizes before that.
+`caption` 12, `body` 13, `body-lg` 14, `title` 18, `metric` 28, `hero-sm` 36,
+`hero` 42. There were 514 arbitrary `text-[Npx]` literals across sixteen sizes
+before that.
+
+The lead figure is the only thing set at hero size: `MetricHeroCard` is
+`text-hero-sm sm:text-hero` (36 below `sm`, 42 from it). The companion figures
+beside it on Overview are `text-metric`. A second hero-sized number on a screen
+means none of them leads. `tests/ui-primitives.test.ts` pins it (`MetricHeroCard
+renders the hero at 36px on a phone and 42px from sm`).
+
+Korean labels are set solid. Letter-spacing opens up uppercase Latin and pulls
+Hangul apart, so `Label` and the table header carry `[&:lang(ko)]:tracking-normal`, pinned by
+`Label sets Korean solid` in `tests/ui-primitives.test.ts`.
 
 Colours are tokens (`text-ink-3`, `bg-surface`, `border-line`) bound to CSS
 variables in `styles/jp-theme.css`.
+
+### Gradients and first-load motion
+
+A screen carries at most three gradients: the sidebar marker (`--gradient-mini`
+in `SidebarNav`), one title mark, and the lead card's accent bar. The title mark
+is `t-emph-gradient` when the header renders `emphasis`; otherwise `PageHeader`
+adds `ai-page-header` (the tick), so a header never carries both.
+`tests/gradient-budget.test.ts` pins the files that may name a gradient; a new
+file that does fails it until the budget is argued again. It also fails on any
+inline `linear-gradient(` in `app/`, `components/` or `styles/` other than the
+`--gradient-*` token definitions in `styles/globals.css`; swatches and share
+bars use solid colours from `lib/palette.ts`.
+
+Motion happens once. `components/EntranceMotion.tsx` sets `data-entered` on
+`<html>` 800 ms after mount (the last staggered child ends at 750 ms), and the stagger rule is
+`:not([data-entered]) .jp-stagger > *` inside `prefers-reduced-motion:
+no-preference`. A client-side navigation after the first load therefore does not
+replay the fade, and nothing animates under reduced motion. The first-load fade
+and `EntranceMotion` tests sit in `tests/gradient-budget.test.ts`.
+
+### Warning contrast
+
+`--accent-warning` is `#8F570A`: 4.79:1 in its 10% pill on the surface, 5.15:1
+in the pill on white and 5.50:1 as plain text. The `EmptyState` hint is
+`text-ink-3`. `the warning token clears AA inside its own pill` and `EmptyState
+hint is full-strength tertiary` in `tests/ui-primitives.test.ts` hold the ratios,
+and `pnpm ui:a11y` (axe) checks the pages; do not lighten the token to make a
+pill look softer.
+
+### Already decided
+
+These were rulings in the second plan and are still true: P/L colour is Western
+(green for 0 and above, red below; decision 7), there are no dark tokens
+(decision 8), and `/review` stays slim (decision 10).
 
 ### Status colour
 
@@ -448,7 +563,11 @@ are inline targets, which WCAG 2.2 SC 2.5.8 exempts, and giving each a 24px box
 would change the row height of every dense table in the app.
 
 A disclosure `<summary>` keeps its 24px target with `min-h-6 … leading-6`, not
-`flex`: `flex` drops the disclosure marker in Chromium.
+`flex`: `flex` drops the disclosure marker in Chromium. An inline text link uses
+`inline-flex min-h-6 items-center`.
+
+Expect zero a11y violations and zero mobile routes over. `ui:shape` is run in
+both languages.
 
 ## Never point any of this at real data
 

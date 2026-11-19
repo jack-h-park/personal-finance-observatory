@@ -49,6 +49,7 @@ import { TrendRangeLinks } from '@/components/TrendRangeLinks'
 import { LinkChip, LinkChips } from '@/components/LinkChips'
 import { resolveTrendRange, trendRangeDays } from '@/lib/trend-ranges'
 import { maskAccountLabel } from '@/lib/account-label'
+import { marketColor } from '@/lib/palette'
 
 export const dynamic = 'force-dynamic'
 export const generateMetadata = routeMetadata('/')
@@ -161,7 +162,7 @@ export default async function OverviewPage({
       gain: overview.totals.kr_base_unrealized_gl,
       returnPct: krUnrealizedPct,
       share: krShare,
-      barStyle: 'linear-gradient(90deg, var(--accent-success), var(--brand-cyan))',
+      color: marketColor('KR'),
     },
     {
       market: 'US',
@@ -172,7 +173,7 @@ export default async function OverviewPage({
       gain: overview.totals.us_base_unrealized_gl,
       returnPct: usUnrealizedPct,
       share: usShare,
-      barStyle: 'linear-gradient(90deg, var(--accent-info), var(--brand-blue))',
+      color: marketColor('US'),
     },
     {
       market: 'CRYPTO',
@@ -183,7 +184,7 @@ export default async function OverviewPage({
       gain: overview.totals.crypto_base_unrealized_gl,
       returnPct: cryptoUnrealizedPct,
       share: cryptoShare,
-      barStyle: 'linear-gradient(90deg, var(--accent-warning), var(--brand-purple))',
+      color: marketColor('CRYPTO'),
     },
   ]
   const trendData = singleTrendPoints(portfolioSnapshots, selectedScope, selectedMetric.key, displayBaseValue)
@@ -317,7 +318,7 @@ export default async function OverviewPage({
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
               {marketBreakdown.map((market) => (
                 <div key={market.market} className="flex items-center gap-1.5 text-caption text-ink-3">
-                  <span className="h-2 w-2 rounded-pill" style={{ backgroundImage: market.barStyle }} />
+                  <span className="h-2 w-2 rounded-pill" style={{ backgroundColor: market.color }} />
                   <span>{market.label}</span>
                   <span className="font-medium tabular-nums text-ink">{fmtPct(market.share, { digits: 0 })}</span>
                 </div>
@@ -331,7 +332,7 @@ export default async function OverviewPage({
               pct: Math.max(market.share > 0 ? 1 : 0, market.share),
               title: `${market.label} ${fmtPct(market.share, { digits: 0 })}`,
               style: {
-                backgroundImage: market.barStyle,
+                backgroundColor: market.color,
                 borderLeft: index === 0 ? undefined : '1px solid var(--bg-card)',
               },
             }))}

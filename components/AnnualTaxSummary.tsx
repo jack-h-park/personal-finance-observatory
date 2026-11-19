@@ -37,9 +37,9 @@ export function AnnualTaxSummary({ summary, language }: { summary: AnnualTaxSumm
           {row.excludedAdjustments > 0 ? <Note spacing="above-2">{copy.excludedAdjustments(row.excludedAdjustments)}</Note> : null}
           {row.undatedAllocations > 0 ? <Note spacing="above-2">{copy.undated(row.undatedAllocations)}</Note> : null}
           <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-label">
-            <Link className="underline underline-offset-4" href={`/taxes/records/${encodeURIComponent(row.id)}`}>{copy.details}</Link>
-            <Link className="underline underline-offset-4" href={`/taxes?${filter}`}>{copy.yearLink}</Link>
-            <Link className="underline underline-offset-4" href={`/taxes/history?${filter}`}>{copy.cashLink}</Link>
+            <Link className="inline-flex min-h-6 items-center underline underline-offset-4" href={`/taxes/records/${encodeURIComponent(row.id)}`}>{copy.details}</Link>
+            <Link className="inline-flex min-h-6 items-center underline underline-offset-4" href={`/taxes?${filter}`}>{copy.yearLink}</Link>
+            <Link className="inline-flex min-h-6 items-center underline underline-offset-4" href={`/taxes/history?${filter}`}>{copy.cashLink}</Link>
           </div>
         </article>
       })}

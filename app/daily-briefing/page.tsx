@@ -237,7 +237,7 @@ export default async function DailyBriefingPage({ searchParams }: { searchParams
             href={publicBriefingUrl(doc.date, isLatest)}
             target="_blank"
             rel="noreferrer"
-            className="text-caption text-info hover:underline"
+            className="inline-flex min-h-6 items-center text-caption text-info hover:underline"
           >
             {copy.openPublished}
           </a>

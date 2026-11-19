@@ -33,7 +33,6 @@ import {
   TAX_DECISION_SEVERITY,
   TAX_DUE_SEVERITY,
   TAX_PLAN_STATUS_SEVERITY,
-  TAX_PROFILE_STATUS_SEVERITY,
   TAX_REPORT_TONE,
   TO_REVIEW_SEVERITY,
   TRADE_SIDE_TONE,
@@ -258,8 +257,6 @@ test('the status tables keep the colours of the ternaries they replace', () => {
   assert.equal(statusTone(DRIFT_BAND_SEVERITY, 'above'), 'warning')
   assert.equal(statusTone(FILL_STATUS_SEVERITY, 'executed'), 'success')
   assert.equal(statusTone(FILL_STATUS_SEVERITY, 'skipped'), 'neutral')
-  assert.equal(statusTone(TAX_PROFILE_STATUS_SEVERITY, 'confirmed'), 'success')
-  assert.equal(statusTone(TAX_PROFILE_STATUS_SEVERITY, 'assumed'), 'warning')
   assert.equal(statusTone(TAX_DECISION_SEVERITY, 'explore'), 'warning')
   assert.equal(statusTone(TAX_DECISION_SEVERITY, 'tie'), 'neutral')
   assert.equal(statusTone(TAX_DECISION_SEVERITY, 'recommendation'), 'success')

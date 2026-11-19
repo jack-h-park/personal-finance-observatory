@@ -32,7 +32,6 @@ test('every filing scenario has an English and a Korean badge label', () => {
 test('the other enum badge maps carry Korean for every value', () => {
   const maps: [string, Record<string, string>, Record<string, string>][] = [
     ['holdingBucket', getPageCopy('taxPlanning', 'en').enums.holdingBucket, getPageCopy('taxPlanning', 'ko').enums.holdingBucket],
-    ['taxYearProfileStatus', getPageCopy('taxPlanning', 'en').enums.taxYearProfileStatus, getPageCopy('taxPlanning', 'ko').enums.taxYearProfileStatus],
     ['mappingStatuses', getPageCopy('dataOps', 'en').mappingStatuses, getPageCopy('dataOps', 'ko').mappingStatuses],
     ['sourceIssueStatuses', getPageCopy('dataOps', 'en').sourceIssueStatuses, getPageCopy('dataOps', 'ko').sourceIssueStatuses],
     ['actions', getPageCopy('rebalance', 'en').actions, getPageCopy('rebalance', 'ko').actions],

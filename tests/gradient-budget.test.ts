@@ -46,6 +46,25 @@ test('gradients are named only where the budget allows', () => {
   assert.doesNotMatch(nav, /t-emph-gradient/)
 })
 
+test('no inline linear-gradient outside the gradient tokens', () => {
+  const files = [
+    ...walk(join(ROOT, 'app'), /\.(tsx?|css)$/),
+    ...walk(join(ROOT, 'components'), /\.(tsx?|css)$/),
+    ...walk(join(ROOT, 'styles'), /\.css$/),
+  ]
+  const offenders: string[] = []
+  for (const file of files) {
+    const rel = relative(ROOT, file)
+    readFileSync(file, 'utf8').split('\n').forEach((line, index) => {
+      if (!line.includes('linear-gradient(')) return
+      // styles/globals.css may define the gradient tokens, and nothing else.
+      if (rel === 'styles/globals.css' && /^\s*--gradient-[a-z-]+:\s*linear-gradient\(/.test(line)) return
+      offenders.push(`${rel}:${index + 1}`)
+    })
+  }
+  assert.deepEqual(offenders, [])
+})
+
 test('the title spends one gradient', () => {
   const withEmph = renderToStaticMarkup(React.createElement(PageHeader, { title: 'Pipeline Overview', emphasis: 'Overview', autoRefresh: false }))
   assert.match(withEmph, /t-emph-gradient/)
@@ -73,7 +92,7 @@ test('EntranceMotion marks the document entered after the fade settles', async (
   const src = read('components/EntranceMotion.tsx')
   assert.match(src, /^'use client'/)
   assert.match(src, /dataset\.entered = 'true'/)
-  assert.match(src, /setTimeout\([^]*600\)/)
+  assert.match(src, /setTimeout\([^]*800\)/)
   assert.match(src, /clearTimeout/)
   assert.equal(renderToStaticMarkup(React.createElement(EntranceMotion)), '')
 })
