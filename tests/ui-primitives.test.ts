@@ -12,6 +12,7 @@ import { getUiCopy } from '@/lib/ui-copy'
 import { Badge, Callout, Card, EmptyState, Label, MetricHeroCard, FormError, FormSaved, HeroAside, MetricField, Note, Panel, SectionHeading } from '@/components/ui'
 import { LinkChip, LinkChips } from '@/components/LinkChips'
 import { Tabs } from '@/components/Tabs'
+import { PageSkeleton } from '@/components/PageSkeleton'
 import { OperatorDetails } from '@/components/OperatorDetails'
 import { PageHeader } from '@/components/PageHeader'
 import { routeName, routeSection } from '@/lib/page-names'
@@ -1023,4 +1024,13 @@ test('AssetCoverageNote summaries and links have a 24px target', () => {
   const links = html.match(/<a [^>]*>/g) ?? []
   assert.equal(links.length, 4)
   for (const tag of links) assert.ok(tag.includes('min-h-6') && tag.includes('inline-flex'), tag)
+})
+
+test('PageSkeleton announces loading without motion by default', () => {
+  const html = renderToStaticMarkup(h(PageSkeleton, { language: 'ko' }))
+  assert.ok(html.includes('role="status"') && html.includes('aria-busy="true"'))
+  assert.match(html, new RegExp(`<[a-z]+ class="sr-only">${getUiCopy('ko').common.loading}</`))
+  assert.ok(html.includes('motion-safe:animate-pulse'))
+  assert.ok(!/(^|[\s"])animate-pulse/.test(html))
+  assert.equal((html.match(/rounded-md/g) ?? []).length, 3)
 })
