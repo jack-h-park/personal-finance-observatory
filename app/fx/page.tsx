@@ -126,7 +126,7 @@ export default async function FxPage() {
           ]} />
         </Card>
         <Card title={copy.trend}>
-          <PortfolioMultiTrendChart data={chartData} series={[{ dataKey: 'rate', name: 'KRW/USD', color: 'var(--brand-blue)' }]} height={290} valuePrefix="₩" valueSuffix="" axisLabel={copy.rateUnit} />
+          <PortfolioMultiTrendChart data={chartData} series={[{ dataKey: 'rate', name: 'KRW/USD', color: 'var(--brand-blue)' }]} height={290} axisLabel={copy.rateUnit} unit={{ kind: 'number' }} language={language} emptyMessage={copy.noRateHistory} />
           <Note spacing="above-2" relaxed>{copy.estimateNote}</Note>
         </Card>
       </CardRow>

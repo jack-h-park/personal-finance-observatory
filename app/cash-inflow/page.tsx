@@ -78,8 +78,6 @@ export default async function CashInflowPage({
   const currencyPreferences = await getCurrencyPreferences()
   const money = createMoneyFormatter(currencyPreferences)
   const usd = currencyPreferences.displayCurrency === 'USD'
-  const chartDivisor = usd ? 1 : 1000
-  const chartRound = (value: number) => (usd ? Math.round((value / chartDivisor) * 100) / 100 : Math.round(value / chartDivisor))
   const copy = getPageCopy('cashInflow', language)
   const data = getCashInflow(view, currencyPreferences.displayCurrency, undefined, filter, scope)
   const categories = cashInflowCategories(filter)
@@ -253,7 +251,7 @@ export default async function CashInflowPage({
           <StackedBarChart
             data={chartPeriods.map((p) => ({
               period: view === 'month' ? p.period.slice(2) : p.period,
-              ...Object.fromEntries(categories.map((c) => [c, chartRound(p[c])])),
+              ...Object.fromEntries(categories.map((c) => [c, p[c]])),
               // A segment click filters to its category and opens its credits.
               links: Object.fromEntries(categories.map((c) => [c, href({ category: c, detail: p.period, detailCategory: c, anchor: true })])),
             }))}
@@ -262,10 +260,11 @@ export default async function CashInflowPage({
             xKey="period"
             series={categories.map((c) => ({ key: c, label: copy.categories[c], color: CATEGORY_COLOR[c] }))}
             height={300}
-            yAxisPrefix={usd ? '$' : '₩'}
-            yAxisSuffix={usd ? '' : 'K'}
             yAxisLabel={usd ? copy.axisUsd : copy.axisKrw}
             allowDecimals={usd}
+            unit={{ kind: 'money', currency: currencyPreferences.displayCurrency }}
+            language={language}
+            emptyMessage={copy.noTrend}
           />
           <Note spacing="above-2">{copy.chartNote} {copy.chartHint} {copy.legendHint}</Note>
         </Card>

@@ -34,7 +34,6 @@ export const realized = defineCopy({
     approximateRate: 'No rate for the sale date; the nearest earlier one was used.',
     columns: {
       market: 'Market',
-      broker: 'Broker',
       account: 'Account',
       instrument: 'Position',
       acquired: 'Acquired',
@@ -82,7 +81,6 @@ export const realized = defineCopy({
     approximateRate: '매도일 환율이 없어 가장 가까운 이전 환율을 썼습니다.',
     columns: {
       market: '시장',
-      broker: '증권사',
       account: '계좌',
       instrument: '종목',
       acquired: '취득일',

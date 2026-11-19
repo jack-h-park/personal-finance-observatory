@@ -6,7 +6,8 @@ import { renderToStaticMarkup } from 'react-dom/server'
 
 import { CardRow, MiniStat, MiniStatGrid, Split, Stat, StatStrip, Total, TotalsStrip } from '@/components/layout'
 import { ProgressBar, ShareBar } from '@/components/bars'
-import { PositionCell } from '@/components/PositionCell'
+import { AccountCell, PositionCell } from '@/components/PositionCell'
+import { maskAccountLabel } from '@/lib/account-label'
 import { getUiCopy } from '@/lib/ui-copy'
 import { Badge, Callout, Card, EmptyState, Label, MetricHeroCard, FormError, FormSaved, HeroAside, MetricField, Note, Panel, SectionHeading } from '@/components/ui'
 import { LinkChip, LinkChips } from '@/components/LinkChips'
@@ -966,4 +967,23 @@ test('EmptyState hint is full-strength tertiary', () => {
   const html = renderToStaticMarkup(h(EmptyState, { hint: 'h', children: 'x' }))
   assert.match(html, /class="[^"]*\btext-ink-3\b[^"]*">h</)
   assert.doesNotMatch(html, /text-ink-3\/80/)
+})
+
+test('AccountCell shows broker over the masked account on one line each', () => {
+  const account = 'Sample Securities AB-12345678 long account label xx 98765432'.padEnd(40, 'x') + '9876543210'
+  assert.ok(account.length >= 40)
+  const html = renderToStaticMarkup(React.createElement(AccountCell, { brokerage: 'Sample Securities', account }))
+  const masked = maskAccountLabel(account)
+  assert.equal(html.match(/truncate/g)?.length, 2)
+  assert.ok(html.includes('Sample Securities'))
+  assert.ok(html.includes(masked))
+  assert.ok(html.includes(`title="Sample Securities · ${masked}"`))
+  assert.ok(!html.includes(account))
+})
+
+test('AccountCell with no broker shows the account alone', () => {
+  const html = renderToStaticMarkup(React.createElement(AccountCell, { brokerage: null, account: 'Sample 1234' }))
+  assert.equal(html.match(/truncate/g)?.length, 1)
+  assert.ok(html.includes('title="Sample 1234"'))
+  assert.ok(!html.includes('·'))
 })

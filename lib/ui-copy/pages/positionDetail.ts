@@ -69,7 +69,6 @@ export const positionDetail = defineCopy({
     // The record pages this position's rows live on, filtered to it.
     links: { lots: 'Tax lots', realized: 'Realized lots', transactions: 'Transactions' },
     columns: {
-      broker: 'Broker',
       account: 'Account',
       quantity: 'Qty',
       cost: 'Cost',
@@ -160,7 +159,6 @@ export const positionDetail = defineCopy({
     // The sidebar's names for the same three routes.
     links: { lots: '세금 단위', realized: '실현 손익 내역', transactions: '거래 내역' },
     columns: {
-      broker: '증권사',
       account: '계좌',
       quantity: '수량',
       cost: '취득원가',

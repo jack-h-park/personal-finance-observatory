@@ -101,11 +101,11 @@ export default async function ReconciliationPage({
           columns={[
             { key: 'market', label: copy.columns.market, render: (r) => <Badge tone={marketTone(r.market)}>{r.market}</Badge> },
             { key: 'brokerage', label: copy.columns.brokerage },
-            { key: 'holding_positions', label: copy.columns.holdings, align: 'right', render: (r) => fmtNumber(r.holding_positions) },
-            { key: 'lot_positions', label: copy.columns.lotPos, align: 'right', render: (r) => fmtNumber(r.lot_positions) },
-            { key: 'lot_rows', label: copy.columns.lotRows, align: 'right', render: (r) => fmtNumber(r.lot_rows) },
-            { key: 'transaction_rows', label: copy.columns.txRows, align: 'right', render: (r) => fmtNumber(r.transaction_rows) },
-            { key: 'dividend_rows', label: copy.columns.incomeRows, align: 'right', render: (r) => fmtNumber(r.dividend_rows) },
+            { key: 'holding_positions', priority: 'secondary', label: copy.columns.holdings, align: 'right', render: (r) => fmtNumber(r.holding_positions) },
+            { key: 'lot_positions', priority: 'secondary', label: copy.columns.lotPos, align: 'right', render: (r) => fmtNumber(r.lot_positions) },
+            { key: 'lot_rows', priority: 'secondary', label: copy.columns.lotRows, align: 'right', render: (r) => fmtNumber(r.lot_rows) },
+            { key: 'transaction_rows', priority: 'secondary', label: copy.columns.txRows, align: 'right', render: (r) => fmtNumber(r.transaction_rows) },
+            { key: 'dividend_rows', priority: 'secondary', label: copy.columns.incomeRows, align: 'right', render: (r) => fmtNumber(r.dividend_rows) },
             { key: 'holding_base_cost', label: copy.columns.holdingCost, align: 'right', render: (r) => money(r.holding_base_cost) },
             { key: 'lot_base_cost', label: copy.columns.lotCost, align: 'right', render: (r) => money(r.lot_base_cost) },
           ]}
@@ -122,8 +122,8 @@ export default async function ReconciliationPage({
             rows={sortRows(review.positionBreaks, sort, (row, key) => (row as Record<string, any>)[key])}
             columns={[
               { key: 'status', label: copy.columns.status, sortable: true, sortFirst: 'asc', render: (r: BreakRow) => <Badge tone={categoryTone(RECONCILIATION_STATUS_TONE, reconciliationStatusKey(r.status), 'info')}>{copy.breakStatus[r.status] ?? r.status}</Badge> },
-              { key: 'market', label: copy.columns.market, sortable: true, sortFirst: 'asc', render: (r) => <Badge tone={marketTone(r.market)}>{r.market}</Badge> },
-              { key: 'brokerage', label: copy.columns.brokerage, sortable: true, sortFirst: 'asc' },
+              { key: 'market', priority: 'secondary', label: copy.columns.market, sortable: true, sortFirst: 'asc', render: (r) => <Badge tone={marketTone(r.market)}>{r.market}</Badge> },
+              { key: 'brokerage', priority: 'secondary', label: copy.columns.brokerage, sortable: true, sortFirst: 'asc' },
               {
                 key: 'ticker',
                 label: copy.columns.position,
@@ -136,8 +136,8 @@ export default async function ReconciliationPage({
                   </Link>
                 ),
               },
-              { key: 'holding_quantity', sortable: true, label: copy.columns.holdingQty, align: 'right', render: (r) => fmtQuantity(r.holding_quantity, 4) },
-              { key: 'lot_quantity', sortable: true, label: copy.columns.lotQty, align: 'right', render: (r) => fmtQuantity(r.lot_quantity, 4) },
+              { key: 'holding_quantity', priority: 'secondary', sortable: true, label: copy.columns.holdingQty, align: 'right', render: (r) => fmtQuantity(r.holding_quantity, 4) },
+              { key: 'lot_quantity', priority: 'secondary', sortable: true, label: copy.columns.lotQty, align: 'right', render: (r) => fmtQuantity(r.lot_quantity, 4) },
               { key: 'quantity_diff', sortable: true, label: copy.columns.qtyDiff, align: 'right', render: (r) => (r.quantity_diff == null ? EMPTY_VALUE : fmtQuantity(r.quantity_diff, 4)) },
               { key: 'base_cost_diff', sortable: true, label: copy.columns.costDiff, align: 'right', render: (r) => (r.base_cost_diff == null ? EMPTY_VALUE : money(r.base_cost_diff)) },
             ]}

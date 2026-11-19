@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { PageHeader } from '@/components/PageHeader'
-import { DataTable } from '@/components/DataTable'
+import { DataTable, type DataTableColumn } from '@/components/DataTable'
 import { FilterBar } from '@/components/FilterBar'
 import { Badge, Card, Label, Note, Panel, Signed, marketTone } from '@/components/ui'
 import { Total, TotalsStrip } from '@/components/layout'
@@ -14,17 +14,21 @@ import { positionHref } from '@/lib/position-url'
 import { ALL_YEARS, sumRealized, type RealizedLotView } from '@/lib/realized-lots'
 import { queryRealized, REALIZED_GROUPS } from '@/lib/realized-lots-query'
 import { getPageCopy, getUiCopy } from '@/lib/ui-copy'
-import { formatSort, parseSort, sortRows, type TableSort } from '@/lib/table-sort'
+import { columnSortValue, formatSort, knownSort, parseSort, sortRows, sortableKeys, type TableSort } from '@/lib/table-sort'
 import { withParam } from '@/lib/table-filter'
 import { TickerFilterChip } from '@/components/TickerFilterChip'
 import { bucketTone } from '@/lib/tone'
 import { routeMetadata, routeSection } from '@/lib/page-names'
-import { maskAccountLabel } from '@/lib/account-label'
+import { AccountCell } from '@/components/PositionCell'
+import { accountSortValue } from '@/lib/account-label'
 
 export const dynamic = 'force-dynamic'
 export const generateMetadata = routeMetadata('/realized')
 
 const BASE = '/realized'
+
+// Newest sale first: the question this page answers is what closed lately.
+const DEFAULT_SORT: TableSort = { key: 'sold_date', direction: 'desc' }
 
 export default async function RealizedLotsPage({
   searchParams,
@@ -44,12 +48,75 @@ export default async function RealizedLotsPage({
   const rawCurrency = Array.isArray(params.ccy) ? params.ccy[0] : params.ccy
   const currency: 'krw' | 'usd' = rawCurrency === 'usd' ? 'usd' : 'krw'
   const usd = currency === 'usd'
-  // Newest sale first: the question this page answers is what closed lately.
-  const sort = parseSort(params.sort, { key: 'sold_date', direction: 'desc' })
-  const sorted = sortRows(filtered, sort, (row, key) => (row as Record<string, any>)[key])
-  const totals = sumRealized(filtered)
-
   const money = (krw: number | null, dollars: number | null) => (usd ? (dollars == null ? null : formatUsd(dollars)) : formatKrw(krw))
+
+  const columns: DataTableColumn<RealizedLotView>[] = [
+    { key: 'market', label: copy.columns.market, sortable: true, sortFirst: 'asc', render: (r: RealizedLotView) => <Badge tone={marketTone(r.market)}>{r.market}</Badge> },
+    { key: 'account', label: copy.columns.account, sortable: true, sortFirst: 'asc', sortValue: accountSortValue, priority: 'secondary', render: (r: RealizedLotView) => <AccountCell brokerage={r.brokerage} account={r.account} /> },
+    {
+      key: 'ticker',
+      label: copy.columns.instrument,
+      sortable: true,
+      sortFirst: 'asc',
+      sortValue: (r: RealizedLotView) => r.name ?? r.ticker,
+      render: (r: RealizedLotView) => (
+        <Link href={positionHref(r.market, r.ticker)} className="block min-w-[10rem] hover:underline">
+          <span className="font-mono text-caption text-info">{r.ticker}</span>
+          <span className="mt-1 block max-w-[16rem] truncate text-caption font-medium text-ink">{r.name}</span>
+        </Link>
+      ),
+    },
+    { key: 'acquired_date', label: copy.columns.acquired, sortable: true, nowrap: true },
+    { key: 'sold_date', label: copy.columns.sold, sortable: true, nowrap: true },
+    { key: 'quantity_sold', label: copy.columns.quantity, align: 'right', sortable: true, render: (r: RealizedLotView) => fmtQuantity(r.quantity_sold, 2) },
+    {
+      key: usd ? 'cost_usd' : 'cost_basis_krw',
+      label: copy.columns.cost,
+      align: 'right',
+      sortable: true,
+      render: (r: RealizedLotView) => money(r.cost_basis_krw, r.cost_usd) ?? EMPTY_VALUE,
+    },
+    {
+      key: usd ? 'proceeds_usd' : 'proceeds_krw',
+      label: copy.columns.proceeds,
+      align: 'right',
+      sortable: true,
+      render: (r: RealizedLotView) => (
+        <span title={usd && r.rate_approximate ? copy.approximateRate : undefined}>
+          {money(r.proceeds_krw, r.proceeds_usd) ?? EMPTY_VALUE}
+          {usd && r.rate_approximate ? '*' : ''}
+        </span>
+      ),
+    },
+    {
+      key: usd ? 'gain_usd' : 'realized_gl_krw',
+      label: copy.columns.gain,
+      align: 'right',
+      sortable: true,
+      render: (r: RealizedLotView) => (
+        <Signed value={usd ? r.gain_usd : r.realized_gl_krw} format={(m) => (usd ? formatUsd(m) : formatKrw(m))} />
+      ),
+    },
+    { key: 'holding_days', label: copy.columns.days, align: 'right', sortable: true, priority: 'secondary' },
+    {
+      key: 'tax_term',
+      label: copy.columns.term,
+      sortable: true,
+      sortFirst: 'asc',
+      render: (r: RealizedLotView) => <Badge tone={bucketTone(r.tax_term)}>{termLabel(r.tax_term ?? '') || copy.unknownTerm}</Badge>,
+    },
+    {
+      key: 'basis',
+      label: copy.columns.basis,
+      sortable: true,
+      sortFirst: 'asc',
+      priority: 'tertiary',
+      render: (r: RealizedLotView) => copy.bases[r.basis ?? ''] ?? r.basis ?? '',
+    },
+  ]
+  const sort = knownSort(parseSort(params.sort, DEFAULT_SORT), sortableKeys(columns), DEFAULT_SORT)
+  const sorted = sortRows(filtered, sort, columnSortValue(columns))
+  const totals = sumRealized(filtered)
 
   // The download block is its own control: the table's filters never reach the file.
   const exportYearAsked = Array.isArray(params.exportYear) ? params.exportYear[0] : params.exportYear
@@ -173,71 +240,7 @@ export default async function RealizedLotsPage({
             rows={sorted}
             sort={sort}
             sortHref={(next: TableSort) => withParam(BASE, params, 'sort', formatSort(next))}
-            columns={[
-              { key: 'market', label: copy.columns.market, sortable: true, sortFirst: 'asc', render: (r: RealizedLotView) => <Badge tone={marketTone(r.market)}>{r.market}</Badge> },
-              { key: 'brokerage', label: copy.columns.broker, sortable: true, sortFirst: 'asc' },
-              { key: 'account', label: copy.columns.account, sortable: true, sortFirst: 'asc', priority: 'secondary', render: (r: RealizedLotView) => maskAccountLabel(r.account) },
-              {
-                key: 'ticker',
-                label: copy.columns.instrument,
-                sortable: true,
-                sortFirst: 'asc',
-                sortValue: (r: RealizedLotView) => r.name ?? r.ticker,
-                render: (r: RealizedLotView) => (
-                  <Link href={positionHref(r.market, r.ticker)} className="block min-w-[10rem] hover:underline">
-                    <span className="font-mono text-caption text-info">{r.ticker}</span>
-                    <span className="mt-1 block max-w-[16rem] truncate text-caption font-medium text-ink">{r.name}</span>
-                  </Link>
-                ),
-              },
-              { key: 'acquired_date', label: copy.columns.acquired, sortable: true, nowrap: true },
-              { key: 'sold_date', label: copy.columns.sold, sortable: true, nowrap: true },
-              { key: 'quantity_sold', label: copy.columns.quantity, align: 'right', sortable: true, render: (r: RealizedLotView) => fmtQuantity(r.quantity_sold, 2) },
-              {
-                key: usd ? 'cost_usd' : 'cost_basis_krw',
-                label: copy.columns.cost,
-                align: 'right',
-                sortable: true,
-                render: (r: RealizedLotView) => money(r.cost_basis_krw, r.cost_usd) ?? EMPTY_VALUE,
-              },
-              {
-                key: usd ? 'proceeds_usd' : 'proceeds_krw',
-                label: copy.columns.proceeds,
-                align: 'right',
-                sortable: true,
-                render: (r: RealizedLotView) => (
-                  <span title={usd && r.rate_approximate ? copy.approximateRate : undefined}>
-                    {money(r.proceeds_krw, r.proceeds_usd) ?? EMPTY_VALUE}
-                    {usd && r.rate_approximate ? '*' : ''}
-                  </span>
-                ),
-              },
-              {
-                key: usd ? 'gain_usd' : 'realized_gl_krw',
-                label: copy.columns.gain,
-                align: 'right',
-                sortable: true,
-                render: (r: RealizedLotView) => (
-                  <Signed value={usd ? r.gain_usd : r.realized_gl_krw} format={(m) => (usd ? formatUsd(m) : formatKrw(m))} />
-                ),
-              },
-              { key: 'holding_days', label: copy.columns.days, align: 'right', sortable: true, priority: 'secondary' },
-              {
-                key: 'tax_term',
-                label: copy.columns.term,
-                sortable: true,
-                sortFirst: 'asc',
-                render: (r: RealizedLotView) => <Badge tone={bucketTone(r.tax_term)}>{termLabel(r.tax_term ?? '') || copy.unknownTerm}</Badge>,
-              },
-              {
-                key: 'basis',
-                label: copy.columns.basis,
-                sortable: true,
-                sortFirst: 'asc',
-                priority: 'tertiary',
-                render: (r: RealizedLotView) => copy.bases[r.basis ?? ''] ?? r.basis ?? '',
-              },
-            ]}
+            columns={columns}
           />
         </div>
       </Card>

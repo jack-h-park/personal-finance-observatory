@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
+import type { ReactNode } from 'react'
 import {
   Area,
   AreaChart,
@@ -19,7 +20,10 @@ import {
   YAxis,
 } from 'recharts'
 import { ASSET_CLASS_COLOR, CHILDREN_COLOR, marketColor } from '@/lib/palette'
-import { EMPTY_VALUE, fmtNumber } from '@/lib/format'
+import { EMPTY_VALUE } from '@/lib/format'
+import { axisTick, hasPlottablePoint, tooltipValue, type ChartUnit } from '@/lib/chart-format'
+import type { Language } from '@/lib/i18n'
+import { EmptyState } from '@/components/ui'
 
 const AXIS = { fontSize: 10, fill: 'var(--text-tertiary)' }
 
@@ -37,6 +41,28 @@ const TOOLTIP_SURFACE = {
   borderRadius: 6,
   fontSize: 12,
 } as const
+
+/**
+ * The chart contract, shared by all five charts: raw values in `unit`, short
+ * ticks on the Y axis, the full amount in the tooltip.
+ */
+type ChartContract = {
+  unit: ChartUnit
+  language: Language
+  /** Shown instead of the chart when no series has a finite value. */
+  emptyMessage: ReactNode
+}
+
+const tickFormatter = (unit: ChartUnit, language: Language) => (value: number) => axisTick(value, unit, language)
+
+/**
+ * Percent ticks print whole percents, so a half-percent step would repeat a
+ * label (0.5% and 1% both read "1%"). Percent axes ask recharts for integer ticks.
+ */
+const integerTicks = (unit: ChartUnit, allowDecimals?: boolean) => (unit.kind === 'percent' ? false : allowDecimals)
+
+const tooltipFormatter = (unit: ChartUnit, language: Language) => (value: number, name: string) =>
+  [tooltipValue(value, unit, language), name] as [string, string]
 
 // marketColor lives in lib/palette.ts with the other chart colours. This
 // re-export has no reader left and is kept for one release only; import it
@@ -63,10 +89,11 @@ export function TrendBarChart({
   barColorKey,
   barColorMap = MARKET_BARS,
   allowDecimals = false,
-  yAxisPrefix = '',
-  yAxisSuffix = '',
   yAxisLabel,
-}: {
+  unit,
+  language,
+  emptyMessage,
+}: ChartContract & {
   data: Record<string, unknown>[]
   xKey: string
   yKey: string
@@ -87,13 +114,11 @@ export function TrendBarChart({
   barColorKey?: string
   barColorMap?: Record<string, string>
   allowDecimals?: boolean
-  yAxisPrefix?: string
-  yAxisSuffix?: string
   yAxisLabel?: string
 }) {
+  if (!hasPlottablePoint(data, [yKey])) return <EmptyState>{emptyMessage}</EmptyState>
   const interactive = !!onBarSelect
   const hasSelection = selectedKey != null && selectedKey !== ''
-  const formatAxisValue = (value: number) => `${yAxisPrefix}${fmtNumber(value, 3, 0)}${yAxisSuffix}`
   const chartData = data.map((d) => {
     const value = Number(d[yKey])
     return { ...d, [yKey]: Number.isFinite(value) ? value : 0 }
@@ -125,15 +150,15 @@ export function TrendBarChart({
           tick={AXIS}
           tickLine={false}
           axisLine={false}
-          allowDecimals={allowDecimals}
+          allowDecimals={integerTicks(unit, allowDecimals)}
           domain={yDomain}
-          tickFormatter={formatAxisValue}
+          tickFormatter={tickFormatter(unit, language)}
           label={yAxisLabel ? { value: yAxisLabel, angle: -90, position: 'insideLeft', style: AXIS } : undefined}
         />
         <Tooltip
           cursor={{ fill: 'var(--bg-surface)' }}
           contentStyle={TOOLTIP_SURFACE}
-          formatter={(value: number) => [`${yAxisPrefix}${fmtNumber(value, 3, 0)}${yAxisSuffix}`, undefined]}
+          formatter={tooltipFormatter(unit, language)}
         />
         <Bar
           dataKey={yKey}
@@ -170,22 +195,21 @@ export function PortfolioTrendChart({
   dataKey,
   color = 'var(--brand-blue)',
   height = 240,
-  valuePrefix = '',
-  valueSuffix = '',
   axisLabel,
   valueName,
-}: {
+  unit,
+  language,
+  emptyMessage,
+}: ChartContract & {
   data: { date: string; value: number | null }[]
   dataKey: string
   color?: string
   height?: number
-  valuePrefix?: string
-  valueSuffix?: string
   axisLabel?: string
   /** The series name in the tooltip, in the page language. */
   valueName: string
 }) {
-  const formatValue = (value: number) => `${valuePrefix}${fmtNumber(value, 1, 0)}${valueSuffix}`
+  if (!hasPlottablePoint(data, [dataKey])) return <EmptyState>{emptyMessage}</EmptyState>
   return (
     <ResponsiveContainer width="100%" height={height}>
       <LineChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: -18 }}>
@@ -195,12 +219,13 @@ export function PortfolioTrendChart({
           tick={AXIS}
           tickLine={false}
           axisLine={false}
-          tickFormatter={formatValue}
+          allowDecimals={integerTicks(unit)}
+          tickFormatter={tickFormatter(unit, language)}
           label={axisLabel ? { value: axisLabel, angle: -90, position: 'insideLeft', style: AXIS } : undefined}
         />
         <Tooltip
           contentStyle={TOOLTIP_SURFACE}
-          formatter={(value: number) => [formatValue(value), valueName]}
+          formatter={(value: number) => [tooltipValue(value, unit, language), valueName]}
         />
         <Line
           type="linear"
@@ -221,22 +246,22 @@ export function PortfolioMultiTrendChart({
   data,
   series,
   height = 240,
-  valuePrefix = '₩',
-  valueSuffix = 'M',
-  axisLabel = 'KRW million',
+  axisLabel,
   rightAxisLabel,
-}: {
+  unit,
+  language,
+  emptyMessage,
+}: ChartContract & {
   data: { date: string; [key: string]: number | string | null }[]
   // `axis: 'right'` puts a series on its own scale, for one far smaller than
   // the rest that would otherwise draw as a flat line along the bottom.
   series: { dataKey: string; name: string; color: string; axis?: 'left' | 'right' }[]
   height?: number
-  valuePrefix?: string
-  valueSuffix?: string
   axisLabel?: string
   rightAxisLabel?: string
 }) {
-  const formatValue = (value: number) => `${valuePrefix}${fmtNumber(value, 1, 0)}${valueSuffix}`
+  if (!hasPlottablePoint(data, series.map((item) => item.dataKey))) return <EmptyState>{emptyMessage}</EmptyState>
+  const formatTick = tickFormatter(unit, language)
   const rightSeries = series.filter((item) => item.axis === 'right')
   // Ticks take the series color when one series owns the axis, so the scale
   // reads as belonging to that line rather than to the chart.
@@ -251,8 +276,9 @@ export function PortfolioMultiTrendChart({
           tick={AXIS}
           tickLine={false}
           axisLine={false}
-          tickFormatter={formatValue}
-          label={{ value: axisLabel, angle: -90, position: 'insideLeft', style: AXIS }}
+          allowDecimals={integerTicks(unit)}
+          tickFormatter={formatTick}
+          label={axisLabel ? { value: axisLabel, angle: -90, position: 'insideLeft', style: AXIS } : undefined}
         />
         {rightSeries.length > 0 && (
           <YAxis
@@ -261,13 +287,14 @@ export function PortfolioMultiTrendChart({
             tick={rightTick}
             tickLine={false}
             axisLine={false}
-            tickFormatter={formatValue}
+            allowDecimals={integerTicks(unit)}
+            tickFormatter={formatTick}
             label={rightAxisLabel ? { value: rightAxisLabel, angle: 90, position: 'insideRight', style: rightTick } : undefined}
           />
         )}
         <Tooltip
           contentStyle={TOOLTIP_SURFACE}
-          formatter={(value: number, name: string) => [formatValue(value), name]}
+          formatter={tooltipFormatter(unit, language)}
         />
         <Legend wrapperStyle={{ fontSize: 11 }} />
         {series.map((item) => (
@@ -301,7 +328,7 @@ type StackedAssetPoint = { date: string; total: number; children?: number | null
 
 /**
  * Every asset class stacked, one area each, values already in the display
- * currency's millions. A class that has not started is null and draws nothing
+ * currency. A class that has not started is null and draws nothing
  * (recharts stacks it as zero), and a dashed line marks where each class after
  * the first date begins. The tooltip lists every class, with a dash for one not
  * yet started, and the total.
@@ -309,16 +336,17 @@ type StackedAssetPoint = { date: string; total: number; children?: number | null
 export function StackedAssetChart({
   points,
   startsOn,
-  currency,
   labels,
   height = 260,
   axisLabel,
   markers = [],
   childrenBand,
-}: {
+  unit,
+  language,
+  emptyMessage,
+}: ChartContract & {
   points: StackedAssetPoint[]
   startsOn: Partial<Record<AssetClass, string>>
-  currency: 'KRW' | 'USD'
   labels: Record<AssetClass | 'total', string>
   height?: number
   axisLabel?: string
@@ -327,8 +355,9 @@ export function StackedAssetChart({
   /** Labels for the children's band and the combined total, when the page includes the children. Absent: no band. */
   childrenBand?: { label: string; combinedLabel: string }
 }) {
-  const prefix = currency === 'USD' ? '$' : '₩'
-  const formatValue = (value: number) => `${prefix}${fmtNumber(value, 1, 0)}M`
+  const seriesKeys: string[] = childrenBand ? [...STACK_ORDER, 'children'] : [...STACK_ORDER]
+  if (!hasPlottablePoint(points, seriesKeys)) return <EmptyState>{emptyMessage}</EmptyState>
+  const formatValue = (value: number) => tooltipValue(value, unit, language)
   const firstDate = points[0]?.date
   const starts = STACK_ORDER.filter((key) => startsOn[key] && startsOn[key] !== firstDate)
   return (
@@ -340,7 +369,8 @@ export function StackedAssetChart({
           tick={AXIS}
           tickLine={false}
           axisLine={false}
-          tickFormatter={formatValue}
+          allowDecimals={integerTicks(unit)}
+          tickFormatter={tickFormatter(unit, language)}
           label={axisLabel ? { value: axisLabel, angle: -90, position: 'insideLeft', style: AXIS } : undefined}
         />
         <Tooltip
@@ -430,13 +460,14 @@ export function StackedBarChart({
   xKey,
   series,
   height = 240,
-  yAxisPrefix = '',
-  yAxisSuffix = '',
   yAxisLabel,
   allowDecimals = false,
   linkKey,
   toggleable = false,
-}: {
+  unit,
+  language,
+  emptyMessage,
+}: ChartContract & {
   data: Record<string, unknown>[]
   xKey: string
   series: { key: string; label: string; color: string }[]
@@ -444,8 +475,6 @@ export function StackedBarChart({
    *  segment opens. The hrefs are built by the page; the chart only navigates. */
   linkKey?: string
   height?: number
-  yAxisPrefix?: string
-  yAxisSuffix?: string
   yAxisLabel?: string
   allowDecimals?: boolean
   /** Clicking a legend item hides or shows that series, in this chart only. */
@@ -462,12 +491,12 @@ export function StackedBarChart({
       return next
     })
   }
-  const format = (value: number) => `${yAxisPrefix}${fmtNumber(value, 3, 0)}${yAxisSuffix}`
   const open = (seriesKey: string) => (entry: { payload?: Record<string, unknown> }) => {
     const links = linkKey ? (entry?.payload?.[linkKey] as Record<string, string> | undefined) : undefined
     const href = links?.[seriesKey]
     if (href) router.push(href)
   }
+  if (!hasPlottablePoint(data, series.map((s) => s.key))) return <EmptyState>{emptyMessage}</EmptyState>
   return (
     <ResponsiveContainer width="100%" height={height}>
       <BarChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
@@ -478,14 +507,14 @@ export function StackedBarChart({
           tick={AXIS}
           tickLine={false}
           axisLine={false}
-          allowDecimals={allowDecimals}
-          tickFormatter={format}
+          allowDecimals={integerTicks(unit, allowDecimals)}
+          tickFormatter={tickFormatter(unit, language)}
           label={yAxisLabel ? { value: yAxisLabel, angle: -90, position: 'insideLeft', style: AXIS } : undefined}
         />
         <Tooltip
           cursor={{ fill: 'var(--bg-surface)' }}
           contentStyle={TOOLTIP_SURFACE}
-          formatter={(value: number) => format(value)}
+          formatter={tooltipFormatter(unit, language)}
         />
         <Legend
           wrapperStyle={{ fontSize: 11, cursor: toggleable ? 'pointer' : undefined }}

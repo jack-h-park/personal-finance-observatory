@@ -72,3 +72,32 @@ export function sortRows<Row>(
   }
   return sorted
 }
+
+/**
+ * The sort to apply: the parsed one when it names a column the table has, the
+ * page default otherwise. A bookmark from before a column was merged away
+ * (`sort=brokerage:asc`) then renders the default order instead of sorting on
+ * a column no header shows.
+ */
+export function knownSort(sort: TableSort | null, keys: readonly string[], fallback: TableSort | null): TableSort | null {
+  return sort && keys.includes(sort.key) ? sort : fallback
+}
+
+/** The part of a table column that sorting reads; `DataTableColumn` satisfies it. */
+type SortColumn = { key: string; sortable?: boolean; sortValue?: (row: any) => Comparable }
+
+/** The column keys a header can sort on: the columns marked `sortable`. */
+export function sortableKeys(columns: readonly SortColumn[]): string[] {
+  return columns.filter((column) => column.sortable).map((column) => column.key)
+}
+
+/**
+ * The value accessor for `sortRows`: a column's own `sortValue` when it has one
+ * (the merged account column sorts on broker then account), else `row[key]`.
+ */
+export function columnSortValue(columns: readonly SortColumn[]) {
+  return (row: any, key: string): Comparable => {
+    const column = columns.find((candidate) => candidate.key === key)
+    return column?.sortValue ? column.sortValue(row) : row[key]
+  }
+}
