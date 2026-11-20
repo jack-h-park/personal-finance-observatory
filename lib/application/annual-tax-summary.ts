@@ -1,3 +1,4 @@
+import { getReturnReportedAmounts } from './return-reported-amounts'
 import { COMPONENTS, live, type Components, type TaxHistoryStoreV1 } from '@/lib/domain/taxes/history'
 import { reconcileTaxHistory } from '@/lib/domain/taxes/reconcile'
 
@@ -38,6 +39,7 @@ export function getAnnualTaxSummary(store: TaxHistoryStoreV1) {
     const adjustments = live(store.adjustments).filter(item => item.obligationId === row.id)
     const excludedAdjustments = adjustments.filter(item => !linked(item.evidenceIds)).length
     return {
+      reportedReturns: getReturnReportedAmounts(store, row.id),
       id: row.id, taxUnitId: row.taxUnitId, taxYear: row.taxYear, authority: row.authority,
       taxType: obligation.taxType, currency: row.currency, status: row.status, liabilityMinor,
       outstandingMinor: row.outstandingMinor, ...buckets,
