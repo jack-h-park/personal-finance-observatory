@@ -215,6 +215,15 @@ export const COVERAGE_SEVERITY: Record<string, Severity> = {
   missing: 'problem',
 }
 
+/** Explicit supplementary freshness only. Age is attention, not a failed combined review (shared UX D6). */
+export const SUPPLEMENTARY_FRESHNESS_TONE: Record<'current' | 'due_soon' | 'action_needed' | 'missing' | 'unconfirmed', Tone> = {
+  current: 'success',
+  due_soon: 'warning',
+  action_needed: 'warning',
+  missing: 'warning',
+  unconfirmed: 'warning',
+}
+
 /**
  * How many of something there is, as a named state: `some` above zero, `none`
  * otherwise (zero, a negative, null or NaN). A count, or an amount such as tax
