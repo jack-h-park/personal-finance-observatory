@@ -36,3 +36,17 @@ test('rejects an unknown account, duplicate approval, or invalid evidence', () =
   assert.throws(() => approvedBankBalanceRows([{ ...receipt, reportSha256: 'invalid' }], [prior], source), /invalid/)
   assert.throws(() => approvedBankBalanceRows([{ ...receipt, observedAt: '2026-02-30T12:00:00-05:00' }], [prior], source), /invalid/)
 })
+
+test('uses a derived balance history to identify an existing bank account', () => {
+  const derived = { ...prior, kind: 'savings', derived: 1 }
+  const rows = approvedBankBalanceRows([receipt], [derived], source)
+  assert.equal(rows.length, 1)
+  assert.equal(rows[0].kind, 'savings')
+  assert.equal(rows[0].derived, 0)
+  assert.deepEqual(approvedBankBalanceRows([receipt], [
+    derived, { ...derived, as_of_date: '2026-11-20' },
+  ], source), [])
+  assert.throws(() => approvedBankBalanceRows([receipt], [
+    derived, { ...derived, owner: 'joint' },
+  ], source), /existing/)
+})
