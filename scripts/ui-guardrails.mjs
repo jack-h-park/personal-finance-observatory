@@ -697,17 +697,17 @@ function withoutInlineCode(body) {
 }
 
 /**
- * A whitespace-delimited token is an identifier, not a word, when it holds `@`,
- * `::`, a `.` or `_` between two word characters, or a lower-case letter right
- * before an upper-case one: `manual-mappings.json의`, `wrapperTreatment.US에서`,
- * `bankInflowRules에`, `market:ticker@brokerage::account`. A hyphen alone
- * (`wash-sale`) or a sentence-final period (`snapshot.`) does not make one.
+ * An identifier is not a word: a run of identifier characters (word
+ * characters, `.`, `@`, `:`, `-`) that holds `@`, `::`, a `.` or `_` between
+ * two word characters, or a lower-case letter right before an upper-case one:
+ * `manual-mappings.json의`, `wrapperTreatment.US에서`, `bankInflowRules에`,
+ * `market:ticker@brokerage::account`. Only that run is removed, so an English
+ * word glued to it by other punctuation (`ingest·freshness_check`,
+ * `override(manual_override)`) is still read. A hyphen alone (`wash-sale`) or a
+ * sentence-final period (`snapshot.`) does not make an identifier.
  */
 function withoutIdentifierTokens(body) {
-  return body
-    .split(/\s+/)
-    .filter((token) => !/@|::|\w[._]\w|[a-z][A-Z]/.test(token))
-    .join(' ')
+  return body.replace(/[\w.@:-]*(?:@|::|\w[._]\w|[a-z][A-Z])[\w.@:-]*/g, ' ')
 }
 
 /** `{placeholder}` and `${…}` are filled in at run time, so their names are not copy. */

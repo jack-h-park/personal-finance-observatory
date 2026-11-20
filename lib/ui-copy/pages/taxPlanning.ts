@@ -690,7 +690,7 @@ export const taxPlanning = defineCopy({
       potentialPairingTitle: '같은 미국 세금연도 안에서 한국 손실 세금 단위와 미국 단기 이익을 맞춰보세요',
       potentialPairingBody: (krLoss: string, usGain: string, pairable: string) =>
         `현재 화면에는 한국 단기 미실현 손실 ${krLoss}, 미국시장 순 단기 이익 ${usGain}가 보입니다(둘 다 미국 신고 기준으로 측정). 최대 ${pairable}까지 미국 단기 이익을 줄이는 상계 후보로 볼 수 있습니다.`,
-      potentialPairingAction: '미국 단기 이익 매도가 계획되어 있다면, 정확한 티커 선택 전 같은 미국 세금연도 안에서 충분한 한국 단기 손실 세금 단위를 검토하세요.',
+      potentialPairingAction: '미국 단기 이익 매도가 계획되어 있다면, 정확한 종목 선택 전 같은 미국 세금연도 안에서 충분한 한국 단기 손실 세금 단위를 검토하세요.',
       potentialPairingCaveat: (impact: string, ratePct: string) =>
         `현재 ${ratePct}% 가정에서 스크리닝상 세금 효과는 최대 ${impact}입니다. KRW 손실이 자동으로 미국 세법상 손실이 되는 것은 아닙니다. USD 기준가, 거래일 FX, 계좌 적격성, 워시세일, 기타 자본거래를 확인해야 합니다.`,
       gainToScreenMetric: (amount: string) => `${amount} 검토할 이익`,

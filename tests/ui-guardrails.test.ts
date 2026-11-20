@@ -476,10 +476,14 @@ test('G12 skips identifier tokens but still reads a hyphenated word and a word b
     "wrapper: '세금 정책의 wrapperTreatment.US에서 정합니다.',",
     "wash: 'wash-sale 검토',",
     "end: 'snapshot.',",
+    "glued: 'ingest·freshness_check',",
+    "paren: 'override(manual_override)를 확인합니다.',",
   )
   assert.deepEqual(g12Lines(module), [
     [6, 'wash, sale'],
     [7, 'snapshot'],
+    [8, 'ingest'],
+    [9, 'override'],
   ])
 })
 
@@ -491,9 +495,11 @@ test('G12 lets the allow-listed acronyms, codes and names stand, but still reads
     "date: 'YYYY-MM-DD 형식',",
     "cite: 'IRS Rev. Proc. 2025-32 요약',",
     "merrill: 'Merrill은 두 가지 형식으로 내보냅니다.',",
+    "tsv: '정규화된 거래 TSV',",
+    "git: 'git에 올라가지 않음',",
     "basis: 'snapshot 기준',",
   )
-  assert.deepEqual(g12Lines(module), [[9, 'snapshot']])
+  assert.deepEqual(g12Lines(module), [[11, 'snapshot']])
 })
 
 test('G13 catches an enum value rendered raw in a Badge', () => {

@@ -60,7 +60,7 @@ export const dataMap = defineCopy({
     reviewItems: (count: string) => `원본 이슈 ${count}건`,
     allMapped: '원본 이슈 없음',
     itemsToReview: '원본 이슈',
-    itemsToReviewInfo: '변경되었거나 누락된 원본 파일입니다. 미사용 파일은 출처 확인을 위해 보존될 수 있으므로 정보성 목록으로 표시합니다.',
+    itemsToReviewInfo: '변경되었거나 누락된 원본 파일입니다. 미사용 파일은 출처 기록으로 보존될 수 있어 정보성 목록으로 표시합니다.',
     inventoryHeadline: '인벤토리 핵심 지표',
     issueHint: '변경 또는 누락된 원본',
     cleanHint: '변경·누락된 원본이 없습니다.',
@@ -84,7 +84,7 @@ export const dataMap = defineCopy({
     noQueue: '변경되거나 누락된 원본 파일이 없습니다.',
     fullInventory: '전체 원본 인벤토리',
     driftMonitor: '원본 변경 감시',
-    driftMonitorInfo: '추적 중인 파일이 수집된 뒤 바뀌었는지 봅니다. 변경된 파일은 대시보드와 디스크의 내용이 더 이상 일치하지 않는다는 뜻입니다.',
+    driftMonitorInfo: '추적 중인 파일이 마지막 수집 이후 바뀌었는지 봅니다. 변경된 파일은 대시보드와 디스크의 내용이 더 이상 일치하지 않는다는 뜻입니다.',
     columns: {
       status: '상태',
       category: '분류',

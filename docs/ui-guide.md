@@ -517,7 +517,9 @@ identifier token (one holding `@`, `::`, an inner `.` or `_`, or a camelCase
 hump, such as `tax-policy.json에서` or `bankInflowRules에`), a path token, and
 the codes, acronyms and names on its allow-list (`KO_LATIN_ALLOW` in
 `scripts/ui-guardrails.mjs`). A command in a Korean sentence is reworded, not
-allowed: `pnpm refresh를 실행하세요` becomes `갱신을 실행하세요`.
+allowed: `pnpm refresh를 실행하세요` becomes `갱신을 실행하세요`. Backticks are
+for a command or identifier the `en` half shows the same way, not a way around
+rewording a word that can be translated.
 
 ## Checking a change
 
