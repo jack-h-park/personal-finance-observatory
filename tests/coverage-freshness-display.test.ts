@@ -119,3 +119,37 @@ test('historical-only table row retains closure policy without freshness or comp
     assert.doesNotMatch(html, /Freshness metadata unavailable|최신성 정보 없음|No recorded gap|기록된 누락 없음/)
   }
 })
+
+
+test('source freshness uses deployed warning tones while combined status and gap action stay intact', () => {
+  for (const language of ['en', 'ko'] as const) {
+    for (const [state, tone] of [
+      ['current', 'success'], ['due_soon', 'warning'], ['action_needed', 'warning'],
+      ['missing', 'warning'], ['unconfirmed', 'warning'],
+    ] as const) {
+      const row = fixture(state), before = structuredClone(row)
+      Object.freeze(row.historyGap); Object.freeze(row)
+      const html = renderToStaticMarkup(React.createElement(SupplementaryCoverageTable, { rows: [row], language }))
+      const rawCells = [...html.matchAll(/<td\b[^>]*>([\s\S]*?)<\/td>/g)].map(m => m[1])
+      assert.match(rawCells[2], new RegExp(`text-${tone}(?:[ "]|$)`))
+      assert.doesNotMatch(rawCells[2], /text-danger/)
+      assert.match(rawCells[4], /text-danger/)
+      assert.equal(cells(html)[4], language === 'en' ? 'Update needed' : '업데이트 필요')
+      assert.match(cells(html)[5], language === 'en' ? /Download account transaction history/ : /누락된 계좌 거래내역/)
+      assert.match(cells(html)[3], /2024-04-01 ~ 2024-04-09/)
+      assert.deepEqual(row, before)
+    }
+  }
+})
+
+test('missing or invalid explicit freshness metadata never receives a success or warning badge', () => {
+  for (const language of ['en', 'ko'] as const) {
+    for (const row of [fixture(), fixture(undefined, { freshnessStatus: 'invalid', staleWithHistoryGap: false })]) {
+      const html = renderToStaticMarkup(React.createElement(SupplementaryCoverageTable, { rows: [row], language }))
+      const rawCells = [...html.matchAll(/<td\b[^>]*>([\s\S]*?)<\/td>/g)].map(m => m[1])
+      assert.doesNotMatch(rawCells[2], /text-(success|warning|danger)/)
+      assert.equal(cells(html)[2], language === 'en' ? 'Freshness metadata unavailable' : '최신성 정보 없음')
+      assert.match(rawCells[4], /text-danger/)
+    }
+  }
+})

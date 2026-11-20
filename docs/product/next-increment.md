@@ -1,6 +1,6 @@
 # Next Personal Finance Observatory increments
 
-Updated November 19, 2026 (America/Los_Angeles). The [master plan](../superpowers/plans/2026-11-10-personal-finance-observatory.md) remains public reusable code with private sources/state, evidence-linked all-assets visibility and bounded tax planning. Source, deployed build, browser observation, human acceptance and complete financial coverage remain separate claims. See [implementation status](implementation-status.md) and [release acceptance](../operations/installation-status.md#coverage-summary-release-acceptance-november-17-2026).
+Updated November 20, 2026 (America/Los_Angeles). The [master plan](../superpowers/plans/2026-11-10-personal-finance-observatory.md) remains public reusable code with private sources/state, evidence-linked all-assets visibility and bounded tax planning. Source, deployed build, browser observation, human acceptance and complete financial coverage remain separate claims. See [implementation status](implementation-status.md) and [release acceptance](../operations/installation-status.md#coverage-summary-release-acceptance-november-17-2026).
 
 ## Completed work: do not repeat it
 
@@ -22,7 +22,7 @@ The current UI already separates investment and supplementary update sections, l
 
 The [additive freshness contract](../architecture/supplementary-coverage-freshness.md) #350 and consumer #353 are complete through bounded deployment acceptance. Do not repeat capture, display implementation or initial rollout. Missing/invalid metadata still stays unavailable; current freshness does not clear a recorded history gap or establish reviewed inventory completeness.
 
-The next small source PR should reconcile the release-only freshness warning map and regression into main, preserving existing combined classifications/actions/reminders and excluding the held wider GUI work. The deployed older baseline uses a dedicated map because it lacks main's severity helpers. Main's current freshness consumer still inherits combined severity, which can render stale freshness as danger; shared UX D6 requires warning. This is a source/parity follow-up, not permission to deploy main or adopt private mappings. Keep private inventory decisions unknown until separately accepted; do not request already documented identities again.
+The bounded warning-map source reconciliation is now implemented for PR review: `lib/tone.ts` copies the deployed dedicated freshness map, and the supplementary freshness column uses it instead of combined severity. Bilingual synthetic regressions keep stale freshness warning, combined status/action behavior unchanged and missing metadata unavailable. The older operating release remains separately identified; this source PR is not merged or deployed. Finish source review next, then scope any later rollout separately rather than installing held main changes incidentally. Private inventory acceptance, source acquisition and full reconciliation remain separate owner-dependent work. Keep private decisions unknown until accepted; do not request already documented identities again.
 
 ## Priority 2: bounded operational evidence and responsibility
 

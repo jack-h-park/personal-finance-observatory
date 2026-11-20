@@ -9,7 +9,7 @@ import {portfolioToday} from '@/lib/adapters/portfolio-db'
 import type { SupplementaryCoverageRow } from '@/lib/adapters/portfolio-db'
 import { maskAccountLabel } from '@/lib/account-label'
 import { fmtDate, fmtNumber } from '@/lib/format'
-import { COVERAGE_SEVERITY, statusTone } from '@/lib/tone'
+import { COVERAGE_SEVERITY, SUPPLEMENTARY_FRESHNESS_TONE, statusTone } from '@/lib/tone'
 
 export function SupplementaryCoverageTable({ rows, language, accounts }: {
   rows: SupplementaryCoverageRow[]
@@ -53,7 +53,7 @@ export function SupplementaryCoverageTable({ rows, language, accounts }: {
         if (!row.coverage) return copy.none
         const state = readCoverageFreshness(row.coverage)
         return state === null ? <span className="text-label text-ink-3">{freshnessCopy.unavailable}</span>
-          : <Badge tone={statusTone(COVERAGE_SEVERITY, state)}>{copy.statuses[state]}</Badge>
+          : <Badge tone={SUPPLEMENTARY_FRESHNESS_TONE[state]}>{copy.statuses[state]}</Badge>
       } },
       { key: 'historyGap', label: freshnessCopy.recordedGap, render: (row: typeof data[number]) => {
         if (!row.coverage) return copy.none
