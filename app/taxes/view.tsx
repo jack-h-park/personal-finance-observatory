@@ -1,3 +1,5 @@
+import { AnnualTaxSummary } from '@/components/AnnualTaxSummary'
+import { getAnnualTaxSummary } from '@/lib/application/annual-tax-summary'
 import Link from 'next/link'
 import { PageHeader } from '@/components/PageHeader'
 import { Card, TextLink } from '@/components/ui'
@@ -42,6 +44,7 @@ export async function TaxHistoryScreen({
     } catch (caught) {
       error = caught instanceof Error ? caught.message : 'Invalid filters'
     }
+  const annual = !cash && view ? getAnnualTaxSummary(store) : null
   const href = cash ? '/taxes/history' : '/taxes'
   return (
     <>
@@ -211,6 +214,12 @@ export async function TaxHistoryScreen({
           )}
         </>
       )}
+      {!cash && view && annual ? <Card title={getPageCopy('annualTaxSummary', language).title} className="mt-5">
+        <div className="p-4"><AnnualTaxSummary language={language} summary={{
+          ...annual, unallocatedEventCount: 0,
+          years: annual.years.map(year => ({ ...year, rows: year.rows.filter(row => view!.obligations.some(item => item.id === row.id)) })).filter(year => year.rows.length > 0),
+        }} /></div>
+      </Card> : null}
       {view && view.unallocated.length > 0 && (
         <Card title={copy.unallocated} className="mt-5">
           <p className="p-4 text-body text-ink-2">{copy.unallocatedNote}</p>
