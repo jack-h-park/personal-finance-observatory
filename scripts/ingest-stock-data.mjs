@@ -1,3 +1,4 @@
+import { approvedBankBalanceRows } from './approved-bank-balances.mjs'
 import { verifiedSourceConfirmations, fidelitySnapshotFacts } from './source-confirmations.mjs'
 import { financeFile, resolveFinancePaths } from './finance-paths.mjs'
 import crypto from 'node:crypto'
@@ -763,6 +764,11 @@ const cashRows = [
     derived: 0,
   })),
 ]
+const approvedBankBalancesPath = path.join(dataDir, 'bank-statements', 'approved-bank-balances.json')
+if (fs.existsSync(approvedBankBalancesPath)) {
+  const receipts = JSON.parse(fs.readFileSync(approvedBankBalancesPath, 'utf8'))
+  cashRows.push(...approvedBankBalanceRows(receipts, cashRows, path.basename(approvedBankBalancesPath)))
+}
 const sourceConfirmationResult = verifiedSourceConfirmations(accountMap.sourceConfirmations, dataDir)
 const confirmedSources = []
 for (const receipt of sourceConfirmationResult.accepted) {
