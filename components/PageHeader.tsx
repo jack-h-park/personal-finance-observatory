@@ -2,6 +2,7 @@ import Link from 'next/link'
 import type { ReactNode } from 'react'
 import { AutoRefresh } from '@/components/AutoRefresh'
 import { Badge } from '@/components/controls'
+import { PageHeader as StudioPageHeader } from '@/components/studio-ui/console'
 import type { HeaderStatus } from '@/lib/header-status'
 import type { Language } from '@/lib/i18n'
 import { routeName, routeSection, type RouteHref } from '@/lib/page-names'
@@ -72,33 +73,23 @@ export function PageHeader({
   const head = showEmph && emphasis ? title.slice(0, title.length - emphasis.length) : title
 
   return (
-    <header className={`${showEmph ? '' : 'ai-page-header '}mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between sm:gap-4`}>
-      <div className="min-w-0">
-        {trail.parent ? (
-          <Breadcrumb parent={trail.parent} language={trail.language} />
-        ) : (
-          trail.eyebrow && <div className="t-eyebrow mb-1">{trail.eyebrow}</div>
-        )}
-        <h1 className="t-h2">
-          {head}
-          {showEmph && <span className="t-emph-gradient">{emphasis}</span>}
-        </h1>
-        {subtitle && <p className="mt-1 max-w-4xl text-body leading-relaxed text-ink-2">{subtitle}</p>}
-      </div>
-      {/*
-        Wraps between its children, never inside one: on a phone a Korean label
-        would otherwise break mid-word. The badge is whitespace-nowrap itself.
-      */}
-      <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1">
-        {status ? <StatusPill {...status} /> : null}
-        {actions ? <div className="flex items-center whitespace-nowrap">{actions}</div> : null}
-        {autoRefresh ? (
-          <div className="flex items-center whitespace-nowrap">
-            <AutoRefresh seconds={30} />
-          </div>
-        ) : null}
-      </div>
-    </header>
+    <StudioPageHeader
+      className={showEmph ? undefined : 'ai-page-header'}
+      title={showEmph ? <>{head}<span className="t-emph-gradient">{emphasis}</span></> : head}
+      subtitle={subtitle}
+      trail={trail.parent ? (
+        <Breadcrumb parent={trail.parent} language={trail.language} />
+      ) : (
+        trail.eyebrow && <div className="t-eyebrow mb-1">{trail.eyebrow}</div>
+      )}
+      actions={status || actions || autoRefresh ? (
+        <>
+          {status ? <StatusPill {...status} /> : null}
+          {actions ? <div className="flex items-center whitespace-nowrap">{actions}</div> : null}
+          {autoRefresh ? <div className="flex items-center whitespace-nowrap"><AutoRefresh seconds={30} /></div> : null}
+        </>
+      ) : undefined}
+    />
   )
 }
 

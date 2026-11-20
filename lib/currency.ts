@@ -1,3 +1,5 @@
+import { formatUsdAmount } from './studio-ui/format'
+
 export const DISPLAY_CURRENCIES = ['KRW', 'USD'] as const
 export type DisplayCurrency = (typeof DISPLAY_CURRENCIES)[number]
 
@@ -29,10 +31,7 @@ export function formatKrw(value: number | null | undefined) {
 }
 
 export function formatUsd(value: number | null | undefined) {
-  const n = Number(value ?? 0)
-  const body = Math.abs(n).toLocaleString('en-US', { maximumFractionDigits: 2, minimumFractionDigits: 2 })
-  // -0.004 rounds to 0.00; printing "-$0.00" would claim a loss that is not there.
-  return `${n < 0 && Number(body.replace(/,/g, '')) !== 0 ? '-' : ''}$${body}`
+  return formatUsdAmount(Number(value ?? 0))
 }
 
 export function convertMoney(value: number, fromCurrency: string, displayCurrency: DisplayCurrency, usdKrwRate: number | null) {
