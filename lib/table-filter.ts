@@ -116,6 +116,15 @@ export function applyTicker<T extends { ticker: string; market?: string }>(rows:
   return rows.filter((row) => row.ticker === ticker)
 }
 
+/**
+ * Whether a ticker-scoped view may be missing that ticker's older rows: the
+ * page read a fixed window of the newest rows (`limit`) and the window came
+ * back full, so the ticker filter only searched that window.
+ */
+export function tickerWindowTruncated(windowRows: number, limit: number, ticker: string | undefined): boolean {
+  return Boolean(ticker) && windowRows >= limit
+}
+
 /** The single `ticker` value in a query string, or undefined. */
 export function readTicker(params: Record<string, string | string[] | undefined>): string | undefined {
   const raw = params.ticker

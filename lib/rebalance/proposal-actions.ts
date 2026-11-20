@@ -25,7 +25,6 @@ import {
   transition,
   type Fill,
   type Proposal,
-  type ProposalStatus,
   type TargetChange,
 } from './proposal-store'
 
@@ -99,18 +98,6 @@ export function isProposalErrorCode(value: unknown): value is ProposalErrorCode 
 
 export function isProposalDoneCode(value: unknown): value is ProposalDoneCode {
   return typeof value === 'string' && (PROPOSAL_DONE_CODES as readonly string[]).includes(value)
-}
-
-/** Badge tone per status: open work is info or warning, finished is success, ended is neutral. */
-export const PROPOSAL_STATUS_TONE: Record<ProposalStatus, 'neutral' | 'info' | 'success' | 'warning'> = {
-  draft: 'info',
-  targets_approved: 'info',
-  plan_approved: 'warning',
-  executing: 'warning',
-  reconciled: 'success',
-  closed: 'neutral',
-  rejected: 'neutral',
-  expired: 'neutral',
 }
 
 const text = (form: FormData, name: string) => {

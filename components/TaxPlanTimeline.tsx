@@ -13,7 +13,7 @@ import { positionHref } from '@/lib/position-url'
 import type { MasterPlanMonth, MonthlySaleMasterPlan } from '@/lib/tax-planning'
 import type { FilingScenario } from '@/lib/tax-policy'
 import type { SavedInstructionExecution, SavedInstructionStatus } from '@/lib/tax-plan-store'
-import { FILING_PROFILE_TONE, PLAN_ROLE_TONE, bucketTone, categoryTone, signTone, toneBgClass } from '@/lib/tone'
+import { EXECUTION_TONE, FILING_PROFILE_TONE, PLAN_ROLE_TONE, bucketTone, categoryTone, signTone, toneBgClass } from '@/lib/tone'
 import { Input, Select } from '@/components/form'
 import { DataTable } from '@/components/DataTable'
 import { SubmitButton } from '@/components/SubmitButton'
@@ -40,13 +40,6 @@ function instructionStatusLabel(status: SavedInstructionStatus, copy: ReturnType
   if (status === 'executed') return copy.executedStatus
   if (status === 'skipped') return copy.skippedStatus
   return copy.plannedStatus
-}
-
-const EXECUTION_TONE: Record<SavedInstructionStatus, 'neutral' | 'info' | 'success' | 'warning'> = {
-  planned: 'neutral',
-  reviewed: 'info',
-  executed: 'success',
-  skipped: 'warning',
 }
 
 function ExecutionStatusControl({

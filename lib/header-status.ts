@@ -1,8 +1,9 @@
 import { createElement, type ReactNode } from 'react'
 import type { DataOpsQueueKind } from '@/lib/adapters/portfolio-db'
 import { fmtNumber } from '@/lib/format'
-import { ISSUE_SEVERITY, type IssueSeverity, type Severity } from '@/lib/tone'
-import type { getPageCopy } from '@/lib/ui-copy'
+import type { Language } from '@/lib/i18n'
+import { ISSUE_SEVERITY, POSITION_BREAK_SEVERITY, type IssueSeverity, type Severity } from '@/lib/tone'
+import { getUiCopy, type getPageCopy } from '@/lib/ui-copy'
 
 /**
  * The page's one-line verdict in its header. When it reports a problem, `href`
@@ -17,7 +18,27 @@ export type HeaderStatus = { severity: Severity; label: ReactNode; href?: string
  * builds the pair here from one source and passes `status` to its PageHeader
  * and `issues` to the card.
  */
-export type LinkedIssues = { status: HeaderStatus | undefined; issues: { count: number; severity: IssueSeverity } }
+export type LinkedIssues = {
+  status: HeaderStatus | undefined
+  issues: { count: number; severity: IssueSeverity; capped?: true }
+}
+
+/**
+ * The most position breaks the adapter returns (`limit 100` in
+ * `readPositionBreaks`, pinned by tests/count-agreement.test.ts). A list that
+ * long may have been cut, so its length is a lower bound, not a count.
+ */
+export const POSITION_BREAK_CAP = 100
+
+/** Whether a position-break count is the adapter's cap rather than the real number. */
+export function positionBreaksCapped(count: number): boolean {
+  return count >= POSITION_BREAK_CAP
+}
+
+/** A count for display: `100+` when it is a lower bound, the plain number otherwise. */
+export function fmtCount(count: number, capped: boolean | undefined, language: Language): string {
+  return capped ? getUiCopy(language).common.countAtLeast(fmtNumber(count)) : fmtNumber(count)
+}
 
 /** Every linked card on the pages below lists items to look at; only the pages that say why read worse. */
 const TO_REVIEW: IssueSeverity = 'attention'
@@ -28,8 +49,12 @@ function linkedIssues(
   href: string,
   label: (count: number) => ReactNode,
   clear: HeaderStatus | undefined,
+  capped = false,
 ): LinkedIssues {
-  return { status: count > 0 ? { severity, label: label(count), href } : clear, issues: { count, severity } }
+  return {
+    status: count > 0 ? { severity, label: label(count), href } : clear,
+    issues: capped ? { count, severity, capped: true } : { count, severity },
+  }
 }
 
 /** /health: failed checks plus stale sources; an error check or a missing source makes it a problem. */
@@ -69,7 +94,8 @@ function queueCount(queue: readonly { count: number }[]) {
 /**
  * /data-ops: the KPI tiles under the queue headline, each read from the queue
  * rows it stands for, so the tiles always sum to the headline. Mapping counts
- * the income rows the suggested rules would map, as the queue row does.
+ * the income rows the suggested rules would map, as the queue row does, and so
+ * does the suggestions card's badge (`mappingSuggestionRows`).
  */
 export function dataOpsQueueTiles(queue: readonly { kind: DataOpsQueueKind; count: number }[]) {
   const of = (...kinds: DataOpsQueueKind[]) => queueCount(queue.filter((item) => kinds.includes(item.kind)))
@@ -81,24 +107,61 @@ export function dataOpsQueueTiles(queue: readonly { kind: DataOpsQueueKind; coun
   }
 }
 
-/** /data-ops: the priority-work queue, counted by the items its rows stand for. */
-export function dataOpsLinkedIssues(copy: ReturnType<typeof getPageCopy<'dataOps'>>, queue: readonly { count: number }[]): LinkedIssues {
-  return linkedIssues(queueCount(queue), TO_REVIEW, '#data-ops-priority-work', (n) => copy.needsReview(fmtNumber(n)), {
-    severity: 'ok',
-    label: copy.noPending,
-  })
+/**
+ * The income rows a list of mapping suggestions would map: the suggestions
+ * card's badge, so it reports the number the mapping tile and queue row show
+ * rather than how many suggestions the card lists.
+ */
+export function mappingSuggestionRows(suggestions: readonly { row_count: number | null }[]): number {
+  return suggestions.reduce((sum, row) => sum + Number(row.row_count ?? 0), 0)
+}
+
+/** Whether a queue row's count is a lower bound: only the position-break row is capped, by the adapter. */
+export function queueRowCapped(row: { kind: DataOpsQueueKind; count: number }): boolean {
+  return row.kind === 'position_breaks' && positionBreaksCapped(row.count)
+}
+
+/**
+ * /data-ops: the priority-work queue, counted by the items its rows stand for.
+ * When the position-break row is capped the sum is a lower bound too, and the
+ * pill, the card badge and the headline all say so.
+ */
+export function dataOpsLinkedIssues(
+  copy: ReturnType<typeof getPageCopy<'dataOps'>>,
+  queue: readonly { kind: DataOpsQueueKind; count: number }[],
+  language: Language,
+): LinkedIssues {
+  const capped = queue.some(queueRowCapped)
+  return linkedIssues(
+    queueCount(queue),
+    TO_REVIEW,
+    '#data-ops-priority-work',
+    (n) => copy.needsReview(fmtCount(n, capped, language)),
+    { severity: 'ok', label: copy.noPending },
+    capped,
+  )
 }
 
 /**
  * /reconciliation: the position breaks its breaks card lists, a confirmed
- * discrepancy each, so a problem. The hero reads the same count; the work
+ * discrepancy each, so a problem (`POSITION_BREAK_SEVERITY`, which the
+ * /data-ops breaks tile reads too). The hero reads the same count; the work
  * queue that also counted stale sources and valuation gaps lives on /data-ops.
  */
-export function reconciliationLinkedIssues(copy: ReturnType<typeof getPageCopy<'reconciliation'>>, breaks: number): LinkedIssues {
-  return linkedIssues(breaks, 'problem', '#reconciliation-breaks', (n) => copy.reviewItems(fmtNumber(n)), {
-    severity: 'ok',
-    label: copy.reconciled,
-  })
+export function reconciliationLinkedIssues(
+  copy: ReturnType<typeof getPageCopy<'reconciliation'>>,
+  breaks: number,
+  language: Language,
+): LinkedIssues {
+  const capped = positionBreaksCapped(breaks)
+  return linkedIssues(
+    breaks,
+    POSITION_BREAK_SEVERITY.some,
+    '#reconciliation-breaks',
+    (n) => copy.reviewItems(fmtCount(n, capped, language)),
+    { severity: 'ok', label: copy.reconciled },
+    capped,
+  )
 }
 
 /**

@@ -20,10 +20,10 @@ import { getAllocationPolicy, rebalanceWrappers } from '@/lib/rebalance/allocati
 import { computeAllocation, type Allocation, type SleeveRow } from '@/lib/rebalance/allocation'
 import { getInstrumentClasses, type InstrumentClasses } from '@/lib/rebalance/instrument-classes'
 import { listProposals, type Proposal, type ProposalStatus } from '@/lib/rebalance/proposal-store'
-import { isProposalErrorCode, PROPOSAL_STATUS_TONE } from '@/lib/rebalance/proposal-actions'
+import { isProposalErrorCode } from '@/lib/rebalance/proposal-actions'
 import { fmtDateShort } from '@/lib/format'
 import { createManualProposal } from './actions'
-import { DRIFT_BAND_SEVERITY, REBALANCE_ACTION_TONE, TO_REVIEW_SEVERITY, categoryTone, countTone, statusTone } from '@/lib/tone'
+import { DRIFT_BAND_SEVERITY, PROPOSAL_STATUS_TONE, REBALANCE_ACTION_TONE, TO_REVIEW_SEVERITY, categoryTone, countTone, statusTone } from '@/lib/tone'
 import { rebalanceLinkedIssues } from '@/lib/header-status'
 
 export const dynamic = 'force-dynamic'

@@ -8,6 +8,7 @@ export const transactions = defineCopy({
     card: 'Recent transactions',
     searchPlaceholder: 'Ticker, name, account, or broker',
     summary: (shown: string, total: string) => `${shown} of ${total} recent rows`,
+    tickerWindow: (limit: string) => `Searched the ${limit} most recent rows only; older transactions for this ticker are not listed.`,
     filters: { market: 'Market', broker: 'Broker', account: 'Account', type: 'Type', term: 'Term', status: 'Status' },
     columns: {
       market: 'Market',
@@ -30,6 +31,7 @@ export const transactions = defineCopy({
     card: '최근 거래',
     searchPlaceholder: '종목코드, 종목명, 계좌 또는 증권사',
     summary: (shown: string, total: string) => `최근 ${total}건 중 ${shown}건`,
+    tickerWindow: (limit: string) => `최근 ${limit}건 안에서만 찾았습니다. 이 종목의 더 오래된 거래는 표시되지 않습니다.`,
     filters: { market: '시장', broker: '증권사', account: '계좌', type: '유형', term: '과세 구분', status: '상태' },
     columns: {
       market: '시장',

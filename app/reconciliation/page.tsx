@@ -13,7 +13,7 @@ import { getPageCopy } from '@/lib/ui-copy'
 import { formatSort, parseSort, sortRows, type TableSort } from '@/lib/table-sort'
 import { FAULT_SEVERITY, RECONCILIATION_STATUS_TONE, TO_REVIEW_SEVERITY, categoryTone, countTone, reconciliationStatusKey } from '@/lib/tone'
 import { routeMetadata, routeSection } from '@/lib/page-names'
-import { reconciliationLinkedIssues } from '@/lib/header-status'
+import { fmtCount, reconciliationLinkedIssues } from '@/lib/header-status'
 import { CardRow, KpiBand } from '@/components/layout'
 
 export const dynamic = 'force-dynamic'
@@ -36,7 +36,7 @@ export default async function ReconciliationPage({
   const copy = getPageCopy('reconciliation', language)
   const glossary = getGlossary(language)
   const review = getReconciliationReview()
-  const breaks = reconciliationLinkedIssues(copy, review.positionBreaks.length)
+  const breaks = reconciliationLinkedIssues(copy, review.positionBreaks.length, language)
   const sourceIssueCount = review.totals.source_issue_count + review.totals.validation_issue_count
 
   return (
@@ -54,7 +54,7 @@ export default async function ReconciliationPage({
           title={copy.reviewItemsTitle}
           info={copy.reviewItemsInfo}
           eyebrow={copy.headline}
-          value={fmtNumber(breaks.issues.count)}
+          value={fmtCount(breaks.issues.count, breaks.issues.capped, language)}
           hint={breaks.issues.count > 0 ? copy.breaksHint : copy.noBreaksHint}
         >
           <KpiBand>

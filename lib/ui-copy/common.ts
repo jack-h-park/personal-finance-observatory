@@ -29,7 +29,9 @@ export const UI_COPY_BY_LANG = {
       notRecorded: 'Not recorded',
       elapsed: 'elapsed',
       skipToContent: 'Skip to main content',
-      issueCount: (count: number) => `${count} to review`,
+      issueCount: (count: string) => `${count} to review`,
+      /** A count that is a lower bound: the source list stopped at its cap. */
+      countAtLeast: (count: string) => `${count}+`,
       appDescription: 'Assets, cash flow and KR/US tax history with private local evidence.',
       privateAccess: {
         title: 'Approved owner devices only',
@@ -174,7 +176,8 @@ export const UI_COPY_BY_LANG = {
       notRecorded: '기록 없음',
       elapsed: '경과',
       skipToContent: '본문으로 바로가기',
-      issueCount: (count: number) => `확인 ${count}건`,
+      issueCount: (count: string) => `확인 ${count}건`,
+      countAtLeast: (count: string) => `${count}+`,
       appDescription: '자산, 현금 흐름, 한·미 세금 이력을 비공개 로컬 증빙과 함께 봅니다.',
       privateAccess: {
         title: '승인된 본인 기기만 접근 가능',
