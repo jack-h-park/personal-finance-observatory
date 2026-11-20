@@ -92,7 +92,7 @@ export const cashInflow = defineCopy({
     legendHint: '범례를 누르면 차트에서 그 분류를 숨기거나 다시 보여줍니다.',
     triage: {
       title: '정리할 미분류 입금',
-      note: '보낸 곳별로 묶었습니다. 아래 규칙을 노트북의 data/manual-mappings.json에 있는 bankInflowRules에 붙여 넣고 분류를 정하면, 다음 refresh 때 분류됩니다.',
+      note: '보낸 곳별로 묶었습니다. 아래 규칙을 노트북의 data/manual-mappings.json에 있는 bankInflowRules에 붙여 넣고 분류를 정하면, 다음 갱신 때 분류됩니다.',
       group: (count: string, total: string, first: string, last: string) => `${count}건, ${total}, ${first} ~ ${last}`,
       rule: '붙여 넣을 규칙',
       count: '정리할 건수',
