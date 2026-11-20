@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
+import { normalizeLanguage } from '../lib/i18n'
 import { EMPTY_VALUE, fmtDate, fmtDateShort, fmtDateTime, fmtDuration, fmtDurationDays, fmtMonth } from '../lib/format'
 
 // A date-only value must not move a day west of UTC, and CI runs in UTC, so pin
@@ -36,4 +37,11 @@ test('date helpers return EMPTY_VALUE for a missing value', () => {
 
 test('fmtDate keeps the ISO calendar date in Korean', () => {
   assert.equal(fmtDate('2026-08-11', 'ko'), '2026-08-11')
+})
+
+test('new sessions default to Korean while documented language cookies still work', () => {
+  assert.equal(normalizeLanguage(undefined), 'ko')
+  assert.equal(normalizeLanguage('invalid'), 'ko')
+  assert.equal(normalizeLanguage('ko'), 'ko')
+  assert.equal(normalizeLanguage('en'), 'en')
 })

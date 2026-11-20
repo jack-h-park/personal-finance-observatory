@@ -1,60 +1,13 @@
 /* A copy of the J·P theme, not shared with any other repo: edit it here.
    Live classes: .t-h2, .t-eyebrow, .t-emph-gradient, .ai-page-header, .jp-stagger. */
 
-/* ── Light mode neutrals (Notion-ink foundation) ───────────────── */
+/* The Studio kit defines surfaces, status tones, fonts, and shape tokens. */
 [data-theme="jp"] {
-  /* 3.3 · Surfaces */
-  --bg-page:        #FFFFFF;
-  --bg-surface:     #F7F6F3;
-  --bg-card:        #FFFFFF;
-
-  /* 3.3 · Text */
-  --text-primary:   #37352F;
-  --text-secondary: #6B6A65;
-  /* 4.76:1 on white: safe for the 11–12px helper copy used throughout the dashboard. */
-  /* Was #74736D — 4.40:1 on --bg-surface, just under WCAG AA (4.5:1). This
-     token carries almost every 11px label, hint and metric caption in the app,
-     so the smallest text was also the least legible; axe reported it on all 38
-     route-language combinations. #72716B is 4.53:1 on surface, 4.65 on page and
-     4.90 on card, so it clears AA on every background the app uses, and is
-     still a step lighter than --text-secondary.
-     jackhpark-pm-console made the same fix from #9B9A97 and chose #767570,
-     which is 4.6:1 against white but only 4.27:1 on this app's surface — it
-     measured against a background this app does not use for this text. */
-  --text-tertiary:  #72716B;
-
-  /* 3.3 · Borders */
-  --border-subtle:  rgba(55, 53, 47, 0.09);
-  --border-default: #EFEEEA;
-
-  /* 3.4 · Semantic status */
-  --accent-info:    #0B6E99;
-  --accent-success: #3B6D11;
-  /* 5.48:1 on white so warning labels remain readable without relying on color alone. */
-  --accent-warning: #965C0B;
-  --accent-danger:  #A32D2D;
-
-  /* 5.3 · Elevation */
-  --shadow-card:     0 1px 2px rgba(15,15,15,0.04), 0 4px 12px rgba(15,15,15,0.05);
-  --shadow-elevated: 0 10px 20px rgba(15,15,15,0.05);
-  --shadow-popover:  0 18px 35px rgba(15,15,15,0.08);
-
-  /* 5.2 · Radius */
-  --radius-sm:   6px;
-  --radius-md:   10px;
-  --radius-lg:   14px;
-  --radius-xl:   24px;
-  --radius-pill: 999px;
-
-  /* 4.3 · Type scale */
-  --t-h2:      22px;  --lh-h2:     1.25;  --tr-h2:      -0.015em;
-  --t-body:    14px;  --lh-body:   1.65;
-  --t-eyebrow: 11px;  --tr-eyebrow: 0.10em;
-
-  /* Font families — resolved from next/font CSS variables on the root element */
-  --font-sans: var(--font-geist-sans, ui-sans-serif, system-ui, -apple-system, sans-serif);
-  --font-mono: var(--font-geist-mono, ui-monospace, "SFMono-Regular", monospace);
-
+  --t-h2: 22px;
+  --lh-h2: 1.25;
+  --tr-h2: -0.015em;
+  --t-eyebrow: 11px;
+  --tr-eyebrow: 0.10em;
 }
 
 /* ── Component overrides ─────────────────────────────────────────── */
@@ -79,10 +32,7 @@
 
 /* Eyebrow / overline → gradient text (accessible stops) */
 [data-theme="jp"] .t-eyebrow {
-  background-image: var(--gradient-text);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  color: var(--text-secondary);
 }
 
 
@@ -160,10 +110,7 @@
 
 /* Gradient text emphasis — for a single key word per heading */
 [data-theme="jp"] .t-emph-gradient {
-  background-image: var(--gradient-text);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  color: var(--accent-info);
   font-weight: 500;
 }
 

@@ -51,6 +51,6 @@ export function createMoneyFormatter({ displayCurrency, usdKrwRate }: CurrencyPr
     const converted = convertMoney(n, code, displayCurrency, usdKrwRate)
     if (converted.currency === 'KRW') return formatKrw(converted.value)
     if (converted.currency === 'USD') return formatUsd(converted.value)
-    return `${converted.value.toLocaleString()} ${converted.currency}`
+    return `${converted.value.toLocaleString('en-US')} ${converted.currency}`
   }
 }

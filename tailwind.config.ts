@@ -31,7 +31,7 @@ const config: Config = {
         'line-subtle': themeColor('--border-subtle'),
         info: themeColor('--accent-info'),
         success: themeColor('--accent-success'),
-        warning: themeColor('--accent-warning'),
+        warning: themeColor('--accent-warning-text'),
         danger: themeColor('--accent-danger'),
       },
       borderRadius: {

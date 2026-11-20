@@ -22,14 +22,14 @@ export function Card({
    *  on `className` (e.g. `xl:h-[42rem]`) so a `flex-1` child list scrolls to fill
    *  it — lets two side-by-side cards stay exactly equal-height regardless of content. */
   fill?: boolean
-  /** Brand gradient accent bar across the card's top edge. Use sparingly — once
-   *  per surface for the hero/primary card (gradient guideline §3.2). */
+  /** Accent bar across the card's top edge. Use sparingly — once
+   *  per surface for the primary card. */
   accent?: boolean
 }) {
   return (
     <section
       className={clsx(
-        'relative rounded-md border border-line bg-card shadow-card',
+        'relative rounded-md border border-line bg-card',
         fill && 'flex flex-col',
         className
       )}
@@ -39,7 +39,7 @@ export function Card({
         <span
           aria-hidden
           className="pointer-events-none absolute inset-x-0 top-0 h-[3px]"
-          style={{ backgroundImage: 'var(--gradient-full)', borderRadius: 'var(--radius-md) var(--radius-md) 0 0' }}
+          style={{ background: 'var(--accent-info)', borderRadius: 'var(--radius-md) var(--radius-md) 0 0' }}
         />
       )}
       {(title || action) && (

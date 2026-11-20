@@ -73,19 +73,19 @@ export function HelpPopover({
         role="tooltip"
         aria-hidden={!open}
         className={clsx(
-          // Below `sm` it is pinned to the viewport rather than to the "i".
+          // Below `md` it is pinned to the viewport rather than to the "i".
           // A 288px panel anchored to a button near the right edge hangs off
           // the screen — it widened the document by up to 97px on /review, and
           // absolutely-positioned overflow is what a phone user then has to
           // scroll sideways past. Fixed positioning also keeps it out of the
           // document's scroll width entirely, so the page stops overflowing.
           'z-50 rounded-md border border-line bg-card p-3 text-left text-caption font-normal normal-case leading-relaxed tracking-normal text-ink-2 shadow-elevated transition-opacity duration-100',
-          'max-sm:fixed max-sm:inset-x-4 max-sm:bottom-4 max-sm:w-auto',
-          'sm:absolute sm:top-full sm:mt-1.5 sm:w-72',
+          'max-md:fixed max-md:inset-x-4 max-md:bottom-4 max-md:w-auto',
+          'md:absolute md:top-full md:mt-1.5 md:w-72',
           open ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0 group-hover:opacity-100',
-          align === 'center' && 'sm:left-1/2 sm:-translate-x-1/2',
-          align === 'left' && 'sm:left-0',
-          align === 'right' && 'sm:right-0'
+          align === 'center' && 'md:left-1/2 md:-translate-x-1/2',
+          align === 'left' && 'md:left-0',
+          align === 'right' && 'md:right-0'
         )}
       >
         {children}

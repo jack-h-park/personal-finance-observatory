@@ -1,9 +1,12 @@
 import type { Metadata } from 'next'
 import type { ReactNode } from 'react'
 import { geistSans, geistMono } from '@/lib/fonts'
+import '@/styles/jhp-app-theme.css'
 import '@/styles/jp-theme.css'
 import '@/styles/globals.css'
+import '@/styles/jhp-nav.css'
 import { LanguageProvider } from '@/components/LanguageProvider'
+import { StudioAppNavigation } from '@/components/StudioAppNavigation'
 import { Sidebar } from '@/components/Sidebar'
 import { DevCopyBadge } from '@/components/DevCopyBadge'
 import { PrivateAccessNotice } from '@/components/PrivateAccessNotice'
@@ -56,19 +59,20 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
           {skipLabel}
         </a>
         <LanguageProvider language={language} currencyPreferences={currencyPreferences}>
-          <div className="flex min-h-screen flex-col lg:flex-row">
+          <StudioAppNavigation language={language} />
+          <div className="finance-shell flex flex-col lg:flex-row">
             <Sidebar language={language} displayCurrency={currencyPreferences.displayCurrency} assetView={assetView} showAllAssets={showAllAssets} />
             {/*
-              max-sm:overflow-x-clip stops the page itself scrolling sideways on a
+              max-md:overflow-x-clip stops the page itself scrolling sideways on a
               phone. /tax-settings could be dragged 234px to the right onto blank
               space, because a table with a 48rem min-width still adds to the
               document's scroll width even though the card around it scrolls that
               table on its own. `clip` rather than `hidden`: hidden would make this
               a scroll container and break the sticky table headers inside it.
-              Scoped below `sm` because that is where the help popovers are
+              Scoped below `md` because that is where the help popovers are
               position:fixed — above it they are absolute and would be cut off.
             */}
-            <main id="main-content" tabIndex={-1} className="jp-stagger min-w-0 flex-1 px-4 py-5 max-sm:overflow-x-clip lg:px-8 lg:py-6">
+            <main id="main-content" tabIndex={-1} className="jp-stagger min-w-0 flex-1 px-4 py-5 max-md:overflow-x-clip lg:px-8 lg:py-6">
               <DevCopyBadge language={language} />
               <PrivateAccessNotice language={language} mode={config.finance.mode} notice={process.env.FINANCE_ACCESS_NOTICE} />
               {children}

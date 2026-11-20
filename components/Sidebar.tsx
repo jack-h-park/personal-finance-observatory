@@ -51,7 +51,7 @@ export function Sidebar({
 
   return (
     <>
-      <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-line bg-card px-4 py-2.5 lg:hidden">
+      <header className="finance-local-header sticky z-30 flex items-center gap-3 border-b border-line bg-card px-4 py-2.5 lg:hidden">
         <button
           type="button"
           onClick={() => setOpen(true)}
@@ -83,7 +83,7 @@ export function Sidebar({
         id="app-sidebar"
         className={clsx(
           'fixed inset-y-0 left-0 z-50 flex h-screen w-64 shrink-0 flex-col overflow-y-auto border-r border-line bg-card px-3 py-5 transition-transform duration-200 ease-out',
-          'lg:sticky lg:top-0 lg:z-auto lg:w-56 lg:translate-x-0 lg:transition-none',
+          'finance-local-sidebar lg:sticky lg:z-auto lg:w-56 lg:translate-x-0 lg:transition-none',
           open ? 'translate-x-0 shadow-elevated' : '-translate-x-full'
         )}
       >
