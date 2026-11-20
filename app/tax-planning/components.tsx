@@ -322,7 +322,7 @@ export function SavedPlansPanel({
           <input type="hidden" name="strategy" value={selectedStrategy} />
           <input type="hidden" name="executionMonths" value={executionMonths} />
           <input type="hidden" name="horizonYears" value={horizonYears} />
-          <label htmlFor="plan-name" className="mt-3 block text-micro font-medium uppercase text-ink-3">
+          <label htmlFor="plan-name" className="mt-3 block text-micro font-medium uppercase tracking-[0.08em] text-ink-3 [&:lang(ko)]:tracking-normal">
             {copy.savedPlans.planName}
           </label>
           <Input

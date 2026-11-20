@@ -20,6 +20,9 @@ const PAGES = [
   'app/income/page.tsx',
   'app/rebalance/page.tsx',
   'app/positions/[market]/[ticker]/page.tsx',
+  'app/holdings/page.tsx',
+  'app/lots/page.tsx',
+  'app/transactions/page.tsx',
 ]
 
 const ARRAY_START = /\bcolumns\s*=\s*\{?\s*\[|\b(?:const|let)\s+\w*[cC]olumns\w*\s*(?::[^=]+)?=\s*\[/g

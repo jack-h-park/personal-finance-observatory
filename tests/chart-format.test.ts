@@ -56,6 +56,17 @@ test('axisTick en KRW reads in K and M', () => {
   assert.equal(axisTick(-120_000_000, KRW, 'en'), '-₩120M')
 })
 
+test('axisTick keeps cents below $1K so a fractional USD step matches its gridline', () => {
+  assert.equal(axisTick(2.5, USD, 'en'), '$2.5')
+  assert.equal(axisTick(0.25, USD, 'en'), '$0.25')
+  assert.equal(axisTick(12, USD, 'en'), '$12')
+  assert.equal(axisTick(-7.5, USD, 'en'), '-$7.5')
+  assert.equal(axisTick(999.996, USD, 'en'), '$1K')
+  assert.equal(axisTick(0.001, USD, 'en'), '0')
+  // Won stays whole below its first unit.
+  assert.equal(axisTick(2.5, KRW, 'en'), '₩3')
+})
+
 test('axisTick USD ignores language', () => {
   assert.equal(axisTick(1_500, USD, 'ko'), '$1.5K')
   assert.equal(axisTick(1_500, USD, 'en'), '$1.5K')

@@ -68,11 +68,11 @@ export default async function HoldingsPage({
         </Link>
       ),
     },
-    { key: 'quantity', label: copy.quantity, align: 'right', sortable: true, nowrap: true, render: (r) => fmtQuantity(r.quantity, 2) },
+    { key: 'quantity', label: copy.quantity, priority: 'secondary', align: 'right', sortable: true, nowrap: true, render: (r) => fmtQuantity(r.quantity, 2) },
     { key: 'native_cost', label: copy.costBasis, description: copy.nativeCostDescription, align: 'right', sortable: true, priority: 'secondary', nowrap: true, render: (r) => money(r.native_cost, r.currency) },
     { key: 'base_cost', label: copy.baseCost, description: copy.baseCostDescription, align: 'right', sortable: true, priority: 'tertiary', nowrap: true, render: (r) => (r.base_cost == null ? labels.noValue : money(r.base_cost, 'KRW')) },
     { key: 'native_market_value', label: copy.marketValue, align: 'right', sortable: true, nowrap: true, render: (r) => (r.native_market_value == null ? labels.noValue : money(r.native_market_value, r.currency)) },
-    { key: 'native_unrealized_gl', label: copy.sort.gain, description: copy.gainDescription, align: 'right', sortable: true, nowrap: true, render: (r) => <Signed value={r.native_unrealized_gl} format={(m) => money(m, r.currency)} /> },
+    { key: 'native_unrealized_gl', label: copy.sort.gain, priority: 'secondary', description: copy.gainDescription, align: 'right', sortable: true, nowrap: true, render: (r) => <Signed value={r.native_unrealized_gl} format={(m) => money(m, r.currency)} /> },
     { key: 'base_unrealized_gl', label: copy.baseGain, description: copy.baseGainDescription, align: 'right', sortable: true, priority: 'tertiary', nowrap: true, render: (r) => <Signed value={r.base_unrealized_gl} format={(m) => money(m, 'KRW')} /> },
     { key: 'native_unrealized_gl_pct', label: copy.sort.return, align: 'right', sortable: true, nowrap: true, render: (r) => <Signed value={r.native_unrealized_gl_pct} format={(m) => fmtPct(m)} /> },
     { key: 'long_term_qty', label: copy.longTerm, description: copy.longTermDescription, align: 'right', sortable: true, priority: 'tertiary', render: (r) => fmtNumber(r.long_term_qty, 2) },
@@ -81,6 +81,7 @@ export default async function HoldingsPage({
     {
       key: 'cost_status',
       label: copy.costStatusColumn,
+      priority: 'secondary',
       sortable: true,
       sortFirst: 'asc',
       nowrap: true,

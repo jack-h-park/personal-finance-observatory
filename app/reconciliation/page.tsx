@@ -131,9 +131,16 @@ export default async function ReconciliationPage({
                 sortFirst: 'asc',
                 sortValue: (r) => r.name ?? r.ticker,
                 render: (r) => (
-                  <Link href={positionHref(r.market, r.ticker)} className="font-mono text-caption font-medium text-info hover:underline">
-                    {r.name} ({r.ticker})
-                  </Link>
+                  <>
+                    <Link href={positionHref(r.market, r.ticker)} className="font-mono text-caption font-medium text-info hover:underline">
+                      {r.name} ({r.ticker})
+                    </Link>
+                    {/* Market and brokerage columns hide below md; this line keeps two breaks for one ticker apart on a phone. */}
+                    <div className="mt-1 flex items-center gap-2 md:hidden">
+                      <Badge tone={marketTone(r.market)}>{r.market}</Badge>
+                      {r.brokerage ? <span className="truncate text-caption text-ink-3">{r.brokerage}</span> : null}
+                    </div>
+                  </>
                 ),
               },
               { key: 'holding_quantity', priority: 'secondary', sortable: true, label: copy.columns.holdingQty, align: 'right', render: (r) => fmtQuantity(r.holding_quantity, 4) },

@@ -121,9 +121,10 @@ function StatusPill({ severity, label, href }: PageHeaderStatus) {
   const badge = <Badge tone={severityTone(severity)}>{label}</Badge>
   if (!href) return badge
   // The ring every linked badge in the app already uses; inline-flex so the
-  // link's box is exactly the badge's and the pill does not move.
+  // pill does not move. min-h-6 keeps the target at 24px (WCAG 2.2 SC 2.5.8)
+  // when the badge itself renders a pixel shorter.
   return (
-    <Link href={href} className="inline-flex rounded-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-info/40">
+    <Link href={href} className="inline-flex min-h-6 items-center rounded-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-info/40">
       {badge}
     </Link>
   )
