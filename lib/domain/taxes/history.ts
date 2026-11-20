@@ -20,10 +20,13 @@ export type TaxObligation = Versioned & {
   coverageConfirmed: boolean
   effectiveBasis?: EffectiveBasis
 }
+/** Statement facts tied to one return version; never cash events or offsets. */
+export type ReturnReportedAmounts = { prepayments?: Money; refundRequested?: Money; evidenceIds: string[] }
 export type TaxReturn = Versioned & {
   obligationId: string
   status: 'draft' | 'submitted' | 'accepted' | 'rejected'
   liability: Money
+  reportedAmounts?: ReturnReportedAmounts
   supersedesId?: string
   evidenceIds: string[]
   filedDate?: string
@@ -138,6 +141,7 @@ type Shape = {
   minLength?: number
   maxLength?: number
   minItems?: number
+  minProperties?: number
   format?: string
 }
 function checkShape(shape: Shape, value: unknown, at: string): void {
@@ -175,6 +179,7 @@ function checkShape(shape: Shape, value: unknown, at: string): void {
     if (shape.items) value.forEach((item, i) => checkShape(shape.items!, item, `${at}[${i}]`))
   } else if (value !== null && typeof value === 'object') {
     const obj = value as Record<string, unknown>
+    if (Object.keys(obj).length < (shape.minProperties ?? 0)) throw new Error(`Invalid ${at} empty object`)
     for (const key of shape.required ?? []) if (!(key in obj)) throw new Error(`Missing ${at}.${key}`)
     if (shape.additionalProperties === false)
       for (const key of Object.keys(obj)) if (!shape.properties?.[key]) throw new Error(`Unknown ${at} field`)
@@ -210,6 +215,17 @@ export function validateTaxHistory(input: unknown): TaxHistoryStoreV1 {
       throw new Error('Liability currency mismatch')
     if (BigInt(row.liability.minor) < 0n) throw new Error('Negative tax liability')
     evidence(row.evidenceIds)
+  }
+  for (const row of store.returns) {
+    const facts = row.reportedAmounts
+    if (!facts) continue
+    if (!facts.prepayments && !facts.refundRequested) throw new Error('Empty return-reported amounts')
+    for (const amount of [facts.prepayments, facts.refundRequested]) {
+      if (!amount) continue
+      if (amount.currency !== get('obligations', row.obligationId).currency) throw new Error('Reported amount currency mismatch')
+      if (!/^(0|[1-9]\d*)$/.test(amount.minor)) throw new Error('Invalid unsigned return-reported amount')
+    }
+    evidence(facts.evidenceIds)
   }
   for (const row of store.returns)
     if (row.supersedesId) {

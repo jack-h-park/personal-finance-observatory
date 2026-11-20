@@ -289,6 +289,9 @@
         "statusDate": {
           "type": "string",
           "format": "date"
+        },
+        "reportedAmounts": {
+          "$ref": "#/$defs/reportedAmounts"
         }
       },
       "required": [
@@ -653,6 +656,30 @@
         "records"
       ],
       "additionalProperties": false
+    },
+    "reportedAmounts": {
+      "type": "object",
+      "properties": {
+        "prepayments": {
+          "$ref": "#/$defs/money"
+        },
+        "refundRequested": {
+          "$ref": "#/$defs/money"
+        },
+        "evidenceIds": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9:._-]{0,119}$"
+          }
+        }
+      },
+      "required": [
+        "evidenceIds"
+      ],
+      "additionalProperties": false,
+      "minProperties": 2
     }
   }
 }

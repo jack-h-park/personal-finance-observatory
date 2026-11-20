@@ -1,7 +1,7 @@
 # Personal Finance Observatory product completion plan
 
 **Date:** November 20, 2026 (America/Los_Angeles)
-**Status:** Proposed completion scope for review. Planning authorization only; no new implementation, private adoption or deployment.
+**Status:** Accepted and merged in #367. Packet 1 is separately authorized and implemented for source review with synthetic validation; it is not merged or deployed. No private adoption, actual comparison or operating change is authorized by this document.
 **Governing design:** [Original product and architecture design](../specs/2026-11-10-personal-finance-observatory-design.md). This plan resets the remaining sequence, not the original purpose or accepted financial facts.
 
 ## 1. Finish the product, not the maintenance queue
