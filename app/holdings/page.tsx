@@ -9,6 +9,7 @@ import { createMoneyFormatter } from '@/lib/currency'
 import { getCurrencyPreferences } from '@/lib/currency-server'
 import { fmtNumber, fmtPct, fmtQuantity } from '@/lib/format'
 import { getLanguage } from '@/lib/i18n-server'
+import { holdingsTotals } from '@/lib/holdings-totals'
 import { positionHref } from '@/lib/position-url'
 import { getPageCopy, getUiCopy } from '@/lib/ui-copy'
 import { applyFilters, applySearch, filterOptions, readFilters, withParam, type FilterGroup } from '@/lib/table-filter'
@@ -95,14 +96,8 @@ export default async function HoldingsPage({
     sort,
     columnSortValue(columns)
   )
-  const totals = filtered.reduce(
-    (acc, row) => ({
-      cost: acc.cost + Number(row.base_cost ?? row.total_cost_krw ?? 0),
-      marketValue: acc.marketValue + Number(row.base_market_value ?? 0),
-      unrealized: acc.unrealized + Number(row.base_unrealized_gl ?? 0),
-    }),
-    { cost: 0, marketValue: 0, unrealized: 0 }
-  )
+  const totals = holdingsTotals(filtered)
+  const incompleteTotals = filtered.length > 0 && Object.values(totals).includes(null)
 
   const groupLabels: Record<string, string> = {
     market: copy.market,
@@ -139,13 +134,15 @@ export default async function HoldingsPage({
           />
           <TotalsStrip columns="sm-4">
             <Total label={copy.filtered} value={<>{fmtNumber(filtered.length)} / {fmtNumber(rows.length)}</>} />
-            <Total label={copy.costBasis} value={money(totals.cost, 'KRW')} />
-            <Total label={copy.marketValue} value={money(totals.marketValue, 'KRW')} />
+            <Total label={copy.costBasis} value={totals.cost == null ? labels.noValue : money(totals.cost, 'KRW')} />
+            <Total label={copy.marketValue} value={totals.marketValue == null ? labels.noValue : money(totals.marketValue, 'KRW')} />
             <Total label={copy.sort.gain} value={<Signed value={totals.unrealized} format={(m) => money(m, 'KRW')} />} />
           </TotalsStrip>
+          {incompleteTotals && <p className="text-caption text-ink-2">{copy.incompleteTotals}</p>}
           <DataTable
             rows={filtered}
             caption={copy.caption}
+            emptyMessage={rows.length ? copy.noMatchingHoldings : copy.noHoldings}
             sort={sort}
             sortHref={(next: TableSort) => withParam(BASE, params, 'sort', formatSort(next))}
             columns={columns}
