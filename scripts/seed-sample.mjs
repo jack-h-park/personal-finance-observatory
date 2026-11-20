@@ -445,7 +445,8 @@ for (const [date, label, opts] of [
 console.log(`Wrote sample briefing archive: ${briefingArchiveDir}`)
 
 // Seed tax history exclusively inside the owned synthetic state/evidence roots.
-const taxHistory = JSON.parse(fs.readFileSync(new URL('../examples/tax-history.synthetic.json', import.meta.url), 'utf8'))
+const taxHistoryExample = process.argv.includes('--annual-tax-review') ? '../examples/tax-history-annual-review.synthetic.json' : '../examples/tax-history.synthetic.json'
+const taxHistory = JSON.parse(fs.readFileSync(new URL(taxHistoryExample, import.meta.url), 'utf8'))
 for (const evidence of taxHistory.evidence) {
   const bytes = Buffer.from(`Synthetic ${evidence.id}; this is not a financial or tax document.\n`)
   const file = path.join(evidence.root === 'tax' ? roots.taxDir : roots.recordsDir, evidence.relativePath)

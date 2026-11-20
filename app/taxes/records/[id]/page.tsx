@@ -1,3 +1,5 @@
+import { ReturnReportedAmounts } from '@/components/ReturnReportedAmounts'
+import { getReturnReportedAmounts } from '@/lib/application/return-reported-amounts'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { PageHeader } from '@/components/PageHeader'
@@ -114,6 +116,7 @@ export default async function TaxRecordPage({
           </form>
         )}
       </Card>
+      <ReturnReportedAmounts rows={getReturnReportedAmounts(store, id, true)} obligationId={id} currency={row.currency} language={language} />
       <Card title={copy.versions} className="mt-5">
         <p className="p-4 text-body">
           {copy.basis}:{' '}
@@ -143,7 +146,7 @@ export default async function TaxRecordPage({
             </thead>
             <tbody>
               {versions.map((version) => (
-                <tr key={`${version.kind}:${version.id}`}>
+                <tr key={`${version.kind}:${version.id}`} id={`version-${version.id}`}>
                   <td className="p-3">
                     {version.kind} · {version.id}
                     {version.deleted ? ` · ${copy.archived}` : ''}
@@ -233,7 +236,7 @@ export default async function TaxRecordPage({
             const evidence = live(store.evidence).find((item) => item.id === evidenceId)
             if (!evidence)
               return (
-                <li key={evidenceId} className="p-4">
+                <li key={evidenceId} id={`evidence-${evidenceId}`} className="p-4">
                   {evidenceId}: {copy.none}
                 </li>
               )
@@ -252,7 +255,7 @@ export default async function TaxRecordPage({
                 ? indexEvidenceRoot(roots[evidence.root], evidence.sha256)
                 : null
             return (
-              <li key={evidenceId} className="p-4">
+              <li key={evidenceId} id={`evidence-${evidenceId}`} className="p-4">
                 <p className="break-all text-body">
                   {evidenceId} · {evidence.relativePath}
                 </p>

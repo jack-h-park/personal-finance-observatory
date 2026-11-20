@@ -65,6 +65,8 @@ export function getTaxRecordDetail(store: TaxHistoryStoreV1, id: string) {
       }
   const evidenceIds = new Set<string>(obligation.effectiveBasis?.evidenceIds ?? [])
   const capture = (record: HistoryRecord) => {
+    if ('reportedAmounts' in record && record.reportedAmounts)
+      for (const evidenceId of record.reportedAmounts.evidenceIds) evidenceIds.add(evidenceId)
     if ('evidenceIds' in record) for (const evidenceId of record.evidenceIds) evidenceIds.add(evidenceId)
     if ('effectiveBasis' in record && record.effectiveBasis)
       for (const evidenceId of record.effectiveBasis.evidenceIds) evidenceIds.add(evidenceId)

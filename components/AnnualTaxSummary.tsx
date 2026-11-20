@@ -1,3 +1,4 @@
+import { ReturnReportedAmounts } from '@/components/ReturnReportedAmounts'
 import React from 'react'
 import { Note } from '@/components/ui'
 import Link from 'next/link'
@@ -33,6 +34,8 @@ export function AnnualTaxSummary({ summary, language }: { summary: AnnualTaxSumm
               <dt className="text-label text-ink-3">{label}</dt><dd className="break-words text-body tabular-nums">{amount(minor)}</dd>
             </div>)}
           </dl>
+          <ReturnReportedAmounts rows={row.reportedReturns} obligationId={row.id} currency={row.currency} language={language} />
+          <Note spacing="above-2">{copy.estimateBlocked}</Note>
           {row.excludedAllocations > 0 ? <Note spacing="above-2">{copy.excluded(row.excludedAllocations)}</Note> : null}
           {row.excludedAdjustments > 0 ? <Note spacing="above-2">{copy.excludedAdjustments(row.excludedAdjustments)}</Note> : null}
           {row.undatedAllocations > 0 ? <Note spacing="above-2">{copy.undated(row.undatedAllocations)}</Note> : null}

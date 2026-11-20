@@ -1,3 +1,4 @@
+import { hypotheticalTax } from '@/lib/ui-copy/pages/hypotheticalTax'
 import { coverageSummary } from '@/lib/ui-copy/pages/coverageSummary'
 import { accountInventory } from '@/lib/ui-copy/pages/accountInventory'
 import { annualTaxSummary } from '@/lib/ui-copy/pages/annualTaxSummary'
@@ -34,6 +35,7 @@ import { fbar } from '@/lib/ui-copy/pages/fbar'
 import { washSale } from '@/lib/ui-copy/pages/washSale'
 
 export const PAGE_COPY = {
+  hypotheticalTax,
   coverageSummary,
   accountInventory,
   annualTaxSummary,
