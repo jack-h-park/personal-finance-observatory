@@ -1,6 +1,6 @@
 # Owner installation observation
 
-Updated November 17, 2026 (America/Los_Angeles). This documentation update records the separately authorized security release and later scoped backup/recovery acceptance. The preceding table and earlier sections are dated historical observations; the latest bounded source/browser/release acceptance is the final section. This task performs no deployment or private metadata adoption.
+Updated November 19, 2026 (America/Los_Angeles). This documentation update records the separately authorized freshness/gap display release and a later read-only identity/access observation. Earlier security and backup/recovery acceptance retains its dated scope. The preceding table and earlier sections are dated historical observations; the latest bounded source/browser/release acceptance is the final section. This task performs no deployment or private metadata adoption.
 
 | Layer | Verified state | Interpretation |
 | --- | --- | --- |
@@ -76,3 +76,33 @@ The operating checkout intentionally differs from repository main: later compari
 Actual 2025 tax comparison remains blocked; no supported private input, human role assignment or numerical approval was adopted. Actual generation/archive writes, briefing web publication, automatic resume and Hometax remain held. Future deployments or reconciliation of held main changes need separate scope; #347 is completed work, not permission for another rollout. The earlier read-only audit sections retain their historical installation identities and holds.
 
 The previous build and baseline source/receipts remain privately retained for controlled rollback/reconciliation and owner review. No cleanup was performed. Detailed financial figures, account labels, paths, snapshots and screenshots remain outside this public repository.
+
+
+## Supplementary freshness release acceptance: November 18, 2026
+
+[#350](https://github.com/jack-h-park/stock-portfolio-observatory/pull/350) supplies the additive capture/reader contract. [#353](https://github.com/jack-h-park/stock-portfolio-observatory/pull/353) supplies its read-only summary/detail consumer and is merged as `01c583d250f0224e4919918a5684b319c886394a`. The owner separately authorized their bounded deployment. This documentation PR records that completed release; it performs no new deployment or private adoption.
+
+| Layer | Verified identity / outcome | Boundary |
+| --- | --- | --- |
+| Isolated release source | `342f61c2c6ee9c3a8497da27dee41cf9c03e3fdf`, branch `codex/coverage-freshness-release`, based on prior serving `0eab5fc74478c7cf6426ffd0be3574ce2d688df7` | Includes the #350 capture/reader and #353 consumer only, plus the declared older-context/freshness-tone compatibility adaptations; not the whole main tree |
+| Installed build/runtime | Build `Bf9HmGflkS1qZuZrYvxic`; existing Node 22.22.3 and Next.js 15.5.28 | Installed, loopback and owner HTTPS build-manifest hashes matched with TLS verification; no dependency or framework upgrade |
+| Candidate verification | 52 focused tests passed; full isolated suite: 1,805 passed, 14 skipped, zero failures; typecheck, lint, UI guardrails and sample build passed | The release uses an older operating baseline, so its suite count differs from main's source-PR suite. Initial temporary-path/Python-dependency environment failures were resolved in disposable validation only. Fresh review found no blockers |
+| Owner-web verification | English/Korean at 1280px and 375px; explicit freshness counts, source labels and exact recorded gap intervals matched the read-only source projection | Existing combined summary counts and detail actions matched the pre-release browser baseline; source freshness and historical gaps remain independent, with no inventory-completeness assertion |
+| Preserved policy | Unknown inventory and existing pension closure/non-load guidance remained visible; no new write controls | This is bounded navigation/viewport validation, not physical-device, assistive-technology, full account reconciliation or owner completeness acceptance |
+| Preservation at release | Inspected financial/original/operator content and link targets were unchanged; environment, app service and then-current persisted/live gateway fingerprints matched baseline | SQLite SHM had only a read-lock mtime change with equal bytes. This is scoped preservation, not an atomic whole-host snapshot |
+
+The release retains the existing combined-status styling and action/reminder behavior. The older operating tone module lacks the later main severity helpers; a dedicated freshness-only map marks stale/missing/unconfirmed source freshness as warning, with current as success, following shared UX D6. This additive compatibility map and its regression test are on the release branch, not main. A future source reconciliation should preserve that distinction without importing held GUI changes or changing combined decisions. The adapter capture's added/removed lines match #350 exactly; the pure reader, summary projection, summary component and copy match their approved source.
+
+Only the app was switched and restarted after a synthetic candidate build. Package/lockfile, reminder implementation and briefing-summary transport were unchanged. No refresh, ingest, acquisition, tax import, backup, restore, actual tax comparison, actual generation or briefing publication was run. Comparison CLI #339 remains absent. Actual 2025 comparison stays blocked; automatic briefing stays disabled/paused; web writes remain disabled. Original material, mappings and unresolved decisions were not adopted or edited. The previous build, receipts and release checkout remain retained for rollback/reconciliation and review; no cleanup occurred.
+
+### Later read-only access observation: November 18, 2026
+
+The November 18 read-only check during this documentation task corroborated source `342f61c`, build `Bf9HmGflkS1qZuZrYvxic`, the owner HTTPS manifest, disabled web writes, owner-device notice, paused briefing and absent comparison CLI. It did not repeat the complete browser or financial-content acceptance above.
+
+A resumed November 19 read-only identity/hold check again found the same source/build, owner-device notice setting, disabled web writes, disabled/paused briefing and absent comparison CLI. It did not repeat the November 18 gateway/helper probes or complete browser/data acceptance.
+
+The shared gateway was changed after the release: both its full fingerprint and finance route now differ from the previously accepted fixed reviewed-device rule. The current persisted finance block imports a tailnet network restriction and `owner_only`; its live route calls the loopback `tailnet-whois` authentication service, overwriting the client-address header from the actual remote address before proxying to the same app upstream. The installed helper matched its inspected canonical source. It identifies the owner by the Tailscale user of the serving node, rather than a separately reviewed device list. Local helper probes returned 200 for the owner-loopback case and 403 for another account and an unknown address. Owner HTTPS manifest access still worked. These are scoped helper/config observations, not physical other-device tests or a complete tailnet-policy audit.
+
+Therefore do not claim that the old fixed device allowlist or the entire gateway stayed unchanged after release. Owner-account-only access and a fixed reviewed-device list are different policies; the current UI notice does not itself enforce either. This documentation task makes no access change or retrospective approval of that replacement. Confirm the intended device-versus-account policy before any later access or notice change, using the gateway's current ownership contract. Other service configuration is outside this PR.
+
+Actual 2025 comparison, generation, briefing web publication, automatic resumption and Hometax remain held. Any further source reconciliation, operating change or deployment requires its own scope. Exact device/account identities, source intervals, figures, private paths, hashes and screenshots remain outside this public repository.
