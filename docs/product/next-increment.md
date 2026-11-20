@@ -14,9 +14,9 @@ The earlier isolated releases and their browser acceptance are historical eviden
 
 Annual rules/components/composition/adapter/CLI and inactive two-stage briefing installation are also implemented. Their existence does not authorize actual 2025 comparison, generation, publication or automatic resumption. Do not rebuild these as new foundations or repeat completed scoped backup/restore acceptance.
 
-## Next integrated implementation packet
+## Integrated source packets
 
-**Annual tax review: reported facts, actual settlements and evidence in one journey.** The completion plan is accepted/merged in #367. The annual review packet is now implemented for source PR review: its [additive contract and journey](../architecture/annual-tax-review.md) includes validation, pure projection, existing-screen integration, an opt-in synthetic example and integrated acceptance tests together. It is not merged, installed or deployed.
+**Annual tax review: reported facts, actual settlements and evidence in one journey.** The completion plan is accepted/merged in #367. The annual review packet is verified merged in #369: its [additive contract and journey](../architecture/annual-tax-review.md) includes validation, pure projection, existing-screen integration, an opt-in synthetic example and integrated acceptance tests together. It is not installed or deployed by this work.
 
 Reuse the overview tax entry, annual summary, record/evidence detail and payment-date view. The source packet adds only the missing structured distinction between return-reported prepayments/refund requests and evidenced settlement events. Missing receipts stay unknown; a refund request cannot become received cash. Keep actual 2025 estimate/comparison unavailable with an explicit reason; do not reopen the accepted filing or expand unsupported methods.
 
@@ -30,9 +30,11 @@ The [completion plan's acceptance journey](../superpowers/plans/2026-11-20-perso
 
 These are bounded tracks, not prerequisites that every account, document, curator or source must be finalized before annual review can be useful.
 
-## Later and deferred work
+## Required hypothetical planning packet
 
-The [required estimate-planning packet](../superpowers/plans/2026-11-20-personal-finance-completion.md#5-required-second-packet-bounded-krus-estimate-planning) follows annual review: explicitly supported hypothetical inputs, visible rules/exclusions, reproducible bounded US/KR results and a safe link to recorded history. It is required for bounded program completion, not optional indefinite later work. Its source package and any operating adoption need separate implementation/execution authorization. Real input adoption requires evidence, a current-revision preview and its own execution authorization. Keep actual 2025 comparison blocked; Korean reporting quantization/Hometax, California, special-rate/cross-border methods and comprehensive PFIC support remain separate.
+The [required estimate-planning packet](../superpowers/plans/2026-11-20-personal-finance-completion.md#5-required-second-packet-bounded-krus-estimate-planning) follows annual review: explicitly supported hypothetical inputs, visible rules/exclusions, reproducible bounded US/KR results and a safe link to recorded history. It is required for bounded program completion, not optional indefinite later work. Its integrated [hypothetical selection implementation](../superpowers/plans/2026-11-20-hypothetical-tax-planning.md) is now authorized and implemented for source review. It adds selectable invented US ordinary/QDCG/NIIT components and exact KR national/local references on `/tax-planning/annual`, with explicit unsupported/missing-input cases, no annual total and no actual comparison. It is not merged or deployed; operating adoption needs separate execution authorization. Real input adoption requires evidence, a current-revision preview and its own execution authorization. Keep actual 2025 comparison blocked; Korean reporting quantization/Hometax, California, special-rate/cross-border methods and comprehensive PFIC support remain separate.
+
+## Deferred scope
 
 Liabilities/complete net worth, broad budgeting, archive migration, GitHub slug/path/job renaming, service extraction and connector economic promotion are deferred. Preserve total-assets wording and shadow-only connectors. Do not expand these merely to justify the project name.
 
@@ -40,4 +42,4 @@ Liabilities/complete net worth, broad budgeting, archive migration, GitHub slug/
 
 Work toward one user-observable acceptance package at a time. Keep required small fixes inside that package; park nonblocking maintenance rather than promoting every finding to the next PR. Finish already authorized work without repeated intermediate approval loops; ask for consequential missing decisions or held execution only.
 
-This source packet implements only the annual review journey and performs no private-data adoption, operating change or deployment. Its PR merge remains separate. Actual 2025 comparison remains blocked. Unknowns, financial data, originals, mapping, current access and disabled web writes are preserved. Automatic briefing stays paused; actual generation/archive writes, briefing web publication, automatic resumption, Hometax and additional deployment remain held. Retained recovery/release material and worktrees follow their existing review/retention conditions; no cleanup is authorized.
+This source packet implements only the hypothetical planning journey and performs no private-data adoption, operating change or deployment. Its PR merge remains separate. Actual 2025 comparison remains blocked. Unknowns, financial data, originals, mapping, current access and disabled web writes are preserved. Automatic briefing stays paused; actual generation/archive writes, briefing web publication, automatic resumption, Hometax and additional deployment remain held. Retained recovery/release material and worktrees follow their existing review/retention conditions; no cleanup is authorized.

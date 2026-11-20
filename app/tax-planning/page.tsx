@@ -120,9 +120,10 @@ export default async function TaxPlanningPage({
         subtitle={copy.page.subtitle}
         status={warnings.status}
         actions={
-          <TextLink href="/tax-settings">
-            {copy.page.editAssumptions}
-          </TextLink>
+          <>
+            <TextLink href="/tax-planning/annual">{getPageCopy('hypotheticalTax', language).title}</TextLink>
+            <TextLink href="/tax-settings">{copy.page.editAssumptions}</TextLink>
+          </>
         }
         autoRefresh={false}
       />
