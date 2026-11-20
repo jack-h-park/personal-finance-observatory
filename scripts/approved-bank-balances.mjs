@@ -20,10 +20,10 @@ export function approvedBankBalanceRows(receipts, existingRows, source) {
     approvedDates.add(key)
 
     const history = existingRows.filter(row => row.institution === institution
-      && row.account === account && row.currency === currency && row.derived === 0)
+      && row.account === account && row.currency === currency)
     const identities = new Set(history.map(row => JSON.stringify([row.owner, row.kind])))
     if (identities.size !== 1) throw new Error('approved balance must match one existing bank account')
-    // The bank's same-day statement takes precedence once it arrives.
+    // A bank-sourced balance for the same date takes precedence.
     if (history.some(row => row.as_of_date === date)) return []
     const { owner, kind } = history[0]
     return [{
