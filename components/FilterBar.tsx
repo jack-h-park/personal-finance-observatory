@@ -3,6 +3,7 @@ import { clsx } from 'clsx'
 import { CommonLabel } from '@/components/LanguageProvider'
 import { Label } from '@/components/ui'
 import { TableSearch } from '@/components/TableSearch'
+import { FilterBar as StudioFilterBar, filterControlClassName } from '@/components/studio-ui/console'
 import { ALL, withParam } from '@/lib/table-filter'
 
 /**
@@ -53,7 +54,8 @@ export function FilterBar({
                 scroll={false}
                 aria-current={current ? 'true' : undefined}
                 className={clsx(
-                  'inline-flex min-h-8 items-center rounded-sm border px-2.5 text-label font-medium transition-colors',
+                  filterControlClassName,
+                  'inline-flex items-center rounded-sm border px-2.5 text-label font-medium transition-colors',
                   'focus:outline-none focus-visible:ring-2 focus-visible:ring-info/40',
                   current
                     ? 'border-ink bg-ink text-card'
@@ -70,7 +72,7 @@ export function FilterBar({
   )
 
   return (
-    <div className="flex flex-col gap-3">
+    <StudioFilterBar>
       {search ? (
         <div className="flex flex-wrap items-end justify-between gap-3">
           <TableSearch
@@ -98,6 +100,6 @@ export function FilterBar({
         </summary>
         <div className="mt-2">{chips}</div>
       </details>
-    </div>
+    </StudioFilterBar>
   )
 }
