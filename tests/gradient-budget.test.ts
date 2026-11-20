@@ -37,8 +37,7 @@ test('gradients are named only where the budget allows', () => {
   assert.deepEqual(files, [
     'components/PageHeader.tsx',
     'components/SidebarNav.tsx',
-    'components/card.tsx',
-    'styles/globals.css',
+    'styles/jhp-app-theme.css',
     'styles/jp-theme.css',
   ])
   const nav = read('components/SidebarNav.tsx')
@@ -57,8 +56,8 @@ test('no inline linear-gradient outside the gradient tokens', () => {
     const rel = relative(ROOT, file)
     readFileSync(file, 'utf8').split('\n').forEach((line, index) => {
       if (!line.includes('linear-gradient(')) return
-      // styles/globals.css may define the gradient tokens, and nothing else.
-      if (rel === 'styles/globals.css' && /^\s*--gradient-[a-z-]+:\s*linear-gradient\(/.test(line)) return
+      // styles/jhp-app-theme.css may define the gradient tokens, and nothing else.
+      if (rel === 'styles/jhp-app-theme.css' && /^\s*--gradient-[a-z-]+:\s*linear-gradient\(/.test(line)) return
       offenders.push(`${rel}:${index + 1}`)
     })
   }

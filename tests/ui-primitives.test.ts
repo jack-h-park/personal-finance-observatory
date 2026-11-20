@@ -961,14 +961,18 @@ function contrastRatio(a: string, b: string) {
 }
 
 test('the warning token clears AA inside its own pill', () => {
-  const css = readFileSync('styles/jp-theme.css', 'utf8')
-  const match = css.match(/--accent-warning:\s*#([0-9A-Fa-f]{6})\b/)
-  assert.ok(match, '--accent-warning is a 6-digit hex in jp-theme.css')
-  const fg = [0, 2, 4].map((i) => parseInt(match[1].slice(i, i + 2), 16))
-  const bg = [0xf7, 0xf6, 0xf3]
-  const blend = fg.map((c, i) => Math.round(c * 0.1 + bg[i] * 0.9).toString(16).padStart(2, '0')).join('')
-  const ratio = contrastRatio(match[1], blend)
-  assert.ok(ratio >= 4.5, `warning pill contrast is ${ratio.toFixed(2)}:1, need 4.5:1`)
+  const css = readFileSync('styles/jhp-app-theme.css', 'utf8')
+  const foregrounds = [...css.matchAll(/--accent-warning-text:\s*#([0-9A-Fa-f]{6})\b/g)]
+  const surfaces = [...css.matchAll(/--bg-surface:\s*#([0-9A-Fa-f]{6})\b/g)]
+  assert.equal(foregrounds.length, 3, 'warning text defines light, system dark, and explicit dark values')
+  assert.equal(surfaces.length, foregrounds.length)
+  const channels = (hex: string) => [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16))
+  for (const [index, [, warning]] of foregrounds.entries()) {
+    const surface = channels(surfaces[index][1])
+    const blend = channels(warning).map((c, i) => Math.round(c * 0.1 + surface[i] * 0.9).toString(16).padStart(2, '0')).join('')
+    const ratio = contrastRatio(warning, blend)
+    assert.ok(ratio >= 4.5, `warning pill contrast is ${ratio.toFixed(2)}:1, need 4.5:1`)
+  }
 })
 
 test('EmptyState hint is full-strength tertiary', () => {

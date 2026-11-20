@@ -18,7 +18,7 @@ export function fmtMoney(value: number | null | undefined, currency: string | nu
   const code = currency || 'KRW'
   if (code === 'KRW') return fmtKrw(n)
   if (code === 'USD') return formatUsd(n)
-  return `${n.toLocaleString()} ${code}`
+  return `${n.toLocaleString('en-US')} ${code}`
 }
 
 /**
