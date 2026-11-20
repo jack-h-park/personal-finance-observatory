@@ -28,8 +28,18 @@ export function StudioAppNavigation({ language: locale }: { language: Language }
     const onOutsideClick = (event: MouseEvent) => {
       if (event.target instanceof Node && !nav.current?.contains(event.target)) setOpen(false)
     }
+    const onEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || event.defaultPrevented) return
+      event.preventDefault()
+      setOpen(false)
+      toggle.current?.focus()
+    }
     document.addEventListener('click', onOutsideClick)
-    return () => document.removeEventListener('click', onOutsideClick)
+    document.addEventListener('keydown', onEscape)
+    return () => {
+      document.removeEventListener('click', onOutsideClick)
+      document.removeEventListener('keydown', onEscape)
+    }
   }, [open])
 
   return (
@@ -40,12 +50,6 @@ export function StudioAppNavigation({ language: locale }: { language: Language }
       data-jhp-directory-version={directory.version}
       onBlur={event => {
         if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget)) setOpen(false)
-      }}
-      onKeyDown={event => {
-        if (!open || event.key !== 'Escape' || event.defaultPrevented) return
-        event.preventDefault()
-        setOpen(false)
-        toggle.current?.focus()
       }}
     >
       <div className="jhp-nav__inner">
