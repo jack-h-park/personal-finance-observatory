@@ -34,8 +34,8 @@ done
 export PATH="$PATH:/usr/bin:/bin:/usr/sbin:/sbin"
 unset _d
 
-if [ -z "${STOCK_PYTHON_BIN:-}" ] && [ -x "$HOME/.local/share/stock-observatory/venv/bin/python" ]; then
-  export STOCK_PYTHON_BIN="$HOME/.local/share/stock-observatory/venv/bin/python"
+if [ -z "${STOCK_PYTHON_BIN:-}" ] && [ -x "$REPO/.venv/bin/python" ]; then
+  export STOCK_PYTHON_BIN="$REPO/.venv/bin/python"
 fi
 
 if [ ! -f "$REPO/package.json" ]; then

@@ -1,0 +1,16 @@
+# Python side of the refresh pipeline: the extract scripts under scripts/*.py.
+# Not a package; this file exists to pin the interpreter and the two third-party
+# modules the extracts import, so every machine builds the same venv with
+# `make python-env` (uv sync --frozen into .venv). See
+# docs/operations/legacy-stock-operations.md, "Python for the extract steps".
+[project]
+name = "personal-finance-observatory-extract"
+version = "0"
+requires-python = ">=3.13"
+dependencies = [
+  "pdfplumber>=0.11",
+  "openpyxl>=3.1",
+]
+
+[tool.uv]
+package = false

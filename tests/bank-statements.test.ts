@@ -7,9 +7,9 @@ import test from 'node:test'
 
 const ROOT = path.resolve(import.meta.dirname, '..')
 
-// The 토스뱅크 cases build their fixture workbooks with openpyxl. CI's python has
-// no openpyxl (the app's own refresh host does), so those cases skip there, the
-// same way the encrypted-workbook filing tests do.
+// The 토스뱅크 cases build their fixture workbooks with openpyxl. CI and the hosts
+// get it from the pinned extract venv (`make python-env`); a python3 without it
+// skips these cases, the same way the encrypted-workbook filing tests do.
 const HAVE_OPENPYXL = spawnSync('python3', ['-c', 'import openpyxl']).status === 0
 const LOAD = `
 import importlib.util, json
@@ -240,8 +240,11 @@ test('a 토스뱅크 row with no balance gets previous balance plus amount, so t
   assert.deepEqual(a.continuityBreaks, [])
   // Informational: it is a note, not a finding, so it raises no warning downstream.
   assert.deepEqual(doc.findings, [])
-  assert.equal(doc.notes.length, 1)
-  assert.match(doc.notes[0], /tossbank-0000-a-b\.xlsx: 1 row\(s\) printed no balance/)
+  // The fixture has no account map, which adds its own declared-coverage note;
+  // this case is about the blank-balance note only.
+  const blank = doc.notes.filter((n: string) => /printed no balance/.test(n))
+  assert.equal(blank.length, 1)
+  assert.match(blank[0], /tossbank-0000-a-b\.xlsx: 1 row\(s\) printed no balance/)
 })
 
 test('two 토스뱅크 last4 values give two accounts, and the map overrides kind and alias by last4', { skip: !HAVE_OPENPYXL }, () => {

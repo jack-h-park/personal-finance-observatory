@@ -36,8 +36,16 @@ jobs:
       # third-party import this is. Without it those three tests fail on a
       # missing module rather than on anything about the code — which is why
       # they have been "pre-existing failures" on every machine that lacks it.
+      # The same pinned venv the hosts use: .python-version + uv.lock.
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v6
+
       - name: Install Python dependencies for the extractor tests
-        run: python3 -m pip install --quiet pdfplumber
+        run: |
+          uv sync --frozen --managed-python
+          echo "STOCK_PYTHON_BIN=$PWD/.venv/bin/python" >> "$GITHUB_ENV"
+          # Some tests spawn a bare python3; it must be this venv's.
+          echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
 
       - name: Seed synthetic sample data
         run: pnpm seed:sample
