@@ -1,7 +1,7 @@
 # Personal Finance Observatory product completion plan
 
 **Date:** November 20, 2026 (America/Los_Angeles)
-**Status:** Accepted and merged in #367. Packet 1 is separately authorized and implemented for source review with synthetic validation; it is not merged or deployed. No private adoption, actual comparison or operating change is authorized by this document.
+**Status:** Accepted and merged in #367. Packet 1 is verified merged in #369 with synthetic/browser source acceptance, without deployment. Packet 2 is authorized by the subsequent continuation and is implemented for source review; it is not merged or deployed. No private adoption, actual comparison or operating change is authorized by this document.
 **Governing design:** [Original product and architecture design](../specs/2026-11-10-personal-finance-observatory-design.md). This plan resets the remaining sequence, not the original purpose or accepted financial facts.
 
 ## 1. Finish the product, not the maintenance queue
@@ -70,7 +70,7 @@ Do not extract new facts from the accepted 2025 v5 documents or convert old free
 
 ## 5. Required second packet: bounded KR/US estimate planning
 
-This is a remaining required product outcome, not optional maintenance or an indefinitely deferred calculator screen. It follows the annual review source packet and reuses the existing rule/component contracts. Implementation remains separately authorized; defining its acceptance here does not run any scenario.
+This is a remaining required product outcome, not optional maintenance or an indefinitely deferred calculator screen. It follows the annual review source packet and reuses the existing rule/component contracts. The subsequent continuation authorizes the integrated source implementation described in the [packet plan](2026-11-20-hypothetical-tax-planning.md). Only invented bundled inputs are evaluated; operating adoption and real scenarios remain separately held.
 
 **User outcome:** A reader can enter or select explicitly supported hypothetical inputs, understand the rules and exclusions, obtain a reproducible bounded calculation where supported, and understand whether/how that result relates to recorded tax history. The result must never masquerade as a filed amount, actual settlement, complete cross-border liability or an approved actual 2025 comparison.
 
