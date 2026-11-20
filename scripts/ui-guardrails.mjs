@@ -634,6 +634,20 @@ const KO_LATIN_ALLOW = new Set([
   'FX', 'API', 'ISA', 'IRP', 'ETF', 'CSV', 'PDF', 'DB', 'URL', 'USD', 'KRW', 'US', 'KR', 'ID', 'PFIC',
   'FBAR', 'IRS', 'CMA', 'RP', 'LLM', 'JSON', 'Form', 'W', 'EUR', 'JPY', 'CLI', 'OK',
   'SSH', 'Tailscale', 'MCP', 'XLSX', 'SHA',
+  // US tax acronyms.
+  'NIIT', 'FTC', 'MFJ', 'FTB', 'IRA',
+  // Exchange and ticker codes.
+  'KRX', 'IAU', 'IAUM', 'SGOL',
+  // File format.
+  'TSV',
+  // Key and tool names.
+  'Esc', 'git',
+  // Date pattern letters.
+  'YYYY', 'MM', 'DD',
+  // Citation designators, as `Form` already is.
+  'Rev', 'Proc', 'Topic', 'Schedule',
+  // Institution and product names: a service stays as it is named.
+  'Robinhood', 'Merrill', 'Chase', 'Fidelity', 'Agentic',
 ])
 
 /**
@@ -651,6 +665,48 @@ function withoutPathTokens(body) {
   return body
     .split(/\s+/)
     .filter((token) => !token.includes('/'))
+    .join(' ')
+}
+
+/**
+ * A literal that is the value of a `className=` attribute (a JSX copy value
+ * can hold `<code className="font-mono text-caption">`) is markup, not copy.
+ */
+function isClassNameValue(text, match) {
+  return /\bclassName=\{?\s*$/.test(text.slice(0, match.index))
+}
+
+/**
+ * A literal on either side of `===` or `!==` (`method === 'contributions'`)
+ * is a code value the copy branches on; the reader never sees it.
+ */
+function isComparisonOperand(text, match) {
+  const before = text.slice(0, match.index).trimEnd()
+  const after = text.slice(match.index + match[0].length).trimStart()
+  return /[!=]==$/.test(before) || /^[!=]==/.test(after)
+}
+
+/**
+ * Text between a pair of backticks inside a literal's body (`` `make pull-prod-db` ``
+ * in a single-quoted string) is a command or identifier shown as typed, and the
+ * English half writes it the same way. A template literal's own delimiters are
+ * already sliced off before this runs.
+ */
+function withoutInlineCode(body) {
+  return body.replace(/`[^`]*`/g, ' ')
+}
+
+/**
+ * A whitespace-delimited token is an identifier, not a word, when it holds `@`,
+ * `::`, a `.` or `_` between two word characters, or a lower-case letter right
+ * before an upper-case one: `manual-mappings.json의`, `wrapperTreatment.US에서`,
+ * `bankInflowRules에`, `market:ticker@brokerage::account`. A hyphen alone
+ * (`wash-sale`) or a sentence-final period (`snapshot.`) does not make one.
+ */
+function withoutIdentifierTokens(body) {
+  return body
+    .split(/\s+/)
+    .filter((token) => !/@|::|\w[._]\w|[a-z][A-Z]/.test(token))
     .join(' ')
 }
 
@@ -682,6 +738,12 @@ function withoutInterpolations(body) {
  * raw value the map translates, so it is skipped; a ternary branch is still
  * read, spaced or not. A token containing `/` (`data/manual-mappings.json`,
  * `/lots`) is a path or route and is not read.
+ *
+ * Four more things are not words and are not read: a `className=` value
+ * (markup), an operand of `===` or `!==` (a code value), a backticked span
+ * inside a literal (a command or identifier shown as typed), and an identifier
+ * token (one holding `@`, `::`, an inner `.` or `_`, or a camelCase hump). A
+ * command in a Korean sentence is reworded (`갱신을 실행하세요`), not allowed.
  */
 export function findEnglishInKoreanCopy(source, file = '<source>') {
   const hits = []
@@ -690,12 +752,11 @@ export function findEnglishInKoreanCopy(source, file = '<source>') {
     if (!inKorean && /^\s*ko:\s*\{/.test(text)) inKorean = true
     if (!inKorean) return
     const literals = [...text.matchAll(STRING_LITERAL)]
-      .filter((match) => !isObjectKey(text, match))
+      .filter((match) => !isObjectKey(text, match) && !isClassNameValue(text, match) && !isComparisonOperand(text, match))
       .flatMap((match) => literalsIn(match[0]))
     for (const literal of literals) {
-      const words = (withoutPathTokens(withoutInterpolations(literal.slice(1, -1))).match(/\b[A-Za-z]{2,}\b/g) ?? []).filter(
-        (word) => !KO_LATIN_ALLOW.has(word),
-      )
+      const body = withoutPathTokens(withoutIdentifierTokens(withoutInlineCode(withoutInterpolations(literal.slice(1, -1)))))
+      const words = (body.match(/\b[A-Za-z]{2,}\b/g) ?? []).filter((word) => !KO_LATIN_ALLOW.has(word))
       if (words.length > 0) hits.push(hit(file, line, `${[...new Set(words)].join(', ')}: ${literal}`))
     }
   })

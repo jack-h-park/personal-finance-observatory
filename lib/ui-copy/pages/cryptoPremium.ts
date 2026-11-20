@@ -63,7 +63,7 @@ export const cryptoPremium = defineCopy({
     emphasis: '프리미엄',
     subtitleWithData: (rate: string, fxDate: string, snapshot: string) =>
       `원화 호가를 USD/KRW ${rate}(${fxDate})로 환산한 달러 호가와 비교합니다. 스냅샷 ${snapshot}.`,
-    subtitleNoData: '아직 가상자산 시세 스냅샷이 없습니다 — pnpm refresh를 실행하세요.',
+    subtitleNoData: '아직 가상자산 시세 스냅샷이 없습니다 — 갱신을 실행하세요.',
     weightedPremium: '가중 프리미엄',
     weightedPremiumInfo:
       '보유 중인 원화 거래소 포지션의 평가금액으로 가중한 프리미엄입니다. 프리미엄 노출을 보는 대표 지표로 쓰세요.',
@@ -85,7 +85,7 @@ export const cryptoPremium = defineCopy({
     history: '프리미엄 추이',
     nearParity: '가격 차 거의 없음',
     noPairs: '원화·달러 양쪽에 호가가 있는 코인이 없어 비교할 대상이 없습니다.',
-    noHistory: '겹치는 이력이 없습니다 — pnpm refresh를 실행하세요.',
+    noHistory: '겹치는 이력이 없습니다 — 갱신을 실행하세요.',
     axisLabel: '프리미엄 %',
     notableBadge: (count: string, pct: string) => `±${pct}% 초과 코인 ${count}개`,
     withHistoryHint: (count: string) => `이력 있음 ${count}개`,

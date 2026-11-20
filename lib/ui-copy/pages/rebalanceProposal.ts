@@ -419,7 +419,7 @@ export const rebalanceProposal = defineCopy({
       ideaListed: '이미 매수 후보에 있습니다.',
       ideaNoAccount: '이 제안에는 이 시장을 보유한 계좌가 없습니다. 설정에서 직접 추가하세요.',
       ideaPficCheck: '추가 전에 확인하세요: 펀드나 ETF가 아닌 개별 기업이어야 합니다 (PFIC).',
-      ideaWashSale: (date: string) => `${date} 이전에 사면 실현한 손실이 인정되지 않습니다 (wash sale).`,
+      ideaWashSale: (date: string) => `${date} 이전에 사면 실현한 손실이 인정되지 않습니다 (워시세일).`,
       questionsTitle: '확인이 필요한 질문',
       questionsNote: '답변은 이 제안에 저장되고, 이 제안이 끝난 뒤에도 다음 제안의 LLM 단계에 전달됩니다.',
       answerLabel: (n: number) => `질문 ${n}에 대한 답변`,

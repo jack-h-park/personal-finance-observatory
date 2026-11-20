@@ -69,7 +69,7 @@ export const netWorth = defineCopy({
     total: '확인 가능한 총자산',
     byClass: '자산군별',
     classes: { stocks: '주식', crypto: '암호화폐', cash: '현금', pensions: '연금', gold: '금' },
-    asOfNotesHint: '날짜가 붙은 자산군은 오늘 시세가 아니라 snapshot, 취득원가 또는 오늘 이전 잔고 기준입니다.',
+    asOfNotesHint: '날짜가 붙은 자산군은 오늘 시세가 아니라 스냅샷, 취득원가 또는 오늘 이전 잔고 기준입니다.',
     allocation: {
       title: '자산 비중',
       byClass: '자산 종류별',
@@ -90,7 +90,7 @@ export const netWorth = defineCopy({
     trendStarts: (parts: string[]) => (parts.length ? `자산군별 데이터 시작일: ${parts.join(' · ')}` : '아직 데이터가 있는 자산군이 없습니다.'),
     classSince: (label: string, date: string) => `${label} ${date}부터`,
     trendNote:
-      '현금에는 거래내역이 없는 계좌(파킹통장, 만기된 예적금, 해지된 CMA)의 추정 잔액이 포함되며, 다른 계좌 거래내역에 나온 이체로 계산합니다. 연금은 증명서와 snapshot 날짜에만 바뀌고, 그 사이에는 마지막 값을 유지합니다. 금은 매수·매도 후 남은 그램 × 해당 날짜 이전 최신 KRX 시세이며, 시세가 없으면 매입수수료를 포함한 잔여 취득원가입니다. 과거 금 보유량을 확인할 수 없거나 시세와 잔여 원가가 모두 없는 날짜는 과거 금 합계에서 제외합니다. 데이터가 시작되기 전의 자산군은 더하지 않습니다. 마지막 점은 오늘입니다.',
+      '현금에는 거래내역이 없는 계좌(파킹통장, 만기된 예적금, 해지된 CMA)의 추정 잔액이 포함되며, 다른 계좌 거래내역에 나온 이체로 계산합니다. 연금은 증명서와 스냅샷 날짜에만 바뀌고, 그 사이에는 마지막 값을 유지합니다. 금은 매수·매도 후 남은 그램 × 해당 날짜 이전 최신 KRX 시세이며, 시세가 없으면 매입수수료를 포함한 잔여 취득원가입니다. 과거 금 보유량을 확인할 수 없거나 시세와 잔여 원가가 모두 없는 날짜는 과거 금 합계에서 제외합니다. 데이터가 시작되기 전의 자산군은 더하지 않습니다. 마지막 점은 오늘입니다.',
     chartAxisKrw: '원',
     chartAxisUsd: '달러',
     noTrend: '아직 자산 현황 이력이 없습니다.',
@@ -101,7 +101,7 @@ export const netWorth = defineCopy({
     unpriced: (list: string) => `${list}은(는) USD/KRW 환율이 없어 합계에 포함되지 않았습니다.`,
     history: '월말 추이',
     historyColumns: { month: '월', stocks: '주식', crypto: '암호화폐', cash: '현금', pensions: '연금', gold: '금', total: '합계' },
-    historyNote: '매월 마지막 포트폴리오 snapshot 기준이며, 이번 달은 오늘 기준입니다. 대시(—)는 그 날짜에 아직 데이터가 없는 자산군입니다.',
+    historyNote: '매월 마지막 포트폴리오 스냅샷 기준이며, 이번 달은 오늘 기준입니다. 대시(—)는 그 날짜에 아직 데이터가 없는 자산군입니다.',
     historyFxNote: '과거 USD 예금은 저장된 당시 USD/KRW 환율로 환산하고, 없으면 오늘 환율을 씁니다.',
     none: '—',
     empty: '아직 수집된 예금 잔고가 없습니다',

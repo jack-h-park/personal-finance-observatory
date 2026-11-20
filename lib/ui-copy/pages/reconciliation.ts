@@ -64,7 +64,7 @@ export const reconciliation = defineCopy({
   ko: {
     title: '정합성 확인',
     emphasis: '확인',
-    subtitle: '마지막 ingest 기준 보유종목, 세금 단위, 평가금액, 원본 상태 사이의 실제 차이를 확인합니다.',
+    subtitle: '마지막 수집 기준 보유종목, 세금 단위, 평가금액, 원본 상태 사이의 실제 차이를 확인합니다.',
     reviewItems: (count: string) => `확정 불일치 ${count}건`,
     reconciled: '일치 확인 완료',
     reviewItemsTitle: '확정 불일치',
@@ -86,7 +86,7 @@ export const reconciliation = defineCopy({
     lotPositionsHint: '세금 단위로 표현된 종목',
     readOrder: '읽는 순서: 확정 불일치, 원본 범위, 정보성 수익 현황 순으로 확인합니다.',
     marketCoverage: '시장 및 증권사 범위',
-    positionBreaks: '보유종목 vs 세금 단위 차이',
+    positionBreaks: '보유종목-세금 단위 차이',
     noPositionBreaks: '현재 허용 범위를 넘는 보유종목-세금 단위 차이가 없습니다.',
     incomeBreaks: '종목 미연결 수익 차이',
     allIncomeMapped: '모든 수익 행이 종목에 연결되어 있습니다.',

@@ -441,6 +441,61 @@ test('G12 skips path-shaped tokens and lets MCP, XLSX and SHA stand, but still r
   )
 })
 
+/** A copy module whose Korean half holds the given property lines, starting on line 3. */
+const koModule = (...lines: string[]) =>
+  ['export const page = defineCopy({', '  ko: {', ...lines.map((l) => `    ${l}`), '  },', '})'].join('\n')
+
+const g12Lines = (module: string) => (findEnglishInKoreanCopy(module) as Hit[]).map((h) => [h.line, h.snippet.split(':')[0]])
+
+test('G12 skips a className value but still reads the same string as copy', () => {
+  const module = koModule(
+    'hint: (p: string) => <><code className="font-mono text-caption">{p}</code>를 확인하세요.</>,',
+    "style: 'font-mono text-caption',",
+  )
+  assert.deepEqual(g12Lines(module), [[4, 'font, mono, text, caption']])
+})
+
+test('G12 skips a comparison operand but still reads the same word as a value', () => {
+  const module = koModule(
+    "note: (method: string) => (method === 'contributions' ? '납입액 기준' : '평가금액 기준'),",
+    "other: (method: string) => (method !== 'contributions' ? '평가금액 기준' : '납입액 기준'),",
+    "method: 'contributions',",
+  )
+  assert.deepEqual(g12Lines(module), [[5, 'contributions']])
+})
+
+test('G12 skips a backticked inline code span but still reads the same command bare', () => {
+  const module = koModule("pull: '최신본은 `make pull-prod-db`로 복사합니다.',", "bare: '최신본은 make pull로 복사합니다.',")
+  assert.deepEqual(g12Lines(module), [[4, 'make, pull']])
+})
+
+test('G12 skips identifier tokens but still reads a hyphenated word and a word before a period', () => {
+  const module = koModule(
+    "rule: 'manual-mappings.json의 bankInflowRules에 규칙을 추가합니다.',",
+    "format: '형식: market:ticker@brokerage::account',",
+    "wrapper: '세금 정책의 wrapperTreatment.US에서 정합니다.',",
+    "wash: 'wash-sale 검토',",
+    "end: 'snapshot.',",
+  )
+  assert.deepEqual(g12Lines(module), [
+    [6, 'wash, sale'],
+    [7, 'snapshot'],
+  ])
+})
+
+test('G12 lets the allow-listed acronyms, codes and names stand, but still reads snapshot', () => {
+  const module = koModule(
+    "niit: 'NIIT 세율',",
+    "gold: 'KRX 금현물',",
+    "esc: 'Esc 키',",
+    "date: 'YYYY-MM-DD 형식',",
+    "cite: 'IRS Rev. Proc. 2025-32 요약',",
+    "merrill: 'Merrill은 두 가지 형식으로 내보냅니다.',",
+    "basis: 'snapshot 기준',",
+  )
+  assert.deepEqual(g12Lines(module), [[9, 'snapshot']])
+})
+
 test('G13 catches an enum value rendered raw in a Badge', () => {
   assert.deepEqual(
     (findRawEnumBadge('<Badge tone="info">{y.filingScenario}</Badge>') as Hit[]).map((h) => h.line),

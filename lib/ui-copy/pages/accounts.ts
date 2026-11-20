@@ -46,7 +46,7 @@ export const accounts = defineCopy({
   ko: {
     title: '계좌 · 데이터 범위',
     emphasis: '데이터 범위',
-    subtitle: (ingestedAt: string) => `DB에 들어 있는 모든 계좌와, 자료 종류별로 어느 날짜부터 어느 날짜까지 있는지 보여줍니다. 마지막 ingest: ${ingestedAt}.`,
+    subtitle: (ingestedAt: string) => `DB에 들어 있는 모든 계좌와, 자료 종류별로 어느 날짜부터 어느 날짜까지 있는지 보여줍니다. 마지막 수집: ${ingestedAt}.`,
     accounts: '계좌',
     accountsHint: (parts: string[]) => parts.join(' · '),
     marketCount: (market: string, count: string) => `${market} ${count}개`,

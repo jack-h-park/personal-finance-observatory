@@ -35,6 +35,31 @@ Two rules that are not obvious:
   let each language do what it needs — see `health.degradedBody`, which takes the
   step list rather than a joined string precisely so both languages use it.
 
+### Korean vocabulary
+
+New Korean copy uses these words for these terms, so one concept reads one way
+on every page (G12 reports the English left behind):
+
+| English term | Korean |
+|---|---|
+| snapshot | 스냅샷 |
+| ingest | 수집 |
+| refresh (the run) | 갱신 |
+| provenance | 출처 |
+| override | 수동 지정 |
+| triage | 분류 |
+| freshness | 최신성 |
+| version | 버전 |
+| revision | 리비전 |
+| netting (verb) | 상계 |
+| proxy | 대용값 |
+| ticker (in prose) | 종목 |
+| wash sale | 워시세일 |
+| Opportunity map | 기회 지도 |
+| Tax Settings (page) | 세금 설정 |
+| staged baseline | 단계적 기준안 |
+| Reporting Rate of Exchange | 재무부 보고 환율 |
+
 ## Naming
 
 `lib/page-names.ts` holds the set of route hrefs and the product name. The
@@ -485,6 +510,14 @@ counts from one path to the other.
 A grid that really belongs to one page (a layout the primitives have no reason
 to know about) can be marked with a `guardrail:allow grid` comment on its line or
 the line above, and G4 skips it. Say why in the same comment.
+
+G12 does not read what is not a word: a `className=` value, an operand of `===`
+or `!==`, a backticked span inside a literal (`` `make pull-prod-db` ``), an
+identifier token (one holding `@`, `::`, an inner `.` or `_`, or a camelCase
+hump, such as `tax-policy.json에서` or `bankInflowRules에`), a path token, and
+the codes, acronyms and names on its allow-list (`KO_LATIN_ALLOW` in
+`scripts/ui-guardrails.mjs`). A command in a Korean sentence is reworded, not
+allowed: `pnpm refresh를 실행하세요` becomes `갱신을 실행하세요`.
 
 ## Checking a change
 
