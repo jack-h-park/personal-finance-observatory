@@ -275,25 +275,4 @@ export function MetricHeroCard({
   )
 }
 
-export function EmptyState({
-  children,
-  hint,
-  ok,
-}: {
-  children: ReactNode
-  /** A muted secondary line — use for the technical reason (env var, path) so it
-   *  doesn't clutter the primary message. */
-  hint?: ReactNode
-  /** Append a ✓ — the "all clear, nothing pending" case (vs. a true empty result). */
-  ok?: boolean
-}) {
-  return (
-    <div className="py-6 text-center text-body text-ink-3">
-      <div>
-        {children}
-        {ok && ' ✓'}
-      </div>
-      {hint && <div className="mt-1 text-label text-ink-3">{hint}</div>}
-    </div>
-  )
-}
+export { EmptyState } from '@/components/studio-ui/console'

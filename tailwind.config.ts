@@ -67,6 +67,10 @@ const config: Config = {
        * line-height here would re-space every block in the app.
        */
       fontSize: {
+        'role-page': ['var(--t-page)', { lineHeight: 'var(--lh-page)' }],
+        'role-page-narrow': ['var(--t-page-narrow)', { lineHeight: 'var(--lh-page)' }],
+        'role-ui': ['var(--t-ui)', { lineHeight: 'var(--lh-ui)' }],
+        'role-meta': ['var(--t-meta)', { lineHeight: 'var(--lh-meta)' }],
         micro: '10px',
         label: '11px',
         caption: '12px',

@@ -1,8 +1,8 @@
 import { formatKrw, formatUsd } from '@/lib/currency'
 import type { Language } from '@/lib/i18n'
+import { EMPTY_VALUE, formatByteSize, parseTimestamp } from '@/lib/studio-ui/format'
 
-/** What every formatter and page prints when there is no value. */
-export const EMPTY_VALUE = '—'
+export { EMPTY_VALUE }
 
 /** The BCP 47 tag for a dashboard language. The one place a locale is chosen. */
 export function localeFor(language: Language): 'ko-KR' | 'en-US' {
@@ -67,11 +67,7 @@ export function fmtSigned(value: number | null | undefined, format: (n: number) 
 
 /** Byte size at human scale. Reclaimed from app/data-map, which defined it locally. */
 export function fmtBytes(value: number | null | undefined) {
-  const n = Number(value ?? 0)
-  if (n >= 1024 ** 3) return `${fmtNumber(n / 1024 ** 3, 1)} GB`
-  if (n >= 1024 ** 2) return `${fmtNumber(n / 1024 ** 2, 1)} MB`
-  if (n >= 1024) return `${fmtNumber(n / 1024, 1)} KB`
-  return `${fmtNumber(n)} B`
+  return formatByteSize(Number(value ?? 0), { locale: 'ko-KR' })
 }
 
 /**
@@ -109,7 +105,7 @@ export function fmtQuantity(value: number | null | undefined, digits = 4) {
 
 export function fmtDateTime(value: string | null | undefined, language: Language) {
   if (!value) return EMPTY_VALUE
-  const d = new Date(value)
+  const d = parseTimestamp(value)
   if (Number.isNaN(d.getTime())) return value
   return d.toLocaleString(localeFor(language), { hour12: false })
 }
@@ -125,7 +121,7 @@ export function fmtDateShort(value: string | null | undefined, language: Languag
   // A date-only value carries no time, so reading it in local time can move it a
   // day in either direction. Pin those to UTC; a full timestamp keeps local time.
   const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(value.slice(0, 10)) && value.length <= 10
-  const d = dateOnly ? new Date(`${value.slice(0, 10)}T00:00:00Z`) : new Date(value)
+  const d = dateOnly ? new Date(`${value.slice(0, 10)}T00:00:00Z`) : parseTimestamp(value)
   if (Number.isNaN(d.getTime())) return value
   return new Intl.DateTimeFormat(localeFor(language), {
     year: 'numeric',
@@ -166,7 +162,7 @@ export function fmtDate(value: string | null | undefined, language: Language) {
   // /data-ops showed every account's coverage date one day early. Same reason
   // fmtDateShort pins date-only values to UTC.
   if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value
-  const d = new Date(value)
+  const d = parseTimestamp(value)
   if (Number.isNaN(d.getTime())) return value
   const pad = (n: number) => String(n).padStart(2, '0')
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
