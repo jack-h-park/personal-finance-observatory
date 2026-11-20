@@ -8,7 +8,7 @@ import type { Language } from '@/lib/i18n'
 import type { MonthlySaleMasterPlan, MonthlySalePlanSet, TaxPlanCandidate, MasterPlanStrategyKey } from '@/lib/tax-planning'
 import type { FilingScenario } from '@/lib/tax-policy'
 import { savedTaxPlanProgress, type SavedTaxPlan } from '@/lib/tax-plan-store'
-import { TAX_DUE_SEVERITY, TAX_PLAN_STATUS_SEVERITY, TO_REVIEW_SEVERITY, bucketTone, countTone, signClass, statusTone } from '@/lib/tone'
+import { SCENARIO_TONE, TAX_DUE_SEVERITY, TAX_PLAN_STATUS_SEVERITY, TO_REVIEW_SEVERITY, bucketTone, countTone, signClass, statusTone } from '@/lib/tone'
 import type { getPageCopy } from '@/lib/ui-copy'
 
 type TaxPlanningCopy = ReturnType<typeof getPageCopy<'taxPlanning'>>
@@ -182,8 +182,6 @@ export function MasterPlanOverview({
     </Card>
   )
 }
-
-const SCENARIO_TONE = { cheapest: 'success', other: 'warning' } as const
 
 function strategyHref(strategy: MasterPlanStrategyKey, pace: number, horizonYears: number, annualTargetCashKrw: number): string {
   const query = new URLSearchParams({ master: strategy, pace: String(pace), horizon: String(horizonYears) })

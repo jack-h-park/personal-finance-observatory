@@ -9,7 +9,7 @@ import { EMPTY_VALUE, fmtNumber, fmtQuantity } from '@/lib/format'
 import { getLanguage } from '@/lib/i18n-server'
 import { getPageCopy, getUiCopy } from '@/lib/ui-copy'
 import { TickerFilterChip } from '@/components/TickerFilterChip'
-import { applyFilters, applySearch, applyTicker, filterOptions, readFilters, readTicker, withParam, type FilterGroup } from '@/lib/table-filter'
+import { applyFilters, applySearch, applyTicker, filterOptions, readFilters, readTicker, tickerWindowTruncated, withParam, type FilterGroup } from '@/lib/table-filter'
 import { columnSortValue, formatSort, knownSort, parseSort, sortRows, sortableKeys, type TableSort } from '@/lib/table-sort'
 import { TRANSACTION_TYPE_TONE, categoryTone } from '@/lib/tone'
 import { routeMetadata, routeSection } from '@/lib/page-names'
@@ -20,6 +20,9 @@ export const dynamic = 'force-dynamic'
 export const generateMetadata = routeMetadata('/transactions')
 
 const BASE = '/transactions'
+
+/** How many of the newest ledger rows the page reads; a ticker link filters within them. */
+const RECENT_TRANSACTION_LIMIT = 200
 
 const GROUPS: FilterGroup<any>[] = [
   { key: 'market', label: 'market' },
@@ -38,7 +41,7 @@ export default async function TransactionsPage({
   const language = await getLanguage()
   const copy = getPageCopy('transactions', language)
   const money = createMoneyFormatter(await getCurrencyPreferences())
-  const rows = getRecentTransactions(200)
+  const rows = getRecentTransactions(RECENT_TRANSACTION_LIMIT)
   // A position page links here with its exact ticker; the market is the ordinary filter.
   const ticker = readTicker(params)
   const scoped = applyTicker(rows, ticker)
@@ -90,7 +93,12 @@ export default async function TransactionsPage({
             }))}
           />
           {ticker ? (
-            <TickerFilterChip clearHref={withParam(BASE, params, 'ticker', null)} label={getUiCopy(language).common.tickerFilter(ticker)} removeLabel={getUiCopy(language).common.removeTickerFilter(ticker)} />
+            <TickerFilterChip
+              clearHref={withParam(BASE, params, 'ticker', null)}
+              label={getUiCopy(language).common.tickerFilter(ticker)}
+              removeLabel={getUiCopy(language).common.removeTickerFilter(ticker)}
+              note={tickerWindowTruncated(rows.length, RECENT_TRANSACTION_LIMIT, ticker) ? copy.tickerWindow(fmtNumber(RECENT_TRANSACTION_LIMIT)) : undefined}
+            />
           ) : null}
           <DataTable
             rows={filtered}

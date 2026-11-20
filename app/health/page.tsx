@@ -11,7 +11,7 @@ type HealthCopy = ReturnType<typeof getPageCopy<'health'>>
 import { routeMetadata, routeSection } from '@/lib/page-names'
 import { CardRow, MiniStat, MiniStatGrid } from '@/components/layout'
 import { CHECK_RESULT_SEVERITY, ISSUE_SEVERITY, RUN_SEVERITY, TAX_REPORT_TONE, categoryTone, checkResultKey, statusTone } from '@/lib/tone'
-import { healthLinkedIssues } from '@/lib/header-status'
+import { healthLinkedIssues, positionBreaksCapped } from '@/lib/header-status'
 
 export const dynamic = 'force-dynamic'
 export const generateMetadata = routeMetadata('/health')
@@ -40,12 +40,6 @@ function displayRunStatus(status: string, labels: Record<string, string>) {
   return labels[status] ?? status
 }
 
-/**
- * The adapter caps the break list at this many rows, so once the list is
- * full a per-brokerage count is a floor, not a total.
- */
-const POSITION_BREAK_CAP = 100
-
 type ReconciliationRow = {
   key: string
   market: string
@@ -62,7 +56,8 @@ type ReconciliationRow = {
  * reconciled at all, and says so instead of passing by default.
  */
 function reconciliationRows(review: ReconciliationReview, copy: HealthCopy): ReconciliationRow[] {
-  const capped = review.positionBreaks.length >= POSITION_BREAK_CAP
+  // Once the adapter's capped list is full, a per-brokerage count is a floor, not a total.
+  const capped = positionBreaksCapped(review.positionBreaks.length)
   return review.coverage
     .filter((c) => c.holding_positions > 0 || c.lot_positions > 0)
     .map((c) => {

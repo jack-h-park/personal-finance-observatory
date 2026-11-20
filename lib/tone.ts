@@ -10,6 +10,9 @@
  * functions (two of them byte-identical), and six local `Record<_, Tone>`
  * maps. They are collected here so a status can only mean one colour.
  */
+import type { ProposalStatus } from '@/lib/rebalance/proposal-store'
+import type { SavedInstructionStatus } from '@/lib/tax-plan-store'
+
 /**
  * The five tones every badge, metric and chart colour is drawn from. Owned here,
  * not by components/ui.tsx, so this module imports nothing from a component and
@@ -234,6 +237,14 @@ export const TO_REVIEW_SEVERITY: Record<CountState, Severity> = { none: 'ok', so
 
 /** Items that are wrong (missing files, missing cost, accounts needing action): any is a problem. */
 export const FAULT_SEVERITY: Record<CountState, Severity> = { none: 'ok', some: 'problem' }
+
+/**
+ * Position breaks (holdings and tax lots disagree): each is a confirmed
+ * discrepancy, so any is a problem. /reconciliation's header pill and breaks
+ * card and the /data-ops breaks tile all read this one table; the tile used to
+ * read the to-review table and drew the same count amber beside a red card.
+ */
+export const POSITION_BREAK_SEVERITY = { none: 'ok', some: 'problem' } as const satisfies Record<CountState, Severity>
 
 /** Values standing on an estimate: none is unremarkable, not good news; any needs attention. */
 export const CAVEAT_SEVERITY: Record<CountState, Severity> = { none: 'quiet', some: 'attention' }
@@ -478,6 +489,39 @@ export const PLANNING_RESULT_TONE: Record<string, Tone> = {
   harvest: 'info',
   tax_due: 'warning',
   no_tax: 'success',
+}
+
+/**
+ * A tax-planning scenario row: the cheapest scenario against the others.
+ * Moved from the tax-planning page. Literal, because the progress bar it
+ * colours takes only info, success and warning.
+ */
+export const SCENARIO_TONE = {
+  cheapest: 'success',
+  other: 'warning',
+} as const satisfies Record<'cheapest' | 'other', Tone>
+
+/** A saved tax plan instruction's execution status. Moved from TaxPlanTimeline. */
+export const EXECUTION_TONE: Record<SavedInstructionStatus, Tone> = {
+  planned: 'neutral',
+  reviewed: 'info',
+  executed: 'success',
+  skipped: 'warning',
+}
+
+/**
+ * A rebalance proposal's status: open work is info or warning, finished is
+ * success, ended is neutral. Moved from lib/rebalance/proposal-actions.
+ */
+export const PROPOSAL_STATUS_TONE: Record<ProposalStatus, Tone> = {
+  draft: 'info',
+  targets_approved: 'info',
+  plan_approved: 'warning',
+  executing: 'warning',
+  reconciled: 'success',
+  closed: 'neutral',
+  rejected: 'neutral',
+  expired: 'neutral',
 }
 
 /**

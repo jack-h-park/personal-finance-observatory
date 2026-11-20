@@ -51,7 +51,8 @@ export function CommonLabel({ label }: { label: keyof ReturnType<typeof getUiCop
   return <>{typeof value === 'string' ? value : ''}</>
 }
 
-/** The count a card's header badge shows for the problems it lists. */
-export function IssueCountLabel({ count }: { count: number }) {
-  return <>{getUiCopy(usePageLanguage()).common.issueCount(count)}</>
+/** The count a card's header badge shows for the problems it lists; `capped` marks a lower bound (`100+`). */
+export function IssueCountLabel({ count, capped }: { count: number; capped?: boolean }) {
+  const common = getUiCopy(usePageLanguage()).common
+  return <>{common.issueCount(capped ? common.countAtLeast(String(count)) : String(count))}</>
 }

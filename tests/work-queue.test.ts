@@ -102,16 +102,28 @@ test('the action center tiles add up to the headline, position breaks included',
   const queue = getDataOpsReview().actionQueue
   const tiles = dataOpsQueueTiles(queue)
   assert.equal(tiles.breaks, getReconciliationReview().positionBreaks.length)
-  const headline = dataOpsLinkedIssues(getPageCopy('dataOps', 'en'), queue).issues.count
+  const headline = dataOpsLinkedIssues(getPageCopy('dataOps', 'en'), queue, 'en').issues.count
   assert.equal(tiles.mapping + tiles.valuation + tiles.sourceCheck + tiles.breaks, headline)
   assert.deepEqual(dataOpsQueueTiles([]), { mapping: 0, valuation: 0, sourceCheck: 0, breaks: 0 })
+})
+
+// The mapping tile and the suggestions card under it count the same thing:
+// the income rows the suggested rules would map.
+test('the mapping tile and the mapping suggestions card count the same income rows', async () => {
+  const { getDataOpsReview } = await load()
+  const { dataOpsQueueTiles, mappingSuggestionRows } = await import('@/lib/header-status')
+  const review = getDataOpsReview()
+  assert.ok(review.mappingSuggestions.length > 0, 'the fixture queues a mapping suggestion')
+  assert.equal(mappingSuggestionRows(review.mappingSuggestions), dataOpsQueueTiles(review.actionQueue).mapping)
 })
 
 test('the action center KPI band reads every tile from the queue, breaks among them', () => {
   const source = readFileSync('app/data-ops/page.tsx', 'utf8')
   const band = source.slice(source.indexOf('<KpiBand'), source.indexOf('</KpiBand>'))
-  for (const tile of ['tiles.mapping', 'tiles.valuation', 'tiles.sourceCheck', 'tiles.breaks']) {
+  for (const tile of ['tiles.mapping', 'tiles.valuation', 'tiles.sourceCheck']) {
     assert.ok(band.includes(`fmtNumber(${tile})`), `the band shows ${tile}`)
   }
+  // The breaks tile can be a lower bound (the adapter caps the list), so it reads 100+ when capped.
+  assert.ok(band.includes('fmtCount(tiles.breaks, positionBreaksCapped(tiles.breaks), language)'), 'the band shows tiles.breaks')
   assert.ok(band.includes('copy.positionBreaks'), 'the breaks tile has its own label')
 })

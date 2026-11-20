@@ -33,7 +33,10 @@ function text(label: React.ReactNode): string {
 type Case = { page: string; href: string; build: () => LinkedIssues; count: number; severity: 'attention' | 'problem' }
 
 for (const language of ['en', 'ko'] as const) {
-  const queue = [{ count: 3 }, { count: 4 }]
+  const queue = [
+    { kind: 'validation' as const, count: 3 },
+    { kind: 'position_breaks' as const, count: 4 },
+  ]
   const CASES: Case[] = [
     {
       page: 'health, warnings only',
@@ -73,14 +76,14 @@ for (const language of ['en', 'ko'] as const) {
     {
       page: 'data-ops',
       href: '#data-ops-priority-work',
-      build: () => dataOpsLinkedIssues(getPageCopy('dataOps', language), queue),
+      build: () => dataOpsLinkedIssues(getPageCopy('dataOps', language), queue, language),
       count: 7,
       severity: 'attention',
     },
     {
       page: 'reconciliation',
       href: '#reconciliation-breaks',
-      build: () => reconciliationLinkedIssues(getPageCopy('reconciliation', language), 3),
+      build: () => reconciliationLinkedIssues(getPageCopy('reconciliation', language), 3, language),
       count: 3,
       severity: 'problem',
     },

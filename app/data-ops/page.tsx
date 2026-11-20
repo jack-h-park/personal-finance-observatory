@@ -23,12 +23,12 @@ import { getGlossary } from '@/lib/glossary'
 import { getLanguage } from '@/lib/i18n-server'
 import type { Language } from '@/lib/i18n'
 import { getPageCopy, getUiCopy } from '@/lib/ui-copy'
-import { CHECK_RESULT_SEVERITY, COVERAGE_SEVERITY, FAULT_SEVERITY, MAPPING_STATUS_SEVERITY, TO_REVIEW_SEVERITY, countTone, mappingStatusKey, priorityTone, statusTone } from '@/lib/tone'
+import { CHECK_RESULT_SEVERITY, COVERAGE_SEVERITY, FAULT_SEVERITY, MAPPING_STATUS_SEVERITY, POSITION_BREAK_SEVERITY, TO_REVIEW_SEVERITY, countTone, mappingStatusKey, priorityTone, statusTone } from '@/lib/tone'
 import { routeMetadata, routeSection } from '@/lib/page-names'
 import { CardRow, KpiBand } from '@/components/layout'
 import { PositionCell } from '@/components/PositionCell'
 import { maskAccountLabel } from '@/lib/account-label'
-import { dataOpsLinkedIssues, dataOpsQueueTiles } from '@/lib/header-status'
+import { dataOpsLinkedIssues, dataOpsQueueTiles, fmtCount, mappingSuggestionRows, positionBreaksCapped, queueRowCapped } from '@/lib/header-status'
 
 export const dynamic = 'force-dynamic'
 export const generateMetadata = routeMetadata('/data-ops')
@@ -59,7 +59,7 @@ export default async function DataOpsPage() {
   const ops = getDataOpsReview()
   const coverage = getAccountCoverage()
   const supplementary = getSupplementaryCoverage()
-  const priorityWork = dataOpsLinkedIssues(copy, ops.actionQueue)
+  const priorityWork = dataOpsLinkedIssues(copy, ops.actionQueue, language)
   const issueCount = priorityWork.issues.count
   const tiles = dataOpsQueueTiles(ops.actionQueue)
   const coverageCopy = copy.coverage
@@ -157,7 +157,7 @@ export default async function DataOpsPage() {
           title={copy.needsReviewTitle}
           info={copy.needsReviewInfo}
           eyebrow={copy.headline}
-          value={fmtNumber(issueCount)}
+          value={fmtCount(issueCount, priorityWork.issues.capped, language)}
           hint={issueCount ? copy.triageHint : copy.noPendingHint}
         >
           <KpiBand columns={4}>
@@ -182,9 +182,9 @@ export default async function DataOpsPage() {
             />
             <MetricField
               label={copy.positionBreaks}
-              value={fmtNumber(tiles.breaks)}
+              value={fmtCount(tiles.breaks, positionBreaksCapped(tiles.breaks), language)}
               hint={copy.positionBreaksHint}
-              tone={countTone(TO_REVIEW_SEVERITY, tiles.breaks)}
+              tone={countTone(POSITION_BREAK_SEVERITY, tiles.breaks)}
             />
           </KpiBand>
         </MetricHeroCard>
@@ -214,7 +214,7 @@ export default async function DataOpsPage() {
             columns={[
               { key: 'priority', label: copy.columns.priority, render: (r: QueueRow) => <Badge tone={priorityTone(r.priority)}>{priorityLabels[r.priority] ?? r.priority}</Badge> },
               { key: 'area', label: copy.columns.area, render: (r: QueueRow) => copy.queue[r.kind]?.area ?? r.kind },
-              { key: 'count', label: copy.columns.count, align: 'right', render: (r) => fmtNumber(r.count) },
+              { key: 'count', label: copy.columns.count, align: 'right', render: (r: QueueRow) => fmtCount(r.count, queueRowCapped(r), language) },
               { key: 'action', label: copy.columns.action, render: (r: QueueRow) => <span className="text-caption text-ink-2">{copy.queue[r.kind]?.action ?? r.kind}</span> },
               {
                 key: 'href',
@@ -266,7 +266,7 @@ export default async function DataOpsPage() {
       </CardRow>
 
       <CardRow>
-        <Card id="data-ops-manual-mappings" title={copy.manualSuggestions} issues={{ count: ops.mappingSuggestions.length }}>
+        <Card id="data-ops-manual-mappings" title={copy.manualSuggestions} issues={{ count: mappingSuggestionRows(ops.mappingSuggestions) }}>
           {ops.mappingSuggestions.length === 0 ? (
             <EmptyState ok>{copy.noManualSuggestions}</EmptyState>
           ) : (

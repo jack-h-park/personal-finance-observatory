@@ -23,8 +23,11 @@ type CardBaseProps = {
   accent?: boolean
 }
 
-/** How many problems a card lists, and how bad they are. */
-export type CardIssues = { count: number; severity?: IssueSeverity }
+/**
+ * How many problems a card lists, and how bad they are. `capped` marks a count
+ * that is a lower bound because the list stopped at a cap; the badge reads `100+`.
+ */
+export type CardIssues = { count: number; severity?: IssueSeverity; capped?: boolean }
 
 /**
  * A card that reports `issues` must have a `title`: the count badge renders
@@ -37,7 +40,7 @@ export function Card({ children, id, className, title, info, action, fill, accen
   const badge =
     issues && issues.count > 0 ? (
       <Badge tone={severityTone(issues.severity ?? 'attention')}>
-        <IssueCountLabel count={issues.count} />
+        <IssueCountLabel count={issues.count} capped={issues.capped} />
       </Badge>
     ) : null
   return (

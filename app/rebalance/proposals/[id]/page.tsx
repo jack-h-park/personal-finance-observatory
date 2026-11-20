@@ -20,7 +20,6 @@ import type { EngineWarning, Instruction, SleeveMove } from '@/lib/rebalance/eng
 import { buildHarvestScenario, type HarvestScenario } from '@/lib/rebalance/harvest'
 import { getInstrumentClasses, type InstrumentClasses } from '@/lib/rebalance/instrument-classes'
 import {
-  PROPOSAL_STATUS_TONE,
   canCloseWithoutTrades,
   describeInstruction,
   ideaAccountOptions,
@@ -46,7 +45,7 @@ import {
   rejectProposal,
   saveTargetEdits,
 } from './actions'
-import { DRIFT_BAND_SEVERITY, FILL_STATUS_SEVERITY, FRESHNESS_SEVERITY, INSTRUCTION_KIND_TONE, REVIEW_SEVERITY, SELL_TIER_TONE, categoryTone, statusTone } from '@/lib/tone'
+import { DRIFT_BAND_SEVERITY, FILL_STATUS_SEVERITY, FRESHNESS_SEVERITY, INSTRUCTION_KIND_TONE, PROPOSAL_STATUS_TONE, REVIEW_SEVERITY, SELL_TIER_TONE, categoryTone, statusTone } from '@/lib/tone'
 
 export const dynamic = 'force-dynamic'
 
