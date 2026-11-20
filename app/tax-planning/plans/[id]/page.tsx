@@ -108,7 +108,7 @@ export default async function SavedTaxPlanPage({
 
           <Panel as="form" pad="md" action={updateSavedTaxPlanStatusAction}>
             <input type="hidden" name="planId" value={saved.id} />
-            <label className="block text-micro font-medium uppercase text-ink-3" htmlFor="plan-status">
+            <label className="block text-micro font-medium uppercase tracking-[0.08em] text-ink-3 [&:lang(ko)]:tracking-normal" htmlFor="plan-status">
               {copy.planStatus}
             </label>
             <Select

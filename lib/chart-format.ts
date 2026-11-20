@@ -28,6 +28,11 @@ const THOUSANDS: readonly Scale[] = [
   { min: 1e6, div: 1e6, digits: 2, label: 'M' },
 ]
 
+// Dollars below $1K keep cents: a USD axis may ask recharts for fractional
+// steps ($2.5, $0.25), and a whole-dollar label would not match its gridline.
+// Won has no minor unit, so the KRW tiers above stay whole below their first unit.
+const USD_THOUSANDS: readonly Scale[] = [{ ...THOUSANDS[0], digits: 2 }, ...THOUSANDS.slice(1)]
+
 /** Round a non-negative value half away from zero at `digits` decimals. */
 function roundAbs(abs: number, digits: number) {
   const factor = 10 ** digits
@@ -61,7 +66,7 @@ export function axisTick(value: number, unit: ChartUnit, language: Language): st
     return `${fmtNumber(rounded)}${unit.suffix ?? ''}`
   }
   const korean = unit.currency === 'KRW' && language === 'ko'
-  const { rounded, body } = scaled(Math.abs(value), korean ? KO_KRW : THOUSANDS)
+  const { rounded, body } = scaled(Math.abs(value), korean ? KO_KRW : unit.currency === 'USD' ? USD_THOUSANDS : THOUSANDS)
   if (rounded === 0) return '0'
   const sign = value < 0 ? '-' : ''
   if (korean) return `${sign}${body}`

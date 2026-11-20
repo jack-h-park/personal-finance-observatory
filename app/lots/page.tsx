@@ -54,7 +54,7 @@ export default async function LotsPage({
   const options = filterOptions(scoped, GROUPS, selected)
   const query = typeof params.q === 'string' ? params.q : ''
   const columns: DataTableColumn<(typeof rows)[number]>[] = [
-    { key: 'market', label: copy.columns.market, sortable: true, sortFirst: 'asc', render: (r) => <Badge tone={marketTone(r.market)}>{r.market}</Badge> },
+    { key: 'market', label: copy.columns.market, priority: 'secondary', sortable: true, sortFirst: 'asc', render: (r) => <Badge tone={marketTone(r.market)}>{r.market}</Badge> },
     { key: 'account', label: copy.columns.account, sortable: true, sortFirst: 'asc', sortValue: accountSortValue, priority: 'secondary', render: (r) => <AccountCell brokerage={r.brokerage} account={r.account} /> },
     {
       key: 'ticker',
@@ -72,10 +72,10 @@ export default async function LotsPage({
         </Link>
       ),
     },
-    { key: 'acquired_date', label: copy.columns.acquired, sortable: true, nowrap: true },
+    { key: 'acquired_date', label: copy.columns.acquired, priority: 'secondary', sortable: true, nowrap: true },
     { key: 'open_quantity', label: copy.columns.quantity, align: 'right', sortable: true, render: (r) => fmtNumber(r.open_quantity, 2) },
-    { key: 'native_cost_basis', label: copy.columns.costBasis, align: 'right', sortable: true, render: (r) => money(r.native_cost_basis, r.currency) },
-    { key: 'cost_basis_krw', label: copy.columns.baseCost, align: 'right', sortable: true, render: (r) => money(r.cost_basis_krw, 'KRW') },
+    { key: 'native_cost_basis', label: copy.columns.costBasis, priority: 'secondary', align: 'right', sortable: true, render: (r) => money(r.native_cost_basis, r.currency) },
+    { key: 'cost_basis_krw', label: copy.columns.baseCost, priority: 'tertiary', align: 'right', sortable: true, render: (r) => money(r.cost_basis_krw, 'KRW') },
     { key: 'holding_days', label: copy.columns.days, align: 'right', sortable: true },
     { key: 'tax_term', label: copy.columns.term, sortable: true, sortFirst: 'asc', render: (r) => <Badge tone={bucketTone(r.tax_term)}>{copy.terms[r.tax_term] ?? r.tax_term ?? copy.unknownTerm}</Badge> },
   ]

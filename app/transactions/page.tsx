@@ -47,15 +47,15 @@ export default async function TransactionsPage({
   const options = filterOptions(scoped, GROUPS, selected)
   const query = typeof params.q === 'string' ? params.q : ''
   const columns: DataTableColumn<(typeof rows)[number]>[] = [
-    { key: 'market', label: copy.columns.market, sortable: true, sortFirst: 'asc', render: (r) => <Badge tone={marketTone(r.market)}>{r.market}</Badge> },
+    { key: 'market', label: copy.columns.market, priority: 'secondary', sortable: true, sortFirst: 'asc', render: (r) => <Badge tone={marketTone(r.market)}>{r.market}</Badge> },
     { key: 'date', label: copy.columns.date, sortable: true, nowrap: true },
     { key: 'account', label: copy.columns.account, sortable: true, sortFirst: 'asc', sortValue: accountSortValue, priority: 'secondary', render: (r) => <AccountCell brokerage={r.brokerage} account={r.account} /> },
     { key: 'type', label: copy.columns.type, sortable: true, sortFirst: 'asc', render: (r) => <Badge tone={categoryTone(TRANSACTION_TYPE_TONE, r.type, 'info')}>{getUiCopy(language).transactionTypes[r.type] ?? r.type}</Badge> },
     { key: 'ticker', label: copy.columns.ticker, sortable: true, sortFirst: 'asc' },
-    { key: 'name', label: copy.columns.name, sortable: true, sortFirst: 'asc' },
-    { key: 'quantity', label: copy.columns.quantity, align: 'right', sortable: true, render: (r) => fmtQuantity(r.quantity, 2) },
+    { key: 'name', label: copy.columns.name, priority: 'secondary', sortable: true, sortFirst: 'asc' },
+    { key: 'quantity', label: copy.columns.quantity, priority: 'secondary', align: 'right', sortable: true, render: (r) => fmtQuantity(r.quantity, 2) },
     { key: 'native_amount', label: copy.columns.amount, align: 'right', sortable: true, render: (r) => money(r.native_amount, r.currency) },
-    { key: 'amount_krw', label: copy.columns.baseAmount, align: 'right', sortable: true, render: (r) => (r.amount_krw == null ? EMPTY_VALUE : money(r.amount_krw, 'KRW')) },
+    { key: 'amount_krw', label: copy.columns.baseAmount, priority: 'secondary', align: 'right', sortable: true, render: (r) => (r.amount_krw == null ? EMPTY_VALUE : money(r.amount_krw, 'KRW')) },
     { key: 'source', label: copy.columns.source, priority: 'tertiary' },
     { key: 'page', label: copy.columns.page, align: 'right', priority: 'tertiary' },
   ]

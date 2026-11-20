@@ -148,6 +148,7 @@ export default async function IncomePage() {
             height={300}
             color="var(--accent-success)"
             yAxisLabel={usd ? copy.chartAxisUsd : copy.chartAxis}
+            allowDecimals={usd}
             valueName={copy.chartSeries}
             unit={{ kind: 'money', currency: currencyPreferences.displayCurrency }}
             language={language}
