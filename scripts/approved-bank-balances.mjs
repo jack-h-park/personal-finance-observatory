@@ -5,12 +5,19 @@ export function approvedBankBalanceRows(receipts, existingRows, source) {
   if (!Array.isArray(receipts)) throw new Error('expected a list of approved bank balances')
   const approvedDates = new Set()
   return receipts.flatMap(receipt => {
-    const { institution, account, currency, observedAt, balanceCents } = receipt ?? {}
+    const { institution, account, currency, observedAt, balanceCents, balanceWon } = receipt ?? {}
     const date = typeof observedAt === 'string' ? observedAt.slice(0, 10) : ''
     const day = new Date(`${date}T00:00:00Z`)
+    let balance = null
+    if (currency === 'USD' && balanceWon === undefined && Number.isSafeInteger(balanceCents)) {
+      balance = balanceCents / 100
+    }
+    if (currency === 'KRW' && balanceCents === undefined && Number.isSafeInteger(balanceWon)) {
+      balance = balanceWon
+    }
     if (!timestampWithOffset.test(observedAt) || !Number.isFinite(Date.parse(observedAt))
         || !Number.isFinite(day.getTime()) || day.toISOString().slice(0, 10) !== date
-        || !Number.isSafeInteger(balanceCents) || currency !== 'USD'
+        || balance === null
         || ![receipt?.reportSha256, receipt?.statementSha256, receipt?.connectorManifestSha256].every(hash => sha256.test(hash))) {
       throw new Error('invalid approved bank balance evidence')
     }
@@ -28,7 +35,7 @@ export function approvedBankBalanceRows(receipts, existingRows, source) {
     const { owner, kind } = history[0]
     return [{
       institution, account, currency, owner, kind, as_of_date: date,
-      balance: balanceCents / 100, day_max_balance: null, source, derived: 0,
+      balance, day_max_balance: null, source, derived: 0,
     }]
   })
 }
