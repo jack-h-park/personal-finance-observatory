@@ -6,7 +6,7 @@ import type { AnnualTaxSummaryData } from '@/lib/application/annual-tax-summary'
 import { formatMoney } from '@/lib/domain/taxes/reconcile'
 import type { Language } from '@/lib/i18n'
 import { getPageCopy } from '@/lib/ui-copy'
-import type { TaxAuthority, TaxType } from '@/lib/ui-copy/pages/taxHistory'
+import { labelFor } from '@/lib/ui-copy/label'
 
 export function AnnualTaxSummary({ summary, language }: { summary: AnnualTaxSummaryData | null; language: Language }) {
   const copy = getPageCopy('annualTaxSummary', language)
@@ -29,7 +29,7 @@ export function AnnualTaxSummary({ summary, language }: { summary: AnnualTaxSumm
         ] as const
         return <article key={row.id} className="rounded-md border border-line-subtle p-3">
           <Note>{copy.identity}</Note>
-          <p className="text-body font-medium">{row.taxUnitId} · {historyCopy.authorities[row.authority as TaxAuthority] ?? row.authority} · {historyCopy.taxTypes[row.taxType as TaxType] ?? row.taxType} · {row.currency}</p>
+          <p className="text-body font-medium">{row.taxUnitId} · {labelFor(historyCopy.authorities, row.authority)} · {labelFor(historyCopy.taxTypes, row.taxType)} · {row.currency}</p>
           <Note spacing="above-1">{row.status === 'confirmed' ? copy.confirmed : copy.provisional}</Note>
           <dl className="mt-3 flex flex-wrap gap-x-6 gap-y-3">
             {fields.map(([label, minor]) => <div key={label} className="min-w-0 flex-1 basis-48">

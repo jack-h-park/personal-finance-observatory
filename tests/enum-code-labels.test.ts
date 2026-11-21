@@ -1,4 +1,5 @@
 import { strict as assert } from 'node:assert'
+import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 import * as React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
@@ -11,6 +12,7 @@ import { DEFAULT_TREND_RANGE } from '@/lib/trend-ranges'
 import type { Language } from '@/lib/i18n'
 import { getPageCopy, getUiCopy } from '@/lib/ui-copy'
 import { INCOME_CATEGORIES } from '@/lib/ui-copy/common'
+import { labelFor } from '@/lib/ui-copy/label'
 import { ACCOUNT_TYPES } from '@/lib/ui-copy/pages/accounts'
 import { CASH_KINDS } from '@/lib/ui-copy/pages/netWorth'
 import historySchema from '@/schemas/tax-history.v1.schema.json'
@@ -110,4 +112,29 @@ test('every record status, return or assessment, has a filing-state label', () =
   }
   // `assessed` had no English label, so it keeps its code.
   assert.equal(en.assessed, 'assessed')
+})
+
+test('a free-text code that names an Object.prototype member falls back to itself', () => {
+  const tables: Record<string, string>[] = [
+    getUiCopy('ko').incomeCategories,
+    getUiCopy('ko').transactionTypes,
+    getPageCopy('accounts', 'ko').accountTypes,
+    getPageCopy('taxHistory', 'ko').authorities,
+    getPageCopy('taxHistory', 'ko').taxTypes,
+  ]
+  for (const table of tables) {
+    for (const code of ['constructor', 'toString', 'hasOwnProperty', '__proto__']) assert.equal(labelFor(table, code), code)
+    assert.equal(labelFor(table, 'not-a-code'), 'not-a-code')
+  }
+  assert.equal(labelFor(getUiCopy('ko').incomeCategories, 'interest'), '이자')
+  assert.equal(labelFor(getUiCopy('ko').transactionTypes, null), null)
+})
+
+test('the /data-ops tickerless table renders its type through the transaction type labels', () => {
+  // The page reads the database, so the column definition is checked in source.
+  const source = readFileSync('app/data-ops/page.tsx', 'utf8')
+  assert.match(source, /\{ key: 'type', label: copy\.columns\.type, render: \(r\) => labelFor\(transactionTypes, r\.type\) \}/)
+  assert.doesNotMatch(source, /\{ key: 'type', label: copy\.columns\.type \}/)
+  assert.equal(labelFor(getUiCopy('ko').transactionTypes, 'INTEREST'), '이자')
+  assert.equal(labelFor(getUiCopy('en').transactionTypes, 'INTEREST'), 'Interest')
 })

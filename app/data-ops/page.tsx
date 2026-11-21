@@ -23,7 +23,7 @@ import { getGlossary } from '@/lib/glossary'
 import { getLanguage } from '@/lib/i18n-server'
 import type { Language } from '@/lib/i18n'
 import { getPageCopy, getUiCopy } from '@/lib/ui-copy'
-import type { IncomeCategoryCode } from '@/lib/ui-copy/common'
+import { labelFor } from '@/lib/ui-copy/label'
 import { CHECK_RESULT_SEVERITY, COVERAGE_SEVERITY, FAULT_SEVERITY, MAPPING_STATUS_SEVERITY, POSITION_BREAK_SEVERITY, TO_REVIEW_SEVERITY, countTone, mappingStatusKey, priorityTone, statusTone } from '@/lib/tone'
 import { routeMetadata, routeSection } from '@/lib/page-names'
 import { CardRow, KpiBand } from '@/components/layout'
@@ -58,6 +58,7 @@ export default async function DataOpsPage() {
   const glossary = getGlossary(language)
   const priorityLabels = getUiCopy(language).priority
   const incomeCategoryLabels = getUiCopy(language).incomeCategories
+  const transactionTypes = getUiCopy(language).transactionTypes
   const ops = getDataOpsReview()
   const coverage = getAccountCoverage()
   const supplementary = getSupplementaryCoverage()
@@ -259,7 +260,7 @@ export default async function DataOpsPage() {
             caption={copy.mappingStatusCaption}
             columns={[
               { key: 'mapping_status', label: copy.columns.status, render: (r) => <Badge tone={statusTone(MAPPING_STATUS_SEVERITY, mappingStatusKey(r.mapping_status))}>{copy.mappingStatuses[r.mapping_status] ?? r.mapping_status}</Badge> },
-              { key: 'income_category', label: copy.columns.category, render: (r) => incomeCategoryLabels[r.income_category as IncomeCategoryCode] ?? r.income_category },
+              { key: 'income_category', label: copy.columns.category, render: (r) => labelFor(incomeCategoryLabels, r.income_category) },
               { key: 'row_count', label: copy.columns.rows, align: 'right', render: (r) => fmtNumber(r.row_count) },
               { key: 'base_income', label: copy.columns.baseIncome, align: 'right', render: (r) => money(r.base_income) },
             ]}
@@ -277,7 +278,7 @@ export default async function DataOpsPage() {
               columns={[
                 { key: 'market', label: copy.columns.market, render: (r) => <Badge tone={marketTone(r.market)}>{r.market}</Badge> },
                 { key: 'brokerage', label: copy.columns.broker },
-                { key: 'income_category', label: copy.columns.category, render: (r) => incomeCategoryLabels[r.income_category as IncomeCategoryCode] ?? r.income_category },
+                { key: 'income_category', label: copy.columns.category, render: (r) => labelFor(incomeCategoryLabels, r.income_category) },
                 { key: 'row_count', label: copy.columns.rows, align: 'right', render: (r) => fmtNumber(r.row_count) },
                 { key: 'base_income', label: copy.columns.base, align: 'right', render: (r) => money(r.base_income) },
                 { key: 'rule', label: copy.columns.suggestedRule, render: (r) => <code className="block max-w-[24rem] whitespace-pre-wrap font-mono text-label text-ink-2">{r.rule}</code> },
@@ -315,10 +316,10 @@ export default async function DataOpsPage() {
             rows={ops.tickerlessIncome}
             columns={[
               { key: 'market', label: copy.columns.market, render: (r) => <Badge tone={marketTone(r.market)}>{r.market}</Badge> },
-              { key: 'income_category', label: copy.columns.category, render: (r) => incomeCategoryLabels[r.income_category as IncomeCategoryCode] ?? r.income_category },
+              { key: 'income_category', label: copy.columns.category, render: (r) => labelFor(incomeCategoryLabels, r.income_category) },
               { key: 'brokerage', label: copy.columns.broker },
               { key: 'name', label: copy.columns.name },
-              { key: 'type', label: copy.columns.type },
+              { key: 'type', label: copy.columns.type, render: (r) => labelFor(transactionTypes, r.type) },
               { key: 'row_count', label: copy.columns.rows, align: 'right', render: (r) => fmtNumber(r.row_count) },
               { key: 'native_income', label: copy.columns.native, align: 'right', render: (r) => money(r.native_income, r.currency) },
               { key: 'base_income', label: copy.columns.base, align: 'right', render: (r) => money(r.base_income) },

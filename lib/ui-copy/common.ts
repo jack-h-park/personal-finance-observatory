@@ -124,7 +124,7 @@ export const UI_COPY_BY_LANG = {
       DEPOSIT: 'Deposit',
       TRUST_OUT: 'Trust transfer',
     } as Record<string, string>,
-    /** Read with `incomeCategories[category as IncomeCategoryCode] ?? category`. */
+    /** Read with `labelFor(incomeCategories, category)` (lib/ui-copy/label.ts): manual mappings can write any category. */
     incomeCategories: {
       dividend: 'dividend',
       interest: 'interest',
@@ -276,7 +276,7 @@ export const UI_COPY_BY_LANG = {
     incomeCategories: {
       dividend: '배당',
       interest: '이자',
-      stock_lending: '주식 대여',
+      stock_lending: '주식 대여 수익',
       other: '기타',
       unknown: '미분류',
     } satisfies Record<IncomeCategoryCode, string>,

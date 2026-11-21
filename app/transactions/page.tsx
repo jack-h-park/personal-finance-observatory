@@ -8,6 +8,7 @@ import { getCurrencyPreferences } from '@/lib/currency-server'
 import { EMPTY_VALUE, fmtNumber, fmtQuantity } from '@/lib/format'
 import { getLanguage } from '@/lib/i18n-server'
 import { getPageCopy, getUiCopy } from '@/lib/ui-copy'
+import { labelFor } from '@/lib/ui-copy/label'
 import { TickerFilterChip } from '@/components/TickerFilterChip'
 import { applyFilters, applySearch, applyTicker, filterOptions, readFilters, readTicker, tickerWindowTruncated, withParam, type FilterGroup } from '@/lib/table-filter'
 import { columnSortValue, formatSort, knownSort, parseSort, sortRows, sortableKeys, type TableSort } from '@/lib/table-sort'
@@ -90,7 +91,7 @@ export default async function TransactionsPage({
               key: group.key,
               label: copy.filters[group.label as keyof typeof copy.filters],
               // The type chips read the table's type column labels; the URL keeps the code.
-              options: options[group.key].map((value: string) => ({ value, label: group.key === 'type' ? (transactionTypes[value] ?? value) : value })),
+              options: options[group.key].map((value: string) => ({ value, label: group.key === 'type' ? labelFor(transactionTypes, value) : value })),
               selected: selected[group.key],
             }))}
           />

@@ -14,7 +14,7 @@ import { getLanguage } from '@/lib/i18n-server'
 import { routeMetadata } from '@/lib/page-names'
 import { taxRecordHeading } from '@/lib/page-headings'
 import { getPageCopy } from '@/lib/ui-copy'
-import type { TaxAuthority, TaxEventKind, TaxRecordKind } from '@/lib/ui-copy/pages/taxHistory'
+import { labelFor } from '@/lib/ui-copy/label'
 import { reviewTaxHistory } from '../../actions'
 import { EMPTY_VALUE } from '@/lib/format'
 
@@ -32,14 +32,14 @@ export default async function TaxRecordPage({
     search = await searchParams,
     language = await getLanguage(),
     copy = getPageCopy('taxHistory', language),
-    filingStates: Record<string, string> = getPageCopy('annualTaxSummary', language).filingStates
+    filingStates = getPageCopy('annualTaxSummary', language).filingStates
   const store = readTaxHistory(),
     detail = getTaxRecordDetail(store, id)
   if (!detail) notFound()
   const { obligation, row, allocations, events, versions, adjustments, auditChanges } = detail
   const evidenceIds = new Set(detail.evidenceIds)
   const roots = { records: config.finance.recordsDir, tax: config.finance.taxDir }
-  const recordKind = (kind: string) => copy.recordKinds[kind as TaxRecordKind] ?? kind
+  const recordKind = (kind: string) => labelFor(copy.recordKinds, kind)
   const fields = (kind: string, itemId: string) => (
     <>
       <input type="hidden" name="kind" value={kind} />
@@ -60,7 +60,7 @@ export default async function TaxRecordPage({
         parent="/taxes/history"
         language={language}
         {...taxRecordHeading(copy)}
-        subtitle={`${copy.authorities[obligation.authority as TaxAuthority] ?? obligation.authority} · ${obligation.taxYear} · ${obligation.taxUnitId}`}
+        subtitle={`${labelFor(copy.authorities, obligation.authority)} · ${obligation.taxYear} · ${obligation.taxUnitId}`}
         autoRefresh={false}
       />
       {typeof search.error === 'string' && <FormError messages={[search.error]} />}
@@ -156,7 +156,7 @@ export default async function TaxRecordPage({
                   </td>
                   <td className="p-3">{version.recordRevision}</td>
                   <td className="p-3">
-                    {filingStates[version.status] ?? version.status}
+                    {labelFor(filingStates, version.status)}
                     {version.statusDate ? ` · ${version.statusDate}` : ''}
                   </td>
                   <td className="p-3">{version.supersedesId ?? EMPTY_VALUE}</td>
@@ -192,7 +192,7 @@ export default async function TaxRecordPage({
             return (
               <li key={allocation.id} className="p-4">
                 <p className="text-body">
-                  {copy.eventKinds[event.kind as TaxEventKind] ?? event.kind} · {event.date ?? copy.none} ·{' '}
+                  {labelFor(copy.eventKinds, event.kind)} · {event.date ?? copy.none} ·{' '}
                   {formatMoney({ currency: event.currency, minor: allocation.principal })}
                 </p>
                 <p className="mt-1 text-caption text-ink-2">

@@ -10,7 +10,7 @@ import { getGlossary } from '@/lib/glossary'
 import { getLanguage } from '@/lib/i18n-server'
 import { positionHref } from '@/lib/position-url'
 import { getPageCopy, getUiCopy } from '@/lib/ui-copy'
-import type { IncomeCategoryCode } from '@/lib/ui-copy/common'
+import { labelFor } from '@/lib/ui-copy/label'
 import { formatSort, parseSort, sortRows, type TableSort } from '@/lib/table-sort'
 import { FAULT_SEVERITY, RECONCILIATION_STATUS_TONE, TO_REVIEW_SEVERITY, categoryTone, countTone, reconciliationStatusKey } from '@/lib/tone'
 import { routeMetadata, routeSection } from '@/lib/page-names'
@@ -164,7 +164,7 @@ export default async function ReconciliationPage({
               columns={[
                 { key: 'market', label: copy.columns.market, render: (r) => <Badge tone={marketTone(r.market)}>{r.market}</Badge> },
                 { key: 'brokerage', label: copy.columns.brokerage },
-                { key: 'income_category', label: copy.columns.category, render: (r) => incomeCategoryLabels[r.income_category as IncomeCategoryCode] ?? r.income_category },
+                { key: 'income_category', label: copy.columns.category, render: (r) => labelFor(incomeCategoryLabels, r.income_category) },
                 { key: 'row_count', label: copy.columns.rows, align: 'right', render: (r) => fmtNumber(r.row_count) },
                 { key: 'base_income', label: copy.columns.baseIncome, align: 'right', render: (r) => money(r.base_income) },
               ]}

@@ -9,6 +9,7 @@ import { getCurrencyPreferences } from '@/lib/currency-server'
 import { getGlossary } from '@/lib/glossary'
 import { getLanguage } from '@/lib/i18n-server'
 import { getPageCopy, getUiCopy } from '@/lib/ui-copy'
+import { labelFor } from '@/lib/ui-copy/label'
 import { routeMetadata, routeSection } from '@/lib/page-names'
 import { incomeLinkedIssues } from '@/lib/header-status'
 import { CardRow, KpiBand } from '@/components/layout'
@@ -200,7 +201,7 @@ export default async function IncomePage() {
               rows={income.tickerless}
               columns={[
                 { key: 'market', priority: 'secondary', label: copy.columns.market, render: (r) => <Badge tone={marketTone(r.market)}>{r.market}</Badge> },
-                { key: 'type', label: copy.columns.type, render: (r) => (r.type == null ? r.type : (transactionTypes[r.type] ?? r.type)) },
+                { key: 'type', label: copy.columns.type, render: (r) => labelFor(transactionTypes, r.type) },
                 { key: 'name', label: copy.columns.name },
                 { key: 'row_count', priority: 'secondary', label: copy.columns.rows, align: 'right', render: (r) => fmtNumber(r.row_count) },
                 { key: 'native_income', priority: 'secondary', label: copy.columns.native, align: 'right', render: (r) => money(r.native_income, r.currency) },

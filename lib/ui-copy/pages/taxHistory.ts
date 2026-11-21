@@ -71,7 +71,7 @@ export const taxHistory = defineCopy({
     changes: 'Review history',
     record: 'Inspect record',
     importHint: 'Import is preview-first. See the tax-history guide for the reviewed import workflow.',
-    // Read with `authorities[code as TaxAuthority] ?? code`, and likewise below.
+    // Read with `labelFor(authorities, code)` (lib/ui-copy/label.ts), and likewise below.
     authorities: { 'US:federal': 'US:federal', 'KR:national': 'KR:national', 'KR:local': 'KR:local' } satisfies Record<TaxAuthority, string>,
     taxTypes: { income: 'income' } satisfies Record<TaxType, string>,
     recordKinds: { return: 'return', assessment: 'assessment' } satisfies Record<TaxRecordKind, string>,
@@ -143,7 +143,7 @@ export const taxHistory = defineCopy({
     changes: '검토 이력',
     record: '기록 확인',
     importHint: '가져오기는 미리보기가 기본입니다. 검토 후 적용하는 절차는 세금 이력 안내를 확인하세요.',
-    authorities: { 'US:federal': '미국 연방', 'KR:national': '한국 국세', 'KR:local': '한국 지방세' } satisfies Record<TaxAuthority, string>,
+    authorities: { 'US:federal': '미국 연방세', 'KR:national': '한국 국세', 'KR:local': '한국 지방세' } satisfies Record<TaxAuthority, string>,
     taxTypes: { income: '소득세' } satisfies Record<TaxType, string>,
     recordKinds: { return: '신고서', assessment: '과세기관 결정' } satisfies Record<TaxRecordKind, string>,
     eventKinds: {

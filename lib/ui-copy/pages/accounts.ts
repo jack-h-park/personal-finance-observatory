@@ -26,7 +26,7 @@ export const accounts = defineCopy({
     closed: 'Closed',
     noHoldings: 'No positions as of this date',
     crypto: 'Crypto',
-    /** Read with `accountTypes[type as AccountType] ?? type`. */
+    /** Read with `labelFor(accountTypes, type)` (lib/ui-copy/label.ts): the value is often broker text. */
     accountTypes: { Taxable: 'Taxable', Crypto: 'Crypto', Brokerage: 'Brokerage' } satisfies Record<AccountType, string>,
     tableInfo:
       'First and last date per table. Tax lots run from the oldest open acquisition to the snapshot that listed them. A holdings date is when positions were last read, not how far statements reach.',
