@@ -491,6 +491,7 @@ request, so it records how many each file has and stops the count from growing.
 | G12 `english-in-korean-copy` | an English word left in the `ko` half of a copy module (`lot`, `snapshot`, `pnpm refresh`) |
 | G13 `raw-enum-badge` | `<Badge>{row.status}</Badge>`: an enum code shown where a copy label belongs |
 | G14 `form-page-polls` | a route folder with `SubmitButton` or `ConfirmSubmitButton` and no `autoRefresh={false}` |
+| G15 `data-layer-sentence` | a Korean sentence stored as a property value in `lib/`, or a sentence pushed onto a `warnings` / `notes` array, where a code belongs |
 
 Each of these mistakes passes everything else: types, lint and build.
 
@@ -524,6 +525,16 @@ form number (`1099-DA`), an unspaced `name=value` pair copied from a file
 allowed: `pnpm refresh를 실행하세요` becomes `갱신을 실행하세요`. Backticks are
 for a command or identifier the `en` half shows the same way, not a way around
 rewording a word that can be translated.
+
+G15 holds the data layer to one rule: a module in `lib/` returns a code with its
+parameters, and the page renders the sentence from `lib/ui-copy`. Text that
+leaves the machine (reminders, CLI output) may stay in `lib/`; the check skips
+`lib/ui-copy/`, `lib/glossary.ts`, `lib/cli/`, `lib/rebalance/notify.ts` and
+`lib/rebalance/proposal-view.ts`, and a line marked `guardrail:allow data-text`
+(on it or the line above, with the reason). It cannot see an English sentence
+stored as a property value, a sentence built in a helper, or a `string` field a
+page prints; the fields pages render are typed as code unions, each with a
+coverage test, and that is the net for those.
 
 ## Checking a change
 
