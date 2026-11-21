@@ -1,6 +1,5 @@
 import { FinanceTaxSummary } from '@/components/FinanceTaxSummary'
 import { AssetCoverageNote } from '@/components/AssetCoverageNote'
-import { isSupplementarySource } from '@/lib/supplementary'
 import { PageHeader } from '@/components/PageHeader'
 import { Badge, Card, EmptyState, HeroAside, MetricField, MetricHeroCard, Note, Panel, TextLink, marketTone } from '@/components/ui'
 import { PortfolioMultiTrendChart, PortfolioTrendChart, StackedAssetChart } from '@/components/charts'
@@ -14,7 +13,6 @@ import {
   getIncomeReview,
   getMeta,
   getNetWorth,
-  getOperationalHealth,
   getOverview,
   getPortfolioSnapshots,
   getRebalanceReview,
@@ -29,7 +27,7 @@ import {
 } from '@/lib/adapters/portfolio-db'
 import { periodTiles } from '@/lib/overview-period-tiles'
 import { attentionItems } from '@/lib/overview-attention'
-import { fmtCount } from '@/lib/header-status'
+import { fmtCount, overviewLinkedStatus } from '@/lib/header-status'
 import { isoDaysBefore, previousYearEnd, totalAssetsChange, type TotalAssetsChange } from '@/lib/total-assets-change'
 import {
   HEALTHY_TREND_COST_COVERAGE,
@@ -142,8 +140,10 @@ export default async function OverviewPage({
       })()
     : null
   const rebalance = getRebalanceReview()
+  // One read of the /data-ops queue feeds the header pill and the attention strip, so they agree with /data-ops.
+  const opsQueue = getDataOpsReview().actionQueue
   const attention = attentionItems({
-    queue: getDataOpsReview().actionQueue,
+    queue: opsQueue,
     overCap: rebalance.reduceCandidates.length,
     marketActions: rebalance.marketGaps,
   })
@@ -152,10 +152,7 @@ export default async function OverviewPage({
   const portfolioSnapshots = selectedScope === 'GOLD' ? withGoldScope(storedSnapshots) : storedSnapshots
   const top = getTopHoldings(5)
   const accounts = getAccountAllocation()
-  const operational = getOperationalHealth()
   const usdKrw = overview.fxRates.find((r: any) => r.from_currency === 'USD' && r.to_currency === 'KRW')
-  // Supplementary inputs (deposits, pensions, gold) report in the weekly reminder, not on the stock badge.
-  const operationalIssues = operational.staleItems.filter((item) => !isSupplementarySource(item.key)).length
   const fxLabel = usdKrw ? `USD/KRW ${fmtNumber(usdKrw.rate, 2)} (${usdKrw.as_of_date})` : null
 
   const termClassifiedValue = overview.totals.term_classified_base_value ?? 0
@@ -276,11 +273,7 @@ export default async function OverviewPage({
         title={copy.title}
         emphasis={copy.emphasis}
         subtitle={copy.subtitle(fmtDateTime(meta.ingested_at, language), fxLabel)}
-        status={
-          overview.failedChecks + operationalIssues > 0
-            ? { severity: 'attention', label: copy.needsReview(overview.failedChecks + operationalIssues) }
-            : { severity: 'ok', label: copy.healthy }
-        }
+        status={overviewLinkedStatus(getPageCopy('dataOps', language), opsQueue, language, copy.healthy)}
       />
 
       <WashSaleBanner review={getWashSaleReview()} copy={getPageCopy('washSale', language)} />

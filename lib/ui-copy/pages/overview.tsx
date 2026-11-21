@@ -50,7 +50,6 @@ export const overview = defineCopy({
     emphasis: 'Overview',
     subtitle: (ingestedAt: string, fx: string | null) =>
       `Investment status loaded from local records at ${ingestedAt}.${fx ? ` Applied FX: ${fx}.` : ''}`,
-    needsReview: (count: number) => `Operations review ${count}`,
     healthy: 'Healthy',
     portfolioValue: 'Total Portfolio Value',
     portfolioValueInfo: 'Current market value converted to the selected display currency across all priced holdings.',
@@ -189,7 +188,6 @@ export const overview = defineCopy({
     emphasis: '개요',
     subtitle: (ingestedAt: string, fx: string | null) =>
       `로컬 투자 자료를 ${ingestedAt}에 불러온 투자 현황입니다.${fx ? ` 적용 환율: ${fx}.` : ''}`,
-    needsReview: (count: number) => `운영 검토 대기 ${count}건`,
     healthy: '정상',
     portfolioValue: '전체 평가금액',
     portfolioValueInfo: '가격과 환율을 적용해 선택한 표시 통화로 환산한 전체 보유자산의 현재 평가금액입니다.',
