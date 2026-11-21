@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
+  buildTaxPlan,
   instructionReasonCode,
   masterStrategyDescription,
   masterStrategyLabel,
@@ -10,8 +11,11 @@ import {
   type MasterPlanReasonCode,
   type MasterPlanStrategyKey,
   type MultiYearStrategyKey,
+  type TaxPlanningLot,
   type TaxPlanWarning,
+  WARNING_MESSAGES,
 } from '@/lib/tax-planning'
+import type { TaxPolicy } from '@/lib/tax-policy'
 import { taxPlanning } from '@/lib/ui-copy/pages/taxPlanning'
 import {
   instructionReasonText,
@@ -63,24 +67,63 @@ test('the English scenario name and description are the engine wording for every
   }
 })
 
-test('every warning code renders the engine sentence in English and a Korean sentence otherwise', () => {
-  const warnings: TaxPlanWarning[] = [
-    { code: 'MISSING_VALUATION', message: 'Missing valuation; refresh price snapshot before acting.' },
-    { code: 'WASH_SALE_REVIEW', message: 'Potential wash-sale review: 30d before / 45d after.', daysBefore: 30, daysAfter: 45 },
-    { code: 'KR_DOMESTIC_SCOPE_OFF', message: 'KR domestic stock taxable scope is off by current assumptions.' },
-    { code: 'CRYPTO_NO_KR_MODULE', message: 'Crypto: no Korea virtual-asset module; US estimate treats it as property with no wash-sale rule.' },
-    { code: 'NO_COUNTRY_MODULE', message: 'No country module exists yet; treated as monitoring-only.' },
-    { code: 'KRW_USES_COST_BASIS_FX', message: 'KRW estimate uses cost-basis FX because current FX is missing on the tax lot.' },
-    { code: 'US_WORLDWIDE_INCOME', message: 'US tax estimate includes non-US market gains because US citizens/residents generally report worldwide income.' },
-    { code: 'NO_ACQUISITION_DATE_KRW_COST', message: 'No acquisition-date won cost on this lot; the Korea gain uses the cost at the current rate.' },
-  ]
-  for (const warning of warnings) {
-    assert.equal(taxPlanWarningText(warning, taxPlanning.en), warning.message)
+// Synthetic policy: only the wash-sale window matters here, set off the defaults.
+function washSalePolicy(): TaxPolicy {
+  return {
+    version: 3,
+    activeScenario: 'US_AND_KR',
+    baseCurrency: 'KRW',
+    jurisdictions: [
+      { code: 'US', enabled: true, filingCurrency: 'USD', manualAssumptions: { washSaleWindowDaysBefore: 21, washSaleWindowDaysAfter: 40 } },
+      { code: 'KR', enabled: true, filingCurrency: 'KRW', manualAssumptions: {} },
+    ],
+    manualAdjustments: [],
+  }
+}
+
+function usLossLot(): TaxPlanningLot {
+  return {
+    id: 1,
+    market: 'US',
+    currency: 'USD',
+    brokerage: 'Broker',
+    account: 'Taxable',
+    ticker: 'LOSS',
+    name: 'Test Holdings',
+    acquired_date: '2025-07-01',
+    fx_rate_to_base: 1000,
+    open_quantity: 10,
+    native_cost_basis: 10_000,
+    native_market_value: 6_000,
+    native_unrealized_gl: -4_000,
+    cost_basis_krw: 10_000_000,
+    holding_days: 365,
+    tax_term: 'short',
+  }
+}
+
+test('every plain warning code renders the engine sentence in English and a Korean sentence otherwise', () => {
+  const codes = Object.keys(WARNING_MESSAGES) as Array<keyof typeof WARNING_MESSAGES>
+  assert.equal(codes.length, 7)
+  for (const code of codes) {
+    const warning: TaxPlanWarning = { code, message: WARNING_MESSAGES[code] }
+    assert.equal(taxPlanning.en.planWarnings.codes[code], WARNING_MESSAGES[code])
+    assert.equal(taxPlanWarningText(warning, taxPlanning.en), WARNING_MESSAGES[code])
     const ko = taxPlanWarningText(warning, taxPlanning.ko)
     assert.notEqual(ko, warning.message)
     assert.ok(!LATIN.test(ko.replace(/US|KR|FX/g, '')), ko)
   }
-  assert.match(taxPlanWarningText(warnings[1], taxPlanning.ko), /30일.*45일/)
+})
+
+test('the wash-sale warning built by the engine renders its own message in English', () => {
+  const plan = buildTaxPlan({ lots: [usLossLot()], policy: washSalePolicy(), scenario: 'US_AND_KR', objective: 'raise-cash' })
+  const warning = plan.candidates[0].warnings.find((w) => w.code === 'WASH_SALE_REVIEW')
+  assert.ok(warning, 'the US loss lot carries a wash-sale warning')
+  assert.equal(taxPlanWarningText(warning, taxPlanning.en), warning.message)
+  const ko = taxPlanWarningText(warning, taxPlanning.ko)
+  assert.notEqual(ko, warning.message)
+  assert.ok(!LATIN.test(ko.replace(/US|KR|FX/g, '')), ko)
+  assert.match(ko, /21일.*40일/)
 })
 
 test('an unknown warning code still shows its message', () => {

@@ -446,7 +446,10 @@ badge beside the title (`attention` unless you pass `problem`) and needs a
 Market codes (`KR`, `US`, `CRYPTO`) stay raw: the code is the name. Every other
 enum value in a badge reads a copy map, `labels[value] ?? value`, so the reader
 sees a word in their language and an unknown value still shows instead of a
-blank (G13). Properties named `market`, `ticker` or `label` are exempt.
+blank (G13). Properties named `market`, `ticker` or `label` are exempt. A value
+that is free text (a broker's type, a manual mapping's category) reads through
+`labelFor` in `lib/ui-copy/label.ts`, and `labels[value] ?? value` stays for a
+closed union.
 
 **`styles/jp-theme.css` is shared with `nextjs-react-notion-x`.** Changing a
 token there splits the two projects unless both move together. Two known items

@@ -65,7 +65,8 @@ export type TaxPlanWarning = {
   daysAfter?: number
 }
 
-const WARNING_MESSAGES = {
+/** The English sentence of each warning without parameters; page copy must match it. */
+export const WARNING_MESSAGES = {
   MISSING_VALUATION: 'Missing valuation; refresh price snapshot before acting.',
   KR_DOMESTIC_SCOPE_OFF: 'KR domestic stock taxable scope is off by current assumptions.',
   CRYPTO_NO_KR_MODULE: 'Crypto: no Korea virtual-asset module; US estimate treats it as property with no wash-sale rule.',

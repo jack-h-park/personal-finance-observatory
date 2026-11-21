@@ -101,7 +101,8 @@ export const UI_COPY_BY_LANG = {
     /**
      * A transaction row's type. The keys are the types the ingest accepts (its
      * `transaction_types_mapped` check in scripts/ingest-stock-data.mjs); read
-     * with `transactionTypes[type] ?? type`, so a new type still shows.
+     * with `labelFor(transactionTypes, type)` from lib/ui-copy/label.ts, so a
+     * new type still shows.
      */
     transactionTypes: {
       BUY: 'Buy',

@@ -55,7 +55,7 @@ export default async function TransactionsPage({
     { key: 'market', label: copy.columns.market, priority: 'secondary', sortable: true, sortFirst: 'asc', render: (r) => <Badge tone={marketTone(r.market)}>{r.market}</Badge> },
     { key: 'date', label: copy.columns.date, sortable: true, nowrap: true },
     { key: 'account', label: copy.columns.account, sortable: true, sortFirst: 'asc', sortValue: accountSortValue, priority: 'secondary', render: (r) => <AccountCell brokerage={r.brokerage} account={r.account} /> },
-    { key: 'type', label: copy.columns.type, sortable: true, sortFirst: 'asc', render: (r) => <Badge tone={categoryTone(TRANSACTION_TYPE_TONE, r.type, 'info')}>{transactionTypes[r.type] ?? r.type}</Badge> },
+    { key: 'type', label: copy.columns.type, sortable: true, sortFirst: 'asc', render: (r) => <Badge tone={categoryTone(TRANSACTION_TYPE_TONE, r.type, 'info')}>{labelFor(transactionTypes, r.type)}</Badge> },
     { key: 'ticker', label: copy.columns.ticker, sortable: true, sortFirst: 'asc' },
     { key: 'name', label: copy.columns.name, priority: 'secondary', sortable: true, sortFirst: 'asc' },
     { key: 'quantity', label: copy.columns.quantity, priority: 'secondary', align: 'right', sortable: true, render: (r) => fmtQuantity(r.quantity, 2) },

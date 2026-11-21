@@ -1,4 +1,5 @@
 import { EMPTY_VALUE } from '@/lib/format'
+import { MASTER_PLAN_REASONS } from '@/lib/tax-plan-reasons'
 import type {
   MasterPlanReasonCode,
   MasterPlanStrategyKey,
@@ -309,15 +310,8 @@ export const taxPlanning = defineCopy({
       next: 'Next',
       noScheduledSaleInstructions: 'No scheduled sale instructions',
       noProfile: 'No profile',
-      /** Why an instruction is scheduled, by MasterPlanReasonCode. English matches the stored `reason`. */
-      reasons: {
-        WAIT_US_ONLY_YEAR: 'Held for long-term treatment and same-year netting in the first US-only filing year',
-        EARLY_LOSS_OFFSET: 'Early loss candidate for same-year gain offset; wash-sale review required',
-        LOSS_INVENTORY: 'Loss inventory scheduled with the annual realization plan',
-        MIXED_RETURNS: 'A gain on one return and a loss on the other this year; scheduled as a sale, not as loss inventory',
-        FIRST_LONG_TERM_WINDOW: 'First permitted window after long-term eligibility',
-        SHORT_TERM_SALE: 'Short-term sale under the selected scenario',
-      } satisfies Record<MasterPlanReasonCode, string>,
+      /** Why an instruction is scheduled, by MasterPlanReasonCode. English is the stored `reason`, read from its table. */
+      reasons: MASTER_PLAN_REASONS,
     },
     annualTax: {
       title: 'Annual tax roll-up',
