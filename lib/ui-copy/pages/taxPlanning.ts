@@ -535,7 +535,7 @@ export const taxPlanning = defineCopy({
       } satisfies Record<MasterPlanStrategyKey, StrategyText> as Partial<Record<string, StrategyText>>,
       description: {
         EARLIEST_LT: () => '가격이 있는 각 세금 단위를 미국 세법상 장기 보유가 된 뒤 첫 매도 가능일에 매도합니다.',
-        WAIT_US_ONLY: () => '이익과 손실 세금 단위를 모두 첫 미국만 신고 연도로 옮겨, 비교에서 같은 해 손실 상계가 유지되도록 합니다.',
+        WAIT_US_ONLY: () => '이익과 손실 세금 단위를 모두 미국만 신고하는 첫 해로 옮겨, 비교에서 같은 해 손실 상계가 유지되도록 합니다.',
         ACCELERATE_LOSSES: () => '이익 세금 단위가 장기 보유가 되기를 기다리는 동안 손실 세금 단위를 바로 같은 해 상계 계획에 쓸 수 있게 합니다.',
         STAGED: (executionMonths: number) =>
           `가격이 있는 세금 단위를 ${executionMonths}개월에 걸쳐 나누고, 월별 한도 안에서 매도 가능한 손실 세금 단위와 이익이 작은 세금 단위를 우선합니다.`,
@@ -557,9 +557,9 @@ export const taxPlanning = defineCopy({
     },
     planWarnings: {
       codes: {
-        MISSING_VALUATION: '평가 금액이 없습니다. 실행 전에 가격 스냅샷을 갱신하세요.',
+        MISSING_VALUATION: '평가금액이 없습니다. 실행 전에 가격 스냅샷을 갱신하세요.',
         KR_DOMESTIC_SCOPE_OFF: '현재 가정에서는 한국 국내 주식이 과세 범위에서 제외됩니다.',
-        CRYPTO_NO_KR_MODULE: '암호화폐: 한국 가상자산 계산 모듈이 없습니다. 미국 추정은 워시세일 규칙이 없는 자산으로 취급합니다.',
+        CRYPTO_NO_KR_MODULE: '암호화폐: 한국 가상자산 계산 모듈이 없습니다. 미국 추정에서는 이를 워시세일 규칙이 적용되지 않는 자산으로 취급합니다.',
         NO_COUNTRY_MODULE: '이 시장의 국가별 계산 모듈이 아직 없어 모니터링 전용으로 취급합니다.',
         KRW_USES_COST_BASIS_FX: '세금 단위에 현재 FX가 없어 원화 추정에 취득 기준 FX를 사용합니다.',
         US_WORLDWIDE_INCOME: '미국 시민/거주자는 일반적으로 전세계 소득을 신고하므로 미국 세금 추정에 미국 외 시장의 이익도 포함합니다.',
@@ -761,7 +761,7 @@ export const taxPlanning = defineCopy({
       noScheduledSaleInstructions: '예약된 매도 지시가 없습니다',
       noProfile: '프로필 없음',
       reasons: {
-        WAIT_US_ONLY_YEAR: '첫 미국만 신고 연도에 장기 보유 처리와 같은 해 상계를 받도록 보유',
+        WAIT_US_ONLY_YEAR: '미국만 신고하는 첫 해에 장기 보유 처리와 같은 해 상계를 받도록 보유',
         EARLY_LOSS_OFFSET: '같은 해 이익 상계를 위한 조기 손실 후보, 워시세일 검토 필요',
         LOSS_INVENTORY: '연간 실현 계획에 맞춰 배치한 손실 재고',
         MIXED_RETURNS: '올해 한 신고에서는 이익, 다른 신고에서는 손실이라 손실 재고가 아닌 매도로 배치',
