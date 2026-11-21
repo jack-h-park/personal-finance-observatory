@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 import Database from 'better-sqlite3'
-import { RETENTION_REASON_CODES, type RetentionReasonCode, type SourceInventoryItem } from '@/lib/adapters/portfolio-db'
+import { FILE_CATEGORY_CODES, RETENTION_REASON_CODES, type RetentionReasonCode, type SourceInventoryItem } from '@/lib/adapters/portfolio-db'
 import { dataMap } from '@/lib/ui-copy/pages/dataMap'
 
 // /data-map renders the retention reason and the file category from codes the
@@ -14,22 +14,6 @@ const HANGUL = /[ᄀ-ᇿ㄰-㆏가-힯]/
 // Latin words the Korean half may keep: allowed acronyms, a product name, and
 // the file name of a derived artifact.
 const KO_LATIN_OK = new Set(['CMA', 'PDF', 'CSV', 'TSV', 'JSON', 'Merrill', 'pension', 'evidence', 'json'])
-
-const FILE_CATEGORY_CODES = [
-  'kr sheet payload',
-  'generated output',
-  'extracted text',
-  'drive pdf cache',
-  'us csv export',
-  'pdf evidence',
-  'tsv payload',
-  'workbook',
-  'json snapshot',
-  'database',
-  'image artifact',
-  'text artifact',
-  'documentation',
-]
 
 test('every retention reason code has a non-empty label in both languages', () => {
   for (const code of RETENTION_REASON_CODES) {

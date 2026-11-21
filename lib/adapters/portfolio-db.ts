@@ -496,6 +496,25 @@ export const RETENTION_REASON_CODES = [
 
 export type RetentionReasonCode = (typeof RETENTION_REASON_CODES)[number]
 
+/** The file categories `fileCategory` names; /data-map renders each from copy. */
+export const FILE_CATEGORY_CODES = [
+  'kr sheet payload',
+  'generated output',
+  'extracted text',
+  'drive pdf cache',
+  'us csv export',
+  'pdf evidence',
+  'tsv payload',
+  'workbook',
+  'json snapshot',
+  'database',
+  'image artifact',
+  'text artifact',
+  'documentation',
+] as const
+
+export type FileCategoryCode = (typeof FILE_CATEGORY_CODES)[number]
+
 export type SourceInventoryItem = {
   id: string
   name: string
@@ -2374,7 +2393,11 @@ function sourceFreshness(source: any): FreshnessItem {
   }
 }
 
-function fileCategory(filePath: string, relativePath: string) {
+/**
+ * The category /data-map shows for a file.
+ * A FileCategoryCode shows its copy label; `xyz file` and `file` show raw.
+ */
+function fileCategory(filePath: string, relativePath: string): FileCategoryCode | `${string} file` | 'file' {
   const ext = path.extname(filePath).toLowerCase()
   if (relativePath.startsWith('.codex_sheet_payloads/')) return 'kr sheet payload'
   if (relativePath.startsWith('outputs/')) return 'generated output'

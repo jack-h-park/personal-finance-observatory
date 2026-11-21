@@ -1,23 +1,8 @@
-import type { RetentionReasonCode, SourceInventoryItem } from '@/lib/adapters/portfolio-db'
+import type { FileCategoryCode, RetentionReasonCode, SourceInventoryItem } from '@/lib/adapters/portfolio-db'
 import { defineCopy } from '@/lib/ui-copy/define'
 
 // Named here so the Korean half carries no English string literal in a type (G12).
 type InventoryStatus = SourceInventoryItem['status']
-/** The categories the adapter's `fileCategory` returns; an unlisted one (`xyz file`) shows raw. */
-export type FileCategoryCode =
-  | 'kr sheet payload'
-  | 'generated output'
-  | 'extracted text'
-  | 'drive pdf cache'
-  | 'us csv export'
-  | 'pdf evidence'
-  | 'tsv payload'
-  | 'workbook'
-  | 'json snapshot'
-  | 'database'
-  | 'image artifact'
-  | 'text artifact'
-  | 'documentation'
 
 export const dataMap = defineCopy({
   en: {

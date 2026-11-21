@@ -10,7 +10,7 @@ import { getGlossary } from '@/lib/glossary'
 import { formatSort, parseSort, sortRows, type TableSort } from '@/lib/table-sort'
 import { getLanguage } from '@/lib/i18n-server'
 import { getPageCopy } from '@/lib/ui-copy'
-import type { FileCategoryCode } from '@/lib/ui-copy/pages/dataMap'
+import { labelFor } from '@/lib/ui-copy/label'
 import { routeMetadata, routeSection } from '@/lib/page-names'
 import { CardRow, KpiBand } from '@/components/layout'
 import { dataMapLinkedIssues } from '@/lib/header-status'
@@ -106,7 +106,7 @@ export default async function DataMapPage({
             rows={actionItems}
             columns={[
               { key: 'status', label: copy.columns.status, render: (r) => <Badge tone={categoryTone(INVENTORY_STATUS_TONE, r.status, 'danger')}>{copy.statusLabels[r.status] ?? r.status}</Badge> },
-              { key: 'category', label: copy.columns.category, render: (r) => copy.categoryLabels[r.category as FileCategoryCode] ?? r.category },
+              { key: 'category', label: copy.columns.category, render: (r) => labelFor(copy.categoryLabels, r.category) },
               { key: 'relativePath', label: copy.columns.file, render: (r) => <span className="block max-w-[34rem] truncate">{r.relativePath}</span> },
               { key: 'bytes', label: copy.columns.size, align: 'right', render: (r) => fmtBytes(r.bytes) },
               { key: 'retention', label: copy.columns.retention, render: (r) => <div className="min-w-[14rem]"><Badge tone={categoryTone(RETENTION_TONE, r.retention, 'warning')}>{copy.retentionLabels[r.retention as keyof typeof copy.retentionLabels]}</Badge><div className="mt-1 text-label text-ink-3">{copy.retentionReasons[r.retentionReason] ?? r.retentionReason}</div></div> },
@@ -136,7 +136,7 @@ export default async function DataMapPage({
           rows={sortRows(inventory.items, sort, (row, key) => (row as Record<string, any>)[key])}
           columns={[
             { key: 'status', sortable: true, sortFirst: 'asc', label: copy.columns.status, render: (r) => <Badge tone={categoryTone(INVENTORY_STATUS_TONE, r.status, 'danger')}>{copy.statusLabels[r.status] ?? r.status}</Badge> },
-            { key: 'category', sortable: true, sortFirst: 'asc', label: copy.columns.category, render: (r) => copy.categoryLabels[r.category as FileCategoryCode] ?? r.category },
+            { key: 'category', sortable: true, sortFirst: 'asc', label: copy.columns.category, render: (r) => labelFor(copy.categoryLabels, r.category) },
             { key: 'name', sortable: true, sortFirst: 'asc', label: copy.columns.dataset },
             { key: 'relativePath', sortable: true, sortFirst: 'asc', label: copy.columns.path, render: (r) => <span className="block max-w-[32rem] truncate">{r.relativePath}</span> },
             { key: 'rowCount', sortable: true, sortFirst: 'desc', label: copy.columns.rows, align: 'right', render: (r) => (r.rowCount == null ? EMPTY_VALUE : fmtNumber(r.rowCount)) },
