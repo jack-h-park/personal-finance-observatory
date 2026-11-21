@@ -10,12 +10,14 @@ import {
   getAccountAllocation,
   getAssetCoverageReview,
   getCashInflow,
+  getDataOpsReview,
   getIncomeReview,
   getMeta,
   getNetWorth,
   getOperationalHealth,
   getOverview,
   getPortfolioSnapshots,
+  getRebalanceReview,
   getRealizedLots,
   getSnapshotDates,
   getTopHoldings,
@@ -26,6 +28,8 @@ import {
   withGoldScope,
 } from '@/lib/adapters/portfolio-db'
 import { periodTiles } from '@/lib/overview-period-tiles'
+import { attentionItems } from '@/lib/overview-attention'
+import { fmtCount } from '@/lib/header-status'
 import { isoDaysBefore, previousYearEnd, totalAssetsChange, type TotalAssetsChange } from '@/lib/total-assets-change'
 import {
   HEALTHY_TREND_COST_COVERAGE,
@@ -137,6 +141,12 @@ export default async function OverviewPage({
         })
       })()
     : null
+  const rebalance = getRebalanceReview()
+  const attention = attentionItems({
+    queue: getDataOpsReview().actionQueue,
+    overCap: rebalance.reduceCandidates.length,
+    marketActions: rebalance.marketGaps,
+  })
   const storedSnapshots = getPortfolioSnapshots(trendRangeDays(selectedRange.days))
   // The gold scope is derived on read (lib/gold-trend.ts), so only that scope pays for it.
   const portfolioSnapshots = selectedScope === 'GOLD' ? withGoldScope(storedSnapshots) : storedSnapshots
@@ -590,6 +600,18 @@ export default async function OverviewPage({
           </ShareSummary>
         </CardRow>
       </Card>
+
+      {attention.length > 0 ? (
+        <Card id="overview-attention" title={copy.attentionTitle} info={copy.attentionInfo} className="mb-5">
+          <ul className="flex flex-wrap gap-x-6 gap-y-2 text-body">
+            {attention.map((item) => (
+              <li key={item.kind}>
+                <TextLink href={item.href}>{copy.attention[item.kind](fmtCount(item.count, item.capped, language))}</TextLink>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      ) : null}
 
       <FinanceTaxSummary language={language} />
       <Card title={copy.termMix} info={copy.termMixInfo} className="mb-5">
