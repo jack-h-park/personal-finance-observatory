@@ -3,6 +3,14 @@ import { EMPTY_VALUE } from '@/lib/format'
 /** Mirrors the SNAPSHOT_PRICE_DATES freshness detail in lib/adapters/portfolio-db.ts. */
 type SnapshotPriceDates = { market: 'KR' | 'US' | 'CRYPTO'; newest: string; oldest: string | null }[]
 
+/**
+ * A dividends row's `income_category`: what the ingest's defaultIncomeCategory
+ * writes, plus `unknown`, the adapter's name for a row without one. A category
+ * a manual mapping invents shows raw.
+ */
+export const INCOME_CATEGORIES = ['dividend', 'interest', 'stock_lending', 'other', 'unknown'] as const
+export type IncomeCategoryCode = (typeof INCOME_CATEGORIES)[number]
+
 export const UI_COPY_BY_LANG = {
   en: {
     common: {
@@ -116,6 +124,14 @@ export const UI_COPY_BY_LANG = {
       DEPOSIT: 'Deposit',
       TRUST_OUT: 'Trust transfer',
     } as Record<string, string>,
+    /** Read with `incomeCategories[category as IncomeCategoryCode] ?? category`. */
+    incomeCategories: {
+      dividend: 'dividend',
+      interest: 'interest',
+      stock_lending: 'stock_lending',
+      other: 'other',
+      unknown: 'unknown',
+    } satisfies Record<IncomeCategoryCode, string>,
     runStatus: {
       success: 'Complete',
       failed: 'Failed',
@@ -257,6 +273,13 @@ export const UI_COPY_BY_LANG = {
       DEPOSIT: '납입',
       TRUST_OUT: '신탁 상품 이동',
     } as Record<string, string>,
+    incomeCategories: {
+      dividend: '배당',
+      interest: '이자',
+      stock_lending: '주식 대여',
+      other: '기타',
+      unknown: '미분류',
+    } satisfies Record<IncomeCategoryCode, string>,
     runStatus: {
       success: '완료',
       failed: '실패',
