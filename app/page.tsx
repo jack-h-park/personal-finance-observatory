@@ -510,7 +510,7 @@ export default async function OverviewPage({
             <Stat
               label={copy.inflowMonth}
               value={tiles.inflowMonth == null ? EMPTY_VALUE : money(tiles.inflowMonth, display)}
-              sub={<>{tiles.inflowMonthlyAverage == null ? copy.noRecordsYet : copy.inflowMonthHint(money(tiles.inflowMonthlyAverage, display))} · <TextLink href="/cash-inflow">{copy.openCashInflow}</TextLink></>}
+              sub={<>{tiles.inflowMonthlyAverage == null ? copy.noRecordsYet : copy.inflowMonthHint(money(tiles.inflowMonthlyAverage, display))}{tiles.inflowLastMonth ? ` · ${copy.inflowLastRecord(tiles.inflowLastMonth)}` : ''} · <TextLink href="/cash-inflow">{copy.openCashInflow}</TextLink></>}
             />
             <Stat
               label={copy.incomeYtd}

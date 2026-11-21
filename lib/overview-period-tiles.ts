@@ -11,6 +11,8 @@ export type PeriodTiles = {
   inflowMonth: number | null
   /** The monthly average over the last 12 months, for scale; null with no inflow records. */
   inflowMonthlyAverage: number | null
+  /** The latest month with counted inflow, when it is before this month: a zero this month may only mean the records stop there. */
+  inflowLastMonth: string | null
   /** Dividends and interest this year, display currency. */
   incomeYtd: number | null
   incomeTrailing12m: number | null
@@ -31,6 +33,10 @@ export function periodTiles(input: {
   return {
     inflowMonth: inflow.hasRecords ? inflow.periods.find((p) => p.period === input.currentMonth)?.total ?? 0 : null,
     inflowMonthlyAverage: inflow.hasRecords ? inflow.monthlyAverage : null,
+    inflowLastMonth: (() => {
+      const last = [...inflow.periods].reverse().find((p) => p.total > 0)?.period ?? null
+      return last && last < input.currentMonth ? last : null
+    })(),
     incomeYtd: income.rowCount > 0 ? income.ytd : null,
     incomeTrailing12m: income.rowCount > 0 ? income.trailing12m : null,
     realizedYtdKrw: realized.length > 0 ? sumRealized(thisYear).gain_krw : null,
