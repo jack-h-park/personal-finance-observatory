@@ -50,3 +50,19 @@ test('uses a derived balance history to identify an existing bank account', () =
     derived, { ...derived, owner: 'joint' },
   ], source), /existing/)
 })
+
+test('adds a whole-won confirmation to the existing KRW account without scaling', () => {
+  const { balanceCents, ...evidence } = receipt
+  const approved = { ...evidence, currency: 'KRW', balanceWon: 12345 }
+  const row = { ...prior, currency: 'KRW' }
+  assert.deepEqual(approvedBankBalanceRows([approved], [row], source), [{
+    ...row, as_of_date: '2026-11-20', balance: 12345,
+    day_max_balance: null, source,
+  }])
+  assert.throws(() => approvedBankBalanceRows([
+    { ...approved, balanceCents },
+  ], [row], source), /invalid/)
+  assert.throws(() => approvedBankBalanceRows([
+    { ...approved, balanceWon: 1.5 },
+  ], [row], source), /invalid/)
+})

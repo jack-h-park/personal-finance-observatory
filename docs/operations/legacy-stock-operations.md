@@ -762,14 +762,14 @@ The workflow intentionally uses synthetic sample data only.
 
 MIT — see [LICENSE](../../LICENSE).
 
-### Independently verified USD bank balance observations
+### Independently verified bank balance observations
 
 With explicit approval for a balance-only change, keep the original transaction
 export outside the automatic inbox and source folders. Add the approved
 observation to the private `bank-statements/approved-bank-balances.json` file.
 The file is a JSON array. Each entry records the exact existing `institution`,
 `account`, and `currency` identity, the offset-qualified `observedAt` timestamp,
-integer `balanceCents`, and SHA-256 digests in `reportSha256`, `statementSha256`,
+integer `balanceCents` for USD or integer `balanceWon` for KRW, and SHA-256 digests in `reportSha256`, `statementSha256`,
 and `connectorManifestSha256`. Keep the reconciliation report and both sources
 with the private review evidence.
 
