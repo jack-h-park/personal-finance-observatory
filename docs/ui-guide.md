@@ -27,8 +27,11 @@ before that existed, and `/health` still had no module at all as late as P4.
 
 Two rules that are not obvious:
 
-- **Do not translate `tax_term` or `cost_note`.** The ingest writes them; they
-  are data, not interface.
+- **Read `tax_term` through `copy.terms`, and `cost_note` from its
+  `cost_status`.** The ingest writes `tax_term` as data; a page maps the stored
+  value to a label with `copy.terms[value] ?? value`. `cost_note` is not stored:
+  the adapter derives it from `cost_status`, and a page renders
+  `copy.costNotes[cost_status] ?? cost_note`.
 - **Build a sentence in the copy module, not in the JSX.** English needs plural
   agreement where Korean needs none, so a sentence assembled from fragments in a
   component forces Korean to carry English grammar. Pass the raw values in and
@@ -514,9 +517,10 @@ the line above, and G4 skips it. Say why in the same comment.
 G12 does not read what is not a word: a `className=` value, an operand of `===`
 or `!==`, a backticked span inside a literal (`` `make pull-prod-db` ``), an
 identifier token (one holding `@`, `::`, an inner `.` or `_`, or a camelCase
-hump, such as `tax-policy.json에서` or `bankInflowRules에`), a path token, and
-the codes, acronyms and names on its allow-list (`KO_LATIN_ALLOW` in
-`scripts/ui-guardrails.mjs`). A command in a Korean sentence is reworded, not
+hump, such as `tax-policy.json에서` or `bankInflowRules에`), a path token, a
+form number (`1099-DA`), an unspaced `name=value` pair copied from a file
+(`collectible=true`), and the codes, acronyms and names on its allow-list
+(`KO_LATIN_ALLOW` in `scripts/ui-guardrails.mjs`). A command in a Korean sentence is reworded, not
 allowed: `pnpm refresh를 실행하세요` becomes `갱신을 실행하세요`. Backticks are
 for a command or identifier the `en` half shows the same way, not a way around
 rewording a word that can be translated.

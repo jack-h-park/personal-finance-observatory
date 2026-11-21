@@ -710,6 +710,24 @@ function withoutIdentifierTokens(body) {
   return body.replace(/[\w.@:-]*(?:@|::|\w[._]\w|[a-z][A-Z])[\w.@:-]*/g, ' ')
 }
 
+/**
+ * A form number (`1099-DA`, `1099-B`, `1040-ES`) is a code, not a word: three
+ * or four digits, a hyphen and up to three capitals. The capitals alone
+ * (`DA 양식`) are still read.
+ */
+function withoutFormNumbers(body) {
+  return body.replace(/\b\d{3,4}-[A-Z]{1,3}\b/g, ' ')
+}
+
+/**
+ * A `name=value` pair copied from a file (`collectible=true`) is a field shown
+ * as typed: word characters on both sides of one `=`, with no space. A spaced
+ * `collectible = true` is read as words.
+ */
+function withoutFieldValuePairs(body) {
+  return body.replace(/\b\w+=\w+\b/g, ' ')
+}
+
 /** `{placeholder}` and `${…}` are filled in at run time, so their names are not copy. */
 function withoutInterpolations(body) {
   let out = ''
@@ -739,10 +757,12 @@ function withoutInterpolations(body) {
  * read, spaced or not. A token containing `/` (`data/manual-mappings.json`,
  * `/lots`) is a path or route and is not read.
  *
- * Four more things are not words and are not read: a `className=` value
+ * Six more things are not words and are not read: a `className=` value
  * (markup), an operand of `===` or `!==` (a code value), a backticked span
- * inside a literal (a command or identifier shown as typed), and an identifier
- * token (one holding `@`, `::`, an inner `.` or `_`, or a camelCase hump). A
+ * inside a literal (a command or identifier shown as typed), an identifier
+ * token (one holding `@`, `::`, an inner `.` or `_`, or a camelCase hump), a
+ * form number (`1099-DA`), and an unspaced `name=value` pair copied from a
+ * file (`collectible=true`). A
  * command in a Korean sentence is reworded (`갱신을 실행하세요`), not allowed.
  */
 export function findEnglishInKoreanCopy(source, file = '<source>') {
@@ -755,7 +775,9 @@ export function findEnglishInKoreanCopy(source, file = '<source>') {
       .filter((match) => !isObjectKey(text, match) && !isClassNameValue(text, match) && !isComparisonOperand(text, match))
       .flatMap((match) => literalsIn(match[0]))
     for (const literal of literals) {
-      const body = withoutPathTokens(withoutIdentifierTokens(withoutInlineCode(withoutInterpolations(literal.slice(1, -1)))))
+      const body = withoutPathTokens(
+        withoutFieldValuePairs(withoutFormNumbers(withoutIdentifierTokens(withoutInlineCode(withoutInterpolations(literal.slice(1, -1))))))
+      )
       const words = (body.match(/\b[A-Za-z]{2,}\b/g) ?? []).filter((word) => !KO_LATIN_ALLOW.has(word))
       if (words.length > 0) hits.push(hit(file, line, `${[...new Set(words)].join(', ')}: ${literal}`))
     }

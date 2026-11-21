@@ -2194,7 +2194,7 @@ export function getHoldings(limit = 200): HoldingWithCostStatus[] {
  * Whether a holding's cost can be relied on. Read from the holdings row alone:
  * no cost, no current value, or cost that tax lots do not back.
  */
-function costBasisStatus(row: {
+export function costBasisStatus(row: {
   native_cost: number | null
   native_market_value: number | null
   lot_count: number | null

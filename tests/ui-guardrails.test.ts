@@ -487,6 +487,31 @@ test('G12 skips identifier tokens but still reads a hyphenated word and a word b
   ])
 })
 
+test('G12 skips a form number but still reads an English word beside it', () => {
+  const module = koModule(
+    "da: '이 앱은 1099-DA를 읽지 않습니다.',",
+    "es: '1040-ES 예정 납부',",
+    "draft: '1099-DA draft 양식',",
+    "word: 'DA 양식',",
+  )
+  assert.deepEqual(g12Lines(module), [
+    [5, 'draft'],
+    [6, 'DA'],
+  ])
+})
+
+test('G12 skips an unspaced name=value pair but still reads a spaced one and a word beside it', () => {
+  const module = koModule(
+    "pair: '수집품(collectible=true)으로 포함합니다.',",
+    "row: 'collectible=true 표시 row',",
+    "spaced: 'collectible = true 표시',",
+  )
+  assert.deepEqual(g12Lines(module), [
+    [4, 'row'],
+    [5, 'collectible, true'],
+  ])
+})
+
 test('G12 lets the allow-listed acronyms, codes and names stand, but still reads snapshot', () => {
   const module = koModule(
     "niit: 'NIIT 세율',",
