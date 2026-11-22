@@ -452,6 +452,7 @@ export function reconciliationStatusKey(status: string): string {
 /** A tax-evidence report on /health. Fallback `success` (the 1099s). */
 export const TAX_REPORT_TONE: Record<string, Tone> = {
   us_gain_loss_pdf: 'info',
+  robinhood_statement_pdf: 'neutral',
 }
 
 /** A rebalance row's suggested action. Fallback `warning` (Add or Reduce: something to do). */

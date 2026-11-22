@@ -11,6 +11,7 @@ import { loadLocalEnv } from './env.mjs'
 import { portfolioDate, priceDatesByMarket, valuePortfolio } from './portfolio-snapshot.mjs'
 import { repriceFromQuote } from './broker-quote-reprice.mjs'
 import { resolveCryptoFiles, resolveUsHoldingFiles, resolveUsTransactionFiles, robinhoodStrategyLabel } from './source-files.mjs'
+import { anchoredCashSeries, nextBusinessDay } from './anchored-cash.mjs'
 import { DECIDABLE_WRAPPERS, resolveWrapperTreatment } from './wrapper-treatment.mjs'
 import { pensionProductId } from './pension-ids.mjs'
 import { matchGoldLots } from './gold-lots.mjs'
@@ -3344,6 +3345,9 @@ for (const source of usTransactionFiles) {
         account_type: source.account ?? '',
         source_system: path.basename(source.filename),
         date: dateIso(r['Activity Date']),
+        // Not stored: read by the cash series (scripts/anchored-cash.mjs), which
+        // anchors on statements kept on settlement dates.
+        settle_date: dateIso(r['Settle Date']) || null,
         account: `${source.brokerage} ${source.account ?? ''}`.trim(),
         type,
         raw_type: text(r['Trans Code']),
@@ -3758,6 +3762,7 @@ if (robinhoodSnapshot?.accounts?.length) {
         account_type: strategy,
         source_system: ROBINHOOD_ORDERS_SOURCE_SYSTEM,
         date,
+        settle_date: nextBusinessDay(date),
         account: csvAccount,
         type,
         raw_type: type === 'BUY' ? 'Buy' : 'Sell',
@@ -5440,6 +5445,159 @@ const brokerageCashRows = (readTsvAt(krStatementsDir, 'cash.tsv')?.rows ?? [])
     }
   })
   .filter((r) => r.account && r.pool && r.currency && r.as_of_date && r.balance != null)
+// Robinhood's uninvested cash, one series per equity account
+// (scripts/anchored-cash.mjs). Each monthly statement's closing cash is an
+// anchor and the days after it are derived forward from the account's cash
+// movements; the snapshot's `portfolio.cash` is today's figure. Without it, a
+// sale moved value out of total assets and a later buy from that cash read as
+// new money. Before the first statement nothing is written.
+//
+// Labelled like the account's holdings ("Robinhood 1478"), so the cash sits
+// beside the positions it was spent on. The movements are the account's
+// transaction rows, CSV and bridged alike (found under the CSV's strategy label,
+// "Robinhood Mid-term"), plus the purchases and sales of the crypto account
+// whose statements name it as the account they settle against: the CSV never
+// shows those, yet each one moves this cash.
+const robinhoodStatementCash = new Map()
+for (const report of usPdfEvidence.reports ?? []) {
+  if (report.category !== 'robinhood_statement_pdf') continue
+  const date = text(report.metrics?.period_end)
+  for (const entry of report.accounts ?? []) {
+    const balance = number(entry.closing_cash_usd)
+    if (!date || balance == null) continue
+    const list = robinhoodStatementCash.get(text(entry.account)) ?? []
+    list.push({ date, balance })
+    robinhoodStatementCash.set(text(entry.account), list)
+  }
+}
+const robinhoodStatementEnds = [...robinhoodStatementCash.values()].flat().map((s) => s.date).sort()
+// Rows from an extract older than the funding-account field carry none, so
+// their purchases reach no account's cash; robinhood_cash_anchored names them.
+const robinhoodCryptoUnattributed = [
+  ...new Set(
+    cryptoActivityRows
+      .filter((r) => r.venue === 'Robinhood' && (r.type === 'BUY' || r.type === 'SELL') && !text(r.fundingAccount))
+      .map((r) => text(r.source))
+  ),
+]
+const robinhoodCashAccounts = []
+for (const account of robinhoodSnapshot?.accounts ?? []) {
+  const hint = text(firstOf(account, ['accountNumber', 'account_number'])).slice(-4)
+  const label = text(account.account) || `Robinhood ${hint}`.trim()
+  const csvAccount = `Robinhood ${robinhoodStrategyLabel(text(account.nickname)) || hint}`.trim()
+  const snapshotDate = String(robinhoodSnapshot.fetchedAt || '').slice(0, 10)
+  const snapshotCash = number(account.portfolio?.cash)
+  const flows = [
+    ...transactionRows
+      .filter((r) => r.brokerage === 'Robinhood' && r.account === csvAccount && r.date)
+      .map((r) => ({ date: r.date, settle: r.settle_date || r.date, amount: number(r.native_amount) ?? 0 })),
+    // A crypto purchase is paid the day it is made, a sale lands the same day.
+    ...cryptoActivityRows
+      .filter((r) => r.venue === 'Robinhood' && hint && text(r.fundingAccount) === hint)
+      .filter((r) => r.type === 'BUY' || r.type === 'SELL')
+      .map((r) => ({ date: text(r.date), settle: text(r.date), amount: (r.type === 'BUY' ? -1 : 1) * (number(r.amount) ?? 0) })),
+  ]
+  const series = anchoredCashSeries({
+    statements: robinhoodStatementCash.get(hint) ?? [],
+    snapshot: snapshotCash != null && snapshotDate ? { date: snapshotDate, balance: snapshotCash } : null,
+    flows,
+  })
+  robinhoodCashAccounts.push({ label, hint, snapshotCash, statements: (robinhoodStatementCash.get(hint) ?? []).length, series })
+  for (const point of series.points) {
+    brokerageCashRows.push({
+      institution: 'Robinhood',
+      account: label,
+      pool: 'cash',
+      currency: 'USD',
+      as_of_date: point.date,
+      balance: point.balance,
+      source: point.source === 'anchor' ? 'robinhood_statement' : point.source === 'snapshot' ? 'robinhood_mcp' : 'derived:robinhood_cash_flows',
+      account_wrapper: 'taxable',
+      asset_class: 'security',
+    })
+  }
+}
+// Sweep cash at Chase and Merrill. Neither holdings export lists its cash as a
+// position (Chase's sweep is `QACDS`, Merrill's are the `Money accounts`,
+// `Cash balance` and `Pending activity` rows), so the parsers above skip it, and buying with it read
+// as new money. Each holdings export on disk is an anchor, not only the newest:
+// every one printed the account's cash on its own date.
+//
+// Chase: the anchor is every `Cash & Money Market Funds` row, the `QACDS` sweep
+// plus the core `US DOLLAR` balance a sale lands in before it is swept, and the
+// days after it are derived forward (scripts/anchored-cash.mjs) from the
+// account's transaction rows other than `QACDS`. Those rows move the cash
+// between the core balance and the sweep, so counting them too would count each
+// movement twice. Merrill's cash has stayed put, so its exports are anchors
+// with nothing derived between them. Nothing is written before an account's
+// first export.
+const SWEEP_ANCHOR_FILE = /^(chase|merrill)-holdings-(\d{8})\.csv$/
+const sweepAnchorFiles = fs.existsSync(path.join(dataDir, 'us-holdings'))
+  ? fs.readdirSync(path.join(dataDir, 'us-holdings')).filter((name) => SWEEP_ANCHOR_FILE.test(name)).sort()
+  : []
+const sweepAnchors = new Map()
+const addSweepAnchor = (brokerage, account, date, balance, file) => {
+  if (!account || !date || balance == null) return
+  const entry = sweepAnchors.get(account) ?? { brokerage, account, anchors: [] }
+  entry.anchors.push({ date, balance, file })
+  sweepAnchors.set(account, entry)
+}
+for (const name of sweepAnchorFiles) {
+  const filename = path.join(dataDir, 'us-holdings', name)
+  if (name.startsWith('chase-')) {
+    const byAccount = new Map()
+    for (const r of readCsvObjects(filename, (row) => row.includes('Account name') && row.includes('Ticker'))) {
+      if (!text(r['Asset Class']).startsWith('Cash')) continue
+      const account = `Chase ${text(r['Account name'])} ${text(r['Account number'])}`.trim()
+      const entry = byAccount.get(account) ?? { date: '', balance: 0 }
+      entry.balance += number(r.Value) ?? 0
+      entry.date = entry.date || dateIso(r['As of'] || r['Pricing Date'])
+      byAccount.set(account, entry)
+    }
+    for (const [account, { date, balance }] of byAccount) addSweepAnchor('Chase', account, date, balance, name)
+  } else {
+    const rows = parseCsv(fs.readFileSync(filename, 'utf8')).filter((r) => r.some((c) => c.trim()))
+    const accountLine = rows.find((r) => r[0]?.includes('Selected account'))
+    const account = accountLine ? `Merrill ${accountLine.join(' ').split(':').slice(1).join(':').trim()}` : 'Merrill'
+    const exportedLine = rows.find((r) => text(r[0]).startsWith('Exported on:'))
+    const date = exportedLine ? dateIso(text(exportedLine[0]).replace(/^Exported on:\s*/, '').replace(/\s+\d{1,2}:\d{2}.*$/, '')) : ''
+    const header = rows.find((r) => r.some((c) => ['Symbol', 'Positions'].includes(text(c)))) ?? []
+    const valueAt = header.findIndex((c) => text(c).toLowerCase() === 'value')
+    // `Pending activity` is a trade that has not settled; its position is already
+    // in the holdings, so the cash it will spend is netted here too. Labels are
+    // matched by their start: an export appended "Executed Tranx" to one.
+    const balances = rows.filter((r) =>
+      r.some((c) => ['Money accounts', 'Cash balance', 'Pending activity'].some((label) => text(c).startsWith(label)))
+    )
+    // A file whose Value column cannot be found, or that prints no balance rows, is not an anchor.
+    if (valueAt < 0 || !balances.length) continue
+    addSweepAnchor('Merrill', account, date, balances.reduce((sum, r) => sum + (number(r[valueAt]) ?? 0), 0), name)
+  }
+}
+const sweepCashAccounts = []
+for (const { brokerage, account, anchors } of sweepAnchors.values()) {
+  const flows =
+    brokerage === 'Chase'
+      ? transactionRows
+          .filter((r) => r.brokerage === 'Chase' && r.account === account && r.date && text(r.ticker) !== 'QACDS')
+          .map((r) => ({ date: r.date, settle: r.date, amount: number(r.native_amount) ?? 0 }))
+      : []
+  const series = anchoredCashSeries({ statements: anchors, snapshot: null, flows })
+  sweepCashAccounts.push({ brokerage, account, anchors, series })
+  for (const point of series.points) {
+    brokerageCashRows.push({
+      institution: brokerage,
+      account,
+      pool: 'sweep',
+      currency: 'USD',
+      as_of_date: point.date,
+      balance: point.balance,
+      source: point.source === 'anchor' ? `${brokerage.toLowerCase()}_holdings` : `derived:${brokerage.toLowerCase()}_cash_flows`,
+      account_wrapper: 'taxable',
+      asset_class: 'security',
+    })
+  }
+}
 const brokerageCashCoverageRows = (readTsvAt(krStatementsDir, 'cash-coverage.tsv')?.rows ?? [])
   .map((r) => {
     const account = text(r.Account)
@@ -7084,6 +7242,129 @@ check(
         (robinhoodShortSymbols.length
           ? ` — a page of \`get_equity_tax_lots\` was likely missed (${robinhoodShortSymbols.slice(0, 5).join('; ')})`
           : ''),
+  'warning'
+)
+// Robinhood cash (scripts/anchored-cash.mjs). A series starts at the
+// account's first filed monthly statement and ends at the snapshot's
+// `portfolio.cash`. Without a statement the account's cash stays out of total
+// assets, as before; without the snapshot figure the series stops at the last
+// derived day.
+const usd = (value) => `${value < 0 ? '-' : ''}${Math.abs(value).toFixed(2)} USD`
+const robinhoodCashGaps = []
+for (const a of robinhoodCashAccounts) {
+  if (!a.statements) robinhoodCashGaps.push(`${a.label}: no monthly statement filed, so its cash is not counted`)
+  else if (a.snapshotCash == null) robinhoodCashGaps.push(`${a.label}: the snapshot carries no portfolio cash, so the series stops at the last derived day`)
+}
+if (robinhoodCryptoUnattributed.length) {
+  robinhoodCashGaps.push(
+    `${robinhoodCryptoUnattributed.length} crypto statement(s) were extracted without a funding account (re-run extract:crypto-activity), so their purchases are not in any account's cash`
+  )
+}
+check(
+  'robinhood_cash_anchored',
+  robinhoodCashGaps.length === 0,
+  robinhoodSnapshot == null
+    ? 'no MCP snapshot — no Robinhood cash to count'
+    : robinhoodCashGaps.length
+      ? `${robinhoodCashGaps.join('; ')} — file robinhood-statement-<account>-<start>-<end>.pdf under us-transactions/, and regenerate the snapshot with stock-trading-skills robinhood_snapshot.py`
+      : robinhoodCashAccounts
+          .map((a) => `${a.label}: ${a.statements} statement(s) from ${a.series.points[0]?.date}, ${a.series.points.length} daily balance(s)`)
+          .join('; '),
+  'warning'
+)
+// What the rows did not explain between an anchor and the next one: a transfer
+// from Robinhood checking (its export does not say which brokerage account got
+// it), or a deposit or dividend after the newest CSV. The series puts it on the
+// next anchor's day as new money instead of spreading it over the past, so this
+// names it. Only the open segment (last statement to the snapshot) can fail:
+// the next statement re-anchors it, and an older segment's gap is history.
+const robinhoodCashTolerance = Number(process.env.STOCK_ROBINHOOD_CASH_TOLERANCE_USD || 10)
+const robinhoodOpenResiduals = []
+const robinhoodClosedResiduals = []
+for (const a of robinhoodCashAccounts) {
+  for (const segment of a.series.segments) {
+    if (segment.residual == null || Math.abs(segment.residual) <= robinhoodCashTolerance) continue
+    const line = `${a.label} ${segment.from} → ${segment.to}: ${usd(segment.residual)}`
+    if (segment.toSource === 'snapshot') robinhoodOpenResiduals.push(line)
+    else robinhoodClosedResiduals.push(line)
+  }
+}
+check(
+  'robinhood_cash_unexplained',
+  robinhoodOpenResiduals.length === 0,
+  (robinhoodOpenResiduals.length
+    ? `since the last statement the snapshot's cash differs from the derived balance — ${robinhoodOpenResiduals.join('; ')}. ` +
+      'Usually a transfer from Robinhood checking (its export names no brokerage account), or a deposit or dividend after the newest CSV; ' +
+      'it counts as new money on the snapshot date and the next statement re-anchors it'
+    : `every account within ${robinhoodCashTolerance} USD of the snapshot since its last statement`) +
+    (robinhoodClosedResiduals.length ? `. Between statements: ${robinhoodClosedResiduals.join('; ')}` : ''),
+  'warning'
+)
+// A derived balance below zero means the rows spent more than the anchor held:
+// a missing inflow the next anchor will show, or a margin debit.
+const robinhoodCashNegative = robinhoodCashAccounts.filter((a) => a.series.negative.length)
+check(
+  'robinhood_cash_derivation_nonnegative',
+  robinhoodCashNegative.length === 0,
+  robinhoodCashNegative.length === 0
+    ? 'no derived Robinhood cash balance below zero'
+    : robinhoodCashNegative
+        .map((a) => {
+          const low = a.series.negative.reduce((m, p) => (p.balance < m.balance ? p : m))
+          return `${a.label}: ${a.series.negative.length} day(s) below zero from ${a.series.negative[0].date}, lowest ${usd(low.balance)} on ${low.date}`
+        })
+        .join('; ') + ' — an inflow the rows do not show (a transfer from checking, a deposit after the newest CSV) or a margin debit',
+  'warning'
+)
+// Chase sweep cash, derived forward from one holdings export to the next, has
+// to land on the next export's printed cash. A gap is a movement the
+// transactions do not show (or a transactions export that stops short of the
+// holdings date); the series puts it on the export's own day and says so here.
+// Only the newest export can fail: an older gap is history.
+const sweepTolerance = Number(process.env.STOCK_SWEEP_CASH_TOLERANCE_USD || 1)
+const sweepOpen = []
+const sweepOld = []
+let sweepSegments = 0
+for (const a of sweepCashAccounts) {
+  if (a.brokerage !== 'Chase') continue
+  const newest = a.anchors.map((x) => x.date).sort().at(-1)
+  for (const segment of a.series.segments) {
+    if (segment.residual == null) continue
+    sweepSegments += 1
+    if (Math.abs(segment.residual) <= sweepTolerance) continue
+    const line = `${a.account} ${segment.from} → ${segment.to}: ${usd(segment.residual)}`
+    if (segment.to === newest) sweepOpen.push(line)
+    else sweepOld.push(line)
+  }
+}
+check(
+  'us_sweep_cash_reconciles',
+  sweepOpen.length === 0,
+  (sweepCashAccounts.length === 0
+    ? 'no Chase or Merrill holdings export carries a cash balance'
+    : sweepOpen.length
+      ? `the cash derived from the transactions misses the newest holdings export — ${sweepOpen.join('; ')}. ` +
+        'A movement the transactions do not show, or a transactions export that ends before the holdings date; it is counted on the export date'
+      : `${sweepCashAccounts.map((a) => `${a.account}: ${a.anchors.length} export(s) from ${a.anchors.map((x) => x.date).sort()[0]}`).join('; ')}; ` +
+        `${sweepSegments} Chase interval(s) checked, each within ${sweepTolerance} USD`) +
+    (sweepOld.length ? `. Earlier intervals: ${sweepOld.join('; ')}` : ''),
+  'warning'
+)
+// The statements are downloaded by hand, once a month. Without a new one the
+// series keeps deriving forward from an older month-end and every unexplained
+// transfer since then waits on the snapshot date.
+const robinhoodStatementEnd = robinhoodStatementEnds.at(-1) ?? null
+const robinhoodStatementAge = daysSince(robinhoodStatementEnd)
+const robinhoodStatementMaxDays = Number(process.env.STOCK_ROBINHOOD_STATEMENT_MAX_DAYS || 45)
+check(
+  'robinhood_statement_fresh',
+  robinhoodSnapshot == null || (robinhoodStatementEnd != null && robinhoodStatementAge != null && robinhoodStatementAge <= robinhoodStatementMaxDays),
+  robinhoodSnapshot == null
+    ? 'no MCP snapshot — no Robinhood cash to anchor'
+    : robinhoodStatementEnd == null
+      ? 'no Robinhood monthly statement filed — download it (one PDF holds every account) as us-transactions/robinhood-statement-<account>-<start>-<end>.pdf'
+      : `newest statement ends ${robinhoodStatementEnd} (${robinhoodStatementAge.toFixed(0)}d old)` +
+        (robinhoodStatementAge > robinhoodStatementMaxDays ? ' — download the next month to re-anchor the cash' : ''),
   'warning'
 )
 check(

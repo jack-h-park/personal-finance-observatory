@@ -277,7 +277,11 @@ export default async function HealthPage() {
               return (
                 <li key={report.id} className="flex flex-col gap-1 py-2.5 lg:flex-row lg:items-center lg:gap-3">
                   <Badge tone={categoryTone(TAX_REPORT_TONE, report.category, 'success')}>
-                    {report.category === 'us_gain_loss_pdf' ? copy.gainLoss : '1099'}
+                    {report.category === 'us_gain_loss_pdf'
+                      ? copy.gainLoss
+                      : report.category === 'robinhood_statement_pdf'
+                        ? copy.statement
+                        : '1099'}
                   </Badge>
                   <span className="min-w-0 flex-1 truncate text-body font-medium text-ink">{report.filename}</span>
                   <span className="text-caption tabular-nums text-ink-3">{copy.pages(fmtNumber(report.pages ?? 0))}</span>
