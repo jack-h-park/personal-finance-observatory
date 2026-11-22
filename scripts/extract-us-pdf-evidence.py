@@ -353,6 +353,88 @@ def summarize_tax_doc(path):
         }
 
 
+# The monthly Robinhood account statement: one PDF for every account under the
+# login, each in its own section headed `Individual Account #:*****1478`. Only
+# the Account Summary is read: the uninvested cash at the start and end of the
+# month, which is "Brokerage Cash Balance" plus "Deposit Sweep Balance" (cash
+# the broker has swept to its program banks is still the account's cash). The
+# ingest anchors each account's cash series on these month-ends, because the
+# transaction CSV leaves out flows that move that cash: crypto settlements and
+# transfers from Robinhood checking.
+#
+# The summary proves itself: opening and closing Portfolio Value are the cash,
+# the sweep and Total Securities added up. A section where they do not add up is
+# reported, not returned, so a misread balance never becomes an anchor.
+RH_STATEMENT_PERIOD = re.compile(r"(\d{2})/(\d{2})/(\d{4}) to (\d{2})/(\d{2})/(\d{4})")
+RH_STATEMENT_ACCOUNT = re.compile(r"Account #:\*+(\d{4})\b")
+RH_SUMMARY_ROWS = {
+    "cash": re.compile(r"^Brokerage Cash Balance \*? ?(-?\$[\d,.]+|\(\$[\d,.]+\)) (-?\$[\d,.]+|\(\$[\d,.]+\))"),
+    "sweep": re.compile(r"^Deposit Sweep Balance (\$[\d,.]+) (\$[\d,.]+)"),
+    "securities": re.compile(r"^Total Securities(?: \*+)? (\$[\d,.]+) (\$[\d,.]+)"),
+    "portfolio": re.compile(r"^Portfolio Value (\$[\d,.]+) (\$[\d,.]+)"),
+}
+
+
+def iso(month, day, year):
+    return f"{year}-{month}-{day}"
+
+
+def summarize_robinhood_statement(path):
+    period_start = period_end = ""
+    sections = {}
+    current = None
+    with pdfplumber.open(path) as pdf:
+        pages = len(pdf.pages)
+        for page in pdf.pages:
+            for line in (page.extract_text() or "").splitlines():
+                line = line.strip()
+                period = RH_STATEMENT_PERIOD.search(line)
+                if period and not period_start:
+                    period_start = iso(*period.group(1, 2, 3))
+                    period_end = iso(*period.group(4, 5, 6))
+                account = RH_STATEMENT_ACCOUNT.search(line)
+                if account:
+                    current = sections.setdefault(account.group(1), {})
+                    continue
+                if current is None:
+                    continue
+                for key, pattern in RH_SUMMARY_ROWS.items():
+                    match = pattern.match(line)
+                    # The first two-figure line of each kind is the summary; a
+                    # later page repeats cash and sweep with one figure each.
+                    if match and key not in current:
+                        current[key] = (money(match.group(1)), money(match.group(2)))
+
+    accounts, mismatches = [], []
+    for account, rows in sorted(sections.items()):
+        if not {"cash", "sweep", "securities", "portfolio"} <= rows.keys():
+            mismatches.append(f"{account}: account summary incomplete ({', '.join(sorted(rows))})")
+            continue
+        ends = []
+        for index, label in ((0, "opening"), (1, "closing")):
+            parts = rows["cash"][index] + rows["sweep"][index] + rows["securities"][index]
+            if abs(parts - rows["portfolio"][index]) > 0.011:
+                mismatches.append(f"{account}: {label} cash, sweep and securities do not add up to the portfolio value")
+            ends.append(round(rows["cash"][index] + rows["sweep"][index], 2))
+        accounts.append({"account": account, "opening_cash_usd": ends[0], "closing_cash_usd": ends[1]})
+
+    return {
+        "category": "robinhood_statement_pdf",
+        "name": f"robinhood_statement:{path.stem}",
+        "filename": path.name,
+        "path": str(path),
+        "pages": pages,
+        "row_count": len(accounts),
+        "metrics": {
+            "period_start": period_start,
+            "period_end": period_end,
+            "accounts": len(accounts),
+            "summary_mismatches": mismatches,
+        },
+        "accounts": [] if mismatches or not period_end else accounts,
+    }
+
+
 # Named directories rather than a recursive sweep of STOCK_DATA_DIR. Both used to
 # be found by walking every PDF under the data root and testing a fragment of the
 # broker's own export name ("Gain_Loss Report") or of a Korean directory name, so
@@ -360,11 +442,14 @@ def summarize_tax_doc(path):
 # The filename grammar in scripts/source-files.mjs makes both a plain glob:
 #   us-holdings/robinhood-holdings-<account>-<asof>.pdf
 #   us-tax-documents/<broker>-1099[-<account>]-<year>.pdf
+#   us-transactions/robinhood-statement-<account>-<start>-<end>.pdf
 gain_loss_paths = sorted((DATA_DIR / "us-holdings").glob("robinhood-holdings-*.pdf"))
 tax_doc_paths = sorted((DATA_DIR / "us-tax-documents").glob("*.pdf"))
+statement_paths = sorted((DATA_DIR / "us-transactions").glob("robinhood-statement-*.pdf"))
 
 reports = [summarize_gain_loss(path) for path in gain_loss_paths]
 reports.extend(summarize_tax_doc(path) for path in tax_doc_paths)
+reports.extend(summarize_robinhood_statement(path) for path in statement_paths)
 
 payload = {
     "generatedAt": __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat(),

@@ -988,6 +988,41 @@ it. The 미래에셋 ISA
 certificates are issued with CMA자동매매 제외, so cash swept into RP is not in
 their 예수금잔액.
 
+**Robinhood cash in total assets.** Uninvested cash in the three Robinhood equity
+accounts is in `brokerage_cash` (institution `Robinhood`, account labelled like the
+holdings, `Robinhood 1478`, pool `cash`, USD, `taxable`, `security`), so a sale no
+longer moves value out of total assets and a buy from that cash no longer reads
+as new money. Three sources make the series:
+
+| Source | What it gives | Basis |
+| --- | --- | --- |
+| Monthly account statement, `us-transactions/robinhood-statement-<account>-<start>-<end>.pdf` (one PDF holds every account under the login), read by `extract-us-pdf-evidence.py` | each account's closing "Brokerage Cash Balance" plus "Deposit Sweep Balance"; the summary must add up to its Portfolio Value or the account is not used | settlement date |
+| The MCP snapshot's `portfolio.cash` (`get_portfolio`, pulled by stock-trading-skills `robinhood_snapshot.py`) | today's cash | trade date |
+| The account's transaction rows (CSV and orders bridge), and the linked crypto account's purchases and sales | the cash each one moved | settlement date for CSV rows (`Settle Date`), the next weekday for bridged fills, the same day for crypto |
+
+Each statement is an anchor, and the days after it are derived **forward** from it
+until the next statement, or the snapshot for today. Never backward: the CSV
+export leaves out transfers from Robinhood checking (the checking export shows
+them as "Inter-Entity Transfer to Brokerage" but never says which brokerage
+account received one), and money that moved after the newest CSV and is not an
+order is missing too. Derived backward from a later balance, each missing inflow
+would raise every earlier day while the checking balance had already fallen, so
+the past would count the transfer twice. Derived forward, it appears once, on
+the next anchor's day, as new money, and `robinhood_cash_unexplained` names the
+gap between the derived balance and the snapshot. The crypto account settles
+against one brokerage account, which each crypto statement section prints as
+`RHS ACCOUNT NUMBER`; `extract-crypto-activity.py` stamps its last four on every
+crypto row.
+
+**The history starts at the first filed statement.** Before it nothing is
+written, because an unknown balance is not zero. Filing an older statement
+extends the series back to that month-end. `robinhood_statement_fresh` warns when
+the newest statement is more than 45 days old (`STOCK_ROBINHOOD_STATEMENT_MAX_DAYS`),
+`robinhood_cash_anchored` names an account with no statement or no snapshot cash,
+and `robinhood_cash_derivation_nonnegative` names a derived day below zero (an
+inflow the rows do not show, or a margin debit). Chase and Merrill sweep cash is
+not counted.
+
 **Crypto exchanges in the FBAR table.** Exchange accounts follow the brokerage
 rule (Bithumb is foreign, Robinhood Crypto domestic) and are valued from their
 lots and the crypto price history at each month-end, the same reconstruction as
@@ -1414,6 +1449,7 @@ facts about the brokers' exports and outlive it.
 | Toss positions age with the newest 거래내역서, not with the market | `toss_positions_fresh` | credential-free floor; closes on an Open API snapshot |
 | The Robinhood snapshot is only as fresh as the last pull that passed validation | `robinhood_snapshot_fresh`; a refused pull alerts from the refresh wrapper | closed for scheduling (pulled before every refresh since 2026-11); the check covers a pull that keeps being refused |
 | No path exists to fetch a new 삼성증권 거래내역확인서 automatically — a vest can only be discovered by re-downloading | `samsung_statement_fresh` | open by design; the check is the mitigation |
+| Robinhood checking → brokerage transfers are in no brokerage export, so cash derived from the rows misses them until the next statement or snapshot | `robinhood_cash_unexplained` | open by design; the series derives forward so the gap lands once, as new money, instead of moving the past |
 | US realized gains absent | `us_ytd_realized_assumption_reviewed` | E (replay) + D (1099-B) in progress |
 | US sheet still an input to reconcile | — | blocked on US realized |
 | `Note` mapping rules not migrated | — | open |
