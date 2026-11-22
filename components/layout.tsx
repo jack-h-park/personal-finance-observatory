@@ -90,6 +90,8 @@ export function Split({
 const KPI_BAND_COLUMNS = {
   3: 'sm:grid-cols-3',
   4: 'sm:grid-cols-2 xl:grid-cols-4',
+  /** Four parts in a card that shares its row with another card: two by two until the screen is wide. */
+  '4-narrow': 'sm:grid-cols-2 2xl:grid-cols-4',
 } as const
 
 /**

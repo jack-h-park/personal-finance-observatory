@@ -27,7 +27,7 @@ import {
 import { periodTiles } from '@/lib/overview-period-tiles'
 import { attentionItems } from '@/lib/overview-attention'
 import { fmtCount, overviewLinkedStatus } from '@/lib/header-status'
-import { monthEndBefore, previousYearEnd, totalAssetsChange, type TotalAssetsChange } from '@/lib/total-assets-change'
+import { investmentResult, monthEndBefore, previousYearEnd, totalAssetsChange, type InvestmentPoint, type TotalAssetsChange } from '@/lib/total-assets-change'
 import {
   HEALTHY_TREND_COST_COVERAGE,
   MIN_TREND_COST_COVERAGE,
@@ -127,6 +127,11 @@ export default async function OverviewPage({
   const quarterChange = changeSince(monthEndBefore(today, 3))
   const yearChange = changeSince(previousYearEnd(today))
   const twelveMonthChange = changeSince(monthEndBefore(today, 12))
+  // What stocks and crypto earned over each change's period, from the same base snapshot.
+  const investmentPoints: InvestmentPoint[] = netWorth
+    ? getPortfolioSnapshots(400).map((row) => ({ date: row.snapshot_date, unrealized: row.global_base_unrealized_gl, realized: row.global_realized_gl }))
+    : []
+  const investmentFor = (change: TotalAssetsChange | null) => (change ? investmentResult(investmentPoints, change.baseDate) : null)
   // This month / this year, all view only: each figure is a summary of its own page.
   const display = currencyPreferences.displayCurrency
   const tiles = netWorth
@@ -278,7 +283,7 @@ export default async function OverviewPage({
   )
 
   const changeField = (label: string, change: TotalAssetsChange | null) => (
-    <TotalAssetsChangeField label={label} change={change} labels={copy} money={(v) => money(v, 'KRW')} language={language} />
+    <TotalAssetsChangeField label={label} change={change} investment={investmentFor(change)} labels={copy} money={(v) => money(v, 'KRW')} language={language} />
   )
 
   return (
@@ -298,7 +303,12 @@ export default async function OverviewPage({
           <MetricHeroCard
             id="overview-lead"
             title={copy.totalAssets}
-            info={copy.totalAssetsInfo}
+            info={
+              <span className="flex flex-col gap-2">
+                <span>{copy.totalAssetsInfo}</span>
+                <span>{copy.investmentResultInfo}</span>
+              </span>
+            }
             eyebrow={copy.allAssetClasses}
             value={money(netWorth.totalKrw, 'KRW')}
             hint={copy.totalAssetsHint}
@@ -326,7 +336,7 @@ export default async function OverviewPage({
                 <TextLink href="/net-worth">{copy.openTotalAssets}</TextLink>
               </div>
             </div>
-            <KpiBand columns={4}>
+            <KpiBand columns="4-narrow">
               {changeField(copy.changeMtd, monthChange)}
               {changeField(copy.change3m, quarterChange)}
               {changeField(copy.changeYtd, yearChange)}

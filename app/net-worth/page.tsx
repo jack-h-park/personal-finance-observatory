@@ -5,7 +5,7 @@ import { Badge, Card, Label, Note } from '@/components/ui'
 import { CardRow, Columns, KpiBand } from '@/components/layout'
 import { TotalAssetsChangeField } from '@/components/TotalAssetsChangeField'
 import { StackedAssetChart } from '@/components/charts'
-import { getAssetCoverageReview, getAssetAllocation, getAssetEvents, getChildAssets, getMeta, getNetWorth, getSnapshotDates, getTotalAssetsSeries, portfolioToday } from '@/lib/adapters/portfolio-db'
+import { getAssetCoverageReview, getAssetAllocation, getAssetEvents, getChildAssets, getMeta, getNetWorth, getPortfolioSnapshots, getSnapshotDates, getTotalAssetsSeries, portfolioToday } from '@/lib/adapters/portfolio-db'
 import { convertMoney, createMoneyFormatter, formatKrw, formatUsd } from '@/lib/currency'
 import { getCurrencyPreferences } from '@/lib/currency-server'
 import { fmtDate, fmtDateTime, fmtSigned } from '@/lib/format'
@@ -24,7 +24,7 @@ import type { AllocationClass } from '@/lib/asset-allocation'
 import { ASSET_CLASS_COLOR, WRAPPER_COLOR } from '@/lib/palette'
 import { getPageCopy } from '@/lib/ui-copy'
 import { maskAccountLabel } from '@/lib/account-label'
-import { monthEndBefore, previousYearEnd, totalAssetsChange } from '@/lib/total-assets-change'
+import { investmentResult, monthEndBefore, previousYearEnd, totalAssetsChange, type InvestmentPoint, type TotalAssetsChange } from '@/lib/total-assets-change'
 import { ASSET_CLASS_KEYS, historyRows, resolveClasses, resolveHistoryWindow, toggleClass, viewPoints } from '@/lib/total-assets-view'
 
 export const dynamic = 'force-dynamic'
@@ -74,6 +74,13 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
   const overviewCopy = getPageCopy('overview', language)
   const today = portfolioToday()
   const changeSince = (since: string) => totalAssetsChange(totalAssets.points, since)
+  // What stocks and crypto earned over each change's period, from the same base snapshot.
+  const investmentPoints: InvestmentPoint[] = getPortfolioSnapshots(100 * 365).map((row) => ({
+    date: row.snapshot_date,
+    unrealized: row.global_base_unrealized_gl,
+    realized: row.global_realized_gl,
+  }))
+  const investmentFor = (change: TotalAssetsChange | null) => (change ? investmentResult(investmentPoints, change.baseDate) : null)
   const changes = [
     { label: overviewCopy.changeMtd, change: changeSince(monthEndBefore(today, 1)) },
     { label: overviewCopy.change3m, change: changeSince(monthEndBefore(today, 3)) },
@@ -169,6 +176,7 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
           <span className="flex flex-col gap-2">
             <span>{copy.trendStarts(classes.filter((key) => totalAssets.startsOn[key]).map((key) => copy.classSince(copy.classes[key], fmtDate(totalAssets.startsOn[key]!, language))))}</span>
             <span>{copy.trendNote}</span>
+            <span>{overviewCopy.investmentResultInfo}</span>
           </span>
         }
         accent
@@ -181,7 +189,7 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
               <div className="mt-2 text-hero-sm font-medium leading-none tracking-normal text-ink sm:text-hero">{money(netWorth.totalKrw)}</div>
             </div>
             <div className="min-w-0 sm:max-w-[60%] sm:text-right">
-              <TotalAssetsChangeField label={rangeLabel} change={rangeChange} labels={overviewCopy} money={(krw) => money(krw)} language={language} />
+              <TotalAssetsChangeField label={rangeLabel} change={rangeChange} investment={investmentFor(rangeChange)} labels={overviewCopy} money={(krw) => money(krw)} language={language} />
             </div>
           </div>
           <div className="flex flex-col gap-2 border-t border-line-subtle pt-4">
@@ -251,7 +259,7 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
           />
           <KpiBand columns={4}>
             {changes.map(({ label, change }) => (
-              <TotalAssetsChangeField key={label} label={label} change={change} labels={overviewCopy} money={(krw) => money(krw)} language={language} />
+              <TotalAssetsChangeField key={label} label={label} change={change} investment={investmentFor(change)} labels={overviewCopy} money={(krw) => money(krw)} language={language} />
             ))}
           </KpiBand>
         </div>
