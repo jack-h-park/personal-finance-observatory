@@ -3117,6 +3117,12 @@ export type CashInflowTotals = {
   changeThrough: string | null
   /** The counted category whose amount moved most between the two windows; null for a one-category filter or no change. */
   changeDriver: { category: CashInflowCategory; delta: number } | null
+  /**
+   * Every category over the range, whatever the filter: `amount` sums the whole
+   * range like `rangeTotal`; `change` uses the same whole-month windows as
+   * `change` above, and is null when there is no window before or it held nothing.
+   */
+  byCategory: Record<CashInflowCategory, { amount: number; change: number | null }>
 }
 export type CashInflow = {
   currency: DisplayCurrency
@@ -3319,6 +3325,15 @@ export function getCashInflow(
             .reduce((best, next) => (Math.abs(next.delta) > Math.abs(best.delta) ? next : best))
         : null
 
+    const byCategory = Object.fromEntries(
+      CASH_INFLOW_CATEGORIES.map((category) => {
+        const amount = sumMonths(window.start, window.end, (p) => p[category])
+        const before = comparable && compared ? sumMonths(compared.previousStart, compared.previousEnd, (p) => p[category]) : 0
+        const now = comparable && compared ? sumMonths(compared.start, compared.end, (p) => p[category]) : 0
+        return [category, { amount, change: before > 0 ? (now - before) / before : null }]
+      })
+    ) as CashInflowTotals['byCategory']
+
     let periods: CashInflowPeriod[]
     if (granularity === 'month') {
       periods = months.filter((p) => p.period >= window.start && p.period <= window.end)
@@ -3370,6 +3385,7 @@ export function getCashInflow(
         change,
         changeThrough: change != null && compared ? compared.end : null,
         changeDriver: changeDriver && changeDriver.delta !== 0 ? changeDriver : null,
+        byCategory,
       },
       unclassifiedCount,
       undatedCount,

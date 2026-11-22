@@ -34,6 +34,7 @@ import { cashInflowHeaderStatus } from '@/lib/header-status'
 import { CardRow, KpiBand } from '@/components/layout'
 import { maskAccountLabel } from '@/lib/account-label'
 import { CASH_INFLOW_CATEGORY_COLOR } from '@/lib/palette'
+import { ShareSummary } from '@/components/ShareSummary'
 
 export const dynamic = 'force-dynamic'
 export const generateMetadata = routeMetadata('/cash-inflow')
@@ -136,6 +137,22 @@ export default async function CashInflowPage({
         {data.totals.changeThrough ? copy.changeThrough(data.totals.changeThrough) : null}
       </>
     )
+
+  // A category's amount, then its change when there is a window to compare with.
+  const compositionDetail = (c: CashInflowCategory) => {
+    const { amount, change } = data.totals.byCategory[c]
+    return (
+      <>
+        {money(amount, data.currency)}
+        {change == null ? null : (
+          <>
+            {' · '}
+            <span className={signClass(change)}>{fmtPct(fractionPct(change), { digits: 1, signed: true })}</span>
+          </>
+        )}
+      </>
+    )
+  }
 
   const reasonText = (r: CashInflowRow) => {
     if (r.reasonKind === 'rule') return copy.reasons.rule(r.reason ?? '')
@@ -246,15 +263,8 @@ export default async function CashInflowPage({
               <MetricField label={copy.triage.groups} value={fmtNumber(unclassifiedGroups.length)} />
             </KpiBand>
           ) : (
-            <KpiBand columns={filter === 'All' ? 4 : undefined}>
+            <KpiBand>
               <MetricField label={copy.monthlyAverage} value={money(data.totals.monthlyAverage, data.currency)} />
-              {filter === 'All' ? (
-                <>
-                  <MetricField label={copy.kpi.salary} value={money(data.totals.salary, data.currency)} />
-                  <MetricField label={copy.kpi.investment} value={money(data.totals.investment, data.currency)} />
-                  <MetricField label={copy.kpi.investmentShare} value={fmtPct(fractionPct(data.totals.investmentShare), { nullText: copy.notAvailable })} />
-                </>
-              ) : null}
             </KpiBand>
           )}
           <div className="border-t border-line-subtle pt-4">
@@ -296,6 +306,51 @@ export default async function CashInflowPage({
           </div>
         </div>
       </Card>
+
+      {/* Where the money came from: one line per counted category, so the split
+          reads at a glance; only when the filter shows more than one category. */}
+      {categories.length > 1 && data.totals.rangeTotal > 0 ? (
+        <CardRow columns={1}>
+          <Card id="cash-inflow-composition" title={copy.compositionTitle} info={copy.compositionInfo}>
+            <div className="max-w-2xl">
+              <ShareSummary
+                title={copy.compositionShare(headlineLabel)}
+                items={categories.map((c) => ({
+                  key: c,
+                  label: copy.categories[c],
+                  color: CASH_INFLOW_CATEGORY_COLOR[c],
+                  pct: (data.totals.byCategory[c].amount / data.totals.rangeTotal) * 100,
+                  detail: compositionDetail(c),
+                }))}
+              >
+                {filter === 'All' ? (
+                  <ul className="mt-3 flex flex-col gap-1.5 border-t border-line-subtle pt-3 text-caption">
+                    <li className="flex items-baseline justify-between gap-3">
+                      <span className="min-w-0 text-ink-3">{copy.investmentSubtotal}</span>
+                      <span className="shrink-0 tabular-nums text-ink">
+                        {fmtPct((data.totals.investment / data.totals.rangeTotal) * 100, { digits: 1 })}
+                        <span className="ml-2 text-ink-3">{money(data.totals.investment, data.currency)}</span>
+                      </span>
+                    </li>
+                    {data.totals.byCategory.reimbursement.amount > 0 ? (
+                      <li className="flex items-baseline justify-between gap-3">
+                        <span className="flex min-w-0 items-center gap-1.5 text-ink-3">
+                          <span className="h-2 w-2 shrink-0 rounded-pill" style={{ backgroundColor: CASH_INFLOW_CATEGORY_COLOR.reimbursement }} aria-hidden="true" />
+                          <span className="truncate">{copy.categories.reimbursement}</span>
+                        </span>
+                        <span className="shrink-0 tabular-nums text-ink-3">
+                          {copy.notInTotal}
+                          <span className="ml-2">{money(data.totals.byCategory.reimbursement.amount, data.currency)}</span>
+                        </span>
+                      </li>
+                    ) : null}
+                  </ul>
+                ) : null}
+              </ShareSummary>
+            </div>
+          </Card>
+        </CardRow>
+      ) : null}
 
       <CardRow columns={1}>
         <Card title={copy.tableCard}>

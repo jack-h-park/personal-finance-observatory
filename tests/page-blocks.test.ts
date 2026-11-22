@@ -237,6 +237,16 @@ test('/cash-inflow leads with one card: the total, its change, the filters, then
   assert.ok(text.indexOf("key: 'range'") < text.indexOf("key: 'view'"))
 })
 
+test('/cash-inflow shows the split by category between the lead card and the table, in place of the old KPI fields', () => {
+  const text = source('app/cash-inflow/page.tsx')
+  const lead = text.indexOf('id="cash-inflow-lead"')
+  const composition = text.indexOf('id="cash-inflow-composition"')
+  const table = text.indexOf('copy.tableCard')
+  assert.ok(lead > 0 && lead < composition && composition < table, 'lead card, then composition, then the table')
+  assert.match(text, /<ShareSummary/)
+  assert.doesNotMatch(text, /copy\.kpi\.(salary|investment|investmentShare)/)
+})
+
 test('app/review/page.tsx draws its summary with StatStrip and names the concentration rows from copy', () => {
   const text = source('app/review/page.tsx')
   assert.match(text, /StatStrip/)

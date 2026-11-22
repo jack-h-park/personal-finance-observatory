@@ -1,6 +1,6 @@
 # Cash inflow page (`/cash-inflow`) — redesign plan
 
-**Status:** decisions confirmed 2026-11-21; phases 1–2 built. Each phase is one stacked PR; where a phase departs from this plan it says so under the phase.
+**Status:** decisions confirmed 2026-11-21; phases 1–3 built. Each phase is one stacked PR; where a phase departs from this plan it says so under the phase.
 
 ## Why
 
@@ -46,6 +46,8 @@ Each phase is one PR, stacked, with the screenshot net, `pnpm ui:guardrails`, `p
 
    *As built:* the lead card is a plain `Card` (`id="cash-inflow-lead"`, title 유입 추이 / Inflow trend) holding the total with its range in the eyebrow, the change on the right, the remaining KPI fields, the filters (range, view, category, source, currency) and the chart; `MetricHeroCard` and the separate trend card are gone, and the chart notes joined the card's info popover. `getCashInflow` now returns `currentMonth`, and its change compares whole months: when the range ends in the month in progress, that month and the last month of the window before both drop out (`changeThrough` names the last month counted). It also returns `changeDriver`, the counted category whose amount moved most, shown under the change. `StackedBarChart` takes `partial={{ key, label }}`: those bars draw at 40% opacity and their tooltip title adds 진행 중 / in progress; one line under the chart says the same, since a tooltip may not be the only place. The monthly average still divides by calendar months including the current one, as before; the plan only moved the change.
 3. **Composition card.** Category shares with `ShareSummary`, investment subtotal, reimbursement line; remove the KPI fields it replaces.
+
+   *As built:* a card `id="cash-inflow-composition"` (분류별 구성 / By category) sits between the lead card and the table whenever the filter shows more than one category and the range holds money, so under All and under 투자 수익. Each line is the category's share, amount and change; the change comes from `getCashInflow`'s new `totals.byCategory`, which carries every category's range amount and its change on the same whole-month windows as the headline change (no change shown when the window before held nothing). The bar's title follows the filter (총 유입 대비 비중, 투자 수익 대비 비중). Under All, below a rule, the investment subtotal line and, only when the range has any, the reimbursement line marked 합계 제외. The lead card keeps only the monthly average beside the change; the adapter's `salary`, `investment` and `investmentShare` totals stay, since tests and other callers read them.
 4. **Table polish.** Footer total row, emphasised Total column, conditional reimbursement and unclassified columns, detail panel heading aligned with the row it opened from.
 5. **Phone pass.** At 390×844 the total, the change and the start of the chart fit the first screen under the access banner and page header; no horizontal page scroll; the period table scrolls inside its own container with the period column pinned.
 
