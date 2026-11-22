@@ -11,7 +11,7 @@ import { loadLocalEnv } from './env.mjs'
 import { portfolioDate, priceDatesByMarket, valuePortfolio } from './portfolio-snapshot.mjs'
 import { repriceFromQuote } from './broker-quote-reprice.mjs'
 import { resolveCryptoFiles, resolveUsHoldingFiles, resolveUsTransactionFiles, robinhoodStrategyLabel } from './source-files.mjs'
-import { anchoredCashSeries, nextBusinessDay } from './anchored-cash.mjs'
+import { anchoredCashSeries, nextBusinessDay, openingAnchorFromFlows } from './anchored-cash.mjs'
 import { DECIDABLE_WRAPPERS, resolveWrapperTreatment } from './wrapper-treatment.mjs'
 import { pensionProductId } from './pension-ids.mjs'
 import { matchGoldLots } from './gold-lots.mjs'
@@ -5582,7 +5582,11 @@ for (const { brokerage, account, anchors } of sweepAnchors.values()) {
           .filter((r) => r.brokerage === 'Chase' && r.account === account && r.date && text(r.ticker) !== 'QACDS')
           .map((r) => ({ date: r.date, settle: r.date, amount: number(r.native_amount) ?? 0 }))
       : []
-  const series = anchoredCashSeries({ statements: anchors, snapshot: null, flows })
+  // A transaction export that reaches back to the account's first movement proves
+  // the cash was zero before it, when its flows add up to the first holdings
+  // anchor; that fills the months before the first export (anchored-cash.mjs).
+  const opening = brokerage === 'Chase' ? openingAnchorFromFlows({ anchors, flows }) : null
+  const series = anchoredCashSeries({ statements: opening ? [opening, ...anchors] : anchors, snapshot: null, flows })
   sweepCashAccounts.push({ brokerage, account, anchors, series })
   for (const point of series.points) {
     brokerageCashRows.push({
@@ -5592,7 +5596,12 @@ for (const { brokerage, account, anchors } of sweepAnchors.values()) {
       currency: 'USD',
       as_of_date: point.date,
       balance: point.balance,
-      source: point.source === 'anchor' ? `${brokerage.toLowerCase()}_holdings` : `derived:${brokerage.toLowerCase()}_cash_flows`,
+      source:
+        opening && point.source === 'anchor' && point.date === opening.date
+          ? `derived:${brokerage.toLowerCase()}_account_opening`
+          : point.source === 'anchor'
+            ? `${brokerage.toLowerCase()}_holdings`
+            : `derived:${brokerage.toLowerCase()}_cash_flows`,
       account_wrapper: 'taxable',
       asset_class: 'security',
     })
