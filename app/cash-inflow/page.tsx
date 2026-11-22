@@ -387,6 +387,7 @@ export default async function CashInflowPage({
             expandedRowKey={detail}
             renderExpanded={detailPanel}
             footerRows={tableFooter}
+            pinFirstColumn
             columns={[
               {
                 key: 'period',
