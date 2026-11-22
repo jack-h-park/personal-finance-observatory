@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "mode": "synthetic",
+  "status": "complete",
+  "source": "synthetic-api",
+  "periodStart": "2026-11-01",
+  "periodEnd": "2026-11-30",
+  "transactions": [
+    {
+      "accountId": "synthetic-us-card",
+      "postedDate": "2026-11-20",
+      "description": "Example Bakery",
+      "amountMinor": -700,
+      "currency": "USD",
+      "kind": "purchase",
+      "sourceId": "sample-api-purchase"
+    }
+  ]
+}

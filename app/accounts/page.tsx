@@ -2,6 +2,7 @@ import { AccountInventoryReview } from '@/components/AccountInventoryReview'
 import { getAccountInventoryReview } from '@/lib/adapters/account-inventory'
 import { AccountTimeline, TimelineLegend, TimelineScale, timelineAxis } from '@/components/AccountTimeline'
 import { SupplementaryCoverageTable } from '@/components/SupplementaryCoverageTable'
+import { SpendingAccountPanel } from '@/components/SpendingAccountPanel'
 import { DataTable } from '@/components/DataTable'
 import { PageHeader } from '@/components/PageHeader'
 import { Badge, Card, EmptyState, MetricField, TextLink, marketTone } from '@/components/ui'
@@ -82,6 +83,8 @@ export default async function AccountsPage() {
           <MetricField label={copy.lastDate} value={fmtDate(summary.lastDate, language)} hint={copy.lastDateHint} />
         </Card>
       </CardRow>
+
+      <SpendingAccountPanel mode="coverage" language={language} />
 
       <Card
         title={copy.investmentsTitle}

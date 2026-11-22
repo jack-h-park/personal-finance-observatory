@@ -1,0 +1,88 @@
+{
+  "accounts": {
+    "Synthetic US Card": {
+      "institution": "chase",
+      "currency": "USD",
+      "inventory": {
+        "role": "primary",
+        "accountId": "synthetic-us-card",
+        "providerId": "chase",
+        "owner": {
+          "state": "confirmed",
+          "ownerId": "self"
+        },
+        "dimensions": {
+          "wrappers": [],
+          "assetClasses": []
+        },
+        "lifecycle": {
+          "state": "active"
+        },
+        "requirements": []
+      }
+    },
+    "Synthetic US Checking": {
+      "institution": "chase",
+      "currency": "USD",
+      "inventory": {
+        "role": "primary",
+        "accountId": "synthetic-us-checking",
+        "providerId": "chase",
+        "owner": {
+          "state": "confirmed",
+          "ownerId": "self"
+        },
+        "dimensions": {
+          "wrappers": [],
+          "assetClasses": []
+        },
+        "lifecycle": {
+          "state": "active"
+        },
+        "requirements": []
+      }
+    },
+    "Synthetic KR Card": {
+      "institution": "shinhan",
+      "currency": "KRW",
+      "inventory": {
+        "role": "primary",
+        "accountId": "synthetic-kr-card",
+        "providerId": "shinhan",
+        "owner": {
+          "state": "confirmed",
+          "ownerId": "self"
+        },
+        "dimensions": {
+          "wrappers": [],
+          "assetClasses": []
+        },
+        "lifecycle": {
+          "state": "active"
+        },
+        "requirements": []
+      }
+    },
+    "Synthetic KR Checking": {
+      "institution": "shinhan",
+      "currency": "KRW",
+      "inventory": {
+        "role": "primary",
+        "accountId": "synthetic-kr-checking",
+        "providerId": "shinhan",
+        "owner": {
+          "state": "confirmed",
+          "ownerId": "self"
+        },
+        "dimensions": {
+          "wrappers": [],
+          "assetClasses": []
+        },
+        "lifecycle": {
+          "state": "active"
+        },
+        "requirements": []
+      }
+    }
+  }
+}

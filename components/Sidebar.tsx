@@ -16,12 +16,14 @@ export function Sidebar({
   displayCurrency,
   assetView,
   showAllAssets,
+  showSpendingPilot,
 }: {
   language: Language
   displayCurrency: DisplayCurrency
   assetView: AssetView
   /** False when the database holds no supplementary data: Total Assets and Pension are then hidden. */
   showAllAssets: boolean
+  showSpendingPilot?: boolean
 }) {
   const copy = getPageCopy('sidebar', language)
   const pathname = usePathname()
@@ -95,6 +97,7 @@ export function Sidebar({
           sections={copy.sections}
           pathname={pathname}
           showAllAssets={showAllAssets}
+          showSpendingPilot={showSpendingPilot}
           openGroups={openGroups}
           onToggle={(group, isOpen) => setOpenGroups((prev) => (prev[group] === isOpen ? prev : { ...prev, [group]: isOpen }))}
           label={copy.navLabel}

@@ -39,3 +39,4 @@ The expanded custodian backup and the later briefing/operator financial scope ha
 - [Compatibility inventory](../architecture/compatibility-inventory.md)
 - [Design](../superpowers/specs/2026-11-10-personal-finance-observatory-design.md)
 - [Implementation plan](../superpowers/plans/2026-11-10-personal-finance-observatory.md)
+- [Proposed US and Korea spending integration](../superpowers/plans/2026-11-21-us-kr-spending.md)

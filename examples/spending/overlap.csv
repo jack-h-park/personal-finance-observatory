@@ -1,0 +1,5 @@
+accountId,postedDate,transactionDate,description,amountMinor,currency,kind,sourceId,originalAmountMinor,originalCurrency,relatedSourceId,transferRef
+synthetic-kr-card,2026-11-06,2026-11-05,Example Shop refund,3000,KRW,refund,kr-refund,,,kr-purchase,
+synthetic-us-card,2026-11-04,2026-11-03,"Example, Cafe",-1200,USD,purchase,,,,,
+synthetic-kr-card,2026-11-05,2026-11-04,Example Shop,-18000,KRW,purchase,kr-purchase,-1300,USD,,
+synthetic-us-card,2026-11-04,2026-11-03,"Example, Cafe",-1200,USD,purchase,,,,,

@@ -29,6 +29,7 @@ export const ROUTE_HREFS = [
   '/rebalance/settings',
   '/income',
   '/cash-inflow',
+  '/spending',
   '/tax-planning',
   '/taxes',
   '/taxes/history',
@@ -54,7 +55,7 @@ export { APP_NAME, BRAND } from '@/lib/brand'
 
 /** The sidebar's label for a route, in one language. */
 export function routeName(href: RouteHref, language: Language): string {
-  const item = navItems(getPageCopy('sidebar', language).sections, { supplementary: true }).find((entry) => entry.href === href)
+  const item = navItems(getPageCopy('sidebar', language).sections, { supplementary: true, localPilot: true }).find((entry) => entry.href === href)
   if (item) return item.label
   // Unreachable while tests/page-names.test.ts passes. Falling back to the href
   // keeps a future gap visible in the tab rather than blank.
@@ -77,7 +78,7 @@ export function routeName(href: RouteHref, language: Language): string {
  * routeName is: a copy of a name is a name that drifts.
  */
 export function routeSection(href: RouteHref, language: Language): string {
-  const item = navItems(getPageCopy('sidebar', language).sections, { supplementary: true }).find((entry) => entry.href === href)
+  const item = navItems(getPageCopy('sidebar', language).sections, { supplementary: true, localPilot: true }).find((entry) => entry.href === href)
   if (item) return item.section
   // Unreachable while tests/page-names.test.ts passes.
   return ''

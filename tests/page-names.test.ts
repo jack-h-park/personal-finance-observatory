@@ -24,7 +24,7 @@ test('every route has a sidebar label in both languages', () => {
 // would be invisible here, since routeName only reads what ROUTE_HREFS asks for.
 test('every sidebar entry is covered by ROUTE_HREFS', () => {
   for (const language of LANGUAGES) {
-    const linked = navItems(getPageCopy('sidebar', language).sections, { supplementary: true }).map((item) => item.href)
+    const linked = navItems(getPageCopy('sidebar', language).sections, { supplementary: true, localPilot: true }).map((item) => item.href)
     for (const href of linked) {
       assert.ok(
         (ROUTE_HREFS as readonly string[]).includes(href),

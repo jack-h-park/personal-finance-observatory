@@ -58,6 +58,7 @@
     "tax:calendar": "tsx scripts/observatory-cli.mjs tax:calendar",
     "tax:realized": "tsx scripts/observatory-cli.mjs tax:realized",
     "tax:import": "tsx scripts/import-tax-history.mjs",
+    "spending:import": "tsx scripts/import-spending.ts",
     "sources:status": "tsx scripts/observatory-cli.mjs sources:status",
     "fbar:table": "tsx scripts/observatory-cli.mjs fbar:table",
     "rebalance:propose": "tsx scripts/rebalance-cli.mjs propose",
