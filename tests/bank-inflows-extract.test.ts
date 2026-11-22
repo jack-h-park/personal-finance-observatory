@@ -229,3 +229,28 @@ test('a 파킹통장 채우기 that matches its checking leg pairs, so both legs
   // Every transfer paired with a statement row, so no 파킹통장 estimate is left.
   assert.ok(!doc.estimatedAccounts.some((a: any) => a.account === '토스뱅크 파킹통장'), JSON.stringify(doc.estimatedAccounts))
 })
+
+test('a Hana or KB credit from exchanging foreign banknotes into won is the holder\'s own money', () => {
+  const script = `
+import importlib.util, json, sys, pathlib
+spec = importlib.util.spec_from_file_location('bank', 'scripts/extract-bank-statements.py')
+m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+m._xls_rows = lambda path, findings: json.loads(sys.argv[1])
+print(json.dumps(m.parse_korean_deposit(pathlib.Path('x.xls'), [], [])))
+`
+  const rows = [
+    ['거래일시', '적요', '보낸분/받는분', '출금액', '입금액', '잔액'],
+    ['2024-04-19 10:00:00', '외국통화 환전', '(통화XYZ, 환율(지폐)12.34)', '0', '20000', '20000'],
+    ['2024-04-19 11:00:00', '외국통화 환전', '(통화XYZ, 환율(지폐)12.34)', '5000', '0', '15000'],
+    ['2024-04-20 09:00:00', '타행이체', '홍길동', '0', '30000', '45000'],
+  ]
+  const txns = JSON.parse(execFileSync(PY, ['-c', script, JSON.stringify(rows)], { cwd: ROOT, encoding: 'utf8' }))
+  assert.deepEqual(
+    txns.map((t: any) => [t.amount, Boolean(t.ownTransfer)]),
+    [
+      [20000, true],
+      [-5000, false],
+      [30000, false],
+    ],
+  )
+})

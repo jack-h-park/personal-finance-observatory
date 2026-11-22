@@ -224,7 +224,9 @@ statements are statement accounts too, so their credits are inflows. A 파킹통
 transfers; an unpaired 채우기/꺼내기/모으기 is still one. Its interest (`자동 이자`) is
 not, and counts as `interest`; a credit paid in from outside is left unmarked. A
 외화통장 credit whose 거래내용 names an exchange (`채우기`, `모으기`, `사기`, `환전`) is
-own money; its interest and any other credit are not. The ingest loads them into
+own money; its interest and any other credit are not. A Hana or KB credit whose 적요
+is `외국통화 환전` (foreign banknotes sold to the bank for won) is own money too. The
+ingest loads them into
 `bank_inflows` and gives each one a `category`, first match wins:
 
 1. `ownTransfer` is set: `transfer`. Never counted as income.
