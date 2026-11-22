@@ -173,7 +173,7 @@ test('the statement gives each account its month-end cash: brokerage cash plus t
   ])
 })
 
-test('a summary that does not add up to its portfolio value is reported and anchors nothing', () => {
+test('a summary that does not add up to its portfolio value is reported and that account anchors nothing', () => {
   const [report] = extractStatements([
     summaryPage('0001', ['$10.00', '$400.00'], ['$0.00', '$100.00'], ['$90.00', '$1,500.00'], ['$100.00', '$2,100.00']),
   ])
@@ -181,6 +181,30 @@ test('a summary that does not add up to its portfolio value is reported and anch
     '0001: closing cash, sweep and securities do not add up to the portfolio value',
   ])
   assert.deepEqual(report.accounts, [])
+})
+
+test('older layouts: an unmasked account number, an account opened that month, and one with no sweep', () => {
+  const page = (lines: string[]) => ['help@example.invalid 01/01/2026 to 01/31/2026', ...lines].join('\n')
+  const [report] = extractStatements([
+    // The account number printed in full, and no asterisk after the cash label.
+    page(['Individual Account #:000000001', 'Account Summary Opening Balance Closing Balance', 'Brokerage Cash Balance $16.48 $0.00',
+      'Deposit Sweep Balance $2,000.00 $3,000.00 2.99%', 'Total Securities * $7,983.52 $9,000.00', 'Portfolio Value $10,000.00 $12,000.00 Options']),
+    // Opened this month: no opening balance.
+    page(['Individual Account #:000000002', 'Account Summary Opening Balance Closing Balance', 'Brokerage Cash Balance N/A $0.00',
+      'Deposit Sweep Balance N/A $2,000.35 1.55%', 'Total Securities * N/A $100.00', 'Portfolio Value N/A $2,100.35 Options']),
+    // No sweep: "Net Account Balance" and no sweep row.
+    page(['Individual Account #:*****0003', 'Account Summary Opening Balance Closing Balance', 'Net Account Balance $813.79 $814.35',
+      'Total Securities $1,277.65 $1,345.94 37.70%', 'Portfolio Value $2,091.44 $2,160.29']),
+    // Does not add up: left out alone, the others still count.
+    page(['Individual Account #:*****0004', 'Account Summary Opening Balance Closing Balance', 'Brokerage Cash Balance $1.00 $2.00',
+      'Deposit Sweep Balance $0.00 $0.00', 'Total Securities $9.00 $8.00', 'Portfolio Value $10.00 $99.00']),
+  ])
+  assert.deepEqual(report.accounts, [
+    { account: '0001', opening_cash_usd: 2016.48, closing_cash_usd: 3000 },
+    { account: '0002', opening_cash_usd: null, closing_cash_usd: 2000.35 },
+    { account: '0003', opening_cash_usd: 813.79, closing_cash_usd: 814.35 },
+  ])
+  assert.deepEqual(report.metrics.summary_mismatches, ['0004: closing cash, sweep and securities do not add up to the portfolio value'])
 })
 
 // --- the ingest, end to end --------------------------------------------------------

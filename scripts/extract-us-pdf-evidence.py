@@ -356,7 +356,8 @@ def summarize_tax_doc(path):
 # The monthly Robinhood account statement: one PDF for every account under the
 # login, each in its own section headed `Individual Account #:*****1478`. Only
 # the Account Summary is read: the uninvested cash at the start and end of the
-# month, which is "Brokerage Cash Balance" plus "Deposit Sweep Balance" (cash
+# month, which is "Brokerage Cash Balance" (or "Net Account Balance", in an
+# account with no sweep) plus "Deposit Sweep Balance" (cash
 # the broker has swept to its program banks is still the account's cash). The
 # ingest anchors each account's cash series on these month-ends, because the
 # transaction CSV leaves out flows that move that cash: crypto settlements and
@@ -364,14 +365,20 @@ def summarize_tax_doc(path):
 #
 # The summary proves itself: opening and closing Portfolio Value are the cash,
 # the sweep and Total Securities added up. A section where they do not add up is
-# reported, not returned, so a misread balance never becomes an anchor.
+# reported and that account left out (the others in the file still count), so a
+# misread balance never becomes an anchor. Older statements print the account
+# number unmasked; only its last four digits are kept.
 RH_STATEMENT_PERIOD = re.compile(r"(\d{2})/(\d{2})/(\d{4}) to (\d{2})/(\d{2})/(\d{4})")
-RH_STATEMENT_ACCOUNT = re.compile(r"Account #:\*+(\d{4})\b")
+# Masked (`*****1478`) since mid-2026, the full number before; only the last four are kept.
+RH_STATEMENT_ACCOUNT = re.compile(r"Account #:\**(\d{4,})\b")
+# A figure, or "N/A" for the opening balance of an account opened that month.
+RH_AMOUNT = r"(N/A|-?\$[\d,.]+|\(\$[\d,.]+\))"
 RH_SUMMARY_ROWS = {
-    "cash": re.compile(r"^Brokerage Cash Balance \*? ?(-?\$[\d,.]+|\(\$[\d,.]+\)) (-?\$[\d,.]+|\(\$[\d,.]+\))"),
-    "sweep": re.compile(r"^Deposit Sweep Balance (\$[\d,.]+) (\$[\d,.]+)"),
-    "securities": re.compile(r"^Total Securities(?: \*+)? (\$[\d,.]+) (\$[\d,.]+)"),
-    "portfolio": re.compile(r"^Portfolio Value (\$[\d,.]+) (\$[\d,.]+)"),
+    # An account with no sweep prints "Net Account Balance" in its place.
+    "cash": re.compile(rf"^(?:Brokerage Cash|Net Account) Balance(?: \*)? {RH_AMOUNT} {RH_AMOUNT}"),
+    "sweep": re.compile(rf"^Deposit Sweep Balance {RH_AMOUNT} {RH_AMOUNT}"),
+    "securities": re.compile(rf"^Total Securities(?: \*+)? {RH_AMOUNT} {RH_AMOUNT}"),
+    "portfolio": re.compile(rf"^Portfolio Value {RH_AMOUNT} {RH_AMOUNT}"),
 }
 
 
@@ -394,7 +401,7 @@ def summarize_robinhood_statement(path):
                     period_end = iso(*period.group(4, 5, 6))
                 account = RH_STATEMENT_ACCOUNT.search(line)
                 if account:
-                    current = sections.setdefault(account.group(1), {})
+                    current = sections.setdefault(account.group(1)[-4:], {})
                     continue
                 if current is None:
                     continue
@@ -407,16 +414,29 @@ def summarize_robinhood_statement(path):
 
     accounts, mismatches = [], []
     for account, rows in sorted(sections.items()):
+        # A section with no sweep prints no sweep row; the tie-out below still has to hold.
+        rows.setdefault("sweep", (0.0, 0.0))
         if not {"cash", "sweep", "securities", "portfolio"} <= rows.keys():
             mismatches.append(f"{account}: account summary incomplete ({', '.join(sorted(rows))})")
             continue
-        ends = []
+        ends, ok = [], True
         for index, label in ((0, "opening"), (1, "closing")):
-            parts = rows["cash"][index] + rows["sweep"][index] + rows["securities"][index]
-            if abs(parts - rows["portfolio"][index]) > 0.011:
+            figures = [rows[key][index] for key in ("cash", "sweep", "securities", "portfolio")]
+            if None in figures:
+                # "N/A": the account did not exist at the start of the month.
+                ends.append(None)
+                if index == 1:
+                    mismatches.append(f"{account}: closing balance not printed")
+                    ok = False
+                continue
+            cash, sweep, securities, portfolio = figures
+            if abs(cash + sweep + securities - portfolio) > 0.011:
                 mismatches.append(f"{account}: {label} cash, sweep and securities do not add up to the portfolio value")
-            ends.append(round(rows["cash"][index] + rows["sweep"][index], 2))
-        accounts.append({"account": account, "opening_cash_usd": ends[0], "closing_cash_usd": ends[1]})
+                ok = False
+            ends.append(round(cash + sweep, 2))
+        # Only the account that failed is left out; the others in the file still anchor.
+        if ok:
+            accounts.append({"account": account, "opening_cash_usd": ends[0], "closing_cash_usd": ends[1]})
 
     return {
         "category": "robinhood_statement_pdf",
@@ -431,7 +451,7 @@ def summarize_robinhood_statement(path):
             "accounts": len(accounts),
             "summary_mismatches": mismatches,
         },
-        "accounts": [] if mismatches or not period_end else accounts,
+        "accounts": accounts if period_end else [],
     }
 
 
