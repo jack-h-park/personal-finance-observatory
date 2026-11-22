@@ -44,14 +44,16 @@ test('the range sets the window, the average divides by calendar months, and the
   assert.equal(r12.rangeTotal, LAST_12)
   assert.equal(r12.rangeMonths, 12)
   assert.equal(r12.monthlyAverage, LAST_12 / 12)
-  assert.equal(r12.previousTotal, 1_000_000)
-  assert.equal(r12.change, (LAST_12 - 1_000_000) / 1_000_000)
+  // June is the month in progress: the change compares July-May with the year
+  // before's July-May, which holds nothing, so it reads as n/a.
+  assert.deepEqual([r12.previousTotal, r12.change, r12.changeThrough, r12.changeDriver], [null, null, null, null])
   assert.equal(r12.salary, 5_100_000)
   assert.equal(r12.investment, 28_960)
   assert.equal(r12.investmentShare, 28_960 / LAST_12)
 
   const ytd = getCashInflow('month', 'KRW', NOW, 'All', { range: 'ytd' }).totals
-  assert.deepEqual([ytd.rangeTotal, ytd.rangeMonths, ytd.previousTotal], [LAST_12, 6, 1_000_000])
+  // January-May against January-May 2024, which is empty: June 2024 falls with June 2025.
+  assert.deepEqual([ytd.rangeTotal, ytd.rangeMonths, ytd.previousTotal], [LAST_12, 6, null])
 
   const last = getCashInflow('month', 'KRW', NOW, 'All', { range: 'lastYear' })
   assert.deepEqual([last.totals.rangeTotal, last.totals.rangeMonths, last.totals.change], [1_000_000, 12, null])
@@ -59,6 +61,26 @@ test('the range sets the window, the average divides by calendar months, and the
 
   const all = getCashInflow('month', 'KRW', NOW, 'All', { range: 'all' }).totals
   assert.deepEqual([all.rangeTotal, all.rangeMonths, all.change], [LAST_12 + 1_000_000, 13, null])
+})
+
+test('the change leaves out the month in progress and names the category that moved most', async () => {
+  const { getCashInflow } = await import('../lib/adapters/portfolio-db')
+  // In July, June is whole: July-June against July 2023-June 2024 (1,000,000 salary in 2024-06).
+  const july = getCashInflow('month', 'KRW', new Date('2025-07-15T03:00:00Z'), 'All', { range: '12m' }).totals
+  assert.equal(july.rangeTotal, LAST_12)
+  assert.equal(july.previousTotal, 1_000_000)
+  assert.equal(july.change, (LAST_12 - 1_000_000) / 1_000_000)
+  assert.equal(july.changeThrough, '2025-06')
+  assert.deepEqual(july.changeDriver, { category: 'salary', delta: 5_100_000 - 1_000_000 })
+
+  // Last year ends before the month in progress, so nothing is trimmed, and there is no window before it to hold.
+  const last = getCashInflow('month', 'KRW', new Date('2025-07-15T03:00:00Z'), 'All', { range: 'lastYear' }).totals
+  assert.equal(last.changeThrough, null)
+
+  // One category has no driver to name.
+  const salary = getCashInflow('month', 'KRW', new Date('2025-07-15T03:00:00Z'), 'salary', { range: '12m' }).totals
+  assert.equal(salary.changeDriver, null)
+  assert.equal(getCashInflow('month', 'KRW', NOW, 'All', { range: '12m' }).currentMonth, '2025-06')
 })
 
 test('source and currency narrow every figure; the currency is the credit\'s own', async () => {

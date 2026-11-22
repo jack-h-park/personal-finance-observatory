@@ -225,6 +225,18 @@ test('app/cash-inflow/page.tsx puts the view switch in the filter bar and folds 
   assert.doesNotMatch(rule, /\bflex\b/)
 })
 
+test('/cash-inflow leads with one card: the total, its change, the filters, then the chart', () => {
+  const text = source('app/cash-inflow/page.tsx')
+  const lead = text.indexOf('id="cash-inflow-lead"')
+  const filters = text.indexOf('<FilterBar')
+  const chart = text.indexOf('<StackedBarChart')
+  const table = text.indexOf('copy.tableCard')
+  assert.ok(lead > 0 && lead < filters && filters < chart && chart < table, 'lead card, then its filters, then its chart, then the table')
+  assert.doesNotMatch(text, /MetricHeroCard/)
+  // The range comes first among the filters, as on /net-worth.
+  assert.ok(text.indexOf("key: 'range'") < text.indexOf("key: 'view'"))
+})
+
 test('app/review/page.tsx draws its summary with StatStrip and names the concentration rows from copy', () => {
   const text = source('app/review/page.tsx')
   assert.match(text, /StatStrip/)

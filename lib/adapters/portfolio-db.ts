@@ -3105,9 +3105,18 @@ export type CashInflowTotals = {
   investment: number
   counted: number
   investmentShare: number | null
-  /** The same-length window just before the range; null under All time or when it holds nothing. */
+  /**
+   * The change compares completed months only: when the range ends in the month
+   * in progress, that month and the last month of the window before it both drop
+   * out, so a half-month never reads as a fall. `previousTotal` is that earlier
+   * window's total; null under All time or when it holds nothing.
+   */
   previousTotal: number | null
   change: number | null
+  /** The last month the change counts ('YYYY-MM'), or null when there is no change. */
+  changeThrough: string | null
+  /** The counted category whose amount moved most between the two windows; null for a one-category filter or no change. */
+  changeDriver: { category: CashInflowCategory; delta: number } | null
 }
 export type CashInflow = {
   currency: DisplayCurrency
@@ -3117,6 +3126,8 @@ export type CashInflow = {
   unclassifiedCount: number
   undatedCount: number
   hasBankData: boolean
+  /** The month in progress ('YYYY-MM') in the app's time zone; its period is partial. */
+  currentMonth: string
 }
 /**
  * Why a row has its category: a bankInflowRules entry (`reason` is its note, else
@@ -3278,9 +3289,35 @@ export function getCashInflow(
     const salary = sumMonths(window.start, window.end, (p) => p.salary)
     const investment = sumMonths(window.start, window.end, (p) => p.dividend + p.interest)
     const countedRange = sumMonths(window.start, window.end, counted)
-    const previousRaw = window.previous ? sumMonths(window.previous.start, window.previous.end, (p) => p.total) : null
+    // The change leaves out the month in progress, and the matching month of the
+    // window before, so both sides hold the same number of whole months.
+    const currentMonth = monthKey(nowYear, nowMonth)
+    const back = (key: string) => monthKey(Number(key.slice(0, 4)), Number(key.slice(5, 7)) - 1)
+    const trims = window.end === currentMonth
+    const compared = window.previous
+      ? {
+          start: window.start,
+          end: trims ? back(window.end) : window.end,
+          previousStart: window.previous.start,
+          previousEnd: trims ? back(window.previous.end) : window.previous.end,
+        }
+      : null
+    const comparable = compared != null && compared.start <= compared.end
+    const currentCompared = comparable ? sumMonths(compared.start, compared.end, (p) => p.total) : 0
+    const previousRaw = comparable ? sumMonths(compared.previousStart, compared.previousEnd, (p) => p.total) : null
     // Nothing (or less than nothing) to compare with reads as n/a, never a divide by zero or a flipped sign.
     const previousTotal = previousRaw != null && previousRaw > 0 ? previousRaw : null
+    const change = previousTotal ? (currentCompared - previousTotal) / previousTotal : null
+    const driverCategories = categories.filter((c) => c !== 'unclassified' && c !== 'reimbursement')
+    const changeDriver =
+      change != null && compared && driverCategories.length > 1
+        ? driverCategories
+            .map((category) => ({
+              category,
+              delta: sumMonths(compared.start, compared.end, (p) => p[category]) - sumMonths(compared.previousStart, compared.previousEnd, (p) => p[category]),
+            }))
+            .reduce((best, next) => (Math.abs(next.delta) > Math.abs(best.delta) ? next : best))
+        : null
 
     let periods: CashInflowPeriod[]
     if (granularity === 'month') {
@@ -3330,11 +3367,14 @@ export function getCashInflow(
         counted: countedRange,
         investmentShare: countedRange === 0 ? null : investment / countedRange,
         previousTotal,
-        change: previousTotal ? (rangeTotal - previousTotal) / previousTotal : null,
+        change,
+        changeThrough: change != null && compared ? compared.end : null,
+        changeDriver: changeDriver && changeDriver.delta !== 0 ? changeDriver : null,
       },
       unclassifiedCount,
       undatedCount,
       hasBankData,
+      currentMonth,
     }
   } finally {
     conn.close()

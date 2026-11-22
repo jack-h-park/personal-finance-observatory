@@ -473,6 +473,7 @@ export function StackedBarChart({
   allowDecimals = false,
   linkKey,
   toggleable = false,
+  partial,
   unit,
   language,
   emptyMessage,
@@ -488,6 +489,9 @@ export function StackedBarChart({
   allowDecimals?: boolean
   /** Clicking a legend item hides or shows that series, in this chart only. */
   toggleable?: boolean
+  /** Rows whose `data[i][partial.key]` is true are drawn lighter, and their
+   *  tooltip title adds `partial.label`: a period still in progress. */
+  partial?: { key: string; label: string }
 }) {
   const router = useRouter()
   const [hidden, setHidden] = useState<ReadonlySet<string>>(new Set())
@@ -524,6 +528,12 @@ export function StackedBarChart({
           cursor={{ fill: 'var(--bg-surface)' }}
           contentStyle={TOOLTIP_SURFACE}
           formatter={tooltipFormatter(unit, language)}
+          labelFormatter={
+            partial
+              ? (label: ReactNode, payload: ReadonlyArray<{ payload?: Record<string, unknown> }>) =>
+                  payload?.[0]?.payload?.[partial.key] ? `${label} · ${partial.label}` : label
+              : undefined
+          }
         />
         <Legend
           wrapperStyle={{ fontSize: 11, cursor: toggleable ? 'pointer' : undefined }}
@@ -540,7 +550,18 @@ export function StackedBarChart({
             maxBarSize={28}
             onClick={linkKey ? open(s.key) : undefined}
             style={linkKey ? { cursor: 'pointer' } : undefined}
-          />
+          >
+            {partial ? data.map((row, i) => {
+              const inProgress = Boolean(row[partial.key])
+              return (
+                <Cell
+                  key={i}
+                  fillOpacity={inProgress ? 0.4 : 1}
+                  stroke={inProgress ? 'var(--text-secondary)' : undefined}
+                />
+              )
+            }) : null}
+          </Bar>
         ))}
       </BarChart>
     </ResponsiveContainer>
