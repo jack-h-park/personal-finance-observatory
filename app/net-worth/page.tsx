@@ -5,7 +5,7 @@ import { Badge, Card, Label, Note } from '@/components/ui'
 import { CardRow, Columns, KpiBand } from '@/components/layout'
 import { TotalAssetsChangeField } from '@/components/TotalAssetsChangeField'
 import { StackedAssetChart } from '@/components/charts'
-import { getAssetCoverageReview, getAssetAllocation, getAssetEvents, getChildAssets, getMeta, getNetWorth, getPortfolioSnapshots, getSnapshotDates, getTotalAssetsSeries, portfolioToday } from '@/lib/adapters/portfolio-db'
+import { getAssetCoverageReview, getAssetAllocation, getAssetEvents, getChildAssets, getMeta, getNetWorth, getPortfolioSnapshots, getPositionSnapshots, getRealizedGains, getSnapshotDates, getTotalAssetsSeries, portfolioToday } from '@/lib/adapters/portfolio-db'
 import { convertMoney, createMoneyFormatter, formatKrw, formatUsd } from '@/lib/currency'
 import { getCurrencyPreferences } from '@/lib/currency-server'
 import { fmtDate, fmtDateTime, fmtSigned } from '@/lib/format'
@@ -18,6 +18,9 @@ import { chartMarkers, snapEventDates } from '@/lib/asset-events'
 import { AssetEventList } from '@/components/AssetEventList'
 import { AllocationShares } from '@/components/AllocationShares'
 import { TrendRangeLinks } from '@/components/TrendRangeLinks'
+import { RangeBreakdownPanel } from '@/components/RangeBreakdownPanel'
+import { RangeSelectForm } from '@/components/RangeSelectForm'
+import { TextLink } from '@/components/controls'
 import { LinkChip } from '@/components/LinkChips'
 import { DEFAULT_TREND_RANGE, resolveTrendRange, trendRangeDays, type TrendRange } from '@/lib/trend-ranges'
 import type { AllocationClass } from '@/lib/asset-allocation'
@@ -26,6 +29,8 @@ import { getPageCopy } from '@/lib/ui-copy'
 import { maskAccountLabel } from '@/lib/account-label'
 import { investmentResult, monthEndBefore, previousYearEnd, totalAssetsChange, type InvestmentPoint, type TotalAssetsChange } from '@/lib/total-assets-change'
 import { ASSET_CLASS_KEYS, historyRows, resolveClasses, resolveHistoryWindow, toggleClass, viewPoints } from '@/lib/total-assets-view'
+import { resolveRangeSelection, trendRangeCovering } from '@/lib/range-selection'
+import { rangeBreakdownView } from '@/lib/range-breakdown-view'
 
 export const dynamic = 'force-dynamic'
 export const generateMetadata = routeMetadata('/net-worth')
@@ -87,9 +92,14 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
     { label: overviewCopy.changeYtd, change: changeSince(previousYearEnd(today)) },
     { label: overviewCopy.change1y, change: changeSince(monthEndBefore(today, 12)) },
   ]
+  // A period picked on the chart or in the month selects (?from=&to=), snapped
+  // to plotted snapshot dates; null when absent, invalid or a single point.
+  const selection = resolveRangeSelection(params.from, params.to, totalAssets.points.map((point) => point.date))
   // The chart and its events cover the selected period only (?trend=, 2Y by
-  // default, as on the overview); the month-end table keeps every month.
-  const selectedRange = resolveTrendRange(params.trend)
+  // default, as on the overview), widened to reach a selection's start; the
+  // month-end table keeps every month.
+  const requestedRange = resolveTrendRange(params.trend)
+  const selectedRange = selection ? trendRangeCovering(requestedRange, selection.from, today) : requestedRange
   const trendAssets = getTotalAssetsSeries(getSnapshotDates(trendRangeDays(selectedRange.days)), netWorth)
   const eventMarkers = snapEventDates(getAssetEvents(), trendAssets.points.map((point) => point.date))
   const eventsCopy = getPageCopy('assetEvents', language)
@@ -107,9 +117,18 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
   const shareView = (Array.isArray(params.view) ? params.view[0] : params.view) === 'share'
   const classesParam = allClasses ? null : selectedClasses.join(',')
   const historyParam = (Array.isArray(params.history) ? params.history[0] : params.history) ?? null
-  const hrefWith = (next: { children?: boolean; trend?: TrendRange['key']; classes?: string | null; share?: boolean; history?: string | null }) => {
+  const hrefWith = (next: {
+    children?: boolean
+    trend?: TrendRange['key']
+    classes?: string | null
+    share?: boolean
+    history?: string | null
+    range?: { from: string; to: string } | null
+  }) => {
     const query = new URLSearchParams()
-    const trend = next.trend ?? selectedRange.key
+    // The trend the URL asked for, not the one widened for a selection: clearing
+    // the selection then returns to the reader's own window.
+    const trend = next.trend ?? requestedRange.key
     if (trend !== DEFAULT_TREND_RANGE.key) query.set('trend', trend)
     const classesValue = next.classes === undefined ? classesParam : next.classes
     if (classesValue) query.set('classes', classesValue)
@@ -117,6 +136,11 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
     if (next.children ?? includeChildren) query.set('children', '1')
     const historyValue = next.history === undefined ? historyParam : next.history
     if (historyValue) query.set('history', historyValue)
+    const rangeValue = next.range === undefined ? selection : next.range
+    if (rangeValue) {
+      query.set('from', rangeValue.from)
+      query.set('to', rangeValue.to)
+    }
     const text = query.toString()
     return text ? `/net-worth?${text}` : '/net-worth'
   }
@@ -158,6 +182,22 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
     netWorth.asOfNotes.filter((note) => note.assetClass === key).map((note) => copy.asOfNote(maskAccountLabel(note.label), fmtDate(note.asOf, language))).join(' · ')
   const amount = (value: number | null) => <span className="tabular-nums">{value == null ? copy.none : money(value)}</span>
   const kindLabel = (kind: string) => (kind in copy.kinds ? copy.kinds[kind as keyof typeof copy.kinds] : kind)
+  // What changed over the selected period, as the card after the trend.
+  const breakdownCopy = copy.breakdown
+  const breakdown = selection
+    ? rangeBreakdownView({
+        ...selection,
+        totalPoints: totalAssets.points,
+        investmentPoints,
+        snapshots: getPositionSnapshots([selection.from, selection.to]),
+        realized: getRealizedGains(selection.from, selection.to),
+      })
+    : null
+  // The page without a period: what the chart adds from/to to, and the clear link.
+  const clearHref = hrefWith({ range: null })
+  const rangeFormKeep = Object.fromEntries(new URLSearchParams(clearHref.split('?')[1] ?? ''))
+  // Month ends and today, plus a dragged selection's own dates so the selects can show it.
+  const rangeFormDates = [...new Set([...history.map((row) => row.date), ...(selection ? [selection.from, selection.to] : [])])].sort()
 
   return (
     <>
@@ -229,6 +269,17 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
                 {childCopy.toggle}
               </LinkChip>
             </div>
+            <div className="flex flex-col gap-2 pt-1">
+              <span className="text-label text-ink-3">{breakdownCopy.selectHint}</span>
+              <RangeSelectForm
+                dates={rangeFormDates}
+                from={selection?.from ?? null}
+                to={selection?.to ?? null}
+                keep={rangeFormKeep}
+                labels={{ from: breakdownCopy.fromLabel, to: breakdownCopy.toLabel, submit: breakdownCopy.apply }}
+                formatDate={(date) => fmtDate(date, language)}
+              />
+            </div>
           </div>
           {shareView && includeChildren ? <Note>{copy.shareChildrenNote}</Note> : null}
           <StackedAssetChart
@@ -256,6 +307,7 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
             emptyMessage={copy.noTrend}
             height={320}
             markers={chartMarkers(eventMarkers, trendAssets.points[0]?.date)}
+            rangeSelect={{ from: selection?.from ?? null, to: selection?.to ?? null, baseHref: clearHref, clearHref, clearLabel: breakdownCopy.clear }}
           />
           <KpiBand columns={4}>
             {changes.map(({ label, change }) => (
@@ -271,6 +323,19 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
         ) : null}
       </Card>
 
+      {selection && breakdown ? (
+        <Card id="net-worth-breakdown" title={breakdownCopy.title} action={<TextLink href={clearHref}>{breakdownCopy.clear}</TextLink>} className="mb-5">
+          <RangeBreakdownPanel
+            from={selection.from}
+            to={selection.to}
+            {...breakdown}
+            copy={{ breakdown: breakdownCopy, classes: copy.classes, field: overviewCopy }}
+            money={(krw) => money(krw)}
+            language={language}
+            classColors={ASSET_CLASS_COLOR}
+          />
+        </Card>
+      ) : null}
 
       <Card id="net-worth-composition" title={copy.composition} info={allocationCopy.note} className="mb-5">
         <Columns columns="lg-3" className="-m-4 divide-y divide-line-subtle lg:divide-x lg:divide-y-0">

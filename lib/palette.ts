@@ -59,6 +59,16 @@ export const WRAPPER_COLOR: Record<'taxable' | 'isa' | 'pension', string> = {
   pension: 'var(--brand-purple)',
 }
 
+/**
+ * The two parts of a security's change over a selected period on /net-worth:
+ * money put in (or taken out), and what the market did. Neither is a status, so
+ * neither takes a tone; the side of the axis carries the sign.
+ */
+export const RANGE_SEGMENT_COLOR: Record<'moneyIn' | 'marketEffect', string> = {
+  moneyIn: 'var(--text-tertiary)',
+  marketEffect: 'var(--brand-blue)',
+}
+
 /** The children's accounts, drawn as their own band on the total-assets chart. */
 export const CHILDREN_COLOR = 'var(--brand-cyan)'
 
