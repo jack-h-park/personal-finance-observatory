@@ -84,3 +84,17 @@ test('an ordinary mover keeps its note, and its fallback', () => {
   assert.equal(en.moverNote(move({ ticker: 'AMD' }), {}), 'No researched note for this session move.')
   assert.equal(ko.moverNote(move({ ticker: 'AMD' }), {}), '이 세션 변동에 대한 조사 메모가 없습니다.')
 })
+
+// The archive can carry a session without the date of the snapshot it compares
+// against. Every line that names that date must then fall back to words, never
+// print the literal "null".
+test('a missing comparison date never prints null', () => {
+  for (const copy of [en, ko]) {
+    for (const line of [copy.bandSince(null), copy.marketClosed('KR', null), copy.activitySince(null)]) {
+      assert.ok(!/null|undefined/.test(line), `must not print a missing date: ${line}`)
+    }
+    assert.ok(copy.marketClosed('KR', '2026-01-02').includes('2026-01-02'), 'a known date is still named')
+  }
+  assert.equal(en.bandSince(null), 'price moves since the previous snapshot')
+  assert.equal(ko.marketClosed('KR', null), '추적 중인 KR 가격이 모두 이전 스냅샷 가격과 같습니다 — 휴장했거나 시트의 가격이 갱신되지 않았습니다.')
+})
