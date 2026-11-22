@@ -1,6 +1,6 @@
 # Total assets page (`/net-worth`) — redesign plan
 
-**Status:** draft, 2026-11-22. The decisions below need confirming before Phase 1.
+**Status:** implemented, 2026-11-22, as stacked PRs, one per phase. The decisions below were confirmed on 2026-11-22; where a phase departed from this plan it says why.
 
 ## Why
 
@@ -40,7 +40,9 @@ Each phase is one PR, stacked, with the screenshot net, `pnpm ui:guardrails`, an
 4. **Records.** Month-end table: MoM change column, 12 months by default, year filter. Cash table: sorted by won value.
 5. **Trim and phone pass.** At 390×844 the total, change band and chart fit the first screen with no horizontal scroll.
 
-## Decisions to confirm
+   *As built:* the range, class, view and children chips moved out of the card header (on a phone they wrapped the title onto two lines) into one filter block above the chart, and the four period changes moved under the chart, as on the Overview hero; the selected-range change sits beside the total. At 390×844 the total, the range change and the filters fill the first screen and the chart starts at its bottom edge; the access banner, page header and coverage note above the card take about 400px. No horizontal page scroll; wide tables scroll inside their own container.
+
+## Decisions (confirmed 2026-11-22)
 
 1. **Hero is the trend card** (total + changes + chart in one card), replacing the separate total card.
 2. **New filters:** class toggles, amount/share switch, and a change field for the selected range. The month-end table gets a year filter.
