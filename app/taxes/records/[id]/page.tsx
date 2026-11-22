@@ -1,4 +1,5 @@
 import { ReturnReportedAmounts } from '@/components/ReturnReportedAmounts'
+import { RecordedSettlementPrincipal, TaxEvidenceLink } from '@/components/TaxHistoryDisplay'
 import { getReturnReportedAmounts } from '@/lib/application/return-reported-amounts'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
@@ -71,18 +72,28 @@ export default async function TaxRecordPage({
       {!config.finance.stateWritable && <p className="mb-4 text-body">{copy.readOnly}</p>}
       <Card title={copy.basis}>
         <Columns columns="sm-3" gap={3} as="dl" className="p-4 text-body">
-          {[
-            [copy.reported, row.liabilityMinor],
-            [copy.settled, row.principalSettledMinor],
-            [copy.outstanding, row.outstandingMinor],
-          ].map(([label, minor]) => (
-            <div key={label}>
-              <dt className="text-ink-2">{label}</dt>
-              <dd className="tabular-nums">
-                {minor == null ? copy.none : formatMoney({ currency: row.currency, minor })}
-              </dd>
-            </div>
-          ))}
+          <div>
+            <dt className="text-ink-2">{copy.reported}</dt>
+            <dd className="tabular-nums">
+              {row.liabilityMinor == null
+                ? copy.none
+                : formatMoney({ currency: row.currency, minor: row.liabilityMinor })}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-ink-2">{copy.settled}</dt>
+            <dd>
+              <RecordedSettlementPrincipal language={language} currency={row.currency} minor={row.principalSettledMinor} />
+            </dd>
+          </div>
+          <div>
+            <dt className="text-ink-2">{copy.outstanding}</dt>
+            <dd className="tabular-nums">
+              {row.outstandingMinor == null
+                ? copy.none
+                : formatMoney({ currency: row.currency, minor: row.outstandingMinor })}
+            </dd>
+          </div>
         </Columns>
         {row.issues.length > 0 && (
           <ul className="px-4 pb-4 text-body text-ink-2">
@@ -264,12 +275,7 @@ export default async function TaxRecordPage({
                   {evidenceId} · {evidence.relativePath}
                 </p>
                 {available ? (
-                  <Link
-                    className="mt-2 inline-block text-body underline"
-                    href={`/taxes/evidence/${encodeURIComponent(evidenceId)}`}
-                  >
-                    {copy.evidence}
-                  </Link>
+                  <TaxEvidenceLink language={language} evidenceId={evidenceId} />
                 ) : (
                   <p className="mt-2 text-body text-ink-2">{status}</p>
                 )}

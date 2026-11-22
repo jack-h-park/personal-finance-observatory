@@ -1,4 +1,5 @@
 import { AnnualTaxSummary } from '@/components/AnnualTaxSummary'
+import { EmptyCashHistory, RecordedSettlementPrincipal } from '@/components/TaxHistoryDisplay'
 import { getAnnualTaxSummary } from '@/lib/application/annual-tax-summary'
 import Link from 'next/link'
 import { PageHeader } from '@/components/PageHeader'
@@ -134,82 +135,86 @@ export async function TaxHistoryScreen({
               {error}
             </p>
           )}
-          {view && (
+          {view && unitId && (
             <Card title={cash ? copy.cashView : copy.yearView}>
-              <div className="overflow-x-auto" tabIndex={0} role="region" aria-label={cash ? copy.cashView : copy.yearView}>
-                {cash ? (
-                  <table className="w-full min-w-[42rem] text-left text-body">
-                    <caption className="sr-only">{copy.cashView}</caption>
-                    <thead>
-                      <tr>
-                        {[copy.date, copy.posted, copy.kind, copy.principal, copy.interest, copy.penalty].map(
-                          (label) => (
+              {cash && view.cashEvents.length === 0 ? (
+                <EmptyCashHistory language={language} unitId={unitId} year={value('year')} authority={value('authority')} />
+              ) : (
+                <div className="overflow-x-auto" tabIndex={0} role="region" aria-label={cash ? copy.cashView : copy.yearView}>
+                  {cash ? (
+                    <table className="w-full min-w-[42rem] text-left text-body">
+                      <caption className="sr-only">{copy.cashView}</caption>
+                      <thead>
+                        <tr>
+                          {[copy.date, copy.posted, copy.kind, copy.principal, copy.interest, copy.penalty].map(
+                            (label) => (
+                              <th key={label} scope="col" className="border-b border-line p-3">
+                                {label}
+                              </th>
+                            ),
+                          )}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {view.cashEvents.map((event) => (
+                          <tr key={event.id}>
+                            <td className="p-3">{event.date ?? copy.none}</td>
+                            <td className="p-3">{event.postingDate ?? EMPTY_VALUE}</td>
+                            <td className="p-3">
+                              {labelFor(copy.eventKinds, event.kind)}
+                              <div className="text-caption text-ink-2">{event.taxUnitIds.join(' · ')}</div>
+                            </td>
+                            {(['principal', 'interest', 'penalty'] as const).map((field) => (
+                              <td key={field} className="whitespace-nowrap p-3 tabular-nums">
+                                {formatMoney({ currency: event.currency, minor: event[field] })}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ) : (
+                    <table className="w-full min-w-[46rem] text-left text-body">
+                      <caption className="sr-only">{copy.yearView}</caption>
+                      <thead>
+                        <tr>
+                          {[copy.authority, copy.reported, copy.settled, copy.outstanding, copy.status].map((label) => (
                             <th key={label} scope="col" className="border-b border-line p-3">
                               {label}
                             </th>
-                          ),
-                        )}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {view.cashEvents.map((event) => (
-                        <tr key={event.id}>
-                          <td className="p-3">{event.date ?? copy.none}</td>
-                          <td className="p-3">{event.postingDate ?? EMPTY_VALUE}</td>
-                          <td className="p-3">
-                            {labelFor(copy.eventKinds, event.kind)}
-                            <div className="text-caption text-ink-2">{event.taxUnitIds.join(' · ')}</div>
-                          </td>
-                          {(['principal', 'interest', 'penalty'] as const).map((field) => (
-                            <td key={field} className="whitespace-nowrap p-3 tabular-nums">
-                              {formatMoney({ currency: event.currency, minor: event[field] })}
-                            </td>
                           ))}
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                ) : (
-                  <table className="w-full min-w-[46rem] text-left text-body">
-                    <caption className="sr-only">{copy.yearView}</caption>
-                    <thead>
-                      <tr>
-                        {[copy.authority, copy.reported, copy.settled, copy.outstanding, copy.status].map((label) => (
-                          <th key={label} scope="col" className="border-b border-line p-3">
-                            {label}
-                          </th>
+                      </thead>
+                      <tbody>
+                        {view.obligations.map((row) => (
+                          <tr key={row.id}>
+                            <td className="p-3">
+                              <Link className="underline" href={`/taxes/records/${encodeURIComponent(row.id)}`}>
+                                {labelFor(copy.authorities, row.authority)} · {row.taxYear}
+                              </Link>
+                              <div className="text-caption text-ink-2">{row.taxUnitId}</div>
+                            </td>
+                            <td className="whitespace-nowrap p-3 tabular-nums">
+                              {row.liabilityMinor == null
+                                ? copy.none
+                                : formatMoney({ currency: row.currency, minor: row.liabilityMinor })}
+                            </td>
+                            <td className="p-3">
+                              <RecordedSettlementPrincipal language={language} currency={row.currency} minor={row.principalSettledMinor} />
+                            </td>
+                            <td className="whitespace-nowrap p-3 tabular-nums">
+                              {row.outstandingMinor == null
+                                ? copy.none
+                                : formatMoney({ currency: row.currency, minor: row.outstandingMinor })}
+                            </td>
+                            <td className="p-3">{row.status === 'confirmed' ? copy.confirmed : copy.provisional}</td>
+                          </tr>
                         ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {view.obligations.map((row) => (
-                        <tr key={row.id}>
-                          <td className="p-3">
-                            <Link className="underline" href={`/taxes/records/${encodeURIComponent(row.id)}`}>
-                              {labelFor(copy.authorities, row.authority)} · {row.taxYear}
-                            </Link>
-                            <div className="text-caption text-ink-2">{row.taxUnitId}</div>
-                          </td>
-                          <td className="whitespace-nowrap p-3 tabular-nums">
-                            {row.liabilityMinor == null
-                              ? copy.none
-                              : formatMoney({ currency: row.currency, minor: row.liabilityMinor })}
-                          </td>
-                          <td className="whitespace-nowrap p-3 tabular-nums">
-                            {formatMoney({ currency: row.currency, minor: row.principalSettledMinor })}
-                          </td>
-                          <td className="whitespace-nowrap p-3 tabular-nums">
-                            {row.outstandingMinor == null
-                              ? copy.none
-                              : formatMoney({ currency: row.currency, minor: row.outstandingMinor })}
-                          </td>
-                          <td className="p-3">{row.status === 'confirmed' ? copy.confirmed : copy.provisional}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-              </div>
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              )}
               {view.missingOccurrenceDates.length > 0 && <p className="p-4 text-body text-ink-2">{copy.missingDate}</p>}
             </Card>
           )}
