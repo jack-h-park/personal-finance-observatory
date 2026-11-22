@@ -3130,6 +3130,12 @@ for (const lot of robinhoodLotsByKey.values()) {
   })
 }
 
+// Fidelity prints the account's cash after every row ("Cash Balance ($)"), including the
+// rows the transaction types skip (a transfer to the CMA, a money-market reinvestment).
+// A file lists newest first, so the first row of a day is the day's closing cash, and the
+// last row of the earliest day is the account's first movement.
+const fidelityCashByDate = new Map()
+const fidelityFirstMovement = { date: '', balance: null, amount: null }
 for (const source of usTransactionFiles) {
   if (!fs.existsSync(source.filename)) continue
   if (source.brokerage === 'Chase') {
@@ -3190,8 +3196,20 @@ for (const source of usTransactionFiles) {
   }
   if (source.brokerage === 'Fidelity') {
     const rows = readCsvObjects(source.filename, (r) => r.includes('Run Date') && r.includes('Action') && r.includes('Symbol'))
+    const cashSeenInFile = new Set()
     for (const r of rows) {
       if (!text(r['Run Date']).match(/^\d{1,2}\/\d{1,2}\/\d{4}$/)) continue
+      const cashDay = dateIso(r['Run Date'])
+      const cashAfter = number(r['Cash Balance ($)'])
+      if (cashAfter != null) {
+        if (!cashSeenInFile.has(cashDay)) {
+          cashSeenInFile.add(cashDay)
+          fidelityCashByDate.set(cashDay, cashAfter)
+        }
+        if (!fidelityFirstMovement.date || cashDay <= fidelityFirstMovement.date) {
+          Object.assign(fidelityFirstMovement, { date: cashDay, balance: cashAfter, amount: number(r['Amount ($)']) })
+        }
+      }
       const type = normalizeUsTransactionType('', r.Action)
       if (!type) continue
       const amount = number(r['Amount ($)'])
@@ -5605,6 +5623,36 @@ for (const { brokerage, account, anchors } of sweepAnchors.values()) {
       account_wrapper: 'taxable',
       asset_class: 'security',
     })
+  }
+}
+// Fidelity brokerage cash (Z37480490 files its own "Fidelity Account"): the printed Cash Balance
+// of each day. It was counted nowhere, so money moved in from checking read as a loss in total
+// assets until the shares bought with it raised the cost basis. The account's first row is a
+// transfer in whose balance after it equals its own amount, so the cash before it was zero and
+// the series opens there; a first row that does not say so opens nothing.
+{
+  const days = [...fidelityCashByDate.keys()].sort()
+  if (days.length) {
+    const opensAtZero =
+      fidelityFirstMovement.amount != null && Math.abs(fidelityFirstMovement.balance - fidelityFirstMovement.amount) < 0.005
+    const points = days.map((date) => ({ date, balance: fidelityCashByDate.get(date), source: 'fidelity_activity_cash_balance' }))
+    if (opensAtZero) {
+      const before = new Date(Date.parse(`${fidelityFirstMovement.date}T00:00:00Z`) - 86_400_000).toISOString().slice(0, 10)
+      points.unshift({ date: before, balance: 0, source: 'derived:fidelity_account_opening' })
+    }
+    for (const point of points) {
+      brokerageCashRows.push({
+        institution: 'Fidelity',
+        account: 'Fidelity Account',
+        pool: 'cash',
+        currency: 'USD',
+        as_of_date: point.date,
+        balance: point.balance,
+        source: point.source,
+        account_wrapper: 'taxable',
+        asset_class: 'security',
+      })
+    }
   }
 }
 const brokerageCashCoverageRows = (readTsvAt(krStatementsDir, 'cash-coverage.tsv')?.rows ?? [])
