@@ -15,6 +15,7 @@ export const netWorth = defineCopy({
     subtitle: (asOf: string) => `Securities, crypto, bank deposits, pensions and gold in one KRW figure. Portfolio data as of ${asOf}.`,
     total: 'Covered total assets',
     byClass: 'By asset class',
+    composition: 'Composition',
     classes: { stocks: 'Stocks', crypto: 'Crypto', cash: 'Cash', pensions: 'Pensions', gold: 'Gold' },
     asOfNotesHint: "A dated class is valued from a snapshot, at cost, or from a balance older than today, not from today's price.",
     allocation: {
@@ -87,6 +88,7 @@ export const netWorth = defineCopy({
     subtitle: (asOf: string) => `증권, 암호화폐, 은행 예금, 연금, 금을 원화 한 숫자로 보여줍니다. 포트폴리오 기준일: ${asOf}.`,
     total: '확인 가능한 총자산',
     byClass: '자산군별',
+    composition: '구성',
     classes: { stocks: '주식', crypto: '암호화폐', cash: '현금', pensions: '연금', gold: '금' },
     asOfNotesHint: '날짜가 붙은 자산군은 오늘 시세가 아니라 스냅샷, 취득원가 또는 오늘 이전 잔고 기준입니다.',
     allocation: {
