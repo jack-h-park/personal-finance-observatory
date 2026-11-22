@@ -1132,6 +1132,86 @@ export function getPortfolioSnapshots(days = 3650): PortfolioSnapshot[] {
   }
 }
 
+/** One security's position at one snapshot date, from the per-security month-end and today's rows. */
+export type PositionSnapshotRow = {
+  date: string
+  market: 'KR' | 'US' | 'CRYPTO'
+  ticker: string
+  name: string
+  quantity: number
+  costKrw: number
+  /** Null when any contributing account row was unpriced. */
+  marketValueKrw: number | null
+}
+
+/** Position rows at the given snapshot dates, or null when the database has no position_snapshots table. */
+export function getPositionSnapshots(dates: string[]): PositionSnapshotRow[] | null {
+  const conn = db()
+  try {
+    const table = conn.prepare("select 1 from sqlite_master where type = 'table' and name = 'position_snapshots'").get()
+    if (!table) return null
+    if (dates.length === 0) return []
+    const rows = conn
+      .prepare(
+        `select snapshot_date, market, ticker, coalesce(name, ticker) as name, quantity, cost_krw, market_value_krw
+         from position_snapshots
+         where snapshot_date in (${dates.map(() => '?').join(', ')})
+         order by snapshot_date, market, ticker`
+      )
+      .all(...dates) as {
+      snapshot_date: string
+      market: PositionSnapshotRow['market']
+      ticker: string
+      name: string
+      quantity: number
+      cost_krw: number
+      market_value_krw: number | null
+    }[]
+    return rows.map((row) => ({
+      date: row.snapshot_date,
+      market: row.market,
+      ticker: row.ticker,
+      name: row.name,
+      quantity: row.quantity,
+      costKrw: row.cost_krw,
+      marketValueKrw: row.market_value_krw,
+    }))
+  } finally {
+    conn.close()
+  }
+}
+
+/** A sale's realized gain, one row per lot sold. */
+export type RealizedGainRow = { market: string; ticker: string; soldDate: string; realizedKrw: number }
+
+/**
+ * Realized gains from lots sold after `after` and on or before `through`. Reads
+ * the stock view like the cumulative series does, so crypto is included and the
+ * totals agree with the page's investment result; superseded replay rows are skipped.
+ */
+export function getRealizedGains(after: string, through: string): RealizedGainRow[] {
+  const conn = db()
+  try {
+    const table = conn.prepare("select 1 from sqlite_master where type in ('table', 'view') and name = 'realized_lots'").get()
+    if (!table) return []
+    const columns = new Set((conn.prepare('pragma table_info(realized_lots)').all() as { name: string }[]).map((column) => column.name))
+    if (!columns.has('sold_date') || !columns.has('realized_gl_krw')) return []
+    const notSuperseded = columns.has('superseded_by') ? "and coalesce(superseded_by, '') = ''" : ''
+    const rows = conn
+      .prepare(
+        `select market, ticker, substr(sold_date, 1, 10) as sold_date, realized_gl_krw
+         from realized_lots
+         where sold_date is not null and sold_date != '' and realized_gl_krw is not null
+           and substr(sold_date, 1, 10) > ? and substr(sold_date, 1, 10) <= ? ${notSuperseded}
+         order by sold_date, market, ticker`
+      )
+      .all(after, through) as { market: string; ticker: string; sold_date: string; realized_gl_krw: number }[]
+    return rows.map((row) => ({ market: row.market, ticker: row.ticker, soldDate: row.sold_date, realizedKrw: row.realized_gl_krw }))
+  } finally {
+    conn.close()
+  }
+}
+
 const REALIZED_MARKET_FIELDS = {
   KR: 'kr_realized_gl',
   US: 'us_realized_gl_base',
