@@ -173,59 +173,53 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
         }
         accent
         className="mb-5"
-        action={
-          <div className="flex flex-wrap items-center justify-end gap-1">
-            <TrendRangeLinks selected={selectedRange} hrefFor={(trend) => hrefWith({ trend })} />
-            <LinkChip
-              href={hrefWith({ children: !includeChildren })}
-              active={includeChildren}
-              ariaCurrent="none"
-              aria-label={childCopy.toggleAria(includeChildren)}
-              title={childCopy.toggleHint}
-            >
-              {childCopy.toggle}
-            </LinkChip>
-          </div>
-        }
       >
         <div className="flex flex-col gap-4">
-          <div>
-            <Label variant="eyebrow">{copy.total}</Label>
-            <div className="mt-2 text-hero-sm font-medium leading-none tracking-normal text-ink sm:text-hero">{money(netWorth.totalKrw)}</div>
-          </div>
-          <KpiBand columns={4}>
-            {changes.map(({ label, change }) => (
-              <TotalAssetsChangeField key={label} label={label} change={change} labels={overviewCopy} money={(krw) => money(krw)} language={language} />
-            ))}
-          </KpiBand>
-          <div className="flex flex-col gap-3 border-t border-line-subtle pt-4 lg:flex-row lg:items-start lg:justify-between">
-            <div className="min-w-0">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <Label variant="eyebrow">{copy.total}</Label>
+              <div className="mt-2 text-hero-sm font-medium leading-none tracking-normal text-ink sm:text-hero">{money(netWorth.totalKrw)}</div>
+            </div>
+            <div className="min-w-0 sm:max-w-[60%] sm:text-right">
               <TotalAssetsChangeField label={rangeLabel} change={rangeChange} labels={overviewCopy} money={(krw) => money(krw)} language={language} />
             </div>
-            <div className="flex flex-col gap-2 lg:items-end">
-              <div className="flex flex-wrap items-center gap-1">
-                <span className="mr-1 text-label text-ink-3">{copy.classFilter}</span>
-                {ASSET_CLASS_KEYS.map((key) => (
-                  <LinkChip
-                    key={key}
-                    href={hrefWith({ classes: toggleClass(selectedClasses, key) })}
-                    active={selectedClasses.includes(key)}
-                    ariaCurrent="none"
-                    aria-label={copy.classToggleAria(copy.classes[key], selectedClasses.includes(key))}
-                  >
-                    {copy.classes[key]}
-                  </LinkChip>
-                ))}
-              </div>
-              <div className="flex flex-wrap items-center gap-1">
-                <span className="mr-1 text-label text-ink-3">{copy.viewFilter}</span>
-                <LinkChip href={hrefWith({ share: false })} active={!shareView}>
-                  {copy.viewAmount}
+          </div>
+          <div className="flex flex-col gap-2 border-t border-line-subtle pt-4">
+            <div className="flex flex-wrap items-center gap-1">
+              <span className="mr-1 text-label text-ink-3">{copy.rangeFilter}</span>
+              <TrendRangeLinks selected={selectedRange} hrefFor={(trend) => hrefWith({ trend })} />
+            </div>
+            <div className="flex flex-wrap items-center gap-1">
+              <span className="mr-1 text-label text-ink-3">{copy.classFilter}</span>
+              {ASSET_CLASS_KEYS.map((key) => (
+                <LinkChip
+                  key={key}
+                  href={hrefWith({ classes: toggleClass(selectedClasses, key) })}
+                  active={selectedClasses.includes(key)}
+                  ariaCurrent="none"
+                  aria-label={copy.classToggleAria(copy.classes[key], selectedClasses.includes(key))}
+                >
+                  {copy.classes[key]}
                 </LinkChip>
-                <LinkChip href={hrefWith({ share: true })} active={shareView}>
-                  {copy.viewShare}
-                </LinkChip>
-              </div>
+              ))}
+            </div>
+            <div className="flex flex-wrap items-center gap-1">
+              <span className="mr-1 text-label text-ink-3">{copy.viewFilter}</span>
+              <LinkChip href={hrefWith({ share: false })} active={!shareView}>
+                {copy.viewAmount}
+              </LinkChip>
+              <LinkChip href={hrefWith({ share: true })} active={shareView}>
+                {copy.viewShare}
+              </LinkChip>
+              <LinkChip
+                href={hrefWith({ children: !includeChildren })}
+                active={includeChildren}
+                ariaCurrent="none"
+                aria-label={childCopy.toggleAria(includeChildren)}
+                title={childCopy.toggleHint}
+              >
+                {childCopy.toggle}
+              </LinkChip>
             </div>
           </div>
           {shareView && includeChildren ? <Note>{copy.shareChildrenNote}</Note> : null}
@@ -255,6 +249,11 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
             height={320}
             markers={chartMarkers(eventMarkers, trendAssets.points[0]?.date)}
           />
+          <KpiBand columns={4}>
+            {changes.map(({ label, change }) => (
+              <TotalAssetsChangeField key={label} label={label} change={change} labels={overviewCopy} money={(krw) => money(krw)} language={language} />
+            ))}
+          </KpiBand>
         </div>
         {eventMarkers.length ? (
           <details className="-mx-4 -mb-4 mt-4 border-t border-line-subtle">

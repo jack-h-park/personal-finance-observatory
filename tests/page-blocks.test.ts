@@ -16,7 +16,8 @@ const BLOCKS: { path: string; absent: string[]; present: string[] }[] = [
   {
     path: 'app/net-worth/page.tsx',
     absent: ['getForeignAccountMaxima', 'fbarYear'],
-    present: [],
+    // The page leads with the trend card, whose changes use the Overview's field.
+    present: ['id="net-worth-trend"', '<TotalAssetsChangeField'],
   },
   {
     path: 'app/fbar/page.tsx',
@@ -233,4 +234,11 @@ test('app/review/page.tsx draws its summary with StatStrip and names the concent
   for (const language of ['en', 'ko'] as const) {
     assert.ok(getPageCopy('review', language).topShare(5).includes('5'))
   }
+})
+
+test('/net-worth renders the trend card before every other card', () => {
+  const text = source('app/net-worth/page.tsx')
+  const trend = text.indexOf('id="net-worth-trend"')
+  for (const other of ['id="net-worth-composition"', 'id="net-worth-history"', 'title={copy.balances}'])
+    assert.ok(trend > 0 && trend < text.indexOf(other), `the trend card comes before ${other}`)
 })
