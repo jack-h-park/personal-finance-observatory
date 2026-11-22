@@ -83,6 +83,22 @@ test('the change leaves out the month in progress and names the category that mo
   assert.equal(getCashInflow('month', 'KRW', NOW, 'All', { range: '12m' }).currentMonth, '2025-06')
 })
 
+test('byCategory carries every category over the range, with its own change on the same whole-month windows', async () => {
+  const { getCashInflow } = await import('../lib/adapters/portfolio-db')
+  const july = getCashInflow('month', 'KRW', new Date('2025-07-15T03:00:00Z'), 'All', { range: '12m' }).totals
+  assert.deepEqual(july.byCategory.salary, { amount: 5_100_000, change: (5_100_000 - 1_000_000) / 1_000_000 })
+  // Nothing in the window before: an amount, but no change.
+  assert.deepEqual(july.byCategory.dividend, { amount: 28_460, change: null })
+  // Unclassified is reported, though no total counts it.
+  assert.equal(july.byCategory.unclassified.amount, 777)
+  // The counted categories add up to the range total under All.
+  const counted = (['salary', 'dividend', 'interest', 'other'] as const).reduce((s, c) => s + july.byCategory[c].amount, 0)
+  assert.equal(counted, july.rangeTotal)
+  // A one-category filter still reports the others.
+  const salaryOnly = getCashInflow('month', 'KRW', NOW, 'salary', { range: '12m' }).totals
+  assert.equal(salaryOnly.byCategory.interest.amount, 500)
+})
+
 test('source and currency narrow every figure; the currency is the credit\'s own', async () => {
   const { getCashInflow } = await import('../lib/adapters/portfolio-db')
   const total = (scope: object) => getCashInflow('month', 'KRW', NOW, 'All', { range: '12m', ...scope }).totals.rangeTotal
