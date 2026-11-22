@@ -25,13 +25,14 @@ import { ASSET_CLASS_COLOR, WRAPPER_COLOR } from '@/lib/palette'
 import { getPageCopy } from '@/lib/ui-copy'
 import { maskAccountLabel } from '@/lib/account-label'
 import { monthEndBefore, previousYearEnd, totalAssetsChange } from '@/lib/total-assets-change'
-import { ASSET_CLASS_KEYS, resolveClasses, toggleClass, viewPoints } from '@/lib/total-assets-view'
+import { ASSET_CLASS_KEYS, historyRows, resolveClasses, resolveHistoryWindow, toggleClass, viewPoints } from '@/lib/total-assets-view'
 
 export const dynamic = 'force-dynamic'
 export const generateMetadata = routeMetadata('/net-worth')
 
 type CashRow = NetWorth['cash'][number]
 type HistoryRow = TotalAssetsPoint & { month: string; children?: number | null }
+type ShownHistoryRow = HistoryRow & { change: number | null }
 type ChildRow = { key: string; owner: string; account: string; asOf: string | null; valueKrw: number; subtotal?: boolean }
 
 export default async function NetWorthPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
@@ -98,7 +99,8 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
   const allClasses = selectedClasses.length === ASSET_CLASS_KEYS.length
   const shareView = (Array.isArray(params.view) ? params.view[0] : params.view) === 'share'
   const classesParam = allClasses ? null : selectedClasses.join(',')
-  const hrefWith = (next: { children?: boolean; trend?: TrendRange['key']; classes?: string | null; share?: boolean }) => {
+  const historyParam = (Array.isArray(params.history) ? params.history[0] : params.history) ?? null
+  const hrefWith = (next: { children?: boolean; trend?: TrendRange['key']; classes?: string | null; share?: boolean; history?: string | null }) => {
     const query = new URLSearchParams()
     const trend = next.trend ?? selectedRange.key
     if (trend !== DEFAULT_TREND_RANGE.key) query.set('trend', trend)
@@ -106,6 +108,8 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
     if (classesValue) query.set('classes', classesValue)
     if (next.share ?? shareView) query.set('view', 'share')
     if (next.children ?? includeChildren) query.set('children', '1')
+    const historyValue = next.history === undefined ? historyParam : next.history
+    if (historyValue) query.set('history', historyValue)
     const text = query.toString()
     return text ? `/net-worth?${text}` : '/net-worth'
   }
@@ -137,6 +141,12 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
   for (const point of totalAssets.points)
     monthEnds.set(point.date.slice(0, 7), { ...point, month: point.date.slice(0, 7), ...(includeChildren ? { children: childrenOn.get(point.date) ?? null } : {}) })
   const history = [...monthEnds.values()]
+  // The month-end table: the latest 12 months by default, one year, or all.
+  const historyYears = [...new Set(history.map((row) => row.month.slice(0, 4)))].reverse()
+  const historyWindow = resolveHistoryWindow(params.history, historyYears)
+  const shownHistory = historyRows(history, historyWindow)
+  // Cash balances, largest first; a balance with no rate (no won value) goes last.
+  const cashRows = [...netWorth.cash].sort((a, b) => (b.krw ?? -Infinity) - (a.krw ?? -Infinity))
   const notesFor = (key: (typeof ASSET_CLASSES)[number]) =>
     netWorth.asOfNotes.filter((note) => note.assetClass === key).map((note) => copy.asOfNote(maskAccountLabel(note.label), fmtDate(note.asOf, language))).join(' · ')
   const amount = (value: number | null) => <span className="tabular-nums">{value == null ? copy.none : money(value)}</span>
@@ -347,6 +357,76 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
       ) : null}
 
       <CardRow columns={1} spacing="none">
+        {history.length ? (
+          <Card
+            id="net-worth-history"
+            title={copy.history}
+            info={
+              <span className="flex flex-col gap-2">
+                <span>{copy.historyNote}</span>
+                <span>{copy.historyFxNote}</span>
+              </span>
+            }
+            action={
+              <div className="flex flex-wrap items-center justify-end gap-1">
+                <LinkChip href={hrefWith({ history: null })} active={historyWindow.kind === 'recent'}>
+                  {copy.historyRecent}
+                </LinkChip>
+                {historyYears.map((year) => (
+                  <LinkChip key={year} href={hrefWith({ history: year })} active={historyWindow.kind === 'year' && historyWindow.year === year}>
+                    {year}
+                  </LinkChip>
+                ))}
+                <LinkChip href={hrefWith({ history: 'all' })} active={historyWindow.kind === 'all'}>
+                  {copy.historyAll}
+                </LinkChip>
+              </div>
+            }
+          >
+            <DataTable
+              caption={copy.history}
+              rows={shownHistory}
+              getRowKey={(row: ShownHistoryRow) => row.month}
+              emptyMessage={copy.empty}
+              columns={[
+                { key: 'month', label: copy.historyColumns.month, render: (row: ShownHistoryRow) => <span className="tabular-nums">{row.month}</span> },
+                ...classes.map((key) => ({
+                  key,
+                  label: copy.historyColumns[key],
+                  align: 'right' as const,
+                  priority: 'secondary' as const,
+                  render: (row: ShownHistoryRow) => amount(row[key]),
+                })),
+                {
+                  key: 'total',
+                  label: copy.historyColumns.total,
+                  align: 'right' as const,
+                  render: (row: ShownHistoryRow) => <span className="font-medium tabular-nums text-ink">{money(row.total)}</span>,
+                },
+                {
+                  key: 'change',
+                  label: copy.historyColumns.change,
+                  align: 'right' as const,
+                  nowrap: true,
+                  render: (row: ShownHistoryRow) => (
+                    <span className={`tabular-nums ${row.change ? signClass(row.change) : ''}`}>{row.change == null ? copy.none : fmtSigned(row.change, (v) => money(v))}</span>
+                  ),
+                },
+                ...(includeChildren
+                  ? [
+                      {
+                        key: 'children',
+                        label: childCopy.historyColumn,
+                        align: 'right' as const,
+                        render: (row: ShownHistoryRow) => amount(row.children ?? null),
+                      },
+                    ]
+                  : []),
+              ]}
+            />
+          </Card>
+        ) : null}
+
         <Card title={copy.balances}>
           {netWorth.unpricedCash.length ? (
             <div className="border-b border-line-subtle bg-surface px-4 py-3 text-label leading-relaxed text-ink-3">
@@ -355,7 +435,7 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
           ) : null}
           <DataTable
             caption={copy.balances}
-            rows={netWorth.cash}
+            rows={cashRows}
             getRowKey={(row: CashRow) => `${row.institution}|${row.account}`}
             emptyMessage={copy.empty}
             columns={[
@@ -395,46 +475,6 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
             ]}
           />
         </Card>
-
-        {history.length ? (
-          <Card title={copy.history}>
-            <div className="flex flex-col gap-1 border-b border-line-subtle bg-surface px-4 py-3 text-label leading-relaxed text-ink-3">
-              <p>{copy.historyNote}</p>
-              <p>{copy.historyFxNote}</p>
-            </div>
-            <DataTable
-              caption={copy.history}
-              rows={history}
-              getRowKey={(row: HistoryRow) => row.month}
-              emptyMessage={copy.empty}
-              columns={[
-                { key: 'month', label: copy.historyColumns.month, render: (row: HistoryRow) => <span className="tabular-nums">{row.month}</span> },
-                ...classes.map((key) => ({
-                  key,
-                  label: copy.historyColumns[key],
-                  align: 'right' as const,
-                  render: (row: HistoryRow) => amount(row[key]),
-                })),
-                {
-                  key: 'total',
-                  label: copy.historyColumns.total,
-                  align: 'right' as const,
-                  render: (row: HistoryRow) => <span className="font-medium tabular-nums text-ink">{money(row.total)}</span>,
-                },
-                ...(includeChildren
-                  ? [
-                      {
-                        key: 'children',
-                        label: childCopy.historyColumn,
-                        align: 'right' as const,
-                        render: (row: HistoryRow) => amount(row.children ?? null),
-                      },
-                    ]
-                  : []),
-              ]}
-            />
-          </Card>
-        ) : null}
       </CardRow>
     </>
   )

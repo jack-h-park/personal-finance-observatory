@@ -2,7 +2,7 @@ import { strict as assert } from 'node:assert'
 import { test } from 'node:test'
 
 import type { TotalAssetsPoint } from '@/lib/net-worth'
-import { ASSET_CLASS_KEYS, resolveClasses, toggleClass, viewPoints } from '@/lib/total-assets-view'
+import { ASSET_CLASS_KEYS, historyRows, resolveClasses, resolveHistoryWindow, toggleClass, viewPoints } from '@/lib/total-assets-view'
 
 const point = (date: string, values: Partial<TotalAssetsPoint>): TotalAssetsPoint => ({
   date,
@@ -43,4 +43,23 @@ test('viewPoints in share mode stacks to 100, and a zero sum has no shares', () 
   )
   assert.deepEqual([a.stocks, a.cash, a.total], [75, 25, 100])
   assert.deepEqual([b.stocks, b.cash, b.total], [null, null, 0])
+})
+
+test('resolveHistoryWindow defaults to the recent months', () => {
+  assert.deepEqual(resolveHistoryWindow(undefined, ['2025', '2026']), { kind: 'recent' })
+  assert.deepEqual(resolveHistoryWindow('all', ['2025']), { kind: 'all' })
+  assert.deepEqual(resolveHistoryWindow('2025', ['2025']), { kind: 'year', year: '2025' })
+  assert.deepEqual(resolveHistoryWindow('1999', ['2025']), { kind: 'recent' })
+})
+
+test('historyRows is newest first with a change from the previous month, even at the window edge', () => {
+  const rows = Array.from({ length: 14 }, (_, index) => ({ month: `20${index < 12 ? '25' : '26'}-${String((index % 12) + 1).padStart(2, '0')}`, total: (index + 1) * 10 }))
+  const recent = historyRows(rows, { kind: 'recent' })
+  assert.equal(recent.length, 12)
+  assert.equal(recent[0].month, '2026-02')
+  assert.equal(recent[11].month, '2025-03')
+  assert.equal(recent[11].change, 10)
+  const all = historyRows(rows, { kind: 'all' })
+  assert.equal(all[all.length - 1].change, null)
+  assert.deepEqual(historyRows(rows, { kind: 'year', year: '2026' }).map((row) => row.month), ['2026-02', '2026-01'])
 })
