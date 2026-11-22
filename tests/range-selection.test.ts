@@ -1,7 +1,7 @@
 import { strict as assert } from 'node:assert'
 import { test } from 'node:test'
 
-import { rangeHref, resolveRangeSelection, trendRangeCovering } from '@/lib/range-selection'
+import { orderedDragRange, rangeHref, resolveRangeSelection, trendRangeCovering } from '@/lib/range-selection'
 import { TREND_RANGES } from '@/lib/trend-ranges'
 
 const dates = ['2026-01-31', '2026-02-28', '2026-03-31', '2026-04-30']
@@ -45,4 +45,12 @@ test('rangeHref keeps other params', () => {
   assert.equal(url.searchParams.get('from'), '2026-02-28')
   assert.equal(url.searchParams.get('to'), '2026-04-30')
   assert.equal(url.searchParams.getAll('from').length, 1)
+})
+
+test('orderedDragRange orders a drag either way and drops an empty one', () => {
+  assert.deepEqual(orderedDragRange('2026-02-28', '2026-04-30'), ['2026-02-28', '2026-04-30'])
+  assert.deepEqual(orderedDragRange('2026-04-30', '2026-02-28'), ['2026-02-28', '2026-04-30'])
+  assert.equal(orderedDragRange('2026-02-28', '2026-02-28'), null)
+  assert.equal(orderedDragRange(undefined, '2026-02-28'), null)
+  assert.equal(orderedDragRange('2026-02-28', null), null)
 })

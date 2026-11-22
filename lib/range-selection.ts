@@ -67,3 +67,16 @@ export function rangeHref(baseHref: string, from: string, to: string): string {
   params.set('to', to)
   return `${path}?${params.toString()}`
 }
+
+/**
+ * The two labels of a chart drag as `[earlier, later]`, whichever way it was
+ * dragged; null when either end is missing (the drag left the plotted points)
+ * or both ends are the same point.
+ */
+export function orderedDragRange(
+  startLabel: string | null | undefined,
+  endLabel: string | null | undefined,
+): [string, string] | null {
+  if (!startLabel || !endLabel || startLabel === endLabel) return null
+  return startLabel < endLabel ? [startLabel, endLabel] : [endLabel, startLabel]
+}
