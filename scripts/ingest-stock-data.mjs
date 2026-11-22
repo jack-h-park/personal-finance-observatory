@@ -1483,6 +1483,20 @@ create table portfolio_snapshots (
 
 create index idx_portfolio_snapshots_date on portfolio_snapshots(snapshot_date);
 
+-- One row per security per snapshot date; the net worth range breakdown reads
+-- these to say which holdings moved the total between two dates.
+create table position_snapshots (
+  id integer primary key,
+  snapshot_date text not null,
+  market text not null,
+  ticker text not null,
+  name text,
+  quantity real not null,
+  cost_krw real not null,
+  market_value_krw real,
+  unique(snapshot_date, market, ticker)
+);
+
 create table historical_prices (
   id integer primary key,
   market text not null,

@@ -4,6 +4,7 @@ import path from 'node:path'
 import { loadLocalEnv } from './env.mjs'
 import { createLotValuer, dateOnly } from './lot-valuation.mjs'
 import { valuePortfolio } from './portfolio-snapshot.mjs'
+import { POSITION_SNAPSHOTS_DDL, aggregatePositions, writePositionSnapshots } from './position-snapshots.mjs'
 
 loadLocalEnv()
 
@@ -24,6 +25,8 @@ function monthEnds(firstDate, lastDate) {
 }
 
 try {
+  // An older DB predates the table; the ingest creates it on a fresh build.
+  db.exec(POSITION_SNAPSHOTS_DDL)
   const snapshotColumnsPresent = new Set(db.prepare('pragma table_info(portfolio_snapshots)').all().map((column) => column.name))
   for (const column of [
     'priced_base_cost',
@@ -47,7 +50,25 @@ try {
   if (!firstDate || !currentDate) throw new Error('Cannot determine portfolio history date range.')
 
   const openLots = db.prepare('select market, account, ticker, acquired_date, currency, open_quantity, native_cost_basis, cost_basis_krw from tax_lots').all()
-  const realizedLots = db.prepare('select market, account, ticker, acquired_date, sold_date, quantity_sold, cost_basis_krw from realized_lots').all()
+  // A replay row that a 1099-B filing replaced carries superseded_by; holding it
+  // alongside the filing's row would count the same lot twice before its sale.
+  const realizedColumns = new Set(db.prepare('pragma table_info(realized_lots)').all().map((column) => column.name))
+  const notSuperseded = realizedColumns.has('superseded_by') ? "where coalesce(superseded_by, '') = ''" : ''
+  const realizedLots = db
+    .prepare(`select market, account, ticker, acquired_date, sold_date, quantity_sold, cost_basis_krw from realized_lots ${notSuperseded}`)
+    .all()
+  const names = new Map(
+    db
+      .prepare(`
+        select market, ticker, max(name) as name from (
+          select market, ticker, name from tax_lots
+          union all
+          select market, ticker, name from realized_lots
+        ) where name is not null and name != '' group by market, ticker
+      `)
+      .all()
+      .map((row) => [`${row.market}:${row.ticker}`, row.name])
+  )
   const dividends = db.prepare('select date, currency, native_amount from dividends').all()
   const historicalPrices = db.prepare('select market, ticker, currency, price_date, close from historical_prices order by market, ticker, price_date').all()
   const historicalFxRates = db.prepare('select price_date, rate from historical_fx_rates order by price_date').all()
@@ -81,6 +102,7 @@ try {
 
   const rebuild = db.transaction(() => {
     db.prepare('delete from portfolio_snapshots where snapshot_date < ?').run(currentDate)
+    db.prepare('delete from position_snapshots where snapshot_date < ?').run(currentDate)
     for (const date of dates) {
       const activeOpenLots = openLots.filter((lot) => dateOnly(lot.acquired_date) && dateOnly(lot.acquired_date) <= date)
       const activeRealizedLots = realizedLots.filter(
@@ -93,6 +115,7 @@ try {
       const dividendsUsd = activeDividends.filter((row) => row.currency === 'USD').reduce((sum, row) => sum + Number(row.native_amount || 0), 0)
       const valued = valuedPositionsAt(date)
       const totalShares = valued.reduce((sum, position) => sum + position.quantity, 0)
+      writePositionSnapshots(db, date, aggregatePositions(valued, names))
       const valuationPositions = valued.map(({ market, cost, marketValue }) => ({ market, cost, marketValue }))
       const valuation = valuePortfolio(valuationPositions)
       const shareCount = totalShares || activeOpenLots.reduce((sum, lot) => sum + Number(lot.open_quantity || 0), 0)
