@@ -26,6 +26,7 @@ import {
 } from '@/lib/adapters/portfolio-db'
 import { periodTiles } from '@/lib/overview-period-tiles'
 import { attentionItems } from '@/lib/overview-attention'
+import { flaggedMonths, nonInvestmentMonths } from '@/lib/non-investment-change'
 import { fmtCount, overviewLinkedStatus } from '@/lib/header-status'
 import { investmentResult, monthEndBefore, previousYearEnd, totalAssetsChange, type InvestmentPoint, type TotalAssetsChange } from '@/lib/total-assets-change'
 import {
@@ -155,10 +156,15 @@ export default async function OverviewPage({
   const rebalance = getRebalanceReview()
   // One read of the /data-ops queue feeds the header pill and the attention strip, so they agree with /data-ops.
   const opsQueue = getDataOpsReview().actionQueue
+  // Months of the last year whose change beyond investing deserves a look (lib/non-investment-change.ts).
+  const monthEnds = new Map<string, { month: string; date: string; total: number; pensions: number | null }>()
+  for (const point of changeSeries?.points ?? []) monthEnds.set(point.date.slice(0, 7), { month: point.date.slice(0, 7), date: point.date, total: point.total, pensions: point.pensions })
+  const flaggedLastYear = flaggedMonths(nonInvestmentMonths([...monthEnds.values()], investmentPoints), 12).length
   const attention = attentionItems({
     queue: opsQueue,
     overCap: rebalance.reduceCandidates.length,
     marketActions: rebalance.marketGaps,
+    flaggedMonths: flaggedLastYear,
   })
   const storedSnapshots = getPortfolioSnapshots(trendRangeDays(selectedRange.days))
   // The gold scope is derived on read (lib/gold-trend.ts), so only that scope pays for it.

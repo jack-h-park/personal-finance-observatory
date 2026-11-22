@@ -27,6 +27,7 @@ import type { AllocationClass } from '@/lib/asset-allocation'
 import { ASSET_CLASS_COLOR, WRAPPER_COLOR } from '@/lib/palette'
 import { getPageCopy } from '@/lib/ui-copy'
 import { maskAccountLabel } from '@/lib/account-label'
+import { nonInvestmentMonths, type NonInvestmentMonth } from '@/lib/non-investment-change'
 import { investmentResult, monthEndBefore, previousYearEnd, totalAssetsChange, type InvestmentPoint, type TotalAssetsChange } from '@/lib/total-assets-change'
 import { ASSET_CLASS_KEYS, historyRows, resolveClasses, resolveHistoryWindow, toggleClass, viewPoints } from '@/lib/total-assets-view'
 import { keepsSelection, resolveRangeSelection, trendRangeCovering } from '@/lib/range-selection'
@@ -35,9 +36,11 @@ import { rangeBreakdownView } from '@/lib/range-breakdown-view'
 export const dynamic = 'force-dynamic'
 export const generateMetadata = routeMetadata('/net-worth')
 
+/** The months the summary names; the rest are counted. */
+const SUMMARY_MONTHS = 6
 type CashRow = NetWorth['cash'][number]
 type HistoryRow = TotalAssetsPoint & { month: string; children?: number | null }
-type ShownHistoryRow = HistoryRow & { change: number | null }
+type ShownHistoryRow = HistoryRow & { change: number | null; beyond: NonInvestmentMonth | null }
 type ChildRow = { key: string; owner: string; account: string; asOf: string | null; valueKrw: number; subtotal?: boolean }
 
 export default async function NetWorthPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
@@ -177,7 +180,16 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
   // The month-end table: the latest 12 months by default, one year, or all.
   const historyYears = [...new Set(history.map((row) => row.month.slice(0, 4)))].reverse()
   const historyWindow = resolveHistoryWindow(params.history, historyYears)
-  const shownHistory = historyRows(history, historyWindow)
+  // What changed beyond investing each month, and which months deserve a look.
+  const beyondByMonth = new Map(
+    nonInvestmentMonths(
+      history.map((row) => ({ month: row.month, date: row.date, total: row.total, pensions: row.pensions })),
+      investmentPoints
+    ).map((month) => [month.month, month])
+  )
+  const shownHistory = historyRows(history, historyWindow).map((row) => ({ ...row, beyond: beyondByMonth.get(row.month) ?? null }))
+  const flaggedAll = [...beyondByMonth.values()].filter((month) => month.flag)
+  const flaggedShown = flaggedAll.filter((month) => shownHistory.some((row) => row.month === month.month))
   // Cash balances, largest first; a balance with no rate (no won value) goes last.
   const cashRows = [...netWorth.cash].sort((a, b) => (b.krw ?? -Infinity) - (a.krw ?? -Infinity))
   const notesFor = (key: (typeof ASSET_CLASSES)[number]) =>
@@ -446,6 +458,7 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
               <span className="flex flex-col gap-2">
                 <span>{copy.historyNote}</span>
                 <span>{copy.historyFxNote}</span>
+                <span>{copy.nonInvestment.info}</span>
               </span>
             }
             action={
@@ -464,6 +477,20 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
               </div>
             }
           >
+            <Note spacing="below-3">
+              {flaggedAll.length
+                ? copy.nonInvestment.summary(
+                    flaggedShown.slice(-SUMMARY_MONTHS).reverse().map((month) => month.month).join(' · ') || copy.none
+                  ) + (flaggedShown.length > SUMMARY_MONTHS ? copy.nonInvestment.summaryMore(flaggedShown.length - SUMMARY_MONTHS) : '')
+                : copy.nonInvestment.summaryNone}
+              {flaggedAll.length > flaggedShown.length ? (
+                <>
+                  {' '}
+                  {copy.nonInvestment.summaryOutside}{' '}
+                  <TextLink href={hrefWith({ history: 'all' })}>{copy.nonInvestment.summaryAll}</TextLink>
+                </>
+              ) : null}
+            </Note>
             <DataTable
               caption={copy.history}
               rows={shownHistory}
@@ -492,6 +519,33 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
                   render: (row: ShownHistoryRow) => (
                     <span className={`tabular-nums ${row.change ? signClass(row.change) : ''}`}>{row.change == null ? copy.none : fmtSigned(row.change, (v) => money(v))}</span>
                   ),
+                },
+                {
+                  key: 'beyond',
+                  label: copy.historyColumns.nonInvestment,
+                  align: 'right' as const,
+                  nowrap: true,
+                  render: (row: ShownHistoryRow) => {
+                    const beyond = row.beyond
+                    if (!beyond || beyond.value == null) return <span className="text-ink-3">{copy.none}</span>
+                    const reason = !beyond.flag
+                      ? null
+                      : beyond.flag === 'check'
+                        ? copy.nonInvestment.reasons.check(fmtSigned(beyond.value, (v) => money(v)))
+                        : beyond.flag === 'pair' && beyond.partner
+                          ? copy.nonInvestment.reasons.pair(beyond.partner.month, fmtSigned(beyond.partner.value, (v) => money(v)))
+                          : copy.nonInvestment.reasons.streak
+                    return (
+                      <span className="inline-flex items-center justify-end gap-2">
+                        {beyond.flag ? (
+                          <span title={reason ?? undefined} aria-label={reason ?? undefined}>
+                            <Badge tone="warning">{copy.nonInvestment.flags[beyond.flag]}</Badge>
+                          </span>
+                        ) : null}
+                        <span className="tabular-nums text-ink-2">{fmtSigned(beyond.value, (v) => money(v))}</span>
+                      </span>
+                    )
+                  },
                 },
                 ...(includeChildren
                   ? [
