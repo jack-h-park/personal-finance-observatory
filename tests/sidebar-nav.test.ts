@@ -31,6 +31,13 @@ test('a nested route lights exactly one item, its sidebar parent', () => {
   assert.match(current[0], /href="\/holdings"/)
 })
 
+test('Data Connections remains in the sidebar without supplementary account data', () => {
+  const html = render('/data-connections', { showAllAssets: false })
+  const current = html.match(/<a[^>]*aria-current="page"[^>]*>/g) ?? []
+  assert.equal(current.length, 1)
+  assert.match(current[0], /href="\/data-connections"/)
+})
+
 test('Detailed Records is open by default and keeps the state the reader left it in', () => {
   assert.match(detailsTag(render('/holdings')), /\sopen=""/)
   assert.doesNotMatch(detailsTag(render('/holdings', { openGroups: { 'Detailed Records': false } })), /\sopen=""/)

@@ -39,3 +39,41 @@ Collection health is independent from the historical last-good export. Missing, 
 Before promotion or scheduling, compare selected accounts, quantities, cash/core treatment, valuation dates and representative activities against current Fidelity/CSV/statement evidence. Complete at least seven successful daily shadow collections and a statement comparison. Positions, balances, activities and tax lots require separate acceptance and cutover decisions. Retain historical CSV evidence and unknown coverage; API absence does not prove zero or deletion.
 
 The vendored `contracts/finance-connectors/v1/run.schema.json` is copied from the private producer's v1 schema. Its SHA-256 and source repository are recorded beside it. Any contract change must update both repositories and repeat a producer-to-consumer synthetic check.
+
+## Account connection coverage view
+
+`/data-connections` compares reviewed evidence per account in the United States
+and South Korea. Store the reviewed `account-connection-scope.json` in
+`FINANCE_STATE_DIR` on the private app host. A version 1
+`us-connection-scope.json` remains readable when the new file is absent.
+
+```json
+{
+  "schemaVersion": 2,
+  "reviewedOn": "2026-01-01",
+  "accounts": [
+    {
+      "key": "example-account",
+      "market": "us",
+      "label": { "en": "Example account", "ko": "예시 계좌" },
+      "sources": {
+        "snaptrade": { "status": "pilot" },
+        "simplefin": { "status": "discovered" },
+        "files": { "status": "required" }
+      }
+    }
+  ]
+}
+```
+
+Use `shadow` for recurring shadow collection, `pilot` for a reconciled trial,
+`limited` for partial returns, `discovered` for account discovery,
+`unreturned` for an observed omission, `existing` for a separate operating
+feed, and `unknown` for unverified evidence. Korean rows use `other` for the
+reviewed provider or supplementary source. Use `keep` or `required` for
+`files`. An optional bilingual `detail` can state the specific evidence or
+gap. Leave an unverified source absent or use `unknown`.
+
+Keep this snapshot outside Git and omit account numbers, balances, credentials
+and raw records. Update it after reviewing evidence. The page displays the
+snapshot without querying providers, importing records or reporting live health.

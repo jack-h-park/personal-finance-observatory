@@ -49,6 +49,7 @@ const COPY_FOR: Record<RouteHref, PageKey | { page: PageKey; title: string }> = 
   '/health': 'health',
   '/data-ops': 'dataOps',
   '/reconciliation': 'reconciliation',
+  '/data-connections': 'dataConnections',
   '/data-map': 'dataMap',
 }
 
