@@ -518,7 +518,7 @@ def merge_txns(groups, order_by_time=False):
     return [{**txn, "seq": i} for i, (_, txn) in enumerate(picked)]
 
 
-def rebase_overlapping_balances(groups):
+def rebase_overlapping_balances(groups, shifted_indexes=None):
     """Carry each later certificate's balances onto the earlier certificate's scale.
 
     A 미래에셋 CMA certificate can only walk balances from its own first row: the
@@ -531,10 +531,12 @@ def rebase_overlapping_balances(groups):
     and the account reads as if its principal had vanished.
 
     `groups` are per-file row lists, earliest file first, and are not modified.
-    A later file sharing no row with the earlier ones is returned as it is.
+    A later file sharing no row with the earlier ones is returned as it is. When
+    `shifted_indexes` is a list, the position of every file that was shifted is
+    appended to it.
     """
     out, priced = [], {}
-    for rows in groups:
+    for position, rows in enumerate(groups):
         offset = 0.0
         for txn in sorted(rows, key=lambda t: (t["date"], t["seq"])):
             key = (txn["date"], txn.get("description", ""), round(txn["amount"], 2))
@@ -543,10 +545,17 @@ def rebase_overlapping_balances(groups):
                 break
         shifted = [{**t, "balance": round(t["balance"] + offset, 2) if t["balance"] is not None else None} for t in rows] if abs(offset) > 0.5 else rows
         out.append(shifted)
+        if shifted_indexes is not None and abs(offset) > 0.5:
+            shifted_indexes.append(position)
         for txn in shifted:
             if txn["balance"] is not None:
                 priced[(txn["date"], txn.get("description", ""), round(txn["amount"], 2))] = txn["balance"]
     return out
+
+
+def drop_principal_warning(findings, name):
+    """Remove one certificate's "balances understate the principal" warning, in place."""
+    findings[:] = [f for f in findings if not f.startswith(f"{name}: more 발행어음 was sold")]
 
 
 def end_of_day(txns):
@@ -1825,7 +1834,14 @@ def main():
             parsed.sort(key=lambda item: (item[0], item[1]))
             groups = [rows for _, _, rows in parsed]
             if (institution, kind) == ("mirae", "cma"):
-                groups = rebase_overlapping_balances(groups)
+                shifted = []
+                groups = rebase_overlapping_balances(groups, shifted)
+                # The certificate warned that its balances start short of the principal it
+                # cannot see. Carried onto the earlier certificate's scale they no longer do.
+                for position in shifted:
+                    name = parsed[position][1]
+                    drop_principal_warning(findings, name)
+                    notes.append(f"{name}: balances carried onto the earlier certificate's scale")
             try:
                 txns = merge_txns(groups, order_by_time=institution in ('hana', 'kb'))
             except ValueError as error:

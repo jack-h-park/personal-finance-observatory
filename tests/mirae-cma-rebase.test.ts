@@ -43,3 +43,39 @@ test('two certificates already on one scale are not shifted', () => {
   const later = [row(0, '2026-01-07', 'wire out', -200, 1300), row(1, '2026-01-09', 'deposit', 50, 1350)]
   assert.deepEqual(rebase([earlier, later]).map((d) => d.balance), [1500, 1300, 1350])
 })
+
+function run(program: string, payload: unknown) {
+  return JSON.parse(
+    execFileSync(PY, ['-c', `
+import importlib.util, json, sys
+spec = importlib.util.spec_from_file_location('extract', 'scripts/extract-bank-statements.py')
+m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+payload = json.loads(sys.argv[1])
+${program}
+`, JSON.stringify(payload)], { cwd: ROOT, encoding: 'utf8' })
+  )
+}
+
+test('the files that were shifted are reported, and a disjoint file is not one of them', () => {
+  const earlier = [row(0, '2026-01-05', 'deposit', 500, 1500), row(1, '2026-01-07', 'wire out', -200, 1300)]
+  const later = [row(0, '2026-01-07', 'wire out', -200, -200), row(1, '2026-01-09', 'deposit', 50, -150)]
+  const disjoint = [row(0, '2026-03-01', 'deposit', 50, 50)]
+  const shifted = run(
+    `shifted = []
+m.rebase_overlapping_balances(payload['groups'], shifted)
+print(json.dumps(shifted))`,
+    { groups: [earlier, later, disjoint] }
+  )
+  assert.deepEqual(shifted, [1])
+})
+
+test("a certificate's principal warning is dropped, and another file's is kept", () => {
+  const left = run(
+    `findings = ['a.pdf: more 발행어음 was sold than the certificate shows bought, so principal was held before its period', 'b.pdf: more 발행어음 was sold than the certificate shows bought', 'a.pdf: other finding']
+m.drop_principal_warning(findings, 'a.pdf')
+print(json.dumps(findings))`,
+    {}
+  )
+  assert.deepEqual(left, ['b.pdf: more 발행어음 was sold than the certificate shows bought', 'a.pdf: other finding'])
+})
+
