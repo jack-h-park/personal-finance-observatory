@@ -271,3 +271,36 @@ test('the overview stock trend is stock-only again: no deposits scope, and globa
   const points = singleTrendPoints([snapshot], 'global', 'market_value', (value) => value / 1_000_000)
   assert.deepEqual(points, [{ date: '2026-03-31', value: 1, coverage: 1 }])
 })
+
+test('past points count uninvested brokerage cash the way today does, outside the pension wrappers', async () => {
+  const dbPath = ingest()
+  const db = new Database(dbPath)
+  db.prepare('delete from portfolio_snapshots').run()
+  db.prepare('delete from brokerage_cash').run()
+  const insert = db.prepare(
+    `insert into portfolio_snapshots (snapshot_date, captured_at, global_base_cost, global_base_market_value, kr_market_value, us_market_value_base, crypto_market_value_base,
+       kr_cost_basis, us_cost_basis_base, crypto_cost_basis_base, krw_cost, usd_cost, dividends_krw, dividends_usd, holding_count, share_count)
+     values (?, ?, 0, ?, ?, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1)`
+  )
+  insert.run('2026-01-31', '2026-01-31T00:00:00Z', 500_000, 500_000)
+  insert.run('2026-03-31', '2026-03-31T00:00:00Z', 500_000, 500_000)
+  const broker = db.prepare(
+    `insert into brokerage_cash (institution, account, pool, currency, as_of_date, balance, source, account_wrapper, asset_class) values ('Example Broker', ?, ?, 'KRW', ?, ?, 'example', ?, 'security')`
+  )
+  // Two pools of one taxable account, a later balance for one of them, and a pension account that never counts as cash.
+  broker.run('Example Taxable', 'deposit', '2026-01-10', 70_000, 'taxable')
+  broker.run('Example Taxable', 'margin', '2026-01-10', 5_000, 'taxable')
+  broker.run('Example Taxable', 'deposit', '2026-02-15', 90_000, 'taxable')
+  broker.run('Example Pension', 'deposit', '2026-01-10', 40_000, 'pension_savings')
+  db.close()
+
+  config.stockDbPath = dbPath
+  const { getNetWorth, getTotalAssetsSeries } = await import('../lib/adapters/portfolio-db')
+  const withBroker = getTotalAssetsSeries(['2026-01-31', '2026-03-31'])
+  const [jan, mar] = withBroker.points
+  assert.equal((jan.cash ?? 0) - (mar.cash ?? 0), 75_000 - 95_000, 'each pool carries its latest balance forward')
+  // Today's card counts the same pools, so the last past point and today agree on brokerage cash.
+  const netWorth = getNetWorth()
+  assert.equal(withBroker.points.at(-1)!.cash, netWorth.byClass.cash)
+  assert.equal((mar.cash ?? 0) - (withBroker.points.at(-1)!.cash ?? 0), 0)
+})

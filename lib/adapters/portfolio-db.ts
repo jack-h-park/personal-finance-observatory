@@ -1370,6 +1370,23 @@ function cashEstimateRows(conn: Database.Database): CashBalanceRow[] {
     : []
 }
 
+// Uninvested brokerage cash outside the pension wrappers (brokerage_cash), as
+// cash rows: getNetWorth counts each pool's latest balance as cash today, so the
+// past points must count it too, or every change from a past date gains the
+// whole balance. Each pool and currency is its own key in depositsSeries.
+function brokerageCashRows(conn: Database.Database): CashBalanceRow[] {
+  const has = conn.prepare("select 1 from sqlite_master where type = 'table' and name = 'brokerage_cash'").get()
+  if (!has) return []
+  const columns = new Set((conn.prepare('pragma table_info(brokerage_cash)').all() as { name: string }[]).map((column) => column.name))
+  const wrapper = columns.has('account_wrapper') ? " where coalesce(account_wrapper, 'taxable') not in ('irp', 'pension_savings')" : ''
+  return conn
+    .prepare(
+      `select 'brokerage:' || institution as institution, account || '|' || currency || '|' || pool as account, currency, as_of_date as date, balance
+       from brokerage_cash${wrapper} order by as_of_date, id`
+    )
+    .all() as CashBalanceRow[]
+}
+
 // Deposits in KRW on each of the given dates: the cash class of the total-assets series.
 export function getDepositsSeries(dates: string[]): ReturnType<typeof depositsSeries> {
   const conn = db()
@@ -1454,10 +1471,11 @@ export function getTotalAssetsSeries(dates: string[], precomputed?: NetWorth): T
       crypto[date] = row?.crypto == null ? null : Number(row.crypto)
     }
     // Cash includes the estimates, so money parked in a 파킹통장 or a closed CMA
-    // does not read as a fall in total assets. Today's point is the card's own
+    // does not read as a fall in total assets, and uninvested brokerage cash, which
+    // today's point counts too. Today's point is the card's own
     // figure, which leaves them out; every estimate is zero by then.
     const cash = Object.fromEntries(
-      depositsSeries(past, [...cashBalanceRows(conn), ...cashEstimateRows(conn)], usdKrwRateAt(conn)).series.map((point) => [point.date, point.krw])
+      depositsSeries(past, [...cashBalanceRows(conn), ...cashEstimateRows(conn), ...brokerageCashRows(conn)], usdKrwRateAt(conn)).series.map((point) => [point.date, point.krw])
     )
     const pensionPoints = hasTable('pension_points')
       ? (conn
