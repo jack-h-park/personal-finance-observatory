@@ -19,7 +19,7 @@ export const cashInflow = defineCopy({
     axisKrw: 'KRW', axisUsd: 'USD',
     noTrend: 'No credits in this range.',
     filter: {
-      label: 'Show',
+      label: 'Category',
       options: { All: 'All', salary: 'Salary', investment: 'Investment income', dividend: 'Dividends', interest: 'Interest', other: 'Other', reimbursement: 'Purchase reimbursement', unclassified: 'Unclassified' },
     },
     scope: {
@@ -77,7 +77,7 @@ export const cashInflow = defineCopy({
     axisKrw: '원', axisUsd: '달러',
     noTrend: '이 기간에 입금이 없습니다.',
     filter: {
-      label: '보기',
+      label: '분류',
       options: { All: '전체', salary: '급여', investment: '투자 수익', dividend: '배당', interest: '이자', other: '기타', reimbursement: '구매대행 정산', unclassified: '미분류' },
     },
     scope: {

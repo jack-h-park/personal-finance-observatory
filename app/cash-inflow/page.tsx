@@ -4,7 +4,7 @@ import { FilterBar } from '@/components/FilterBar'
 import { PageHeader } from '@/components/PageHeader'
 import { ScrollOnHash } from '@/components/ScrollOnHash'
 import { StackedBarChart } from '@/components/charts'
-import { Card, MetricField, MetricHeroCard, Note, Panel } from '@/components/ui'
+import { Card, EmptyState, MetricField, MetricHeroCard, Note, Panel } from '@/components/ui'
 import {
   CASH_INFLOW_CURRENCIES,
   CASH_INFLOW_FILTERS,
@@ -33,20 +33,13 @@ import { routeMetadata, routeSection } from '@/lib/page-names'
 import { cashInflowHeaderStatus } from '@/lib/header-status'
 import { CardRow, KpiBand } from '@/components/layout'
 import { maskAccountLabel } from '@/lib/account-label'
+import { CASH_INFLOW_CATEGORY_COLOR } from '@/lib/palette'
 
 export const dynamic = 'force-dynamic'
 export const generateMetadata = routeMetadata('/cash-inflow')
 
 const BASE = '/cash-inflow'
 const DETAIL_PATTERN = /^\d{4}(-\d{2})?$/
-const CATEGORY_COLOR: Record<CashInflowCategory, string> = {
-  salary: 'var(--brand-blue)',
-  dividend: 'var(--accent-success)',
-  interest: 'var(--accent-warning)',
-  other: 'var(--text-tertiary)',
-  unclassified: 'var(--accent-danger)',
-  reimbursement: 'var(--accent-warning)',
-}
 
 function first(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value
@@ -118,6 +111,19 @@ export default async function CashInflowPage({
   // Changing a filter closes any open drill-down: its rows belonged to the old selection.
   const filterParams = scopeParams
 
+  // What the lead figure counts, plus the one note the chosen filter needs.
+  const filterNote =
+    filter === 'All' || filter === 'reimbursement' ? copy.reimbursementNote
+      : filter === 'investment' ? copy.investmentInfo
+        : filter === 'unclassified' ? copy.unclassifiedFilterNote
+          : null
+  const heroInfo = (
+    <>
+      {copy.rangeInfo(copy.scope.range.options[range], filter === 'All' ? copy.headlineEyebrow : copy.filter.options[filter])}
+      {filterNote ? ` ${filterNote}` : null}
+    </>
+  )
+
   const reasonText = (r: CashInflowRow) => {
     if (r.reasonKind === 'rule') return copy.reasons.rule(r.reason ?? '')
     if (r.reasonKind === 'broker' && r.reason) return copy.reasons.broker(r.reason)
@@ -128,7 +134,8 @@ export default async function CashInflowPage({
   const amountCell = (p: CashInflowPeriod, c: CashInflowCategory) => {
     const text = money(p[c], data.currency)
     const muted = c === 'unclassified' && filter === 'All'
-    if (!p[c]) return <span className="text-ink-3">{text}</span>
+    // Zero is an empty value, not a link: nothing to open.
+    if (!p[c]) return <span className="text-ink-3">{copy.notAvailable}</span>
     const current = detail === p.period && detailCategory === c
     return (
       <Link
@@ -136,7 +143,7 @@ export default async function CashInflowPage({
         scroll={false}
         aria-label={copy.cellLink(text, p.period, copy.categories[c])}
         aria-current={current ? 'true' : undefined}
-        className={`rounded-sm hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info/40 ${current ? 'font-semibold text-info' : muted ? 'text-ink-3' : 'text-info'}`}
+        className={`rounded-sm underline-offset-2 hover:underline focus:outline-none focus-visible:underline focus-visible:ring-2 focus-visible:ring-info/40 ${current ? 'font-medium text-info underline' : muted ? 'text-ink-3' : 'text-ink'}`}
       >
         {text}
       </Link>
@@ -207,15 +214,12 @@ export default async function CashInflowPage({
       {!data.hasBankData ? (
         <Panel bordered={false} text="label-note">{copy.noBankData}</Panel>
       ) : null}
-      {filter === 'investment' ? <Note>{copy.investmentInfo}</Note> : null}
-      {filter === 'unclassified' ? <Note>{copy.unclassifiedFilterNote}</Note> : null}
-      {filter === 'reimbursement' || filter === 'All' ? <Panel bordered={false} text="label-note">{copy.reimbursementNote}</Panel> : null}
 
       <CardRow columns={1}>
         <MetricHeroCard
           id="cash-inflow-lead"
           title={copy.scope.range.options[range]}
-          info={copy.rangeInfo(copy.scope.range.options[range], filter === 'All' ? copy.headlineEyebrow : copy.filter.options[filter])}
+          info={heroInfo}
           eyebrow={filter === 'All' ? copy.headlineEyebrow : copy.filter.options[filter]}
           value={money(data.totals.rangeTotal, data.currency)}
         >
@@ -247,7 +251,7 @@ export default async function CashInflowPage({
       </CardRow>
 
       <CardRow columns={1}>
-        <Card title={copy.trendCard}>
+        <Card title={copy.trendCard} info={`${copy.chartNote} ${copy.chartHint} ${copy.legendHint}`}>
           <StackedBarChart
             data={chartPeriods.map((p) => ({
               period: view === 'month' ? p.period.slice(2) : p.period,
@@ -258,7 +262,7 @@ export default async function CashInflowPage({
             linkKey="links"
             toggleable
             xKey="period"
-            series={categories.map((c) => ({ key: c, label: copy.categories[c], color: CATEGORY_COLOR[c] }))}
+            series={categories.map((c) => ({ key: c, label: copy.categories[c], color: CASH_INFLOW_CATEGORY_COLOR[c] }))}
             height={300}
             yAxisLabel={usd ? copy.axisUsd : copy.axisKrw}
             allowDecimals={usd}
@@ -266,7 +270,6 @@ export default async function CashInflowPage({
             language={language}
             emptyMessage={copy.noTrend}
           />
-          <Note spacing="above-2">{copy.chartNote} {copy.chartHint} {copy.legendHint}</Note>
         </Card>
       </CardRow>
 
@@ -299,7 +302,7 @@ export default async function CashInflowPage({
                 align: 'right' as const,
                 render: (r: CashInflowPeriod) => amountCell(r, c),
               })),
-              ...(showTotal ? [{ key: 'total', label: copy.columns.total, align: 'right' as const, render: (r: CashInflowPeriod) => money(r.total, data.currency) }] : []),
+              ...(showTotal ? [{ key: 'total', label: copy.columns.total, align: 'right' as const, render: (r: CashInflowPeriod) => (r.total ? <span className="font-medium text-ink">{money(r.total, data.currency)}</span> : <span className="text-ink-3">{copy.notAvailable}</span>) }] : []),
               // Yearly only: this year's total against the year before's, under the same filter and scope.
               ...(view === 'year' && filter !== 'unclassified'
                 ? [{
@@ -324,10 +327,9 @@ export default async function CashInflowPage({
         <CardRow columns={1}>
           <Card title={copy.triage.title}>
             <div id="cash-inflow-unclassified" className="flex scroll-mt-24 flex-col gap-3">
-              <Note>{copy.triage.note}</Note>
-              {unclassifiedGroups.length === 0 ? (
-                <Note size="body">{copy.triage.none}</Note>
-              ) : (
+              {/* The how-to-file note matters only when there is something to file. */}
+              {unclassifiedGroups.length === 0 ? <EmptyState ok>{copy.triage.none}</EmptyState> : <Note>{copy.triage.note}</Note>}
+              {unclassifiedGroups.length === 0 ? null : (
                 unclassifiedGroups.map((g) => (
                   <details key={`${g.institution}|${g.account}|${g.description}`} className="group rounded-md border border-line px-3 py-2">
                     {/* A flex summary loses its disclosure marker, so the chevron says it opens. */}
