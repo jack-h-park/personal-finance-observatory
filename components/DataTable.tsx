@@ -45,6 +45,7 @@ export function DataTable<Row = any>({
   minWidth,
   expandedRowKey,
   renderExpanded,
+  footerRows,
   size = 'body',
 }: {
   /** `Row` is inferred from `rows` alone, so a column that annotates its
@@ -68,6 +69,10 @@ export function DataTable<Row = any>({
    *  reader clicked rather than at the bottom of the page. */
   expandedRowKey?: string | number | null
   renderExpanded?: (row: Row) => ReactNode
+  /** Summary rows drawn in a `tfoot` under the body, one cell per column key
+   *  (a missing key is an empty cell). Each column keeps its alignment and
+   *  priority, so a total sits under the figures it sums. */
+  footerRows?: Record<string, ReactNode>[]
   /** Text size for the whole table, passed to `Table`. */
   size?: 'body' | 'caption'
 }) {
@@ -130,12 +135,14 @@ export function DataTable<Row = any>({
             const expanded = renderExpanded && expandedRowKey != null && rowKey === expandedRowKey
             return (
             <Fragment key={rowKey}>
-            <tr className="border-b border-line-subtle hover:bg-surface/70">
+            {/* The open row shares the panel's tint, so the panel reads as its own. */}
+            <tr className={clsx('border-b border-line-subtle', expanded ? 'bg-surface/60' : 'hover:bg-surface/70')}>
               {columns.map((col) => (
                 <td
                   key={col.key}
                   className={clsx(
-                    'border-b border-line-subtle px-3 py-2.5 align-top text-ink-2',
+                    'px-3 py-2.5 align-top text-ink-2',
+                    expanded ? 'border-b-0' : 'border-b border-line-subtle',
                     col.align === 'right' && 'text-right tabular-nums',
                     col.align === 'center' && 'text-center',
                     PRIORITY_CLASS[col.priority ?? 'primary'],
@@ -157,6 +164,29 @@ export function DataTable<Row = any>({
             )
           })}
         </tbody>
+        {footerRows && footerRows.length > 0 ? (
+          <tfoot>
+            {footerRows.map((cells, index) => (
+              <tr key={index}>
+                {columns.map((col) => (
+                  <td
+                    key={col.key}
+                    className={clsx(
+                      'px-3 py-2 align-top text-ink-2',
+                      index === 0 && 'border-t border-line',
+                      col.align === 'right' && 'text-right tabular-nums',
+                      col.align === 'center' && 'text-center',
+                      PRIORITY_CLASS[col.priority ?? 'primary'],
+                      col.nowrap && 'whitespace-nowrap'
+                    )}
+                  >
+                    {cells[col.key] ?? null}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tfoot>
+        ) : null}
     </Table>
   )
 }

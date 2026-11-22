@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { DataTable } from '@/components/DataTable'
 import { FilterBar } from '@/components/FilterBar'
@@ -76,7 +77,10 @@ export default async function CashInflowPage({
   const data = getCashInflow(view, currencyPreferences.displayCurrency, undefined, filter, scope)
   const categories = cashInflowCategories(filter)
   // Under All the unclassified column stays visible, muted, as a to-do.
-  const tableCategories: CashInflowCategory[] = filter === 'All' ? [...categories, 'reimbursement', 'unclassified'] : categories
+  // Under All, reimbursement and unclassified get a column only when a row shows some:
+  // a column of dashes says nothing.
+  const extraColumns = (['reimbursement', 'unclassified'] as const).filter((c) => filter === 'All' && data.periods.some((p) => p[c] !== 0))
+  const tableCategories: CashInflowCategory[] = [...categories, ...extraColumns]
   const showTotal = categories.length > 1
   // A drill-down into a category the table does not show belongs to another filter.
   const detailCategory = tableCategories.includes(detailCategoryParam as CashInflowCategory) ? (detailCategoryParam as CashInflowCategory) : null
@@ -153,6 +157,27 @@ export default async function CashInflowPage({
       </>
     )
   }
+
+  // The range in two lines under the periods: its total per column, then the
+  // monthly average of the counted ones. Both come from the range, not the rows,
+  // so under the yearly view they match the lead card rather than whole years.
+  const footerAmount = (amount: number, muted = false) =>
+    amount ? <span className={muted ? 'text-ink-3' : 'text-ink'}>{money(amount, data.currency)}</span> : <span className="text-ink-3">{copy.notAvailable}</span>
+  const tableFooter: Record<string, ReactNode>[] =
+    filter === 'unclassified'
+      ? [{ period: <span className="whitespace-nowrap font-medium text-ink">{rangeLabel}</span>, unclassified: footerAmount(data.totals.byCategory.unclassified.amount) }]
+      : [
+          {
+            period: <span className="whitespace-nowrap font-medium text-ink">{rangeLabel}</span>,
+            ...Object.fromEntries(tableCategories.map((c) => [c, footerAmount(data.totals.byCategory[c].amount, extraColumns.includes(c as (typeof extraColumns)[number]))])),
+            ...(showTotal ? { total: <span className="font-medium text-ink">{money(data.totals.rangeTotal, data.currency)}</span> } : {}),
+          },
+          {
+            period: <span className="whitespace-nowrap text-ink-3">{copy.monthlyAverage}</span>,
+            ...Object.fromEntries(categories.map((c) => [c, <span key={c} className="text-ink-3">{money(data.totals.byCategory[c].amount / data.totals.rangeMonths, data.currency)}</span>])),
+            ...(showTotal ? { total: <span className="text-ink-2">{money(data.totals.monthlyAverage, data.currency)}</span> } : {}),
+          },
+        ]
 
   const reasonText = (r: CashInflowRow) => {
     if (r.reasonKind === 'rule') return copy.reasons.rule(r.reason ?? '')
@@ -361,6 +386,7 @@ export default async function CashInflowPage({
             getRowKey={(r) => r.period}
             expandedRowKey={detail}
             renderExpanded={detailPanel}
+            footerRows={tableFooter}
             columns={[
               {
                 key: 'period',
