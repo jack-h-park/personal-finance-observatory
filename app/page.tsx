@@ -120,16 +120,20 @@ export default async function OverviewPage({
   // The all view leads with total assets: a control-less 12-month summary of
   // the /net-worth chart, and the change over a month and since the year began.
   const assetsSeries = netWorth ? getTotalAssetsSeries(getSnapshotDates(366), netWorth) : null
+  // The period changes reach back three years; the chart above keeps its own 12 months.
+  const changeSeries = netWorth ? getTotalAssetsSeries(getSnapshotDates(3 * 366 + 40), netWorth) : null
   const today = portfolioToday()
   // Bases are month ends because history keeps month-end snapshots (see monthEndBefore).
-  const changeSince = (since: string) => (assetsSeries ? totalAssetsChange(assetsSeries.points, since) : null)
+  const changeSince = (since: string) => (changeSeries ? totalAssetsChange(changeSeries.points, since) : null)
   const monthChange = changeSince(monthEndBefore(today, 1))
   const quarterChange = changeSince(monthEndBefore(today, 3))
   const yearChange = changeSince(previousYearEnd(today))
   const twelveMonthChange = changeSince(monthEndBefore(today, 12))
+  const twoYearChange = changeSince(monthEndBefore(today, 24))
+  const threeYearChange = changeSince(monthEndBefore(today, 36))
   // What stocks and crypto earned over each change's period, from the same base snapshot.
   const investmentPoints: InvestmentPoint[] = netWorth
-    ? getPortfolioSnapshots(400).map((row) => ({ date: row.snapshot_date, unrealized: row.global_base_unrealized_gl, realized: row.global_realized_gl }))
+    ? getPortfolioSnapshots(3 * 366 + 40).map((row) => ({ date: row.snapshot_date, unrealized: row.global_base_unrealized_gl, realized: row.global_realized_gl }))
     : []
   const investmentFor = (change: TotalAssetsChange | null) => (change ? investmentResult(investmentPoints, change.baseDate) : null)
   // This month / this year, all view only: each figure is a summary of its own page.
@@ -336,11 +340,13 @@ export default async function OverviewPage({
                 <TextLink href="/net-worth">{copy.openTotalAssets}</TextLink>
               </div>
             </div>
-            <KpiBand columns="4-narrow">
+            <KpiBand columns="6-narrow">
               {changeField(copy.changeMtd, monthChange)}
               {changeField(copy.change3m, quarterChange)}
               {changeField(copy.changeYtd, yearChange)}
               {changeField(copy.change1y, twelveMonthChange)}
+              {changeField(copy.change2y, twoYearChange)}
+              {changeField(copy.change3y, threeYearChange)}
             </KpiBand>
           </MetricHeroCard>
         ) : (
