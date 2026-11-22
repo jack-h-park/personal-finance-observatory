@@ -50,3 +50,29 @@ export function viewPoints(points: readonly TotalAssetsPoint[], classes: readonl
     }
   })
 }
+
+/**
+ * Which months the month-end table shows (`?history=`): the latest 12 by
+ * default, one year (`2025`), or every month (`all`). An unknown value is the
+ * default.
+ */
+export type HistoryWindow = { kind: 'recent' } | { kind: 'all' } | { kind: 'year'; year: string }
+
+export function resolveHistoryWindow(param: string | string[] | undefined, years: readonly string[]): HistoryWindow {
+  const raw = Array.isArray(param) ? param[0] : param
+  if (raw === 'all') return { kind: 'all' }
+  if (raw && years.includes(raw)) return { kind: 'year', year: raw }
+  return { kind: 'recent' }
+}
+
+/**
+ * Month-end rows for the window, newest first, each with its change from the
+ * previous month's total. The change reads the full history, so the oldest
+ * row shown still has one; the first month on record has none.
+ */
+export function historyRows<T extends { month: string; total: number }>(rows: readonly T[], window: HistoryWindow): (T & { change: number | null })[] {
+  const withChange = rows.map((row, index) => ({ ...row, change: index ? row.total - rows[index - 1].total : null }))
+  const picked =
+    window.kind === 'all' ? withChange : window.kind === 'year' ? withChange.filter((row) => row.month.startsWith(window.year)) : withChange.slice(-12)
+  return picked.reverse()
+}
