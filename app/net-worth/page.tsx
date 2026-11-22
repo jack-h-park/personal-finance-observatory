@@ -28,6 +28,7 @@ import { ASSET_CLASS_COLOR, WRAPPER_COLOR } from '@/lib/palette'
 import { getPageCopy } from '@/lib/ui-copy'
 import { maskAccountLabel } from '@/lib/account-label'
 import { nonInvestmentMonths, type NonInvestmentMonth } from '@/lib/non-investment-change'
+import { getNetWorthSettings, thresholdsFrom } from '@/lib/net-worth-settings'
 import { investmentResult, monthEndBefore, previousYearEnd, totalAssetsChange, type InvestmentPoint, type TotalAssetsChange } from '@/lib/total-assets-change'
 import { ASSET_CLASS_KEYS, historyRows, resolveClasses, resolveHistoryWindow, toggleClass, viewPoints } from '@/lib/total-assets-view'
 import { keepsSelection, resolveRangeSelection, trendRangeCovering } from '@/lib/range-selection'
@@ -184,7 +185,8 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
   const beyondByMonth = new Map(
     nonInvestmentMonths(
       history.map((row) => ({ month: row.month, date: row.date, total: row.total, pensions: row.pensions })),
-      investmentPoints
+      investmentPoints,
+      thresholdsFrom(getNetWorthSettings())
     ).map((month) => [month.month, month])
   )
   const shownHistory = historyRows(history, historyWindow).map((row) => ({ ...row, beyond: beyondByMonth.get(row.month) ?? null }))
@@ -483,6 +485,8 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
                     flaggedShown.slice(-SUMMARY_MONTHS).reverse().map((month) => month.month).join(' · ') || copy.none
                   ) + (flaggedShown.length > SUMMARY_MONTHS ? copy.nonInvestment.summaryMore(flaggedShown.length - SUMMARY_MONTHS) : '')
                 : copy.nonInvestment.summaryNone}
+              {' '}
+              <TextLink href="/net-worth/settings">{copy.nonInvestment.settingsLink}</TextLink>
               {flaggedAll.length > flaggedShown.length ? (
                 <>
                   {' '}

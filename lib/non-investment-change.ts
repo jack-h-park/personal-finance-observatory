@@ -16,14 +16,19 @@ import type { InvestmentPoint } from '@/lib/total-assets-change'
  * for several months, the signature of an account or a large spend missing).
  */
 
-/** A month at or above this is flagged on its own. */
-export const CHECK_KRW = 30_000_000
-/** A month at or above this counts toward a pair or a streak. */
-export const WATCH_KRW = 15_000_000
-/** Two neighbours pair when what remains after they cancel is at most this share of the larger. */
-export const PAIR_NET_SHARE = 0.35
-/** Months of one sign, each at the watch size, that make a streak. */
-export const STREAK_MONTHS = 3
+/** The sizes at which a month is worth a look; the reader changes them on /net-worth/settings. */
+export type Thresholds = {
+  /** A month at or above this is flagged on its own. */
+  checkKrw: number
+  /** A month at or above this counts toward a pair or a streak. */
+  watchKrw: number
+  /** Months of one sign, each at the watch size, that make a streak. */
+  streakMonths: number
+  /** Two neighbours pair when what remains after they cancel is at most this share of the larger. */
+  pairNetShare: number
+}
+
+export const DEFAULT_THRESHOLDS: Thresholds = { checkKrw: 30_000_000, watchKrw: 15_000_000, streakMonths: 3, pairNetShare: 0.35 }
 
 export type MonthEnd = { month: string; date: string; total: number; pensions: number | null }
 export type NonInvestmentFlag = 'pair' | 'streak' | 'check'
@@ -49,7 +54,11 @@ function investmentBetween(points: readonly InvestmentPoint[], from: string, to:
 }
 
 /** Oldest month first, as given. The first month has no month before it, so it has no value. */
-export function nonInvestmentMonths(months: readonly MonthEnd[], investment: readonly InvestmentPoint[]): NonInvestmentMonth[] {
+export function nonInvestmentMonths(
+  months: readonly MonthEnd[],
+  investment: readonly InvestmentPoint[],
+  thresholds: Thresholds = DEFAULT_THRESHOLDS
+): NonInvestmentMonth[] {
   const values = months.map((current, index) => {
     if (!index) return null
     const previous = months[index - 1]
@@ -58,7 +67,7 @@ export function nonInvestmentMonths(months: readonly MonthEnd[], investment: rea
     const change = current.total - (current.pensions ?? 0) - (previous.total - (previous.pensions ?? 0))
     return change - result
   })
-  const watched = values.map((value) => value != null && Math.abs(value) >= WATCH_KRW)
+  const watched = values.map((value) => value != null && Math.abs(value) >= thresholds.watchKrw)
   const out: NonInvestmentMonth[] = months.map((month, index) => ({ month: month.month, value: values[index], flag: null, partner: null }))
 
   // Streaks first, then pairs on top: a pair is the sharper reading of the same months.
@@ -70,21 +79,21 @@ export function nonInvestmentMonths(months: readonly MonthEnd[], investment: rea
       run += 1
       continue
     }
-    if (run >= STREAK_MONTHS) for (let k = index - run; k < index; k++) out[k].flag = 'streak'
+    if (run >= thresholds.streakMonths) for (let k = index - run; k < index; k++) out[k].flag = 'streak'
     run = sign !== 0 ? 1 : 0
   }
   for (let index = 1; index < values.length; index++) {
     const a = values[index - 1]
     const b = values[index]
     if (a == null || b == null || !watched[index - 1] || !watched[index]) continue
-    if (Math.sign(a) === Math.sign(b) || Math.abs(a + b) > PAIR_NET_SHARE * Math.max(Math.abs(a), Math.abs(b))) continue
+    if (Math.sign(a) === Math.sign(b) || Math.abs(a + b) > thresholds.pairNetShare * Math.max(Math.abs(a), Math.abs(b))) continue
     out[index - 1].flag = 'pair'
     out[index - 1].partner = { month: out[index].month, value: b }
     out[index].flag = 'pair'
     out[index].partner = { month: out[index - 1].month, value: a }
   }
   for (const [index, month] of out.entries()) {
-    if (!month.flag && values[index] != null && Math.abs(values[index] as number) >= CHECK_KRW) month.flag = 'check'
+    if (!month.flag && values[index] != null && Math.abs(values[index] as number) >= thresholds.checkKrw) month.flag = 'check'
   }
   return out
 }

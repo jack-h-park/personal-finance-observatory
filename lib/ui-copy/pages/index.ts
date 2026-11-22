@@ -30,12 +30,14 @@ import { health } from '@/lib/ui-copy/pages/health'
 import { accountUpdates } from '@/lib/ui-copy/pages/accountUpdates'
 import { accounts } from '@/lib/ui-copy/pages/accounts'
 import { netWorth } from '@/lib/ui-copy/pages/netWorth'
+import { netWorthSettings } from '@/lib/ui-copy/pages/netWorthSettings'
 import { pension } from '@/lib/ui-copy/pages/pension'
 import { assetEvents } from '@/lib/ui-copy/pages/assetEvents'
 import { fbar } from '@/lib/ui-copy/pages/fbar'
 import { washSale } from '@/lib/ui-copy/pages/washSale'
 
 export const PAGE_COPY = {
+  netWorthSettings,
   hypotheticalTax,
   coverageSummary,
   accountInventory,

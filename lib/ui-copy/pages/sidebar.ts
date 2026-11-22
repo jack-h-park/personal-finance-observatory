@@ -71,6 +71,7 @@ export const sidebar = defineCopy({
         items: [
           { href: '/tax-settings', label: 'Tax Settings' },
           { href: '/rebalance/settings', label: 'Rebalancing Settings' },
+          { href: '/net-worth/settings', label: 'Total Assets Settings' },
         ],
       },
     ]),
@@ -141,6 +142,7 @@ export const sidebar = defineCopy({
         items: [
           { href: '/tax-settings', label: '세금 설정' },
           { href: '/rebalance/settings', label: '리밸런싱 설정' },
+          { href: '/net-worth/settings', label: '총자산 설정' },
         ],
       },
     ]),

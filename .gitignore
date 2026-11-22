@@ -57,6 +57,7 @@ data/.push-backup/
 data/tax-plans.json
 data/rebalance-policy.json
 data/allocation-policy.json
+data/net-worth-settings.json
 data/instrument-classes.json
 data/rebalance-proposals/
 data/rebalance-trigger-state.json

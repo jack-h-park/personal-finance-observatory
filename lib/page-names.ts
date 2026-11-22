@@ -21,6 +21,7 @@ import { navItems } from '@/lib/nav'
 export const ROUTE_HREFS = [
   '/',
   '/net-worth',
+  '/net-worth/settings',
   '/daily-briefing',
   '/holdings',
   '/review',

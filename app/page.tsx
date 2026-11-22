@@ -27,6 +27,7 @@ import {
 import { periodTiles } from '@/lib/overview-period-tiles'
 import { attentionItems } from '@/lib/overview-attention'
 import { flaggedMonths, nonInvestmentMonths } from '@/lib/non-investment-change'
+import { getNetWorthSettings, thresholdsFrom } from '@/lib/net-worth-settings'
 import { fmtCount, overviewLinkedStatus } from '@/lib/header-status'
 import { investmentResult, monthEndBefore, previousYearEnd, totalAssetsChange, type InvestmentPoint, type TotalAssetsChange } from '@/lib/total-assets-change'
 import {
@@ -159,7 +160,7 @@ export default async function OverviewPage({
   // Months of the last year whose change beyond investing deserves a look (lib/non-investment-change.ts).
   const monthEnds = new Map<string, { month: string; date: string; total: number; pensions: number | null }>()
   for (const point of changeSeries?.points ?? []) monthEnds.set(point.date.slice(0, 7), { month: point.date.slice(0, 7), date: point.date, total: point.total, pensions: point.pensions })
-  const flaggedLastYear = flaggedMonths(nonInvestmentMonths([...monthEnds.values()], investmentPoints), 12).length
+  const flaggedLastYear = flaggedMonths(nonInvestmentMonths([...monthEnds.values()], investmentPoints, thresholdsFrom(getNetWorthSettings())), 12).length
   const attention = attentionItems({
     queue: opsQueue,
     overCap: rebalance.reduceCandidates.length,

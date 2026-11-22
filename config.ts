@@ -45,6 +45,8 @@ export const config = {
   stockTaxPolicyExamplePath: env('STOCK_TAX_POLICY_EXAMPLE_PATH', repoPath('data/tax-policy.example.json')),
   // KR/US target split, edited in the app on /rebalance. Like tax-policy.json it is
   // owned by the host that serves the app and is never pushed.
+  // The month-flag thresholds, edited in the app on /net-worth/settings. Owned by the host that serves the app, never pushed.
+  stockNetWorthSettingsPath: env('STOCK_NET_WORTH_SETTINGS_PATH', repoPath('data/net-worth-settings.json')),
   stockRebalancePolicyPath: env('STOCK_REBALANCE_POLICY_PATH', repoPath('data/rebalance-policy.json')),
   // Sleeve targets, bounds and preferred instruments for the tax-aware rebalancer. Host-owned like
   // rebalance-policy.json: edited on the host that serves the app and never pushed.
