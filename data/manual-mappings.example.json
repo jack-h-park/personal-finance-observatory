@@ -16,7 +16,7 @@
       "id": "salary-example",
       "match": { "institution": "chase", "descriptionIncludes": "EXAMPLE CO PAYROLL" },
       "category": "salary",
-      "note": "Classify a bank credit for /cash-inflow. First match wins. Categories: salary, dividend, interest, other, transfer (an own-account move, never counted). A credit no rule matches shows as unclassified."
+      "note": "Classify a bank credit for /cash-inflow. First match wins. Categories: salary, bonus, expense (an employer payment into an expense account; salary, bonus and expense make up earned income), dividend, interest, other, reimbursement (money already spent coming back, not counted), transfer (an own-account move, never counted). A credit no rule matches shows as unclassified."
     }
   ],
   "instrumentAliases": [

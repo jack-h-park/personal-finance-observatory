@@ -70,7 +70,7 @@ test('bank inflows are classified: rules, own transfers, dividends, interest, an
 test('a rule with a category outside the allowed set is skipped and reported', () => {
   const db = ingestBank(BANK, {
     ...MAPPINGS,
-    bankInflowRules: [{ id: 'bad', match: { institution: 'mg', descriptionIncludes: '급여' }, category: 'bonus' }, ...MAPPINGS.bankInflowRules],
+    bankInflowRules: [{ id: 'bad', match: { institution: 'mg', descriptionIncludes: '급여' }, category: 'gift' }, ...MAPPINGS.bankInflowRules],
   })
   const row = db.prepare("select category, rule from bank_inflows where description = '급여'").get() as any
   assert.equal(row.category, 'salary')

@@ -79,10 +79,14 @@ export const CHILDREN_COLOR = 'var(--brand-cyan)'
  * counts what waits on a decision; red is for faults).
  */
 export const CASH_INFLOW_CATEGORY_COLOR: Record<
-  'salary' | 'dividend' | 'interest' | 'other' | 'reimbursement' | 'unclassified',
+  'salary' | 'bonus' | 'expense' | 'dividend' | 'interest' | 'other' | 'reimbursement' | 'unclassified',
   string
 > = {
+  // Earned income is one family: salary, then lighter shades of the same blue,
+  // so its parts stack as one band and the other categories stand apart.
   salary: 'var(--brand-blue)',
+  bonus: 'color-mix(in srgb, var(--brand-blue) 55%, var(--bg-card))',
+  expense: 'color-mix(in srgb, var(--brand-blue) 28%, var(--bg-card))',
   dividend: 'var(--brand-cyan)',
   interest: 'var(--brand-purple)',
   other: 'var(--text-tertiary)',

@@ -1088,8 +1088,8 @@ create table cash_balances (
 );
 
 -- Money arriving in a bank account, from the "inflows" of bank-balances.json. The
--- category is decided at ingest: salary | dividend | interest | other | transfer |
--- unclassified. An own-account move is a transfer and never counts as new money.
+-- category is decided at ingest: salary | bonus | expense | dividend | interest |
+-- other | transfer | reimbursement | unclassified. An own-account move is a transfer and never counts as new money.
 create table bank_inflows (
   id integer primary key,
   institution text not null,
