@@ -621,9 +621,14 @@ published site can never disagree about a date.
 - The documents are already fully derived (rows parsed, aggregates and the
   day-over-day session computed by the writer), so this app implements no
   briefing math of its own and never writes to the archive.
-- The page leads with the **session** view — price movement since the previous
-  archived snapshot, with trades excluded and reported separately — and keeps
-  standing-versus-cost below it.
+- The published briefing site is the reading surface; this page is the
+  **archive and review** view and stays short. It leads with the edition's
+  suggested actions, then per market the figures since the previous archived
+  briefing (editions are weekly, so the period is named by its comparison date,
+  never "today"), then each researched mover note once per ticker. Movers with
+  no note collapse to one line of ticker and change, buys or sells under one
+  share fold into a count, and the largest-holdings table and market context
+  are closed by default. The grouping lives in `lib/briefing-review.ts`.
 - US and Korean holdings are rendered as separate blocks, each in its own
   currency with its own thresholds. They are never summed: the briefing carries
   no FX snapshot, so a combined total would be invented.

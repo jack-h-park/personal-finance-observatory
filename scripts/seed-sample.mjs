@@ -384,7 +384,7 @@ function sampleBriefing(date, dateLabel, { narrativeOnly = false, applePrice = 2
       macro: `On <b>${dateLabel}</b>, synthetic markets did synthetic things. This sample exists so the page can be evaluated without private data.`,
       moverNotes: {
         AAPL: { why: 'Example Apple is up versus cost in the synthetic sample.', dir: 'up' },
-        MSFT: { why: 'Example Microsoft is down versus cost in the synthetic sample.', dir: 'down' },
+        // MSFT deliberately has no note: the review page lists unnoted movers as one line.
         '000111': { why: 'Sample Semiconductor is up versus cost in the synthetic Korean sample.', dir: 'up' },
         '000222': { why: 'Sample Motors is down versus cost in the synthetic Korean sample.', dir: 'down' },
       },
@@ -423,8 +423,12 @@ const sessions = {
     available: true, reason: null, previousDate: '2026-01-02', marketClosed: false,
     totals: { pl: usPl, plPct: (usPl / (priorApple * 7 + 255)) * 100, priorMarketValue: priorApple * 7 + 255, coveredPositions: 2, uncoveredPositions: 0 },
     gainers: [{ ticker: 'AAPL', name: null, pctChange: ((240 - priorApple) / priorApple) * 100, valueChange: usPl, priceFrom: priorApple, priceTo: 240, quantity: 7, marketValue: 1680 }],
-    losers: [],
-    activity: [{ ticker: 'MSFT', kind: 'bought', quantityChange: 1, quantity: 1, cost: 300 }],
+    losers: [{ ticker: 'MSFT', name: null, pctChange: ((255 - 258) / 258) * 100, valueChange: -3, priceFrom: 258, priceTo: 255, quantity: 1, marketValue: 255 }],
+    // The fractional row stands for a dividend reinvestment, which the page folds into a count.
+    activity: [
+      { ticker: 'MSFT', kind: 'bought', quantityChange: 1, quantity: 1, cost: 300 },
+      { ticker: 'AAPL', kind: 'bought', quantityChange: 0.004101, quantity: 7.004101, cost: 1420.98 },
+    ],
   },
   KR: {
     available: true, reason: null, previousDate: '2026-01-02', marketClosed: false,

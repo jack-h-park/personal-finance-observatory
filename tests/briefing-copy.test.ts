@@ -81,8 +81,8 @@ test('a suspected restatement replaces the researched note, in Korean', () => {
 
 test('an ordinary mover keeps its note, and its fallback', () => {
   assert.equal(en.moverNote(move({ ticker: 'AMD' }), { AMD: { why: 'Rose on earnings.' } }), 'Rose on earnings.')
-  assert.equal(en.moverNote(move({ ticker: 'AMD' }), {}), 'No researched note for this session move.')
-  assert.equal(ko.moverNote(move({ ticker: 'AMD' }), {}), '이 세션 변동에 대한 조사 메모가 없습니다.')
+  assert.equal(en.moverNote(move({ ticker: 'AMD' }), {}), 'No researched note for this move.')
+  assert.equal(ko.moverNote(move({ ticker: 'AMD' }), {}), '이 변동에 대한 조사 메모가 없습니다.')
 })
 
 // The archive can carry a session without the date of the snapshot it compares
@@ -97,4 +97,16 @@ test('a missing comparison date never prints null', () => {
   }
   assert.equal(en.bandSince(null), 'price moves since the previous snapshot')
   assert.equal(ko.marketClosed('KR', null), '추적 중인 KR 가격이 모두 이전 스냅샷 가격과 같습니다 — 휴장했거나 시트의 가격이 갱신되지 않았습니다.')
+})
+
+// Editions are weekly and each compares against the previous archived one
+// (two weeks apart for 2026-11-10), so the period labels must not say "today"
+// or "session" in either language.
+test('period labels name the last briefing, not the day', () => {
+  for (const key of ['sessionPl', 'sessionReturn', 'gainers', 'decliners'] as const) {
+    assert.ok(!/당일|오늘/.test(ko[key]), `ko.${key}: ${ko[key]}`)
+    assert.ok(ko[key].includes('지난 브리핑 이후'), `ko.${key}: ${ko[key]}`)
+    assert.ok(!/session|daily|today/i.test(en[key]), `en.${key}: ${en[key]}`)
+  }
+  assert.equal(ko.bandSince('2026-10-27'), '2026-10-27 이후 가격 변동')
 })
