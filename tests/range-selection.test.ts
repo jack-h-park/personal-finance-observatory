@@ -1,7 +1,7 @@
 import { strict as assert } from 'node:assert'
 import { test } from 'node:test'
 
-import { orderedDragRange, rangeHref, resolveRangeSelection, trendRangeCovering } from '@/lib/range-selection'
+import { keepsSelection, orderedDragRange, rangeHref, resolveRangeSelection, trendRangeCovering } from '@/lib/range-selection'
 import { TREND_RANGES } from '@/lib/trend-ranges'
 
 const dates = ['2026-01-31', '2026-02-28', '2026-03-31', '2026-04-30']
@@ -34,6 +34,15 @@ test('widens the trend window to reach the selection', () => {
   assert.equal(trendRangeCovering(range('365'), '2026-03-01', '2026-11-22').key, '365')
   assert.equal(trendRangeCovering(range('30'), '2026-09-01', '2026-11-22').key, '90')
   assert.equal(trendRangeCovering(range('730'), '2010-01-01', '2026-11-22').key, 'all')
+})
+
+test('a trend link keeps the selection only when its window reaches the start', () => {
+  const today = '2026-11-22'
+  assert.equal(keepsSelection(range('365'), '2026-03-01', today), true)
+  assert.equal(keepsSelection(range('30'), '2026-09-01', today), false)
+  assert.equal(keepsSelection(range('ytd'), '2026-02-28', today), true)
+  assert.equal(keepsSelection(range('ytd'), '2025-12-30', today), false)
+  assert.equal(keepsSelection(range('all'), '2010-01-01', today), true)
 })
 
 test('rangeHref keeps other params', () => {

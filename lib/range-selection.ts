@@ -59,6 +59,15 @@ export function trendRangeCovering(selected: TrendRange, from: string, today: st
   return wider ?? TREND_RANGES.find((range) => range.key === 'all')!
 }
 
+/**
+ * Whether a trend link keeps the selected period. A window that reaches back
+ * to `from` keeps it; a narrower one drops it, because an explicit narrower
+ * choice wins over a selection the reader can no longer see.
+ */
+export function keepsSelection(trend: TrendRange, from: string, today: string): boolean {
+  return trendRangeCovering(trend, from, today).key === trend.key
+}
+
 /** `baseHref` with `from` and `to` set (replacing any present); other params stay. */
 export function rangeHref(baseHref: string, from: string, to: string): string {
   const [path, query = ''] = baseHref.split('?')

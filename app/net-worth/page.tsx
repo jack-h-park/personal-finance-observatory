@@ -22,14 +22,14 @@ import { RangeBreakdownPanel } from '@/components/RangeBreakdownPanel'
 import { RangeSelectForm } from '@/components/RangeSelectForm'
 import { TextLink } from '@/components/controls'
 import { LinkChip } from '@/components/LinkChips'
-import { DEFAULT_TREND_RANGE, resolveTrendRange, trendRangeDays, type TrendRange } from '@/lib/trend-ranges'
+import { DEFAULT_TREND_RANGE, TREND_RANGES, resolveTrendRange, trendRangeDays, type TrendRange } from '@/lib/trend-ranges'
 import type { AllocationClass } from '@/lib/asset-allocation'
 import { ASSET_CLASS_COLOR, WRAPPER_COLOR } from '@/lib/palette'
 import { getPageCopy } from '@/lib/ui-copy'
 import { maskAccountLabel } from '@/lib/account-label'
 import { investmentResult, monthEndBefore, previousYearEnd, totalAssetsChange, type InvestmentPoint, type TotalAssetsChange } from '@/lib/total-assets-change'
 import { ASSET_CLASS_KEYS, historyRows, resolveClasses, resolveHistoryWindow, toggleClass, viewPoints } from '@/lib/total-assets-view'
-import { resolveRangeSelection, trendRangeCovering } from '@/lib/range-selection'
+import { keepsSelection, resolveRangeSelection, trendRangeCovering } from '@/lib/range-selection'
 import { rangeBreakdownView } from '@/lib/range-breakdown-view'
 
 export const dynamic = 'force-dynamic'
@@ -235,7 +235,13 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
           <div className="flex flex-col gap-2 border-t border-line-subtle pt-4">
             <div className="flex flex-wrap items-center gap-1">
               <span className="mr-1 text-label text-ink-3">{copy.rangeFilter}</span>
-              <TrendRangeLinks selected={selectedRange} hrefFor={(trend) => hrefWith({ trend })} />
+              <TrendRangeLinks
+                selected={selectedRange}
+                hrefFor={(trend) => {
+                  const target = TREND_RANGES.find((range) => range.key === trend)!
+                  return hrefWith({ trend, ...(selection && !keepsSelection(target, selection.from, today) ? { range: null } : {}) })
+                }}
+              />
             </div>
             <div className="flex flex-wrap items-center gap-1">
               <span className="mr-1 text-label text-ink-3">{copy.classFilter}</span>
