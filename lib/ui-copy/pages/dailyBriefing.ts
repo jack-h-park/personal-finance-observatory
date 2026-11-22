@@ -29,33 +29,35 @@ export const dailyBriefing = defineCopy({
   en: {
     title: "Today's Briefing",
     emphasis: 'Briefing',
-    subtitle: 'Archived daily briefings, published each trading morning.',
+    subtitle: 'Archive of published briefings, for looking back. Read a new edition on its published page.',
     briefingDate: 'Briefing date',
     view: 'View',
     latest: 'Latest',
     latestSuffix: 'latest',
     costShort: 'Cost',
     archived: 'Archived',
-    sessionReturn: 'Session Return',
+    sessionReturn: 'Return since last briefing',
     sessionPlInfo:
       'Price movement on the shares already held, measured against the previous archived snapshot. Shares bought or sold since then are excluded, so this is the market move and not the effect of trading.',
-    sessionPl: 'Session P/L',
-    dailyMove: 'Daily move',
+    sessionPl: 'P/L since last briefing',
     standingSnapshot: 'Standing snapshot',
     portfolioValue: 'Portfolio Value',
     unrealized: 'Unrealized P/L',
-    readOrder: 'Briefing Read Order',
-    readOrderInfo: 'Use the daily move first, then standing value and cumulative unrealized performance.',
-    market: 'Market',
-    costBasis: 'Cost Basis',
-    standingVsCost: 'Standing versus purchase cost',
-    cumulativeNote: 'cumulative since purchase — moves slowly',
-    gainers: 'Session gainers',
-    decliners: 'Session decliners',
+    gainers: 'Up since last briefing',
+    decliners: 'Down since last briefing',
     bestVsCost: 'Best vs cost',
     worstVsCost: 'Worst vs cost',
-    largestPositions: 'Largest positions',
+    largestToggle: (count: number) => `Largest positions (${count})`,
     marketContext: 'Market context',
+    notesTitle: 'Notes on movers',
+    notesInfo: (minAmount: string) =>
+      `Each ticker once, with its move since the last briefing and its standing versus cost where it ranked in either list (positions worth at least ${minAmount}). Movers with no note are listed by ticker and change below.`,
+    noNotes: 'No mover notes in this briefing.',
+    quietLead: 'No note',
+    sinceShort: 'since last',
+    vsCostShort: 'vs cost',
+    fractionalFolded: (count: number, tickers: string) =>
+      `${count} buy${count === 1 ? '' : 's'} or sell${count === 1 ? '' : 's'} under one share left out: ${tickers}`,
     suggestedActions: 'Suggested actions to consider',
     documentBuilt: 'Document built',
     markets: 'Markets',
@@ -63,16 +65,12 @@ export const dailyBriefing = defineCopy({
     actNow: 'Act now',
     thisWeek: 'This week',
     fyi: 'FYI',
-    noMovers: 'No movers in this briefing',
-    noSessionMovesUp: 'No material moves up this session',
-    noSessionMovesDown: 'No material moves down this session',
     noSnapshot: 'No holdings snapshot was retained for this briefing.',
     noPrices: 'The holdings sheet carried no usable prices on both sides of the comparison.',
-    noNote: 'No note in this briefing.',
     unreadable: 'That briefing could not be read.',
     noArchive: 'No briefings archived yet.',
     noPriorSnapshot: 'No prior snapshot was available to compare against.',
-    sessionZero: 'Session figures are therefore zero; the standing-versus-cost view below is unaffected.',
+    sessionZero: 'Figures since the last briefing are therefore zero; standing versus cost is unaffected.',
     olderBriefing: (date: string) => `Older briefing, ${date}`,
     newerBriefing: (date: string) => `Newer briefing, ${date}`,
     briefingRange: (count: number, from: string, to: string) =>
@@ -87,27 +85,18 @@ export const dailyBriefing = defineCopy({
       'Holdings snapshots were only retained from the archive rollout onward; earlier days kept the narrative alone.',
     narrativeOnly: (date: string) => `No portfolio numbers for ${date} — this briefing was archived narrative-only.`,
     bandSince: (date: string | null) => (date ? `price moves since ${date}` : 'price moves since the previous snapshot'),
-    bandDayOverDay: 'day-over-day comparison',
+    bandNoComparison: 'no comparison',
     marketClosed: (market: string, date: string | null) =>
       `Every tracked ${market} price matches ${date ?? 'the previous snapshot'} — the market was closed, or the sheet has not re-priced.`,
-    noComparison: (market: string) => `No day-over-day comparison for ${market} in this briefing.`,
+    noComparison: (market: string) => `No comparison with the last briefing for ${market} in this edition.`,
     pricedHint: (covered: string, uncovered: number) =>
       `${covered} priced${uncovered ? `, ${uncovered} without prices` : ''}`,
     positionCount: (count: number) => `${count} positions`,
     priorValueHint: (amount: string) => `on ${amount} prior value`,
     unrealizedHint: (pct: string, cost: string) => `${pct} vs ${cost} cost`,
-    reportingCurrency: (currency: string) => `${currency} reporting currency`,
-    readOrderNote: 'Session figures answer today; portfolio value and unrealized P/L answer current standing.',
-    sessionMoversInfo: (minAmount: string) =>
-      `Ranked by price change since the previous snapshot, among positions worth at least ${minAmount}.`,
     activitySince: (date: string | null) => (date ? `Activity since ${date}` : 'Activity since the previous snapshot'),
     activityNote:
-      'Detected from share-count changes between snapshots — no trade feed is involved. Excluded from Session P/L, which measures price movement on the shares already held.',
-    standingBand: (flag: string, market: string) => `${flag} ${market} — standing vs cost`,
-    bestVsCostInfo: (minAmount: string) =>
-      `Ranked by unrealized gain versus cost basis, among positions of at least ${minAmount}. Cumulative since purchase — not a one-day move.`,
-    worstVsCostInfo: (minAmount: string) =>
-      `Ranked by unrealized loss versus cost basis, among positions of at least ${minAmount}. Cumulative since purchase — not a one-day move.`,
+      'Detected from share-count changes between snapshots — no trade feed is involved. Excluded from P/L since last briefing, which measures price movement on the shares already held.',
     largestInfo:
       'Ranked by market value, not cost — a position down 60% is no longer a large exposure whatever was paid for it.',
     // The actions footnote: these fragments sit between the bold priority labels
@@ -122,7 +111,7 @@ export const dailyBriefing = defineCopy({
     disclaimer: 'Generated commentary, informational only — not investment advice.',
     noMarkets: 'none',
     footer:
-      'Read-only view of the briefing archive written by the daily briefing cron. The same documents are published to briefing.jackpark.me, so both surfaces always show the same numbers for a date. Figures are the snapshot taken on the briefing date and do not update, and each market is reported in its own currency — they are never summed.',
+      'Read-only archive view of the documents the briefing cron writes. The published page at briefing.jackpark.me is where an edition is read in full; this page shows the same numbers for a date, shortened for looking back. Each edition compares against the previous archived one, so figures cover the period since then. They are the snapshot taken on the briefing date and do not update, and each market is reported in its own currency — they are never summed.',
     /**
      * What a row in "Activity since <date>" says.
      *
@@ -153,9 +142,9 @@ export const dailyBriefing = defineCopy({
      */
     moverNote: (m: BriefingSessionMove, notes: MoverNotes): string => {
       if (m.suspectedRestatement) {
-        return `A ${m.suspectedRestatement} split moves the price by exactly this factor, and the share count here has not changed. If that is what happened the loss is not real and the sheet needs the new count — the figure is left in the session total until it can be told apart from a fall.`
+        return `A ${m.suspectedRestatement} split moves the price by exactly this factor, and the share count here has not changed. If that is what happened the loss is not real and the sheet needs the new count — the figure is left in the total since the last briefing until it can be told apart from a fall.`
       }
-      return notes[m.ticker]?.why ?? 'No researched note for this session move.'
+      return notes[m.ticker]?.why ?? 'No researched note for this move.'
     },
     columns: {
       ticker: 'Ticker',
@@ -168,32 +157,33 @@ export const dailyBriefing = defineCopy({
   ko: {
     title: '오늘의 브리핑',
     emphasis: '브리핑',
-    subtitle: '거래일 아침마다 발행되어 보관된 일일 브리핑입니다.',
+    subtitle: '발행된 브리핑을 돌아보는 보관 화면입니다. 새 브리핑은 발행된 페이지에서 읽으세요.',
     briefingDate: '브리핑 날짜',
     view: '보기',
     latest: '최신',
     latestSuffix: '최신',
     costShort: '원가',
     archived: '보관됨',
-    sessionReturn: '당일 수익률',
+    sessionReturn: '지난 브리핑 이후 수익률',
     sessionPlInfo: '이미 보유 중이던 주식의 가격 변동을, 직전에 보관된 스냅샷과 비교해 측정한 값입니다. 그 이후의 매수·매도는 제외하므로 매매의 효과가 아니라 시장의 움직임입니다.',
-    sessionPl: '당일 손익',
-    dailyMove: '당일 변동',
+    sessionPl: '지난 브리핑 이후 손익',
     standingSnapshot: '기준 스냅샷',
     portfolioValue: '포트폴리오 평가금액',
     unrealized: '평가손익',
-    readOrder: '브리핑 읽는 순서',
-    readOrderInfo: '당일 변동을 먼저 보고, 그다음 기준 평가금액과 누적 평가손익을 확인하세요.',
-    market: '시장',
-    costBasis: '취득원가',
-    standingVsCost: '취득원가 대비 현재',
-    cumulativeNote: '매수 이후 누적 — 천천히 움직입니다',
-    gainers: '당일 상승',
-    decliners: '당일 하락',
+    gainers: '지난 브리핑 이후 상승',
+    decliners: '지난 브리핑 이후 하락',
     bestVsCost: '원가 대비 최고',
     worstVsCost: '원가 대비 최저',
-    largestPositions: '최대 보유',
+    largestToggle: (count: number) => `최대 보유 ${count}개`,
     marketContext: '시장 상황',
+    notesTitle: '변동 종목 메모',
+    notesInfo: (minAmount: string) =>
+      `종목마다 한 번만 보여주며, 두 목록 중 어디에 올랐는지에 따라 지난 브리핑 이후 변동과 취득원가 대비 수익률을 함께 적었습니다(평가금액 ${minAmount} 이상 종목). 메모가 없는 종목은 아래에 종목코드와 변동률만 나열합니다.`,
+    noNotes: '이 브리핑에는 종목 메모가 없습니다.',
+    quietLead: '메모 없음',
+    sinceShort: '지난 브리핑 이후',
+    vsCostShort: '원가 대비',
+    fractionalFolded: (count: number, tickers: string) => `1주 미만 매수·매도 ${count}건은 생략했습니다: ${tickers}`,
     suggestedActions: '검토할 만한 조치',
     documentBuilt: '문서 생성',
     markets: '시장',
@@ -201,16 +191,12 @@ export const dailyBriefing = defineCopy({
     actNow: '즉시',
     thisWeek: '이번 주',
     fyi: '참고',
-    noMovers: '이 브리핑에는 변동 종목이 없습니다',
-    noSessionMovesUp: '이번 세션에 눈에 띄게 오른 종목이 없습니다',
-    noSessionMovesDown: '이번 세션에 눈에 띄게 내린 종목이 없습니다',
     noSnapshot: '이 브리핑에는 보유 스냅샷이 보관되지 않았습니다.',
     noPrices: '보유 시트에 비교 양쪽 모두 쓸 수 있는 가격이 없었습니다.',
-    noNote: '이 브리핑에는 메모가 없습니다.',
     unreadable: '해당 브리핑을 읽을 수 없었습니다.',
     noArchive: '아직 보관된 브리핑이 없습니다.',
     noPriorSnapshot: '비교할 이전 스냅샷이 없었습니다.',
-    sessionZero: '따라서 당일 수치는 0입니다. 아래의 원가 대비 현황은 영향을 받지 않습니다.',
+    sessionZero: '따라서 지난 브리핑 이후 수치는 0입니다. 취득원가 대비 수치는 영향을 받지 않습니다.',
     olderBriefing: (date: string) => `이전 브리핑, ${date}`,
     newerBriefing: (date: string) => `다음 브리핑, ${date}`,
     briefingRange: (count: number, from: string, to: string) => `브리핑 ${count}건 · ${from} → ${to}`,
@@ -223,27 +209,18 @@ export const dailyBriefing = defineCopy({
     narrativeOnlyHint: '보유 스냅샷은 보관 기능을 도입한 이후부터만 남아 있습니다. 그 이전 날짜는 서술만 보관했습니다.',
     narrativeOnly: (date: string) => `${date}의 포트폴리오 수치가 없습니다 — 이 브리핑은 서술만 보관되었습니다.`,
     bandSince: (date: string | null) => (date ? `${date} 이후 가격 변동` : '이전 스냅샷 이후 가격 변동'),
-    bandDayOverDay: '전일 대비 비교',
+    bandNoComparison: '비교 대상 없음',
     marketClosed: (market: string, date: string | null) =>
       `추적 중인 ${market} 가격이 모두 ${date ?? '이전 스냅샷'} 가격과 같습니다 — 휴장했거나 시트의 가격이 갱신되지 않았습니다.`,
-    noComparison: (market: string) => `이 브리핑에는 ${market}의 전일 대비 비교가 없습니다.`,
+    noComparison: (market: string) => `이 브리핑에는 ${market}의 지난 브리핑 대비 비교가 없습니다.`,
     pricedHint: (covered: string, uncovered: number) =>
       `가격 반영 ${covered}개${uncovered ? `, 가격 없음 ${uncovered}개` : ''}`,
     positionCount: (count: number) => `보유종목 ${count}개`,
     priorValueHint: (amount: string) => `직전 평가금액 ${amount} 기준`,
     unrealizedHint: (pct: string, cost: string) => `취득원가 ${cost} 대비 ${pct}`,
-    reportingCurrency: (currency: string) => `보고 통화 ${currency}`,
-    readOrderNote: '당일 수치는 오늘의 변동을, 포트폴리오 평가금액과 평가손익은 현재 상태를 보여줍니다.',
-    sessionMoversInfo: (minAmount: string) =>
-      `평가금액 ${minAmount} 이상 종목 중, 직전 스냅샷 이후 가격 변동 순으로 정렬했습니다.`,
     activitySince: (date: string | null) => (date ? `${date} 이후 활동` : '이전 스냅샷 이후 활동'),
     activityNote:
-      '스냅샷 사이의 보유 수량 변화로 감지했으며, 거래 내역은 사용하지 않습니다. 이미 보유한 주식의 가격 변동만 측정하는 당일 손익에서는 제외됩니다.',
-    standingBand: (flag: string, market: string) => `${flag} ${market} — 취득원가 대비 현황`,
-    bestVsCostInfo: (minAmount: string) =>
-      `${minAmount} 이상 종목 중 취득원가 대비 평가이익 순으로 정렬했습니다. 매수 이후 누적이며 하루 변동이 아닙니다.`,
-    worstVsCostInfo: (minAmount: string) =>
-      `${minAmount} 이상 종목 중 취득원가 대비 평가손실 순으로 정렬했습니다. 매수 이후 누적이며 하루 변동이 아닙니다.`,
+      '스냅샷 사이의 보유 수량 변화로 감지했으며, 거래 내역은 사용하지 않습니다. 이미 보유한 주식의 가격 변동만 측정하는 지난 브리핑 이후 손익에서는 제외됩니다.',
     largestInfo: '취득원가가 아니라 평가금액 순입니다 — 60% 하락한 종목은 얼마에 샀든 더 이상 큰 노출이 아닙니다.',
     actionsLead: '얼마나 빨리 살펴봐야 하는지에 따라 정렬했습니다:',
     actNowMeaning: '는 날짜가 정해진 계기 때문에 오늘 결정하는 편이 기다리는 것보다 확실히 나은 경우(브리핑당 최대 1개),',
@@ -252,7 +229,7 @@ export const dailyBriefing = defineCopy({
     disclaimer: '자동 생성된 해설로 정보 제공용이며, 투자 조언이 아닙니다.',
     noMarkets: '없음',
     footer:
-      '일일 브리핑 예약 작업이 작성한 브리핑 보관함을 읽기 전용으로 보여줍니다. 같은 문서가 공개 브리핑 페이지에도 발행되므로 두 화면은 같은 날짜에 항상 같은 수치를 보여줍니다. 수치는 브리핑 날짜에 찍은 스냅샷이라 갱신되지 않으며, 각 시장은 자체 통화로 표시하고 합산하지 않습니다.',
+      '브리핑 예약 작업이 작성한 보관 문서를 읽기 전용으로 보여줍니다. 브리핑 전문은 발행된 페이지에서 읽고, 이 화면은 같은 날짜의 같은 수치를 돌아보기 좋게 줄여 보여줍니다. 각 브리핑은 직전에 보관된 브리핑과 비교하므로 수치는 그 이후 기간을 다룹니다. 브리핑 날짜에 찍은 스냅샷이라 갱신되지 않으며, 각 시장은 자체 통화로 표시하고 합산하지 않습니다.',
     activityWording: (a: BriefingActivity, fmt: Fmt): string => {
       if (isRestatement(a)) {
         const named = a.ratioLabel ? ` (${a.ratioLabel})` : ''
@@ -265,9 +242,9 @@ export const dailyBriefing = defineCopy({
     activityBadge: (a: BriefingActivity): string => KO_BADGE[a.kind] ?? a.kind,
     moverNote: (m: BriefingSessionMove, notes: MoverNotes): string => {
       if (m.suspectedRestatement) {
-        return `${m.suspectedRestatement} 분할이면 가격이 정확히 이 비율만큼 움직이는데, 여기서는 보유 수량이 바뀌지 않았습니다. 그런 경우라면 이 손실은 실제가 아니며 시트에 새 수량을 반영해야 합니다 — 하락과 구분할 수 있을 때까지 이 수치는 당일 합계에 남겨 둡니다.`
+        return `${m.suspectedRestatement} 분할이면 가격이 정확히 이 비율만큼 움직이는데, 여기서는 보유 수량이 바뀌지 않았습니다. 그런 경우라면 이 손실은 실제가 아니며 시트에 새 수량을 반영해야 합니다 — 하락과 구분할 수 있을 때까지 이 수치는 지난 브리핑 이후 합계에 남겨 둡니다.`
       }
-      return notes[m.ticker]?.why ?? '이 세션 변동에 대한 조사 메모가 없습니다.'
+      return notes[m.ticker]?.why ?? '이 변동에 대한 조사 메모가 없습니다.'
     },
     columns: {
       ticker: '종목코드',

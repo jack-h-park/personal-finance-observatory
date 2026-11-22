@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { PageHeader } from '@/components/PageHeader'
-import { Badge, Button, Card, EmptyState, HeroAside, Label, MetaItem, MetaRow, MetricField, MetricHeroCard, Note, SectionHeading, Signed, Table, Tbody, Td, Th, Thead, Tr } from '@/components/ui'
+import { Badge, Button, Card, EmptyState, Label, MetaItem, MetaRow, Note, SectionHeading, Signed, Table, Tbody, Td, Th, Thead, Tr } from '@/components/ui'
 import {
   getArchiveStatus,
   getBriefing,
@@ -18,7 +18,8 @@ import { Select } from '@/components/form'
 import { getLanguage } from '@/lib/i18n-server'
 import { getPageCopy, getUiCopy } from '@/lib/ui-copy'
 import { routeMetadata, routeSection } from '@/lib/page-names'
-import { CardRow, KpiBand } from '@/components/layout'
+import { Stat, StatStrip } from '@/components/layout'
+import { reviewMarket, type MarketReview } from '@/lib/briefing-review'
 import { maskAccountLabel } from '@/lib/account-label'
 
 type PageCopy = ReturnType<typeof getPageCopy<'dailyBriefing'>>
@@ -75,51 +76,81 @@ const sessionExplain = (copy: PageCopy): Record<string, string> => ({
 
 type Notes = BriefingDocument['narrative']['moverNotes']
 
-/** Standing versus cost — cumulative since purchase. */
-function MoverList({ movers, notes, market, copy }: { movers: BriefingPosition[]; notes: Notes; market: BriefingMarket; copy: PageCopy }) {
-  if (movers.length === 0) return <EmptyState>{copy.noMovers}</EmptyState>
+/**
+ * Each researched note once per ticker. A ticker that ranked both as a mover
+ * since the last briefing and against cost used to get the same paragraph
+ * twice; it now gets one row carrying both figures.
+ */
+function NotedMovers({ review, notes, market, copy }: { review: MarketReview; notes: Notes; market: BriefingMarket; copy: PageCopy }) {
+  if (review.noted.length === 0) return <EmptyState>{copy.noNotes}</EmptyState>
   return (
     <ul className="divide-y divide-[color:var(--border-subtle)]">
-      {movers.map((m) => (
+      {review.noted.map((m) => (
         <li key={m.ticker} className="flex gap-3 py-2.5 first:pt-0 last:pb-0">
-          <div className="w-24 shrink-0">
+          <div className="w-28 shrink-0">
             <TickerLink ticker={m.ticker} name={m.name} market={market} />
-            <div className="mt-0.5 text-label font-medium tabular-nums">
-              <Signed value={m.pct} format={(m) => fmtPct(m)} />
-            </div>
+            {m.session && (
+              <div className="mt-0.5 text-label tabular-nums">
+                <Signed value={m.session.pctChange} format={(v) => fmtPct(v)} className="font-medium" />{' '}
+                <span className="text-micro text-ink-3">{copy.sinceShort}</span>
+              </div>
+            )}
+            {m.vsCost && (
+              <div className="text-label tabular-nums">
+                <Signed value={m.vsCost.pct} format={(v) => fmtPct(v)} />{' '}
+                <span className="text-micro text-ink-3">{copy.vsCostShort}</span>
+              </div>
+            )}
           </div>
-          <p className="min-w-0 text-caption leading-relaxed text-ink-2">{notes[m.ticker]?.why ?? copy.noNote}</p>
+          <div className="min-w-0">
+            <p className="text-caption leading-relaxed text-ink-2">
+              {m.session?.suspectedRestatement ? copy.moverNote(m.session, notes) : m.why}
+            </p>
+            {m.session && (
+              <div className="mt-0.5 text-micro tabular-nums text-ink-3">
+                {priceOf(m.session.priceFrom, market)} → {priceOf(m.session.priceTo, market)} · {amount(m.session.valueChange, market)}
+              </div>
+            )}
+          </div>
         </li>
       ))}
     </ul>
   )
 }
 
-/** What the price actually did since the previous snapshot. */
-function SessionMoverList({ movers, notes, direction, market, copy }: { movers: BriefingSessionMove[]; notes: Notes; direction: 'up' | 'down'; market: BriefingMarket; copy: PageCopy }) {
-  if (movers.length === 0) return <EmptyState ok>{direction === 'up' ? copy.noSessionMovesUp : copy.noSessionMovesDown}</EmptyState>
+/** Movers nobody wrote about: one line of ticker and change per list, no card each. */
+function QuietLine({ label, items, market }: { label: string; items: { ticker: string; name?: string | null; pct: number }[]; market: BriefingMarket }) {
+  if (items.length === 0) return null
   return (
-    <ul className="divide-y divide-[color:var(--border-subtle)]">
-      {movers.map((m) => (
-        <li key={m.ticker} className="flex gap-3 py-2.5 first:pt-0 last:pb-0">
-          <div className="w-24 shrink-0">
-            <TickerLink ticker={m.ticker} name={m.name} market={market} />
-            <div className="mt-0.5 text-label font-medium tabular-nums">
-              <Signed value={m.pctChange} format={(m) => fmtPct(m)} />
-            </div>
-            <div className="text-micro tabular-nums text-ink-3">{amount(m.valueChange, market)}</div>
-          </div>
-          <div className="min-w-0">
-            <p className="text-caption leading-relaxed text-ink-2">
-              {copy.moverNote(m, notes)}
-            </p>
-            <div className="mt-0.5 text-micro tabular-nums text-ink-3">
-              {priceOf(m.priceFrom, market)} → {priceOf(m.priceTo, market)}
-            </div>
-          </div>
-        </li>
+    <p className="leading-relaxed">
+      <span className="font-medium text-ink-2">{label}</span>{' '}
+      {items.map((it, i) => (
+        <span key={it.ticker} className="whitespace-nowrap">
+          {/* Korean codes are opaque alone, so the company name stands in where the sheet has one. */}
+          <Link href={positionHref(market.id, it.ticker)} className="text-info hover:underline">
+            {it.name || it.ticker}
+          </Link>{' '}
+          <Signed value={it.pct} format={(v) => fmtPct(v)} className="tabular-nums" />
+          {i < items.length - 1 ? ', ' : ''}
+        </span>
       ))}
-    </ul>
+    </p>
+  )
+}
+
+function QuietMovers({ review, market, copy }: { review: MarketReview; market: BriefingMarket; copy: PageCopy }) {
+  const session = (list: BriefingSessionMove[]) => list.map((m) => ({ ticker: m.ticker, name: m.name, pct: m.pctChange }))
+  const vsCost = (list: BriefingPosition[]) => list.map((p) => ({ ticker: p.ticker, name: p.name, pct: p.pct }))
+  const count = review.quietUp.length + review.quietDown.length + review.quietBest.length + review.quietWorst.length
+  if (count === 0) return null
+  return (
+    <div className="-mx-4 -mb-4 mt-4 space-y-1 border-t border-line-subtle bg-surface px-4 py-3 text-label text-ink-3">
+      <Label as="div" size="micro">{copy.quietLead}</Label>
+      <QuietLine label={copy.gainers} items={session(review.quietUp)} market={market} />
+      <QuietLine label={copy.decliners} items={session(review.quietDown)} market={market} />
+      <QuietLine label={copy.bestVsCost} items={vsCost(review.quietBest)} market={market} />
+      <QuietLine label={copy.worstVsCost} items={vsCost(review.quietWorst)} market={market} />
+    </div>
   )
 }
 
@@ -246,186 +277,7 @@ export default async function DailyBriefingPage({ searchParams }: { searchParams
 
       <DatePicker dates={archive.dates} selected={doc.date} copy={copy} />
 
-      {markets.length === 0 && (
-        <Card className="mb-5">
-          <EmptyState hint={copy.narrativeOnlyHint}>
-            {copy.narrativeOnly(doc.date)}
-          </EmptyState>
-        </Card>
-      )}
-
-      {markets.map((m) => {
-        const totals = m.aggregates!.totals
-        const session = m.session?.available ? m.session : null
-        return (
-          <section key={m.id} className="mb-2">
-            <SectionHeading
-              size="section"
-              tracking
-              layout="band"
-              subtitle={`${session ? copy.bandSince(session.previousDate) : copy.bandDayOverDay} · ${m.currency}`}
-            >
-              {`${m.flag} ${marketName(m)}`}
-            </SectionHeading>
-
-            {session?.marketClosed && (
-              <Card className="mb-3">
-                <EmptyState hint={copy.sessionZero}>
-                  {copy.marketClosed(marketName(m), session.previousDate)}
-                </EmptyState>
-              </Card>
-            )}
-            {!session && (
-              <Card className="mb-3">
-                <EmptyState hint={sessionExplain(copy)[m.session?.reason ?? ''] ?? copy.noPriorSnapshot}>
-                  {copy.noComparison(marketName(m))}
-                </EmptyState>
-              </Card>
-            )}
-
-            <CardRow columns="hero">
-              <MetricHeroCard
-                title={session ? copy.sessionPl : copy.portfolioValue}
-                info={copy.sessionPlInfo}
-                eyebrow={session ? copy.dailyMove : copy.standingSnapshot}
-                value={session ? amount(session.totals!.pl, m) : amount(totals.marketValue, m)}
-                hint={
-                  session
-                    ? copy.pricedHint(String(session.totals!.coveredPositions), session.totals!.uncoveredPositions)
-                    : copy.positionCount(totals.positions)
-                }
-              >
-                <KpiBand>
-                  <MetricField
-                    label={copy.sessionReturn}
-                    value={session ? fmtPct(session.totals!.plPct, { signed: true }) : EMPTY_VALUE}
-                    hint={session ? copy.priorValueHint(amount(session.totals!.priorMarketValue, m)) : noValue}
-                    tone={session ? signTone(session.totals!.plPct) : 'neutral'}
-                  />
-                  <MetricField
-                    label={copy.portfolioValue}
-                    value={amount(totals.marketValue, m)}
-                    hint={copy.positionCount(totals.positions)}
-                  />
-                  <MetricField
-                    label={copy.unrealized}
-                    value={amount(totals.gl, m)}
-                    info={glossary.unrealizedGl.description}
-                    hint={copy.unrealizedHint(fmtPct(totals.pct, { signed: true }), amount(totals.cost, m))}
-                    tone={signTone(totals.gl)}
-                  />
-                </KpiBand>
-              </MetricHeroCard>
-
-              <HeroAside title={copy.readOrder} info={copy.readOrderInfo} note={copy.readOrderNote}>
-                <MetricField
-                  label={copy.market}
-                  value={marketName(m)}
-                  hint={copy.reportingCurrency(m.currency)}
-                  size="metric"
-                />
-                <MetricField
-                  label={copy.costBasis}
-                  value={amount(totals.cost, m)}
-                  info={glossary.costBasis.description}
-                  hint={copy.standingVsCost}
-                />
-              </HeroAside>
-            </CardRow>
-
-            {session && !session.marketClosed && (
-              <CardRow>
-                <Card title={copy.gainers} info={copy.sessionMoversInfo(amount(m.moverMinCost, m))}>
-                  <SessionMoverList movers={session.gainers} notes={doc.narrative.moverNotes} direction="up" market={m} copy={copy} />
-                </Card>
-                <Card title={copy.decliners} info={copy.sessionMoversInfo(amount(m.moverMinCost, m))}>
-                  <SessionMoverList movers={session.losers} notes={doc.narrative.moverNotes} direction="down" market={m} copy={copy} />
-                </Card>
-              </CardRow>
-            )}
-
-            {session && session.activity.length > 0 && (
-              <Card title={copy.activitySince(session.previousDate)} className="mb-5">
-                <ul className="divide-y divide-[color:var(--border-subtle)]">
-                  {session.activity.map((a) => (
-                    <li key={`${a.ticker}-${a.kind}`} className="flex flex-wrap items-center gap-2 py-2 text-caption first:pt-0 last:pb-0">
-                      <span className="w-20 shrink-0">
-                        <TickerLink ticker={a.ticker} market={m} />
-                      </span>
-                      <Badge tone={categoryTone(TRADE_SIDE_TONE, a.kind)}>{copy.activityBadge(a)}</Badge>
-                      <span className="text-ink-2">{copy.activityWording(a, fmtQuantity)}</span>
-                    </li>
-                  ))}
-                </ul>
-                <Note spacing="above-3" relaxed>
-                  {copy.activityNote}
-                </Note>
-              </Card>
-            )}
-
-            <SectionHeading size="section" tracking layout="band" subtitle={copy.cumulativeNote}>
-              {copy.standingBand(m.flag, marketName(m))}
-            </SectionHeading>
-
-            <CardRow>
-              <Card title={copy.bestVsCost} info={copy.bestVsCostInfo(amount(m.moverMinCost, m))}>
-                <MoverList movers={m.aggregates!.gainers} notes={doc.narrative.moverNotes} market={m} copy={copy} />
-              </Card>
-              <Card title={copy.worstVsCost} info={copy.worstVsCostInfo(amount(m.moverMinCost, m))}>
-                <MoverList movers={m.aggregates!.losers} notes={doc.narrative.moverNotes} market={m} copy={copy} />
-              </Card>
-            </CardRow>
-
-            <Card title={copy.largestPositions} className="mb-5" info={copy.largestInfo}>
-              <Table scroll>
-                <Thead>
-                  <Th>{copy.columns.ticker}</Th>
-                  <Th align="right">{copy.costShort}</Th>
-                  <Th align="right">{copy.columns.marketValue}</Th>
-                  <Th align="right">{copy.unrealized}</Th>
-                  <Th align="right">{copy.columns.returnPct}</Th>
-                  <Th align="right">{copy.columns.quantity}</Th>
-                  <Th>{copy.columns.accounts}</Th>
-                </Thead>
-                <Tbody>
-                  {m.aggregates!.largest.map((p) => (
-                    <Tr key={p.ticker}>
-                      <Td>
-                        <TickerLink ticker={p.ticker} name={p.name} market={m} />
-                      </Td>
-                      <Td align="right" className="tabular-nums">
-                        {amount(p.cost, m)}
-                      </Td>
-                      <Td align="right" className="tabular-nums">
-                        {amount(p.marketValue, m)}
-                      </Td>
-                      <Td align="right" className="tabular-nums">
-                        <Signed value={p.gl} format={(v) => amount(v, m)} />
-                      </Td>
-                      <Td align="right" className="tabular-nums">
-                        <Signed value={p.pct} format={(m) => fmtPct(m)} />
-                      </Td>
-                      <Td align="right" className="tabular-nums">
-                        {fmtQuantity(p.quantity, 2)}
-                      </Td>
-                      <Td className="text-label text-ink-3">{p.accounts.map(maskAccountLabel).join(', ')}</Td>
-                    </Tr>
-                  ))}
-                </Tbody>
-              </Table>
-            </Card>
-          </section>
-        )
-      })}
-
-      <Card title={copy.marketContext} className="mb-5">
-        {/* Pipeline-generated HTML (<b> emphasis only), from our own cron — not user input. */}
-        <div
-          className="briefing-macro text-body leading-relaxed text-ink-2"
-          dangerouslySetInnerHTML={{ __html: doc.narrative.macro }}
-        />
-      </Card>
-
+      {/* What the edition asks of the reader comes first; the figures below are the evidence. */}
       {doc.narrative.actions.length > 0 && (
         <Card title={copy.suggestedActions} className="mb-5">
           <ul className="space-y-2.5">
@@ -449,6 +301,160 @@ export default async function DailyBriefingPage({ searchParams }: { searchParams
           </Note>
         </Card>
       )}
+
+      {markets.length === 0 && (
+        <Card className="mb-5">
+          <EmptyState hint={copy.narrativeOnlyHint}>
+            {copy.narrativeOnly(doc.date)}
+          </EmptyState>
+        </Card>
+      )}
+
+      {markets.map((m) => {
+        const totals = m.aggregates!.totals
+        const session = m.session?.available ? m.session : null
+        const review = reviewMarket(m, doc.narrative.moverNotes)
+        return (
+          <section key={m.id} className="mb-2">
+            <SectionHeading
+              size="section"
+              tracking
+              layout="band"
+              subtitle={`${session ? copy.bandSince(session.previousDate) : copy.bandNoComparison} · ${m.currency}`}
+            >
+              {`${m.flag} ${marketName(m)}`}
+            </SectionHeading>
+
+            {session?.marketClosed && (
+              <Card className="mb-3">
+                <EmptyState hint={copy.sessionZero}>
+                  {copy.marketClosed(marketName(m), session.previousDate)}
+                </EmptyState>
+              </Card>
+            )}
+            {!session && (
+              <Card className="mb-3">
+                <EmptyState hint={sessionExplain(copy)[m.session?.reason ?? ''] ?? copy.noPriorSnapshot}>
+                  {copy.noComparison(marketName(m))}
+                </EmptyState>
+              </Card>
+            )}
+
+            <div className="mb-5">
+              <StatStrip columns="md-4">
+                <Stat
+                  label={session ? copy.sessionPl : copy.standingSnapshot}
+                  info={copy.sessionPlInfo}
+                  value={session ? <Signed value={session.totals!.pl} format={(v) => amount(v, m)} /> : EMPTY_VALUE}
+                  sub={session ? copy.pricedHint(String(session.totals!.coveredPositions), session.totals!.uncoveredPositions) : noValue}
+                  tone={session ? signTone(session.totals!.pl) : 'neutral'}
+                />
+                <Stat
+                  label={copy.sessionReturn}
+                  value={session ? fmtPct(session.totals!.plPct, { signed: true }) : EMPTY_VALUE}
+                  sub={session ? copy.priorValueHint(amount(session.totals!.priorMarketValue, m)) : noValue}
+                  tone={session ? signTone(session.totals!.plPct) : 'neutral'}
+                />
+                <Stat label={copy.portfolioValue} value={amount(totals.marketValue, m)} sub={copy.positionCount(totals.positions)} />
+                <Stat
+                  label={copy.unrealized}
+                  info={glossary.unrealizedGl.description}
+                  value={amount(totals.gl, m)}
+                  sub={copy.unrealizedHint(fmtPct(totals.pct, { signed: true }), amount(totals.cost, m))}
+                  tone={signTone(totals.gl)}
+                />
+              </StatStrip>
+            </div>
+
+            <Card title={copy.notesTitle} info={copy.notesInfo(amount(m.moverMinCost, m))} className="mb-5">
+              <NotedMovers review={review} notes={doc.narrative.moverNotes} market={m} copy={copy} />
+              <QuietMovers review={review} market={m} copy={copy} />
+            </Card>
+
+            {(review.activity.length > 0 || review.fractional.length > 0) && (
+              <Card title={copy.activitySince(session?.previousDate ?? null)} className="mb-5">
+                {review.activity.length > 0 && (
+                  <ul className="divide-y divide-[color:var(--border-subtle)]">
+                    {review.activity.map((a) => (
+                      <li key={`${a.ticker}-${a.kind}`} className="flex flex-wrap items-center gap-2 py-2 text-caption first:pt-0 last:pb-0">
+                        <span className="w-20 shrink-0">
+                          <TickerLink ticker={a.ticker} market={m} />
+                        </span>
+                        <Badge tone={categoryTone(TRADE_SIDE_TONE, a.kind)}>{copy.activityBadge(a)}</Badge>
+                        <span className="text-ink-2">{copy.activityWording(a, fmtQuantity)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {review.fractional.length > 0 && (
+                  <p className={`text-label text-ink-3 ${review.activity.length > 0 ? 'mt-3' : ''}`}>
+                    {copy.fractionalFolded(review.fractional.length, review.fractional.map((a) => a.ticker).join(', '))}
+                  </p>
+                )}
+                <Note spacing="above-3" relaxed>
+                  {copy.activityNote}
+                </Note>
+              </Card>
+            )}
+
+            {/* The portfolio pages already show holdings; here the table is kept for looking back, closed by default. */}
+            <details className="mb-5 rounded-md border border-line bg-card">
+              <summary className="min-h-6 cursor-pointer px-4 py-2.5 text-body font-medium text-ink-2">
+                {copy.largestToggle(m.aggregates!.largest.length)}
+              </summary>
+              <div className="border-t border-line-subtle p-4">
+                <Note spacing="none" relaxed>{copy.largestInfo}</Note>
+                <Table scroll>
+                  <Thead>
+                    <Th>{copy.columns.ticker}</Th>
+                    <Th align="right">{copy.costShort}</Th>
+                    <Th align="right">{copy.columns.marketValue}</Th>
+                    <Th align="right">{copy.unrealized}</Th>
+                    <Th align="right">{copy.columns.returnPct}</Th>
+                    <Th align="right">{copy.columns.quantity}</Th>
+                    <Th>{copy.columns.accounts}</Th>
+                  </Thead>
+                  <Tbody>
+                    {m.aggregates!.largest.map((p) => (
+                      <Tr key={p.ticker}>
+                        <Td>
+                          <TickerLink ticker={p.ticker} name={p.name} market={m} />
+                        </Td>
+                        <Td align="right" className="tabular-nums">
+                          {amount(p.cost, m)}
+                        </Td>
+                        <Td align="right" className="tabular-nums">
+                          {amount(p.marketValue, m)}
+                        </Td>
+                        <Td align="right" className="tabular-nums">
+                          <Signed value={p.gl} format={(v) => amount(v, m)} />
+                        </Td>
+                        <Td align="right" className="tabular-nums">
+                          <Signed value={p.pct} format={(m) => fmtPct(m)} />
+                        </Td>
+                        <Td align="right" className="tabular-nums">
+                          {fmtQuantity(p.quantity, 2)}
+                        </Td>
+                        <Td className="text-label text-ink-3">{p.accounts.map(maskAccountLabel).join(', ')}</Td>
+                      </Tr>
+                    ))}
+                  </Tbody>
+                </Table>
+              </div>
+            </details>
+          </section>
+        )
+      })}
+
+      {/* Closed by default: the published page carries this paragraph in full. */}
+      <details className="mb-5 rounded-md border border-line bg-card">
+        <summary className="min-h-6 cursor-pointer px-4 py-2.5 text-body font-medium text-ink-2">{copy.marketContext}</summary>
+        {/* Pipeline-generated HTML (<b> emphasis only), from our own cron — not user input. */}
+        <div
+          className="briefing-macro border-t border-line-subtle p-4 text-body leading-relaxed text-ink-2"
+          dangerouslySetInnerHTML={{ __html: doc.narrative.macro }}
+        />
+      </details>
 
       <MetaRow>
         <MetaItem label={copy.briefingDate}>{doc.date}</MetaItem>
