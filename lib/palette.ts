@@ -61,3 +61,21 @@ export const WRAPPER_COLOR: Record<'taxable' | 'isa' | 'pension', string> = {
 
 /** The children's accounts, drawn as their own band on the total-assets chart. */
 export const CHILDREN_COLOR = 'var(--brand-cyan)'
+
+/**
+ * One fixed colour per cash-inflow category. Counted categories take brand
+ * hues, not status tones, so a chart of income never reads as a warning.
+ * Unclassified money waits on a decision, so it is the warning tone (amber
+ * counts what waits on a decision; red is for faults).
+ */
+export const CASH_INFLOW_CATEGORY_COLOR: Record<
+  'salary' | 'dividend' | 'interest' | 'other' | 'reimbursement' | 'unclassified',
+  string
+> = {
+  salary: 'var(--brand-blue)',
+  dividend: 'var(--brand-cyan)',
+  interest: 'var(--brand-purple)',
+  other: 'var(--text-tertiary)',
+  reimbursement: 'var(--brand-pink)',
+  unclassified: TONE_VAR.warning,
+}
