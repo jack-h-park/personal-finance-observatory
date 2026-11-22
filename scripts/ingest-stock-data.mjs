@@ -8383,15 +8383,29 @@ check(
   'warning'
 )
 
-// Today's per-security rows (written below). A held security with no open lot
-// anywhere would record a zero cost and read as a free position, so count them.
-const { positions: todayPositions, uncosted: uncostedPositions } = buildTodayPositions(stockOnly(holdingRows), stockOnly(taxLotRows))
+// Today's per-security rows (written below). Held quantity no open lot covers
+// would record a zero cost and read as a free position, so count it.
+const {
+  positions: todayPositions,
+  uncosted: uncostedPositions,
+  orphanLots: orphanPositionLots,
+} = buildTodayPositions(stockOnly(holdingRows), stockOnly(taxLotRows))
 check(
   'position_snapshot_costs_present',
   uncostedPositions.length === 0,
   uncostedPositions.length === 0
     ? `${todayPositions.length} held security(ies) carry a lot cost in today's position rows`
-    : `${uncostedPositions.length} of ${todayPositions.length} held security(ies) have no open lot, so today's position rows record zero cost for them`,
+    : `${uncostedPositions.length} of ${todayPositions.length} held security(ies) hold quantity no open lot covers, so today's position rows record no cost for it`,
+  'warning'
+)
+// Open-lot cost that no today row carries: the period breakdown would read it
+// as a sale on any period ending today.
+check(
+  'position_snapshot_lot_costs_used',
+  orphanPositionLots.length === 0,
+  orphanPositionLots.length === 0
+    ? "every open lot's cost is carried by one of today's position rows"
+    : `${orphanPositionLots.length} security lot group(s) carry open-lot cost that no row of today's positions picked up`,
   'warning'
 )
 

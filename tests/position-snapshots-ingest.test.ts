@@ -88,7 +88,7 @@ test('a US holding whose lots are KR is keyed by the lot market and takes the lo
   assert.equal(uncosted.length, 0)
 })
 
-test('a holding keeps its own market when lots exist there, or when lots sit under two other markets', () => {
+test('without lot quantities, a holding keeps its own market when lots exist there, or when lots sit under two other markets', () => {
   const own = buildTodayPositions([holding('US', 'X')], [lot('US', 'X', 10), lot('KR', 'X', 99)])
   assert.deepEqual(own.positions.map((p) => [p.market, p.cost_krw]), [['US', 10]])
   const ambiguous = buildTodayPositions([holding('US', 'X')], [lot('KR', 'X', 1), lot('CRYPTO', 'X', 2)])
@@ -100,4 +100,68 @@ test('a held security with no lot anywhere is reported uncosted', () => {
   const { positions, uncosted } = buildTodayPositions([holding('KR', 'Y')], [])
   assert.equal(positions[0].cost_krw, 0)
   assert.equal(uncosted.length, 1)
+})
+
+const heldUnits = (market: string, ticker: string, quantity: number, value: number | null) => ({ market, account: 'a', ticker, name: ticker, quantity, base_market_value: value })
+const openLot = (market: string, ticker: string, quantity: number, cost: number) => ({ market, ticker, open_quantity: quantity, cost_basis_krw: cost })
+
+test('a holding whose open lots sit under two markets is split per lot market', () => {
+  const { positions, uncosted, orphanLots } = buildTodayPositions(
+    [heldUnits('US', 'X', 10, 1000)],
+    [openLot('KR', 'X', 6, 300), openLot('KR', 'X', 1, 40), openLot('US', 'X', 3, 200)]
+  )
+  const byMarket = Object.fromEntries(positions.map((p) => [p.market, p]))
+  assert.deepEqual(Object.keys(byMarket).sort(), ['KR', 'US'])
+  assert.equal(byMarket.KR.quantity, 7)
+  assert.equal(byMarket.KR.market_value_krw, 700)
+  assert.equal(byMarket.KR.cost_krw, 340)
+  assert.equal(byMarket.US.quantity, 3)
+  assert.equal(byMarket.US.market_value_krw, 300)
+  assert.equal(byMarket.US.cost_krw, 200)
+  assert.equal(byMarket.KR.market_value_krw + byMarket.US.market_value_krw, 1000)
+  assert.equal(uncosted.length, 0)
+  assert.equal(orphanLots.length, 0)
+})
+
+test('quantity no lot covers stays under the holding market and counts as uncosted', () => {
+  const { positions, uncosted } = buildTodayPositions([heldUnits('US', 'X', 10, 1000)], [openLot('KR', 'X', 4, 100), openLot('US', 'X', 2, 50)])
+  const byMarket = Object.fromEntries(positions.map((p) => [p.market, p]))
+  assert.equal(byMarket.KR.quantity, 4)
+  assert.equal(byMarket.KR.market_value_krw, 400)
+  assert.equal(byMarket.US.quantity, 6)
+  assert.equal(byMarket.US.market_value_krw, 600)
+  assert.equal(byMarket.US.cost_krw, 50)
+  assert.equal(uncosted.length, 1)
+})
+
+test('an uncovered remainder under a market with no lots is an uncosted row', () => {
+  const { positions, uncosted } = buildTodayPositions(
+    [heldUnits('CRYPTO', 'X', 10, 1000)],
+    [openLot('KR', 'X', 4, 100), openLot('US', 'X', 2, 50)]
+  )
+  assert.deepEqual(positions.map((p) => [p.market, p.quantity, p.market_value_krw, p.cost_krw]).sort(), [
+    ['CRYPTO', 4, 400, 0],
+    ['KR', 4, 400, 100],
+    ['US', 2, 200, 50],
+  ])
+  assert.equal(uncosted.length, 1)
+})
+
+test('an unpriced split holding writes unpriced rows', () => {
+  const { positions } = buildTodayPositions([heldUnits('US', 'X', 10, null)], [openLot('KR', 'X', 6, 300), openLot('US', 'X', 4, 200)])
+  assert.deepEqual(positions.map((p) => p.market_value_krw), [null, null])
+})
+
+test('open-lot cost no row picks up is reported', () => {
+  const { orphanLots } = buildTodayPositions([heldUnits('KR', 'Y', 1, 10)], [openLot('KR', 'Y', 1, 5), openLot('US', 'GONE', 2, 80)])
+  assert.deepEqual(orphanLots, [{ key: 'US:GONE', cost: 80 }])
+})
+
+test('position_snapshot_lot_costs_used passes on the fixture', () => {
+  const root = mkdtempSync(path.join(tmpdir(), 'position-snapshots-'))
+  const out = ingest(root)
+  const db = new Database(out.dbPath, { readonly: true })
+  const row = db.prepare("select status, severity from validation_checks where name = 'position_snapshot_lot_costs_used'").get()
+  db.close()
+  assert.deepEqual(row, { status: 'pass', severity: 'warning' })
 })

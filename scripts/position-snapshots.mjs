@@ -62,40 +62,110 @@ export function writePositionSnapshots(db, date, rows) {
  * The row key is the LOT market, because the backfill keys history by
  * tax_lots.market. A Toss US holding carries market US while its sheet-derived
  * lots are KR, so a holding with no lots under its own market takes the one
- * other market that has lots for its ticker. `uncosted` lists the rows left
- * without any lot cost (counted by a validation check, never named).
+ * other market that has lots for its ticker.
+ *
+ * When a ticker held under one market has open lots under more than one market
+ * (Toss: sheet lots KR, bridge lots US), and some of those markets hold nothing
+ * of their own, the holding is split: one row per lot market, valued at the
+ * holding's per-share value times that market's open lot quantity, with that
+ * market's lot cost. Quantity no lot covers stays under the holding's own key.
+ *
+ * `uncosted` lists the quantity left without lot cost: rows with no lot cost,
+ * and the uncovered remainder of a split holding. `orphanLots` lists the lot
+ * keys whose cost no row picked up. Both are counted by validation checks,
+ * never named.
  */
 export function buildTodayPositions(holdings, lots) {
   const costByKey = new Map()
+  const qtyByKey = new Map()
   const marketsByTicker = new Map()
+  const openMarketsByTicker = new Map()
   for (const lot of lots) {
     const key = `${lot.market}:${lot.ticker}`
     costByKey.set(key, (costByKey.get(key) ?? 0) + Number(lot.cost_basis_krw || 0))
     const markets = marketsByTicker.get(lot.ticker) ?? new Set()
     markets.add(lot.market)
     marketsByTicker.set(lot.ticker, markets)
+    const quantity = Number(lot.open_quantity || 0)
+    if (quantity > 0) {
+      qtyByKey.set(key, (qtyByKey.get(key) ?? 0) + quantity)
+      const open = openMarketsByTicker.get(lot.ticker) ?? new Set()
+      open.add(lot.market)
+      openMarketsByTicker.set(lot.ticker, open)
+    }
   }
+
+  const holdingMarketsByTicker = new Map()
+  for (const row of holdings) {
+    const markets = holdingMarketsByTicker.get(row.ticker) ?? new Set()
+    markets.add(row.market)
+    holdingMarketsByTicker.set(row.ticker, markets)
+  }
+  // Split a ticker when it is held under exactly one market and its open lots
+  // sit under more than one market, at least one of which holds nothing itself.
+  const splitTickers = new Set()
+  for (const [ticker, open] of openMarketsByTicker) {
+    const held = holdingMarketsByTicker.get(ticker)
+    if (!held || held.size !== 1 || open.size < 2) continue
+    if ([...open].some((market) => !held.has(market))) splitTickers.add(ticker)
+  }
+
   const names = new Map()
-  const valued = holdings.map((row) => {
+  const valued = []
+  const remainders = []
+  const splitHoldings = new Map()
+  for (const row of holdings) {
+    if (splitTickers.has(row.ticker)) {
+      const group = splitHoldings.get(row.ticker) ?? []
+      group.push(row)
+      splitHoldings.set(row.ticker, group)
+      continue
+    }
     let market = row.market
     if (!costByKey.has(`${market}:${row.ticker}`)) {
       const others = [...(marketsByTicker.get(row.ticker) ?? [])].filter((m) => m !== market)
       if (others.length === 1) market = others[0]
     }
     names.set(`${market}:${row.ticker}`, row.name)
-    return {
-      market,
-      account: row.account,
-      ticker: row.ticker,
-      quantity: row.quantity,
-      cost: 0,
-      marketValue: row.base_market_value,
+    valued.push({ market, account: row.account, ticker: row.ticker, quantity: row.quantity, cost: 0, marketValue: row.base_market_value })
+  }
+
+  for (const [ticker, group] of splitHoldings) {
+    const ownMarket = group[0].market
+    const heldQty = group.reduce((sum, row) => sum + Number(row.quantity || 0), 0)
+    const heldValue = group.some((row) => row.base_market_value == null)
+      ? null
+      : group.reduce((sum, row) => sum + Number(row.base_market_value), 0)
+    const lotMarkets = [...openMarketsByTicker.get(ticker)].sort()
+    const lotQty = lotMarkets.reduce((sum, market) => sum + qtyByKey.get(`${market}:${ticker}`), 0)
+    // Lots covering more than the holding share the whole value by quantity.
+    const scale = lotQty > heldQty && lotQty > 0 ? heldQty / lotQty : 1
+    const perShare = heldQty > 0 && heldValue !== null ? heldValue / heldQty : null
+    for (const market of lotMarkets) {
+      const quantity = qtyByKey.get(`${market}:${ticker}`) * scale
+      names.set(`${market}:${ticker}`, group[0].name)
+      valued.push({ market, account: null, ticker, quantity, cost: 0, marketValue: perShare === null ? null : perShare * quantity })
     }
-  })
+    const remainder = heldQty - lotQty * scale
+    if (remainder > 1e-9) {
+      names.set(`${ownMarket}:${ticker}`, group[0].name)
+      valued.push({ market: ownMarket, account: null, ticker, quantity: remainder, cost: 0, marketValue: perShare === null ? null : perShare * remainder })
+      remainders.push({ market: ownMarket, ticker, quantity: remainder })
+    }
+  }
+
   const positions = aggregatePositions(valued, names).map((row) => ({
     ...row,
     cost_krw: costByKey.get(`${row.market}:${row.ticker}`) ?? 0,
   }))
-  const uncosted = positions.filter((row) => row.quantity > 0 && !costByKey.has(`${row.market}:${row.ticker}`))
-  return { positions, uncosted }
+  const uncosted = [
+    ...positions.filter((row) => row.quantity > 0 && !costByKey.has(`${row.market}:${row.ticker}`)),
+    // A split remainder under a key that does carry lot cost is still uncosted quantity.
+    ...remainders.filter((r) => costByKey.has(`${r.market}:${r.ticker}`)),
+  ]
+  const written = new Set(positions.map((row) => `${row.market}:${row.ticker}`))
+  const orphanLots = [...costByKey.entries()]
+    .filter(([key, cost]) => cost !== 0 && !written.has(key))
+    .map(([key, cost]) => ({ key, cost }))
+  return { positions, uncosted, orphanLots }
 }
