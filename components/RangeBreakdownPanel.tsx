@@ -234,7 +234,8 @@ function BarRow({
 /**
  * A horizontal bar centred on zero. Parts of the same sign sit end to end, in
  * the order given, moving away from the axis; `scale` is the extent that fills
- * one half of the track.
+ * one half of the track. The axis uses the tertiary ink, not a border tone, so
+ * it stays visible next to a bar that only goes one way.
  */
 function DivergingBar({ parts, scale }: { parts: { key: string; value: number; color: string }[]; scale: number }) {
   const half = (value: number) => (scale > 0 ? (Math.abs(value) / scale) * 50 : 0)
@@ -242,7 +243,6 @@ function DivergingBar({ parts, scale }: { parts: { key: string; value: number; c
   let down = 0
   return (
     <div aria-hidden className="relative h-3 rounded-pill bg-surface">
-      <span className="absolute inset-y-0 left-1/2 w-px bg-line" />
       {parts.map((part) => {
         if (!part.value) return null
         const width = half(part.value)
@@ -258,6 +258,8 @@ function DivergingBar({ parts, scale }: { parts: { key: string; value: number; c
           />
         )
       })}
+      {/* The zero axis, drawn over the segments and past the track so a one-sided bar never reads as a progress bar. */}
+      <span data-axis className="absolute -inset-y-0.5 left-1/2 z-10 w-0.5 -translate-x-1/2 rounded-pill bg-ink-3" />
     </div>
   )
 }
