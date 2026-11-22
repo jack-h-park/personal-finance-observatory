@@ -304,3 +304,35 @@ test('past points count uninvested brokerage cash the way today does, outside th
   assert.equal(withBroker.points.at(-1)!.cash, netWorth.byClass.cash)
   assert.equal((mar.cash ?? 0) - (withBroker.points.at(-1)!.cash ?? 0), 0)
 })
+
+test('past points count the Hana USD pass-through balance on the dates it is held, and nothing once it is wired out', async () => {
+  const dbPath = ingest()
+  const db = new Database(dbPath)
+  db.prepare('delete from portfolio_snapshots').run()
+  db.prepare('delete from cash_balances').run()
+  db.prepare('delete from fx_events').run()
+  db.prepare('delete from historical_fx_rates').run()
+  const insert = db.prepare(
+    `insert into portfolio_snapshots (snapshot_date, captured_at, global_base_cost, global_base_market_value, kr_market_value, us_market_value_base, crypto_market_value_base,
+       kr_cost_basis, us_cost_basis_base, crypto_cost_basis_base, krw_cost, usd_cost, dividends_krw, dividends_usd, holding_count, share_count)
+     values (?, ?, 0, ?, ?, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1)`
+  )
+  for (const date of ['2026-09-30', '2026-10-31', '2026-11-30']) insert.run(date, `${date}T00:00:00Z`, 500_000, 500_000)
+  db.prepare('insert into historical_fx_rates (price_date, rate, source) values (?, ?, ?)').run('2026-01-01', 1_000, 'example')
+  const event = db.prepare(
+    `insert into fx_events (institution, account, date, time, event_type, direction, usd_amount, rate_status, match_status, confidence, method, balance_usd, source)
+     values ('Hana Bank', 'USD account', ?, ?, 'TRANSFER', ?, ?, 'account_reference_only', 'unmatched', 'low', 'bank_transfer_movement', ?, 'example')`
+  )
+  // Two arrivals on one day (the later balance wins), then a wire out after the month-end.
+  event.run('2026-10-29', '15:22:40', 'IN', 100, 100)
+  event.run('2026-10-29', '15:23:05', 'IN', 100, 200)
+  event.run('2026-11-03', '09:52:11', 'OUT', 200, 0)
+  db.close()
+
+  config.stockDbPath = dbPath
+  const { getTotalAssetsSeries } = await import('../lib/adapters/portfolio-db')
+  const [sep, oct, nov] = getTotalAssetsSeries(['2026-09-30', '2026-10-31', '2026-11-30']).points
+  assert.equal(oct.cash, 200_000, 'the balance held at the month-end counts, at that day rate')
+  assert.equal((nov.cash ?? 0) - (oct.cash ?? 0), -200_000, 'wired out, it leaves the total')
+  assert.equal(sep.cash, null, 'nothing before the first event')
+})
