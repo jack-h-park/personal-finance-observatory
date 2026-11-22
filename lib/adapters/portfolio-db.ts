@@ -3203,10 +3203,16 @@ export function getIncomeReview(display: DisplayCurrency): IncomeReview {
   }
 }
 
-export type CashInflowCategory = 'salary' | 'dividend' | 'interest' | 'other' | 'reimbursement' | 'unclassified'
+/**
+ * Earned income is salary, bonus and expense (an employer's payment into the
+ * account it pays expenses to); investment income is dividends and interest.
+ */
+export type CashInflowCategory = 'salary' | 'bonus' | 'expense' | 'dividend' | 'interest' | 'other' | 'reimbursement' | 'unclassified'
 export type CashInflowPeriod = {
   period: string
   salary: number
+  bonus: number
+  expense: number
   dividend: number
   interest: number
   other: number
@@ -3283,9 +3289,19 @@ export type CashInflowRow = {
   withheld: number | null
 }
 
-/** What the page's category filter selects. `investment` is dividends plus interest. */
-export type CashInflowFilter = 'All' | 'salary' | 'investment' | 'dividend' | 'interest' | 'other' | 'reimbursement' | 'unclassified'
-export const CASH_INFLOW_FILTERS: CashInflowFilter[] = ['All', 'salary', 'investment', 'dividend', 'interest', 'other', 'reimbursement', 'unclassified']
+/**
+ * What the page's category filter selects. `earned` is salary, bonus and
+ * expense; `nonEarned` is every other counted category, so the smaller amounts
+ * get a chart scale of their own; `investment` is dividends plus interest.
+ */
+export type CashInflowFilter =
+  | 'All' | 'nonEarned' | 'earned' | 'salary' | 'bonus' | 'expense'
+  | 'investment' | 'dividend' | 'interest' | 'other' | 'reimbursement' | 'unclassified'
+export const CASH_INFLOW_FILTERS: CashInflowFilter[] = [
+  'All', 'nonEarned', 'earned', 'salary', 'bonus', 'expense', 'investment', 'dividend', 'interest', 'other', 'reimbursement', 'unclassified',
+]
+/** The counted categories that make up earned income, in chart order. */
+export const EARNED_CATEGORIES: CashInflowCategory[] = ['salary', 'bonus', 'expense']
 /** Bank is bank_inflows; broker is the dividends table. */
 export type CashInflowSource = 'All' | 'bank' | 'broker'
 export const CASH_INFLOW_SOURCES: CashInflowSource[] = ['All', 'bank', 'broker']
@@ -3298,7 +3314,9 @@ export type CashInflowScope = { source?: CashInflowSource; currency?: CashInflow
 
 /** The categories a filter sums. `All` is every counted category; unclassified is only ever its own filter. */
 export function cashInflowCategories(filter: CashInflowFilter): CashInflowCategory[] {
-  if (filter === 'All') return ['salary', 'dividend', 'interest', 'other']
+  if (filter === 'All') return [...EARNED_CATEGORIES, 'dividend', 'interest', 'other']
+  if (filter === 'earned') return EARNED_CATEGORIES
+  if (filter === 'nonEarned') return ['dividend', 'interest', 'other']
   if (filter === 'investment') return ['dividend', 'interest']
   return [filter]
 }
@@ -3351,7 +3369,7 @@ function cashInflowWhere(scope: CashInflowScope) {
   }
 }
 
-const CASH_INFLOW_CATEGORIES = ['salary', 'dividend', 'interest', 'other', 'reimbursement', 'unclassified'] as const
+const CASH_INFLOW_CATEGORIES = ['salary', 'bonus', 'expense', 'dividend', 'interest', 'other', 'reimbursement', 'unclassified'] as const
 
 function cashInflowPeriods(
   conn: Database.Database,
@@ -3390,7 +3408,7 @@ function cashInflowWindow(range: CashInflowRange, nowYear: number, nowMonth: num
 }
 
 /**
- * Salary, dividends (net of withholding), interest and other credits by month or
+ * Salary, bonus, expense, dividends (net of withholding), interest and other credits by month or
  * year in the display currency, each row at its own date's USD/KRW rate.
  * `total` sums the filter's categories (every counted one for `All`, so it leaves
  * out `unclassified`); the per-category fields are always all there. The scope
@@ -3413,7 +3431,7 @@ export function getCashInflow(
     const { year: nowYear, month: nowMonth } = portfolioYearMonth(now)
     const sumMonths = (from: string, to: string, pick: (p: CashInflowPeriod) => number) =>
       months.filter((p) => p.period >= from && p.period <= to).reduce((s, p) => s + pick(p), 0)
-    const counted = (p: CashInflowPeriod) => p.salary + p.dividend + p.interest + p.other
+    const counted = (p: CashInflowPeriod) => p.salary + p.bonus + p.expense + p.dividend + p.interest + p.other
 
     const window = cashInflowWindow(scope.range ?? '12m', nowYear, nowMonth, months[0]?.period ?? null)
     const rangeTotal = sumMonths(window.start, window.end, (p) => p.total)

@@ -12,6 +12,7 @@ import {
   CASH_INFLOW_RANGES,
   CASH_INFLOW_SOURCES,
   cashInflowCategories,
+  EARNED_CATEGORIES,
   getCashInflow,
   getCashInflowRows,
   getCashInflowUnclassified,
@@ -121,7 +122,9 @@ export default async function CashInflowPage({
     filter === 'All' || filter === 'reimbursement' ? copy.reimbursementNote
       : filter === 'investment' ? copy.investmentInfo
         : filter === 'unclassified' ? copy.unclassifiedFilterNote
-          : null
+          : filter === 'earned' ? copy.earnedInfo
+            : filter === 'nonEarned' ? copy.nonEarnedInfo
+              : null
   const heroInfo = (
     <>
       {copy.rangeInfo(copy.scope.range.options[range], filter === 'All' ? copy.headlineEyebrow : copy.filter.options[filter])}
@@ -141,6 +144,9 @@ export default async function CashInflowPage({
         {data.totals.changeThrough ? copy.changeThrough(data.totals.changeThrough) : null}
       </>
     )
+
+  // Salary, bonus and expense over the range: the composition card's earned-income line.
+  const earnedAmount = EARNED_CATEGORIES.reduce((sum, c) => sum + data.totals.byCategory[c].amount, 0)
 
   // A category's amount, then its change when there is a window to compare with.
   const compositionDetail = (c: CashInflowCategory) => {
@@ -350,13 +356,18 @@ export default async function CashInflowPage({
               >
                 {filter === 'All' ? (
                   <ul className="mt-3 flex flex-col gap-1.5 border-t border-line-subtle pt-3 text-caption">
-                    <li className="flex items-baseline justify-between gap-3">
-                      <span className="min-w-0 text-ink-3">{copy.investmentSubtotal}</span>
-                      <span className="shrink-0 tabular-nums text-ink">
-                        {fmtPct((data.totals.investment / data.totals.rangeTotal) * 100, { digits: 1 })}
-                        <span className="ml-2 text-ink-3">{money(data.totals.investment, data.currency)}</span>
-                      </span>
-                    </li>
+                    {[
+                      { key: 'earned', label: copy.earnedSubtotal, amount: earnedAmount },
+                      { key: 'investment', label: copy.investmentSubtotal, amount: data.totals.investment },
+                    ].map((line) => (
+                      <li key={line.key} className="flex items-baseline justify-between gap-3">
+                        <span className="min-w-0 text-ink-3">{line.label}</span>
+                        <span className="shrink-0 tabular-nums text-ink">
+                          {fmtPct((line.amount / data.totals.rangeTotal) * 100, { digits: 1 })}
+                          <span className="ml-2 text-ink-3">{money(line.amount, data.currency)}</span>
+                        </span>
+                      </li>
+                    ))}
                     {data.totals.byCategory.reimbursement.amount > 0 ? (
                       <li className="flex items-baseline justify-between gap-3">
                         <span className="flex min-w-0 items-center gap-1.5 text-ink-3">

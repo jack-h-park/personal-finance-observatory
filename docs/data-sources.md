@@ -209,8 +209,8 @@ card read `cash_balances` alone.
 
 #### Bank inflows
 
-`/cash-inflow` answers "what money came in, by month and year": salary, dividends,
-interest and other. The extractor keeps every incoming transaction of the
+`/cash-inflow` answers "what money came in, by month and year": earned income
+(salary, bonus and expense), dividends, interest and other. The extractor keeps every incoming transaction of the
 statements it already reads and writes them as `inflows` in `bank-balances.json`
 (institution, account, currency, date, amount, description, counterparty and an
 `ownTransfer` flag). `ownTransfer` is set on one leg of a paired transfer between
@@ -236,7 +236,7 @@ ingest loads them into
 5. Otherwise `unclassified`.
 
 A `bankInflowRules` entry is `{ "id", "match", "category", "note" }`. `category`
-is `salary`, `dividend`, `interest`, `other`, `reimbursement` or `transfer`. `reimbursement` records repayment of purchases made for others and is shown separately from transfers and excluded from income totals. `match` may combine
+is `salary`, `bonus`, `expense`, `dividend`, `interest`, `other`, `reimbursement` or `transfer`. `bonus` is pay beyond the regular salary (performance pay, incentives, holiday and leave pay, stock compensation). `expense` is an employer's payment into the account it pays expenses to; with salary and bonus it makes up earned income, and it counts in the totals. `reimbursement` records repayment of purchases made for others and is shown separately from transfers and excluded from income totals. `match` may combine
 `institution`, `accountIncludes`, `descriptionIncludes`, `counterpartyIncludes`
 and `currency`; every key given must hit, and at least one must have a non-empty
 value after trimming (an empty or blank needle matches everything, so a rule with
