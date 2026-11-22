@@ -390,6 +390,19 @@ function literalsIn(text) {
   return out
 }
 
+/**
+ * The head of a template literal that opens on this line and closes on a later
+ * one (`` className={`grid gap-3 lg:grid-cols-[…] ${ ``): the text after the
+ * last unmatched backtick, or null. literalsIn only sees literals that close on
+ * their line, so a class list written this way was invisible to G4. Lines in the
+ * middle of such a template are still not read.
+ */
+function openTemplateHead(text) {
+  const rest = text.replace(STRING_LITERAL, (m) => ' '.repeat(m.length))
+  const open = rest.lastIndexOf('`')
+  return open === -1 ? null : '`' + text.slice(open + 1) + '`'
+}
+
 /** The one file whose job is to write grid columns, so pages need not. */
 const GRID_OWNER = 'components/layout.tsx'
 
@@ -400,7 +413,8 @@ const GRID_ALLOW = 'guardrail:allow grid'
  * primitives in components/layout.tsx do not know about, so the next change to
  * the column rhythm misses it and pages drift apart one breakpoint at a time.
  * Nothing flags it: it is a valid class. One hit per string literal holding
- * such a class (under any variant, `grid-cols-[…]` included). A deliberate one
+ * such a class (under any variant, `grid-cols-[…]` included), and one for the
+ * head of a template literal that opens on the line and closes later. A deliberate one
  * is marked with the comment `guardrail:allow grid` on its line or the line
  * above; the marker is read from the raw source, since the strip blanks it.
  */
@@ -410,7 +424,8 @@ export function findHandWrittenGrid(source, file = '<source>') {
   const raw = source.split('\n')
   eachLine(source, (text, line) => {
     if (raw[line - 1]?.includes(GRID_ALLOW) || raw[line - 2]?.includes(GRID_ALLOW)) return
-    for (const literal of literalsIn(text)) {
+    const head = openTemplateHead(text)
+    for (const literal of head === null ? literalsIn(text) : [...literalsIn(text), head]) {
       const classes = literal.slice(1, -1).split(/\s+/)
       if (classes.some((cls) => bareOf(cls).startsWith('grid-cols-'))) hits.push(hit(file, line, literal))
     }
