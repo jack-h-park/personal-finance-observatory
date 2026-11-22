@@ -137,6 +137,22 @@ a.jhp-nav__current:hover { text-decoration: underline; text-underline-offset: 3p
   box-shadow: var(--shadow-popover);
 }
 .jhp-nav__popover[hidden] { display: none; }
+/* Dark mode: lift the popover and the Apps panel off the page. There --bg-card
+   equals the page surface and the default border is nearly invisible. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .jhp-nav__popover,
+  :root:not([data-theme="light"]) .jhp-nav__panel {
+    background: color-mix(in srgb, var(--bg-card) 92%, var(--text-primary));
+    border-color: color-mix(in srgb, var(--border-default) 50%, var(--text-tertiary));
+  }
+}
+:root[data-theme="dark"] .jhp-nav__popover,
+:root[data-theme="dark"] .jhp-nav__panel,
+:root.dark .jhp-nav__popover,
+:root.dark .jhp-nav__panel {
+  background: color-mix(in srgb, var(--bg-card) 92%, var(--text-primary));
+  border-color: color-mix(in srgb, var(--border-default) 50%, var(--text-tertiary));
+}
 .jhp-nav__popover .jhp-nav__settings {
   flex-direction: column;
   align-items: stretch;

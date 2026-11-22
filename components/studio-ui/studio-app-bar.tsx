@@ -52,7 +52,7 @@ function ThemeIcon({ theme }: { theme: ThemePreference }) {
 
 /**
  * `currentId` is this app's id in the directory. `page` names the current page for
- * the breadcrumb; without it the part of document.title before " · " is used
+ * the breadcrumb; without it document.title minus its last " · <App>" is used
  * (guidelines §3), and nothing is shown at `homeHref`. `languages`,
  * `onLanguageChange` and `onThemeChange` are passed to DisplaySettings.
  */
@@ -66,6 +66,7 @@ export function StudioAppBar({
   language,
   onLanguageChange,
   onThemeChange,
+  markSrc = '/brand/jhp-mark.png',
   children,
 }: {
   directory: StudioDirectory
@@ -77,6 +78,8 @@ export function StudioAppBar({
   language?: LanguagePreference
   onLanguageChange?: (language: LanguagePreference) => void
   onThemeChange?: (theme: ThemePreference) => void
+  /** Where this app serves the JHP mark; architecture.md lets an app choose. */
+  markSrc?: string
   /** Extra panel content after the groups, if an app needs it. */
   children?: ReactNode
 }) {
@@ -89,9 +92,12 @@ export function StudioAppBar({
   const displayButton = useRef<HTMLButtonElement>(null)
   const theme = useThemePreference()
   const title = useSyncExternalStore(subscribeLocation, readTitle, () => '')
-  const path = useSyncExternalStore(subscribeLocation, readPath, () => homeHref)
+  // On the server the path is unknown: claim neither the home nor a page until hydration.
+  const path = useSyncExternalStore(subscribeLocation, readPath, () => '')
   const atHome = path === homeHref
-  const fromTitle = title.includes(' · ') ? title.split(' · ')[0].trim() : ''
+  // Drop only the last " · <App>": a page name may itself contain " · ".
+  const cut = title.lastIndexOf(' · ')
+  const fromTitle = cut > 0 ? title.slice(0, cut).trim() : ''
   const pageName = page ?? fromTitle
   const showPage = !atHome && pageName !== '' && pageName !== appName
 
@@ -132,7 +138,7 @@ export function StudioAppBar({
           <li>
             <a className="jhp-nav__home" href={LAUNCHER} aria-label={copy.launcher}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/brand/jhp-mark.png" width={28} height={28} alt="" />
+              <img src={markSrc} width={28} height={28} alt="" />
             </a>
           </li>
           <li>
