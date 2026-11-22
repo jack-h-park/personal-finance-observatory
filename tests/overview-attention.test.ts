@@ -22,3 +22,10 @@ test('a capped position-break row marks the queue total as a lower bound', () =>
   const [item] = attentionItems({ queue: [{ kind: 'position_breaks', count: POSITION_BREAK_CAP }], overCap: 0, marketActions: [] })
   assert.equal(item.capped, true)
 })
+
+test('flagged months of the last year join the strip last, and link to the month-end table', () => {
+  const items = attentionItems({ queue: [], overCap: 0, marketActions: [], flaggedMonths: 2 })
+  assert.deepEqual(items.map((item) => [item.kind, item.count, item.href]), [['monthly_change', 2, '/net-worth#net-worth-history']])
+  assert.deepEqual(attentionItems({ queue: [], overCap: 0, marketActions: [], flaggedMonths: 0 }), [])
+})
+
