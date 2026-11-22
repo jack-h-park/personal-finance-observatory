@@ -1387,24 +1387,45 @@ function brokerageCashRows(conn: Database.Database): CashBalanceRow[] {
     .all() as CashBalanceRow[]
 }
 
-// The Hana USD account's running balance (fx_events.balance_usd), as cash rows. The
-// account is a pass-through: dollars arrive from a brokerage and leave in a wire
-// within days, so the statement's balance at the first and last date is zero and
-// cash_balances holds no row for it. Without these rows a month-end that falls inside
-// a pass-through leaves the dollars out of the total, and the same dollars then read
-// as new money in whichever account receives them next. The last event of a day wins.
+// The Hana USD account's running balance, as cash rows. The account is a
+// pass-through: dollars arrive from a brokerage and leave in a wire within days,
+// so the statement's balance at the first and last date is zero and cash_balances
+// holds no row for it. Without these rows a month-end that falls inside a
+// pass-through leaves the dollars out of the total, and the same dollars then read
+// as new money in whichever account receives them next.
+//
+// An event read from a screenshot carries no printed balance (a wire out, a
+// dollar purchase). Skipping those left the balance of the last printed event in
+// force after the dollars had gone, so a year-end that fell between a wire out
+// and the next printed balance counted dollars that were no longer there. A
+// balance-less event is therefore walked from the balance before it: in adds,
+// out subtracts, and a printed balance resets the walk. The last event of a day
+// wins.
 function hanaUsdRows(conn: Database.Database): CashBalanceRow[] {
   const has = conn.prepare("select 1 from sqlite_master where type = 'table' and name = 'fx_events'").get()
   if (!has) return []
   const columns = new Set((conn.prepare('pragma table_info(fx_events)').all() as { name: string }[]).map((column) => column.name))
-  if (!['institution', 'account', 'date', 'balance_usd'].every((column) => columns.has(column))) return []
-  return conn
+  if (!['institution', 'account', 'date', 'direction', 'usd_amount', 'balance_usd'].every((column) => columns.has(column))) return []
+  const events = conn
     .prepare(
-      `select 'fx-ledger:' || institution as institution, account, 'USD' as currency, date, balance_usd as balance
-       from fx_events where institution = 'Hana Bank' and balance_usd is not null
-       order by date, coalesce(time, ''), id`
+      `select account, date, direction, usd_amount as amount, balance_usd as printed
+       from fx_events where institution = 'Hana Bank' order by date, coalesce(time, ''), id`
     )
-    .all() as CashBalanceRow[]
+    .all() as { account: string; date: string; direction: string; amount: number | null; printed: number | null }[]
+  const rows: CashBalanceRow[] = []
+  const running = new Map<string, number>()
+  for (const event of events) {
+    let balance: number | undefined = event.printed ?? undefined
+    if (balance == null) {
+      const before = running.get(event.account)
+      const sign = event.direction === 'OUT' ? -1 : event.direction === 'IN' || event.direction === 'BUY_USD' ? 1 : 0
+      if (before == null || event.amount == null) continue
+      balance = before + sign * Number(event.amount)
+    }
+    running.set(event.account, balance)
+    rows.push({ institution: 'fx-ledger:Hana Bank', account: event.account, currency: 'USD', date: event.date, balance })
+  }
+  return rows
 }
 
 // Deposits in KRW on each of the given dates: the cash class of the total-assets series.

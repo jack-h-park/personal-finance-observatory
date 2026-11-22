@@ -336,3 +336,36 @@ test('past points count the Hana USD pass-through balance on the dates it is hel
   assert.equal((nov.cash ?? 0) - (oct.cash ?? 0), -200_000, 'wired out, it leaves the total')
   assert.equal(sep.cash, null, 'nothing before the first event')
 })
+
+test('a Hana USD event with no printed balance is walked from the balance before it, so a wire out clears the dollars at the year-end', async () => {
+  const dbPath = ingest()
+  const db = new Database(dbPath)
+  db.prepare('delete from portfolio_snapshots').run()
+  db.prepare('delete from cash_balances').run()
+  db.prepare('delete from fx_events').run()
+  db.prepare('delete from historical_fx_rates').run()
+  const insert = db.prepare(
+    `insert into portfolio_snapshots (snapshot_date, captured_at, global_base_cost, global_base_market_value, kr_market_value, us_market_value_base, crypto_market_value_base,
+       kr_cost_basis, us_cost_basis_base, crypto_cost_basis_base, krw_cost, usd_cost, dividends_krw, dividends_usd, holding_count, share_count)
+     values (?, ?, 0, ?, ?, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1)`
+  )
+  for (const date of ['2025-11-30', '2025-12-31', '2026-01-31']) insert.run(date, `${date}T00:00:00Z`, 500_000, 500_000)
+  db.prepare('insert into historical_fx_rates (price_date, rate, source) values (?, ?, ?)').run('2025-01-01', 1_000, 'example')
+  const event = db.prepare(
+    `insert into fx_events (institution, account, date, time, event_type, direction, usd_amount, rate_status, match_status, confidence, method, balance_usd, source)
+     values ('Hana Bank', 'USD account', ?, ?, 'TRANSFER', ?, ?, 'account_reference_only', 'unmatched', 'low', 'bank_transfer_movement', ?, 'example')`
+  )
+  event.run('2025-12-20', '10:00:00', 'IN', 300, 300)
+  // The wire out was read from a screenshot: no printed balance.
+  event.run('2025-12-30', '13:17:00', 'OUT', 300, null)
+  // A later printed balance resets the walk.
+  event.run('2026-01-27', '15:11:00', 'IN', 15, 15)
+  db.close()
+
+  config.stockDbPath = dbPath
+  const { getTotalAssetsSeries } = await import('../lib/adapters/portfolio-db')
+  const [nov, dec, jan] = getTotalAssetsSeries(['2025-11-30', '2025-12-31', '2026-01-31']).points
+  assert.equal(nov.cash, null)
+  assert.equal(dec.cash, 0, 'the wire out has cleared the account by year-end')
+  assert.equal(jan.cash, 15_000)
+})
