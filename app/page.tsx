@@ -3,7 +3,7 @@ import { AssetCoverageNote } from '@/components/AssetCoverageNote'
 import { PageHeader } from '@/components/PageHeader'
 import { Badge, Card, EmptyState, HeroAside, MetricField, MetricHeroCard, Note, Panel, TextLink, marketTone } from '@/components/ui'
 import { PortfolioMultiTrendChart, PortfolioTrendChart, StackedAssetChart } from '@/components/charts'
-import { axisTick, type ChartUnit } from '@/lib/chart-format'
+import { compactAmount, type ChartUnit } from '@/lib/chart-format'
 import {
   dbAvailable,
   getAssetCoverageReview,
@@ -304,7 +304,7 @@ export default async function OverviewPage({
           <span key={driver.key}>
             {index ? ' · ' : null}
             {copy.assetClasses[driver.key]}{' '}
-            <span className={signClass(driver.change)}>{fmtSigned(driver.change, (v) => axisTick(v, { kind: 'money', currency: 'KRW' }, language))}</span>
+            <span className={signClass(driver.change)}>{fmtSigned(driver.change, (v) => compactAmount(v, { kind: 'money', currency: 'KRW' }, language))}</span>
           </span>
         ))}
       </span>

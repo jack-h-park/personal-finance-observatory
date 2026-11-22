@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
-import { axisTick, hasPlottablePoint, tooltipValue, type ChartUnit } from '../lib/chart-format'
+import { axisTick, compactAmount, hasPlottablePoint, tooltipValue, type ChartUnit } from '../lib/chart-format'
 import { EMPTY_VALUE, fmtMoney, fmtPct } from '../lib/format'
 
 const KRW: ChartUnit = { kind: 'money', currency: 'KRW' }
@@ -122,4 +122,16 @@ test('every chart series carries a name, so no tooltip falls back to a data key'
   assert.match(src, /valueName: string/)
   const income = readFileSync(join(process.cwd(), 'app/income/page.tsx'), 'utf8')
   assert.match(income, /<TrendBarChart[^]*?valueName=\{copy\.[A-Za-z]+\}/)
+})
+
+test('compactAmount keeps 만 whole and 억 at two decimals', () => {
+  assert.equal(compactAmount(30_474_000, KRW, 'ko'), '3,047만')
+  assert.equal(compactAmount(35_000, KRW, 'ko'), '4만')
+  assert.equal(compactAmount(-239_000, KRW, 'ko'), '-24만')
+  assert.equal(compactAmount(145_000_000, KRW, 'ko'), '1.45억')
+  // Rounding reaches 10,000만, so it promotes to 억.
+  assert.equal(compactAmount(99_995_000, KRW, 'ko'), '1억')
+  assert.equal(compactAmount(9_999, KRW, 'ko'), '9,999')
+  // English and other currencies match axisTick.
+  assert.equal(compactAmount(30_474_000, KRW, 'en'), axisTick(30_474_000, KRW, 'en'))
 })

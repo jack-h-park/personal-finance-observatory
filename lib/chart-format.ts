@@ -22,6 +22,10 @@ const KO_KRW: readonly Scale[] = [
   { min: 1e8, div: 1e8, digits: 2, label: '억' },
 ]
 
+// Figures read in prose (not on an axis) have no gridline to match, so 만 drops
+// its decimal there: 3,047만, not 3,047.4만. 억 keeps two, as on the axis.
+const KO_KRW_PROSE: readonly Scale[] = [KO_KRW[0], { ...KO_KRW[1], digits: 0 }, KO_KRW[2]]
+
 const THOUSANDS: readonly Scale[] = [
   { min: 0, div: 1, digits: 0, label: '' },
   { min: 1e3, div: 1e3, digits: 2, label: 'K' },
@@ -58,6 +62,18 @@ function scaled(abs: number, scales: readonly Scale[]) {
 
 /** A short Y-axis tick: `1.2억` / `3,500만` in Korean won, `₩1.2M` / `$350K` otherwise. */
 export function axisTick(value: number, unit: ChartUnit, language: Language): string {
+  return shortValue(value, unit, language, KO_KRW)
+}
+
+/**
+ * A short amount in running text, such as a breakdown line under a figure.
+ * Same tiers as `axisTick`, except Korean 만 is whole: `3,047만`, `1.45억`.
+ */
+export function compactAmount(value: number, unit: ChartUnit, language: Language): string {
+  return shortValue(value, unit, language, KO_KRW_PROSE)
+}
+
+function shortValue(value: number, unit: ChartUnit, language: Language, koKrw: readonly Scale[]): string {
   if (!Number.isFinite(value)) return ''
   if (unit.kind !== 'money') {
     // A small negative that rounds to zero prints 0, never -0. `|| 0` turns -0 into 0.
@@ -66,7 +82,7 @@ export function axisTick(value: number, unit: ChartUnit, language: Language): st
     return `${fmtNumber(rounded)}${unit.suffix ?? ''}`
   }
   const korean = unit.currency === 'KRW' && language === 'ko'
-  const { rounded, body } = scaled(Math.abs(value), korean ? KO_KRW : unit.currency === 'USD' ? USD_THOUSANDS : THOUSANDS)
+  const { rounded, body } = scaled(Math.abs(value), korean ? koKrw : unit.currency === 'USD' ? USD_THOUSANDS : THOUSANDS)
   if (rounded === 0) return '0'
   const sign = value < 0 ? '-' : ''
   if (korean) return `${sign}${body}`
