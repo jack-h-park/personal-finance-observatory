@@ -253,6 +253,8 @@ test('/cash-inflow period table: extra columns only when a row has some, and a f
   assert.doesNotMatch(text, /\[\.\.\.categories, 'reimbursement', 'unclassified'\]/)
   assert.match(text, /data\.periods\.some\(\(p\) => p\[c\] !== 0\)/)
   assert.match(text, /footerRows=\{tableFooter\}/)
+  // On a phone the period column stays in view while the amounts scroll.
+  assert.match(text, /footerRows=\{tableFooter\}\s+pinFirstColumn/)
 })
 
 test('app/review/page.tsx draws its summary with StatStrip and names the concentration rows from copy', () => {

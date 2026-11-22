@@ -1,6 +1,6 @@
 # Cash inflow page (`/cash-inflow`) — redesign plan
 
-**Status:** decisions confirmed 2026-11-21; phases 1–4 built. Each phase is one stacked PR; where a phase departs from this plan it says so under the phase.
+**Status:** decisions confirmed 2026-11-21; all five phases built. Each phase is one stacked PR; where a phase departs from this plan it says so under the phase.
 
 ## Why
 
@@ -52,6 +52,8 @@ Each phase is one PR, stacked, with the screenshot net, `pnpm ui:guardrails`, `p
 
    *As built:* under All, the reimbursement and unclassified columns appear only when a row in the table is non-zero in them. `DataTable` gained `footerRows`, a `tfoot` that keeps each column's alignment and priority; the period table uses it for two lines named by the range: the range total per column (muted for the two extra columns), then the monthly average of the counted categories and of the total. Both come from `totals.byCategory` and `rangeTotal`, so under the yearly view they match the lead card, not the sum of whole-year rows (the yearly note already says so). The Total column was already emphasised in phase 1. For the detail panel, the row it opened from now shares the panel's tint and drops its bottom border, so the two read as one block; the panel's heading text is unchanged.
 5. **Phone pass.** At 390×844 the total, the change and the start of the chart fit the first screen under the access banner and page header; no horizontal page scroll; the period table scrolls inside its own container with the period column pinned.
+
+   *As built:* measured at 390×844 on the sample data after phases 2–4, the first screen already held the page header, the total (y≈405), the change and the top of the chart (y≈697), with the remaining filters behind the 필터 disclosure and no horizontal page scroll, so no layout change was needed for that. `DataTable` gained `pinFirstColumn`: the first column's header, body and footer cells stay put while the amounts scroll sideways. A pinned cell is opaque (the card colour with the row's tint laid over it as an inset shadow, since inline gradients are reserved for the gradient tokens, so the open row and hover still match), pins at `-left-4` because `Table`'s scroller pads its content by 1rem, and draws its divider only below `md`, where the table actually scrolls.
 
 Tests to update with the phases: `tests/page-blocks.test.ts` (the cash-inflow assertion around the filter bar and `cash-inflow-lead`), copy-catalog tests for any renamed key, and the screenshot net baselines for `/cash-inflow`, `/cash-inflow?category=unclassified` and `/cash-inflow?view=year`.
 

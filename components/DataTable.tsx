@@ -1,6 +1,6 @@
 import { clsx } from 'clsx'
 import Link from 'next/link'
-import { Fragment, type ReactNode } from 'react'
+import { Fragment, type CSSProperties, type ReactNode } from 'react'
 import { EmptyState, HelpPopover, Table } from '@/components/ui'
 import { CommonLabel } from '@/components/LanguageProvider'
 import { nextSort, type SortDirection, type TableSort } from '@/lib/table-sort'
@@ -28,6 +28,15 @@ export type DataTableColumn<Row = any> = {
   sortFirst?: SortDirection
 }
 
+// A pinned cell must be opaque, or the cells scrolling under it show through.
+// The row tints are translucent, so a pinned cell lays the same tint over the
+// card colour as an inset shadow: it matches the row and still hides what is beneath.
+const tint = (pct: number) => `inset 0 0 0 100vmax color-mix(in srgb, var(--bg-surface) ${pct}%, transparent)`
+const PINNED_CLASS = 'sticky -left-4 z-[1] bg-card border-r border-line-subtle md:border-r-0'
+const PINNED_OPEN_STYLE = { boxShadow: tint(60) }
+// Read by the hover class below, which cannot hold the shadow's spaces itself.
+const PINNED_HOVER_STYLE = { '--pinned-hover': tint(70) } as CSSProperties
+
 const PRIORITY_CLASS = {
   primary: '',
   secondary: 'hidden md:table-cell',
@@ -46,6 +55,7 @@ export function DataTable<Row = any>({
   expandedRowKey,
   renderExpanded,
   footerRows,
+  pinFirstColumn = false,
   size = 'body',
 }: {
   /** `Row` is inferred from `rows` alone, so a column that annotates its
@@ -73,6 +83,9 @@ export function DataTable<Row = any>({
    *  (a missing key is an empty cell). Each column keeps its alignment and
    *  priority, so a total sits under the figures it sums. */
   footerRows?: Record<string, ReactNode>[]
+  /** Keep the first column in view while the table scrolls sideways, so each
+   *  row stays named on a narrow screen. */
+  pinFirstColumn?: boolean
   /** Text size for the whole table, passed to `Table`. */
   size?: 'body' | 'caption'
 }) {
@@ -83,7 +96,7 @@ export function DataTable<Row = any>({
         {caption ? <caption className="sr-only">{caption}</caption> : null}
         <thead>
           <tr>
-            {columns.map((col) => (
+            {columns.map((col, colIndex) => (
               <th
                 key={col.key}
                 scope="col"
@@ -98,6 +111,7 @@ export function DataTable<Row = any>({
                 }
                 className={clsx(
                   'sticky top-0 z-10 border-b border-line bg-card px-3 py-2 text-left font-medium text-ink-3',
+                  pinFirstColumn && colIndex === 0 && '-left-4 z-20 border-r border-line-subtle md:border-r-0',
                   PRIORITY_CLASS[col.priority ?? 'primary'],
                   col.nowrap && 'whitespace-nowrap'
                 )}
@@ -136,11 +150,14 @@ export function DataTable<Row = any>({
             return (
             <Fragment key={rowKey}>
             {/* The open row shares the panel's tint, so the panel reads as its own. */}
-            <tr className={clsx('border-b border-line-subtle', expanded ? 'bg-surface/60' : 'hover:bg-surface/70')}>
-              {columns.map((col) => (
+            <tr className={clsx('group border-b border-line-subtle', expanded ? 'bg-surface/60' : 'hover:bg-surface/70')}>
+              {columns.map((col, colIndex) => (
                 <td
                   key={col.key}
+                  style={pinFirstColumn && colIndex === 0 ? (expanded ? PINNED_OPEN_STYLE : PINNED_HOVER_STYLE) : undefined}
                   className={clsx(
+                    pinFirstColumn && colIndex === 0 && PINNED_CLASS,
+                    pinFirstColumn && colIndex === 0 && !expanded && 'group-hover:[box-shadow:var(--pinned-hover)]',
                     'px-3 py-2.5 align-top text-ink-2',
                     expanded ? 'border-b-0' : 'border-b border-line-subtle',
                     col.align === 'right' && 'text-right tabular-nums',
@@ -168,11 +185,12 @@ export function DataTable<Row = any>({
           <tfoot>
             {footerRows.map((cells, index) => (
               <tr key={index}>
-                {columns.map((col) => (
+                {columns.map((col, colIndex) => (
                   <td
                     key={col.key}
                     className={clsx(
                       'px-3 py-2 align-top text-ink-2',
+                      pinFirstColumn && colIndex === 0 && PINNED_CLASS,
                       index === 0 && 'border-t border-line',
                       col.align === 'right' && 'text-right tabular-nums',
                       col.align === 'center' && 'text-center',

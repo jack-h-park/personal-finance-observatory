@@ -58,3 +58,14 @@ test('the open row shares the panel tint', async () => {
   const rowB = html.slice(html.lastIndexOf('<tr', html.indexOf('>b<')), html.indexOf('>b<'))
   assert.match(rowB, /bg-surface\/60/)
 })
+
+test('pinFirstColumn makes only the first column sticky, in the header, body and footer', async () => {
+  const { DataTable } = await import('../components/DataTable')
+  const html = renderToStaticMarkup(
+    React.createElement(DataTable, { rows, columns, getRowKey: (r: any) => r.id, pinFirstColumn: true, footerRows: [{ id: 'Sum' }] })
+  )
+  // One header cell, three body cells and one footer cell.
+  assert.equal((html.match(/-left-4/g) ?? []).length, 5)
+  const plain = await render()
+  assert.ok(!plain.includes('-left-4'))
+})
