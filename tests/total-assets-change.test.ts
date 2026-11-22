@@ -1,7 +1,7 @@
 import { strict as assert } from 'node:assert'
 import { test } from 'node:test'
 
-import { isoDaysBefore, monthEndBefore, previousYearEnd, totalAssetsChange } from '@/lib/total-assets-change'
+import { investmentResult, isoDaysBefore, monthEndBefore, previousYearEnd, totalAssetsChange } from '@/lib/total-assets-change'
 import type { TotalAssetsPoint } from '@/lib/net-worth'
 
 const point = (date: string, total: number, extra: Partial<TotalAssetsPoint> = {}): TotalAssetsPoint => ({
@@ -61,4 +61,21 @@ test('splits the change by class, largest move first, skipping classes that did 
     { key: 'cash', change: 30 },
     { key: 'crypto', change: 10 },
   ])
+})
+
+test('investmentResult adds the unrealized change and the gain realized in between', () => {
+  const points = [
+    { date: '2025-11-30', unrealized: 108, realized: 54 },
+    { date: '2026-06-30', unrealized: 800, realized: 60 },
+    { date: '2026-11-21', unrealized: 99, realized: 71 },
+  ]
+  assert.deepEqual(investmentResult(points, '2025-11-30'), { unrealized: -9, realized: 17, total: 8 })
+  // The base is the latest snapshot on or before the date, as for the total-assets change.
+  assert.deepEqual(investmentResult(points, '2026-07-15'), { unrealized: -701, realized: 11, total: -690 })
+})
+
+test('investmentResult is unavailable without a base or an unrealized figure', () => {
+  assert.equal(investmentResult([{ date: '2026-11-21', unrealized: 1, realized: 0 }], '2025-11-30'), null)
+  assert.equal(investmentResult([{ date: '2025-11-30', unrealized: null, realized: 0 }, { date: '2026-11-21', unrealized: 1, realized: 0 }], '2025-11-30'), null)
+  assert.deepEqual(investmentResult([{ date: '2025-11-30', unrealized: 5, realized: null }, { date: '2026-11-21', unrealized: 7, realized: 3 }], '2025-11-30'), { unrealized: 2, realized: 3, total: 5 })
 })

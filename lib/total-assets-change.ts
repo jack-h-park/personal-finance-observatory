@@ -62,3 +62,25 @@ export function monthEndBefore(today: string, months: number): string {
 export function previousYearEnd(today: string): string {
   return `${Number(today.slice(0, 4)) - 1}-12-31`
 }
+
+/** A portfolio snapshot's gains: unrealized at that date, and realized to date (running sum of every sale). */
+export type InvestmentPoint = { date: string; unrealized: number | null; realized: number | null }
+
+export type InvestmentResult = { unrealized: number; realized: number; total: number }
+
+/**
+ * What investing earned between the latest snapshot on or before `since` and
+ * the last snapshot: the change in unrealized gain plus the gain realized in
+ * between. Money moved in or out is not in it, so beside a change in total
+ * assets it separates returns from savings. Null when no snapshot is that old,
+ * the last snapshot is the base, or either end has no unrealized figure.
+ */
+export function investmentResult(points: InvestmentPoint[], since: string): InvestmentResult | null {
+  const latest = points[points.length - 1]
+  let base: InvestmentPoint | undefined
+  for (const point of points) if (point.date <= since) base = point
+  if (!latest || !base || base.date >= latest.date || latest.unrealized == null || base.unrealized == null) return null
+  const unrealized = latest.unrealized - base.unrealized
+  const realized = (latest.realized ?? 0) - (base.realized ?? 0)
+  return { unrealized, realized, total: unrealized + realized }
+}

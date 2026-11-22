@@ -19,6 +19,10 @@ export const overview = defineCopy({
     changeSince: (date: string) => `vs ${date}`,
     changeAddedClasses: (labels: string) => `includes ${labels} added since`,
     changeUnavailable: 'No snapshot that far back',
+    investmentResult: 'From investing',
+    investmentParts: (unrealized: string, realized: string) => `unrealized ${unrealized} · realized ${realized}`,
+    investmentResultInfo:
+      'Under each change, "From investing" is what stocks and crypto earned over the same period: the change in unrealized gain plus the gain realized from sales in between. It leaves out money moved in or out, dividends and interest, and pensions and gold, so the rest of a change is mostly savings and transfers.',
     stockValue: 'Stock value',
     totalAssetsTrend: 'Last 12 months by asset class',
     attentionTitle: 'Needs attention',
@@ -156,6 +160,10 @@ export const overview = defineCopy({
     changeSince: (date: string) => `${date} 대비`,
     changeAddedClasses: (labels: string) => `이후 추가된 ${labels} 포함`,
     changeUnavailable: '그 시점의 스냅샷 없음',
+    investmentResult: '투자 손익',
+    investmentParts: (unrealized: string, realized: string) => `평가 ${unrealized} · 실현 ${realized}`,
+    investmentResultInfo:
+      '각 변동 아래 투자 손익은 같은 기간 주식·암호화폐가 번 돈입니다. 평가손익의 변화에 그 사이 매도로 실현한 손익을 더했습니다. 새로 넣거나 뺀 돈, 배당·이자, 연금·금은 빠지므로 변동의 나머지는 대부분 저축과 이체입니다.',
     stockValue: '주식 평가금액',
     totalAssetsTrend: '최근 12개월 자산군별 추이',
     attentionTitle: '확인할 일',
