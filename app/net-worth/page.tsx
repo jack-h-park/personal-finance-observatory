@@ -91,6 +91,8 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
     { label: overviewCopy.change3m, change: changeSince(monthEndBefore(today, 3)) },
     { label: overviewCopy.changeYtd, change: changeSince(previousYearEnd(today)) },
     { label: overviewCopy.change1y, change: changeSince(monthEndBefore(today, 12)) },
+    { label: overviewCopy.change2y, change: changeSince(monthEndBefore(today, 24)) },
+    { label: overviewCopy.change3y, change: changeSince(monthEndBefore(today, 36)) },
   ]
   // A period picked on the chart or in the month selects (?from=&to=), snapped
   // to plotted snapshot dates; null when absent, invalid or a single point.
@@ -316,7 +318,7 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
             markers={chartMarkers(eventMarkers, trendAssets.points[0]?.date)}
             rangeSelect={{ from: selection?.from ?? null, to: selection?.to ?? null, baseHref: clearHref, clearHref, clearLabel: breakdownCopy.clear }}
           />
-          <KpiBand columns={4}>
+          <KpiBand columns={6}>
             {changes.map(({ label, change }) => (
               <TotalAssetsChangeField key={label} label={label} change={change} investment={investmentFor(change)} labels={overviewCopy} money={(krw) => money(krw)} language={language} />
             ))}
