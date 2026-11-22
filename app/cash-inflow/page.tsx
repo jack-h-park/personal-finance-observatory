@@ -4,7 +4,7 @@ import { FilterBar } from '@/components/FilterBar'
 import { PageHeader } from '@/components/PageHeader'
 import { ScrollOnHash } from '@/components/ScrollOnHash'
 import { StackedBarChart } from '@/components/charts'
-import { Card, EmptyState, MetricField, MetricHeroCard, Note, Panel } from '@/components/ui'
+import { Card, EmptyState, Label, MetricField, Note, Panel } from '@/components/ui'
 import {
   CASH_INFLOW_CURRENCIES,
   CASH_INFLOW_FILTERS,
@@ -22,7 +22,7 @@ import {
   type CashInflowPeriod,
   type CashInflowRow,
 } from '@/lib/adapters/portfolio-db'
-import { fmtNumber, fmtPct } from '@/lib/format'
+import { fmtNumber, fmtPct, fmtSigned } from '@/lib/format'
 import { fractionPct, ruleSnippet } from '@/lib/cash-inflow-format'
 import { signClass, signTone } from '@/lib/tone'
 import { createMoneyFormatter } from '@/lib/currency'
@@ -120,9 +120,22 @@ export default async function CashInflowPage({
   const heroInfo = (
     <>
       {copy.rangeInfo(copy.scope.range.options[range], filter === 'All' ? copy.headlineEyebrow : copy.filter.options[filter])}
-      {filterNote ? ` ${filterNote}` : null}
+      {filterNote ? ` ${filterNote}` : null} {copy.chartNote} {copy.chartHint} {copy.legendHint}
     </>
   )
+  const headlineLabel = filter === 'All' ? copy.headlineEyebrow : copy.filter.options[filter]
+  const rangeLabel = copy.scope.range.options[range]
+  // The period still in progress, at the view's granularity.
+  const currentPeriod = view === 'month' ? data.currentMonth : data.currentMonth.slice(0, 4)
+  const driver = data.totals.changeDriver
+  const changeHint =
+    data.totals.change == null ? null : (
+      <>
+        {driver ? copy.changeDriver(copy.categories[driver.category], fmtSigned(driver.delta, (n) => money(n, data.currency))) : null}
+        {driver && data.totals.changeThrough ? ' · ' : null}
+        {data.totals.changeThrough ? copy.changeThrough(data.totals.changeThrough) : null}
+      </>
+    )
 
   const reasonText = (r: CashInflowRow) => {
     if (r.reasonKind === 'rule') return copy.reasons.rule(r.reason ?? '')
@@ -199,38 +212,40 @@ export default async function CashInflowPage({
         status={cashInflowHeaderStatus(copy, data.unclassifiedCount, data.undatedCount, href({ category: 'unclassified' }))}
       />
 
-      <FilterBar
-        basePath={BASE}
-        params={filterParams}
-        groups={[
-          { key: 'view', label: copy.viewLabel, options: [{ value: 'month', label: copy.monthly }, { value: 'year', label: copy.yearly }], selected: view, defaultValue: 'month', countsAsFilter: false },
-          { key: 'category', label: copy.filter.label, options: CASH_INFLOW_FILTERS.map((value) => ({ value, label: copy.filter.options[value] })), selected: filter },
-          { key: 'source', label: copy.scope.source.label, options: CASH_INFLOW_SOURCES.map((value) => ({ value, label: copy.scope.source.options[value] })), selected: source },
-          { key: 'currency', label: copy.scope.currency.label, options: CASH_INFLOW_CURRENCIES.map((value) => ({ value, label: copy.scope.currency.options[value] })), selected: currency },
-          { key: 'range', label: copy.scope.range.label, options: CASH_INFLOW_RANGES.map((value) => ({ value, label: copy.scope.range.options[value] })), selected: range, defaultValue: '12m' },
-        ]}
-      />
-
       {!data.hasBankData ? (
         <Panel bordered={false} text="label-note">{copy.noBankData}</Panel>
       ) : null}
 
-      <CardRow columns={1}>
-        <MetricHeroCard
-          id="cash-inflow-lead"
-          title={copy.scope.range.options[range]}
-          info={heroInfo}
-          eyebrow={filter === 'All' ? copy.headlineEyebrow : copy.filter.options[filter]}
-          value={money(data.totals.rangeTotal, data.currency)}
-        >
-          {/* Unclassified money is a to-do, not income: no average and no comparison, only how much is left to sort. */}
+      {/* One lead card answers the page's question: the total, how it moved, and
+          the trend, with the filters that shape all three above the chart. */}
+      <Card id="cash-inflow-lead" title={copy.heroTitle} info={heroInfo} accent>
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <Label variant="eyebrow">{`${headlineLabel} · ${rangeLabel}`}</Label>
+              <div className="mt-2 text-hero-sm font-medium leading-none tracking-normal text-ink sm:text-hero">{money(data.totals.rangeTotal, data.currency)}</div>
+            </div>
+            {/* Unclassified money is a to-do, not income: no comparison, only how much is left to sort. */}
+            {filter === 'unclassified' ? null : (
+              <div className="min-w-0 sm:max-w-[50%] sm:text-right">
+                <MetricField
+                  label={copy.kpi.change}
+                  labelClassName="sm:justify-end"
+                  info={copy.changeInfo}
+                  value={fmtPct(fractionPct(data.totals.change), { signed: true, nullText: copy.notAvailable })}
+                  tone={data.totals.change == null ? undefined : signTone(data.totals.change)}
+                  hint={changeHint}
+                />
+              </div>
+            )}
+          </div>
           {filter === 'unclassified' ? (
             <KpiBand>
               <MetricField label={copy.triage.count} value={fmtNumber(data.unclassifiedCount)} />
               <MetricField label={copy.triage.groups} value={fmtNumber(unclassifiedGroups.length)} />
             </KpiBand>
           ) : (
-            <KpiBand>
+            <KpiBand columns={filter === 'All' ? 4 : undefined}>
               <MetricField label={copy.monthlyAverage} value={money(data.totals.monthlyAverage, data.currency)} />
               {filter === 'All' ? (
                 <>
@@ -239,39 +254,47 @@ export default async function CashInflowPage({
                   <MetricField label={copy.kpi.investmentShare} value={fmtPct(fractionPct(data.totals.investmentShare), { nullText: copy.notAvailable })} />
                 </>
               ) : null}
-              <MetricField
-                label={copy.kpi.change}
-                info={copy.changeInfo}
-                value={fmtPct(fractionPct(data.totals.change), { signed: true, nullText: copy.notAvailable })}
-                tone={data.totals.change == null ? undefined : signTone(data.totals.change)}
-              />
             </KpiBand>
           )}
-        </MetricHeroCard>
-      </CardRow>
-
-      <CardRow columns={1}>
-        <Card title={copy.trendCard} info={`${copy.chartNote} ${copy.chartHint} ${copy.legendHint}`}>
-          <StackedBarChart
-            data={chartPeriods.map((p) => ({
-              period: view === 'month' ? p.period.slice(2) : p.period,
-              ...Object.fromEntries(categories.map((c) => [c, p[c]])),
-              // A segment click filters to its category and opens its credits.
-              links: Object.fromEntries(categories.map((c) => [c, href({ category: c, detail: p.period, detailCategory: c, anchor: true })])),
-            }))}
-            linkKey="links"
-            toggleable
-            xKey="period"
-            series={categories.map((c) => ({ key: c, label: copy.categories[c], color: CASH_INFLOW_CATEGORY_COLOR[c] }))}
-            height={300}
-            yAxisLabel={usd ? copy.axisUsd : copy.axisKrw}
-            allowDecimals={usd}
-            unit={{ kind: 'money', currency: currencyPreferences.displayCurrency }}
-            language={language}
-            emptyMessage={copy.noTrend}
-          />
-        </Card>
-      </CardRow>
+          <div className="border-t border-line-subtle pt-4">
+            <FilterBar
+              basePath={BASE}
+              params={filterParams}
+              groups={[
+                { key: 'range', label: copy.scope.range.label, options: CASH_INFLOW_RANGES.map((value) => ({ value, label: copy.scope.range.options[value] })), selected: range, defaultValue: '12m' },
+                { key: 'view', label: copy.viewLabel, options: [{ value: 'month', label: copy.monthly }, { value: 'year', label: copy.yearly }], selected: view, defaultValue: 'month', countsAsFilter: false },
+                { key: 'category', label: copy.filter.label, options: CASH_INFLOW_FILTERS.map((value) => ({ value, label: copy.filter.options[value] })), selected: filter },
+                { key: 'source', label: copy.scope.source.label, options: CASH_INFLOW_SOURCES.map((value) => ({ value, label: copy.scope.source.options[value] })), selected: source },
+                { key: 'currency', label: copy.scope.currency.label, options: CASH_INFLOW_CURRENCIES.map((value) => ({ value, label: copy.scope.currency.options[value] })), selected: currency },
+              ]}
+            />
+          </div>
+          <div>
+            <StackedBarChart
+              data={chartPeriods.map((p) => ({
+                period: view === 'month' ? p.period.slice(2) : p.period,
+                ...Object.fromEntries(categories.map((c) => [c, p[c]])),
+                partial: p.period === currentPeriod,
+                // A segment click filters to its category and opens its credits.
+                links: Object.fromEntries(categories.map((c) => [c, href({ category: c, detail: p.period, detailCategory: c, anchor: true })])),
+              }))}
+              linkKey="links"
+              partial={{ key: 'partial', label: copy.partialLabel }}
+              toggleable
+              xKey="period"
+              series={categories.map((c) => ({ key: c, label: copy.categories[c], color: CASH_INFLOW_CATEGORY_COLOR[c] }))}
+              height={320}
+              yAxisLabel={usd ? copy.axisUsd : copy.axisKrw}
+              allowDecimals={usd}
+              unit={{ kind: 'money', currency: currencyPreferences.displayCurrency }}
+              language={language}
+              emptyMessage={copy.noTrend}
+            />
+            {/* A data caveat, not an explanation: the lighter bar would otherwise read as a fall. */}
+            {chartPeriods.some((p) => p.period === currentPeriod) ? <Note spacing="above-2">{copy.partialNote(currentPeriod)}</Note> : null}
+          </div>
+        </div>
+      </Card>
 
       <CardRow columns={1}>
         <Card title={copy.tableCard}>
