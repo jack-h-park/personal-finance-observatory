@@ -768,6 +768,9 @@ def korean_deposit_groups(paths, account_map, institution, findings):
     return groups
 
 
+KOREAN_DEPOSIT_FX_CASH_RE = re.compile(r"\s*외국통화\s*환전")
+
+
 def parse_korean_deposit(path, findings, _notes):
     rows = _xls_rows(path, findings)
     header = None
@@ -803,10 +806,15 @@ def parse_korean_deposit(path, findings, _notes):
             raise ValueError('transaction row has no amounts')
         if any(value is not None and not math.isfinite(value) for value in (deposit, withdrawal)):
             raise ValueError('transaction row has non-finite amount')
-        txns.append({'date': date_time[:10], 'time': date_time[11:],
-                     'description': ' '.join(' '.join(filter(None, [get('적요'), get('보낸분/받는분')])).split()),
-                     'amount': (deposit or 0) - (withdrawal or 0),
-                     'balance': balance})
+        txn = {'date': date_time[:10], 'time': date_time[11:],
+               'description': ' '.join(' '.join(filter(None, [get('적요'), get('보낸분/받는분')])).split()),
+               'amount': (deposit or 0) - (withdrawal or 0),
+               'balance': balance}
+        # Foreign banknotes sold to the bank for won: the holder's own money changing
+        # form, never income.
+        if txn['amount'] > 0 and KOREAN_DEPOSIT_FX_CASH_RE.match(get('적요')):
+            txn['ownTransfer'] = True
+        txns.append(txn)
     if header is None:
         raise ValueError('transaction header missing')
     txns.sort(key=lambda txn: (txn['date'], txn['time']))
