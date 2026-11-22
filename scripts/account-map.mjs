@@ -28,6 +28,7 @@ export function loadAccountMap(file) {
     anchors: raw.anchors ?? [],
     pensionAccounts: raw.pensionAccounts ?? [],
     brokerageAccounts: raw.brokerageAccounts ?? [],
+    ...(raw.householdTransit ? { householdTransit: raw.householdTransit } : {}),
   }
 }
 
