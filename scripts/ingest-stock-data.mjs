@@ -1,4 +1,5 @@
 import { approvedBankBalanceRows } from './approved-bank-balances.mjs'
+import { approvedMiraeBalances, approvedMiraeFile } from './approved-mirae-balances.mjs'
 import { verifiedSourceConfirmations, fidelitySnapshotFacts } from './source-confirmations.mjs'
 import { financeFile, resolveFinancePaths } from './finance-paths.mjs'
 import crypto from 'node:crypto'
@@ -27,6 +28,10 @@ const now = new Date().toISOString()
 const snapshotDate = portfolioDate(new Date(now))
 
 const dataDir = financeFile('STOCK_DATA_DIR')
+const approvedMiraePath = path.join(dataDir, 'kr-statements', approvedMiraeFile)
+const approvedMirae = fs.existsSync(approvedMiraePath)
+  ? approvedMiraeBalances(JSON.parse(fs.readFileSync(approvedMiraePath, 'utf8')))
+  : null
 const payloadDir = path.join(dataDir, '.codex_sheet_payloads')
 const financePaths = resolveFinancePaths()
 const outDir = financePaths.mode === 'sample' || process.env.FINANCE_RUNTIME_DIR?.trim() ? financePaths.runtimeDir : path.join(dataDir, 'outputs/stock-portfolio-observatory')
@@ -739,7 +744,7 @@ const fxLedger = loadFxLedger()
 // is copied here from the FX ledger; fx_account_balances stays for /fx, which
 // reads it, until a later phase moves that page over. Built here, ahead of the
 // source_files registration that counts it.
-const cashRows = [
+let cashRows = [
   ...bankBalances.accounts.flatMap((account) =>
     account.balances.map((b) => ({
       institution: account.institution,
@@ -772,6 +777,7 @@ if (fs.existsSync(approvedBankBalancesPath)) {
   const receipts = JSON.parse(fs.readFileSync(approvedBankBalancesPath, 'utf8'))
   cashRows.push(...approvedBankBalanceRows(receipts, cashRows, path.basename(approvedBankBalancesPath)))
 }
+if (approvedMirae) cashRows = approvedMirae.cmaCash(cashRows)
 const sourceConfirmationResult = verifiedSourceConfirmations(accountMap.sourceConfirmations, dataDir)
 const confirmedSources = []
 for (const receipt of sourceConfirmationResult.accepted) {
@@ -5480,7 +5486,7 @@ insertMany(
 // The wrapper and asset class are the account's, by the same rules as its
 // securities rows, so the reader can keep a pension's or the gold account's cash
 // out of a brokerage figure.
-const brokerageCashRows = (readTsvAt(krStatementsDir, 'cash.tsv')?.rows ?? [])
+let brokerageCashRows = (readTsvAt(krStatementsDir, 'cash.tsv')?.rows ?? [])
   .map((r) => {
     const account = text(r.Account)
     return {
@@ -5718,6 +5724,7 @@ const brokerageCashCoverageRows = (readTsvAt(krStatementsDir, 'cash-coverage.tsv
   })
   .filter((r) => r.account && r.period_start && r.period_end)
 insertMany(db, 'brokerage_cash_coverage', brokerageCashCoverageRows, ['institution', 'account', 'source', 'period_start', 'period_end'])
+if (approvedMirae) brokerageCashRows = approvedMirae.isaCash(brokerageCashRows)
 insertMany(db, 'brokerage_cash', brokerageCashRows, ['institution', 'account', 'pool', 'currency', 'as_of_date', 'balance', 'source', 'account_wrapper', 'asset_class'])
 insertMany(db, 'fx_account_balances', fxLedger.balances ?? [], [
   'institution',
@@ -6199,7 +6206,9 @@ if (droppedHoldingRows.length) {
       [...new Set(droppedHoldingRows.map((r) => r.account))].join(', ')
   )
 }
-insertMany(db, 'holdings', holdingRows, HOLDING_COLUMNS)
+const holdingsForTaxLotValidation = holdingRows
+if (approvedMirae) holdingRows = approvedMirae.holdings(holdingRows)
+insertMany(db, 'holdings', holdingRows, approvedMirae ? [...HOLDING_COLUMNS, 'valuation_source'] : HOLDING_COLUMNS)
 insertMany(db, 'holdings', pensionHoldingRows, [...HOLDING_COLUMNS, 'valuation_source'])
 insertMany(db, 'holdings', goldHoldingRows, [...HOLDING_COLUMNS, 'valuation_source'])
 // The Korea sheet already lists these accounts' gold sales (average-cost slices
@@ -6899,7 +6908,9 @@ if (unpairedTransferOut.length) {
 // account has lots and (until it is valued on its own) no holding; either would
 // read as a mismatch, and this one is error severity and stops the refresh.
 const holdingsByKey = new Map()
-for (const r of stockOnly(holdingRows)) holdingsByKey.set(`${r.account}\t${r.ticker}`, r)
+// Compare lots to the holdings generated from the same history. The approved
+// certificate replaces the displayed positions independently of that history.
+for (const r of stockOnly(holdingsForTaxLotValidation)) holdingsByKey.set(`${r.account}\t${r.ticker}`, r)
 
 const lotsByKey = new Map()
 for (const r of stockOnly(taxLotRows)) {
