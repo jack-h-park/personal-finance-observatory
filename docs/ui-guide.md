@@ -103,7 +103,7 @@ a leading substring instead.
 | a route's loading state | `app/loading.tsx` renders `<PageSkeleton>` |
 | a position in a table cell | `<PositionCell>` — market badge and ticker link, with the name under them or alone |
 | a main column and a fixed side column inside a card | `<Split>` — `side`, `at`, `gap`, `sideFirst` |
-| equal columns of fields, panels or cards inside a card | `<Columns>` — `columns` (a recipe key such as `sm-2`, `2-md-4`), `gap`, `as` div / dl / ul; `className` never carries `grid-cols-*` or `gap-*` |
+| equal columns of fields, panels or cards inside a card | `<Columns>` — `columns` (a recipe key such as `sm-2`, `2-md-4`), `gap`, `as` div / dl; `className` never carries `grid-cols-*` or `gap-*` |
 
 Do not write the grid class by hand. Fifty-one copies of five arrangements
 existed before `CardRow`, which is how a fifty-second comes to differ by one

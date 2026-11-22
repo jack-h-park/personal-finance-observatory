@@ -269,8 +269,8 @@ const COLUMN_GAPS = {
  * An equal-column grid inside a card body. `columns` and `gap` name the only
  * grid classes it may carry; `className` holds what the call site keeps
  * besides them (margins, padding, text size, dividers, borders) and never a
- * `grid-cols-*` or `gap-*` class. `as="dl"` or `as="ul"` keeps the element a
- * definition or item list.
+ * `grid-cols-*` or `gap-*` class. `as="dl"` keeps the element a definition
+ * list.
  */
 export function Columns({
   columns,
@@ -281,7 +281,7 @@ export function Columns({
 }: {
   columns: keyof typeof COLUMN_RECIPES
   gap?: keyof typeof COLUMN_GAPS
-  as?: 'div' | 'dl' | 'ul'
+  as?: 'div' | 'dl'
   className?: string
   children: ReactNode
 }) {
