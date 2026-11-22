@@ -388,6 +388,14 @@ def parse_robinhood(path, venue, account):
     transactions = []
     snapshot = []
     period_start = period_end = ""
+    # The brokerage account each crypto row settles against: a purchase is paid
+    # from its cash and a sale lands there, and the equity CSV never shows either.
+    # Since mid-2026 one statement holds a section per brokerage account, each
+    # headed `RHS ACCOUNT NUMBER`, so the account is stamped on every row from the
+    # section it was read in. Only the last four digits are kept, the label the
+    # database already uses for the account ("Robinhood 1478").
+    funding_account = ""
+    funding_accounts = []
     with pdfplumber.open(path) as pdf:
         pages = len(pdf.pages)
         for page_index, page in enumerate(pdf.pages):
@@ -400,6 +408,11 @@ def parse_robinhood(path, venue, account):
                 end = re.match(r"^PERIOD END (\d{4}-\d{2}-\d{2})", line)
                 if end:
                     period_end = end.group(1)
+                rhs = re.match(r"^RHS ACCOUNT NUMBER (\d{4,})$", line)
+                if rhs:
+                    funding_account = rhs.group(1)[-4:]
+                    if funding_account not in funding_accounts:
+                        funding_accounts.append(funding_account)
                 holding = RH_HOLDING_RE.match(line)
                 if holding and "CRYPTOCURRENCY" not in line:
                     snapshot.append(
@@ -430,6 +443,7 @@ def parse_robinhood(path, venue, account):
             for record in records:
                 row = parse_robinhood_activity(record, names, venue, account, path.name, page_index + 1)
                 if row:
+                    row["fundingAccount"] = funding_account
                     transactions.append(row)
 
     # The month-end snapshot is dated by the statement period: the holdings block
@@ -438,7 +452,7 @@ def parse_robinhood(path, venue, account):
     for row in snapshot:
         row["asOfDate"] = period_end
 
-    return transactions, snapshot, period_start, period_end, pages
+    return transactions, snapshot, period_start, period_end, pages, funding_accounts
 
 
 def parse_robinhood_activity(record, names, venue, account, filename, page):
@@ -552,7 +566,7 @@ def main():
                 }
             )
         elif entry["category"] == "robinhood_crypto_statement":
-            rows, snapshot, start, end, pages = parse_robinhood(path, venue, account)
+            rows, snapshot, start, end, pages, funding_accounts = parse_robinhood(path, venue, account)
             stamp_document_order(rows, end)
             transactions.extend(rows)
             snapshots.extend(snapshot)
@@ -570,6 +584,7 @@ def main():
                         "periodStart": start,
                         "periodEnd": end,
                         "snapshot_symbols": len(snapshot),
+                        "fundingAccounts": funding_accounts,
                     },
                 }
             )
