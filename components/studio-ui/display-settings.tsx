@@ -5,7 +5,7 @@
 // format.ts), so lib/ code can read the cookies without importing components/.
 'use client'
 
-import { useEffect, useId, useState } from 'react'
+import { useId, useSyncExternalStore } from 'react'
 import {
   DISPLAY_SETTINGS_COPY,
   LANGUAGE_NAMES,
@@ -56,6 +56,16 @@ function Choices<T extends string>({
   )
 }
 
+// The theme cookie as an external store, so the row reads it without setting
+// state in an effect (and renders 'system' on the server, then the cookie).
+function subscribeTheme(onChange: () => void): () => void {
+  document.addEventListener('jhp:preferences', onChange)
+  return () => document.removeEventListener('jhp:preferences', onChange)
+}
+function readThemeCookie(): ThemePreference {
+  return parseTheme(readCookie(document.cookie, THEME_COOKIE))
+}
+
 /**
  * `languages` lists the catalogs this app has; with fewer than two only the
  * theme control is shown. `onLanguageChange` applies a new language (for
@@ -79,8 +89,7 @@ export function DisplaySettings({
   onThemeChange?: (theme: ThemePreference) => void
 }) {
   const copy = DISPLAY_SETTINGS_COPY[locale]
-  const [theme, setTheme] = useState<ThemePreference>('system')
-  useEffect(() => setTheme(parseTheme(readCookie(document.cookie, THEME_COOKIE))), [])
+  const theme = useSyncExternalStore(subscribeTheme, readThemeCookie, () => 'system' as ThemePreference)
 
   return (
     <div className="jhp-nav__settings" data-jhp-nav-settings="">
@@ -94,7 +103,7 @@ export function DisplaySettings({
           writePreference(THEME_COOKIE, next)
           if (onThemeChange) onThemeChange(next)
           else applyTheme(next)
-          setTheme(next)
+          // Also re-renders this row: subscribeTheme listens for the same event.
           document.dispatchEvent(new CustomEvent('jhp:preferences', { detail: { changed: 'theme', theme: next } }))
         }}
       />
