@@ -1,7 +1,7 @@
 import type { TotalAssetsPoint } from '@/lib/net-worth'
 
 const CLASS_KEYS = ['stocks', 'crypto', 'cash', 'pensions', 'gold'] as const
-type ClassKey = (typeof CLASS_KEYS)[number]
+export type ClassKey = (typeof CLASS_KEYS)[number]
 
 export type TotalAssetsChange = {
   /** The snapshot the change is measured from: the latest one on or before `since`. */

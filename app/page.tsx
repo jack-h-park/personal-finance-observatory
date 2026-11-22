@@ -3,7 +3,7 @@ import { AssetCoverageNote } from '@/components/AssetCoverageNote'
 import { PageHeader } from '@/components/PageHeader'
 import { Badge, Card, EmptyState, HeroAside, MetricField, MetricHeroCard, Note, Panel, TextLink, marketTone } from '@/components/ui'
 import { PortfolioMultiTrendChart, PortfolioTrendChart, StackedAssetChart } from '@/components/charts'
-import { compactAmount, type ChartUnit } from '@/lib/chart-format'
+import type { ChartUnit } from '@/lib/chart-format'
 import {
   dbAvailable,
   getAssetCoverageReview,
@@ -51,6 +51,7 @@ import { getLanguage } from '@/lib/i18n-server'
 import { deltaTone, signClass, signTone } from '@/lib/tone'
 import { getPageCopy } from '@/lib/ui-copy'
 import { routeMetadata, routeSection } from '@/lib/page-names'
+import { TotalAssetsChangeField } from '@/components/TotalAssetsChangeField'
 import { CardRow, KpiBand, MiniStat, MiniStatGrid, Stat, StatStrip } from '@/components/layout'
 import { ShareBar } from '@/components/bars'
 import { AssetViewLink } from '@/components/LanguageSwitcher'
@@ -276,39 +277,9 @@ export default async function OverviewPage({
     </span>
   )
 
-  // Unavailable is not zero: with no snapshot that old the field says so.
   const changeField = (label: string, change: TotalAssetsChange | null) => (
-    <MetricField
-      label={label}
-      value={change ? fmtSigned(change.change, (v) => money(v, 'KRW')) : EMPTY_VALUE}
-      tone={change ? signTone(change.change) : 'neutral'}
-      hint={
-        change ? (
-          <>
-            {[
-              change.pct == null ? null : fmtPct(change.pct, { digits: 1, signed: true }),
-              copy.changeSince(fmtDate(change.baseDate, language)),
-              change.addedClasses.length ? copy.changeAddedClasses(change.addedClasses.map((key) => copy.assetClasses[key]).join(', ')) : null,
-            ].filter(Boolean).join(' · ')}
-            {changeDrivers(change)}
-          </>
-        ) : copy.changeUnavailable
-      }
-    />
+    <TotalAssetsChangeField label={label} change={change} labels={copy} money={(v) => money(v, 'KRW')} language={language} />
   )
-  // The two classes that moved most, so a large change says where it came from.
-  const changeDrivers = (change: TotalAssetsChange | null) =>
-    change?.byClass.length ? (
-      <span className="mt-1 block">
-        {change.byClass.slice(0, 2).map((driver, index) => (
-          <span key={driver.key}>
-            {index ? ' · ' : null}
-            {copy.assetClasses[driver.key]}{' '}
-            <span className={signClass(driver.change)}>{fmtSigned(driver.change, (v) => compactAmount(v, { kind: 'money', currency: 'KRW' }, language))}</span>
-          </span>
-        ))}
-      </span>
-    ) : null
 
   return (
     <>
