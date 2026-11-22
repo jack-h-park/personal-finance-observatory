@@ -63,8 +63,10 @@ export default async function DataConnectionsPage({ searchParams }: {
                 <tr key={account.key}>
                   <th scope="row">
                     {account.label[language]}
-                    {market === 'us' && account.sources.other?.detail && (
-                      <span className={styles.cellDetail}>{copy.other} · {account.sources.other.detail[language]}</span>
+                    {market === 'us' && account.sources.other && (
+                      <span className={styles.cellDetail}>
+                        {copy.other} · {account.sources.other.detail?.[language] ?? copy.status[account.sources.other.status]}
+                      </span>
                     )}
                   </th>
                   {columns.map((source) => {

@@ -65,12 +65,12 @@ function legacyScope(stateDir: string) {
     for (const name of previous[source]) {
       const existing = accounts.find((account) => account.label.en === name)
       if (existing) {
-        existing.sources[source] = { status: 'shadow' }
+        existing.sources[source] = { status: 'discovered' }
         continue
       }
       accounts.push({
         key: name.toLowerCase().replaceAll(' ', '-'), market: 'us', label: { en: name, ko: name },
-        sources: { [source]: { status: 'shadow' }, files: { status: 'keep' } },
+        sources: { [source]: { status: 'discovered' }, files: { status: 'keep' } },
       })
     }
   }

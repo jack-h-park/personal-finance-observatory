@@ -14,7 +14,9 @@ test('account scope keeps same-account overlap and regional observations separat
   writeFileSync(join(dir, 'us-connection-scope.json'), JSON.stringify({
     schemaVersion: 1, reviewedOn: '2026-01-01', snaptrade: ['fidelity'], simplefin: [],
   }))
-  assert.equal(readAccountConnectionScope(dir)?.accounts[0].label.en, 'Fidelity Brokerage')
+  const legacy = readAccountConnectionScope(dir)?.accounts[0]
+  assert.equal(legacy?.label.en, 'Fidelity Brokerage')
+  assert.equal(legacy?.sources.snaptrade?.status, 'discovered')
 
   const us = {
     key: 'example-us', market: 'us', label: { en: 'Example US account', ko: '미국 예시 계좌' },

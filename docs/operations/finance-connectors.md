@@ -45,7 +45,8 @@ The vendored `contracts/finance-connectors/v1/run.schema.json` is copied from th
 `/data-connections` compares reviewed evidence per account in the United States
 and South Korea. Store the reviewed `account-connection-scope.json` in
 `FINANCE_STATE_DIR` on the private app host. A version 1
-`us-connection-scope.json` remains readable when the new file is absent.
+`us-connection-scope.json` remains readable when the new file is absent. It
+identifies reviewed accounts and does not record collection cadence.
 
 ```json
 {
