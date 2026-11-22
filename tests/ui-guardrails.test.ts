@@ -207,6 +207,17 @@ test('G4 catches grid columns written by hand, outside the layout primitives', (
   )
   // A grid without columns, and other grid utilities.
   assert.deepEqual(findHandWrittenGrid('<div className="grid gap-4 col-span-2 grid-rows-2">', 'app/a/page.tsx'), [])
+  // A template literal that opens here and closes on a later line is read up to its interpolation.
+  const wrapped = ['<div', '  className={`grid gap-3 lg:grid-cols-[1fr_2fr] ${', "    on ? 'bg-surface' : ''", '  }`}', '>'].join('\n')
+  assert.deepEqual(
+    findHandWrittenGrid(wrapped, 'app/a/page.tsx').map((h) => h.line),
+    [2],
+  )
+  // ...and its marker on the line above still exempts it.
+  assert.deepEqual(findHandWrittenGrid(`// guardrail:allow grid: aligns rows\n${wrapped.split('\n').slice(1).join('\n')}`, 'app/a/page.tsx'), [])
+  // A wrapped template without columns, and a closed literal before a backtick-free line, report nothing.
+  assert.deepEqual(findHandWrittenGrid("const c = `grid gap-3 ${\n  x\n}`", 'app/a/page.tsx'), [])
+  assert.deepEqual(findHandWrittenGrid("const c = `grid gap-3` + 'grid-rows-2'", 'app/a/page.tsx'), [])
 })
 
 test('G5 catches a gain/loss colour chosen by an inline ternary', () => {
