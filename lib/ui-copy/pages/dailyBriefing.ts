@@ -86,10 +86,10 @@ export const dailyBriefing = defineCopy({
     narrativeOnlyHint:
       'Holdings snapshots were only retained from the archive rollout onward; earlier days kept the narrative alone.',
     narrativeOnly: (date: string) => `No portfolio numbers for ${date} — this briefing was archived narrative-only.`,
-    bandSince: (date: string | null) => `price moves since ${date}`,
+    bandSince: (date: string | null) => (date ? `price moves since ${date}` : 'price moves since the previous snapshot'),
     bandDayOverDay: 'day-over-day comparison',
     marketClosed: (market: string, date: string | null) =>
-      `Every tracked ${market} price matches ${date} — the market was closed, or the sheet has not re-priced.`,
+      `Every tracked ${market} price matches ${date ?? 'the previous snapshot'} — the market was closed, or the sheet has not re-priced.`,
     noComparison: (market: string) => `No day-over-day comparison for ${market} in this briefing.`,
     pricedHint: (covered: string, uncovered: number) =>
       `${covered} priced${uncovered ? `, ${uncovered} without prices` : ''}`,
@@ -100,7 +100,7 @@ export const dailyBriefing = defineCopy({
     readOrderNote: 'Session figures answer today; portfolio value and unrealized P/L answer current standing.',
     sessionMoversInfo: (minAmount: string) =>
       `Ranked by price change since the previous snapshot, among positions worth at least ${minAmount}.`,
-    activitySince: (date: string | null) => `Activity since ${date}`,
+    activitySince: (date: string | null) => (date ? `Activity since ${date}` : 'Activity since the previous snapshot'),
     activityNote:
       'Detected from share-count changes between snapshots — no trade feed is involved. Excluded from Session P/L, which measures price movement on the shares already held.',
     standingBand: (flag: string, market: string) => `${flag} ${market} — standing vs cost`,
@@ -222,10 +222,10 @@ export const dailyBriefing = defineCopy({
     openPublished: '발행된 페이지 열기 ↗',
     narrativeOnlyHint: '보유 스냅샷은 보관 기능을 도입한 이후부터만 남아 있습니다. 그 이전 날짜는 서술만 보관했습니다.',
     narrativeOnly: (date: string) => `${date}의 포트폴리오 수치가 없습니다 — 이 브리핑은 서술만 보관되었습니다.`,
-    bandSince: (date: string | null) => `${date} 이후 가격 변동`,
+    bandSince: (date: string | null) => (date ? `${date} 이후 가격 변동` : '이전 스냅샷 이후 가격 변동'),
     bandDayOverDay: '전일 대비 비교',
     marketClosed: (market: string, date: string | null) =>
-      `추적 중인 ${market} 가격이 모두 ${date} 가격과 같습니다 — 휴장했거나 시트의 가격이 갱신되지 않았습니다.`,
+      `추적 중인 ${market} 가격이 모두 ${date ?? '이전 스냅샷'} 가격과 같습니다 — 휴장했거나 시트의 가격이 갱신되지 않았습니다.`,
     noComparison: (market: string) => `이 브리핑에는 ${market}의 전일 대비 비교가 없습니다.`,
     pricedHint: (covered: string, uncovered: number) =>
       `가격 반영 ${covered}개${uncovered ? `, 가격 없음 ${uncovered}개` : ''}`,
@@ -236,7 +236,7 @@ export const dailyBriefing = defineCopy({
     readOrderNote: '당일 수치는 오늘의 변동을, 포트폴리오 평가금액과 평가손익은 현재 상태를 보여줍니다.',
     sessionMoversInfo: (minAmount: string) =>
       `평가금액 ${minAmount} 이상 종목 중, 직전 스냅샷 이후 가격 변동 순으로 정렬했습니다.`,
-    activitySince: (date: string | null) => `${date} 이후 활동`,
+    activitySince: (date: string | null) => (date ? `${date} 이후 활동` : '이전 스냅샷 이후 활동'),
     activityNote:
       '스냅샷 사이의 보유 수량 변화로 감지했으며, 거래 내역은 사용하지 않습니다. 이미 보유한 주식의 가격 변동만 측정하는 당일 손익에서는 제외됩니다.',
     standingBand: (flag: string, market: string) => `${flag} ${market} — 취득원가 대비 현황`,
