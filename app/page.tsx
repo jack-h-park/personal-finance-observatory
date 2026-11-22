@@ -3,7 +3,7 @@ import { AssetCoverageNote } from '@/components/AssetCoverageNote'
 import { PageHeader } from '@/components/PageHeader'
 import { Badge, Card, EmptyState, HeroAside, MetricField, MetricHeroCard, Note, Panel, TextLink, marketTone } from '@/components/ui'
 import { PortfolioMultiTrendChart, PortfolioTrendChart, StackedAssetChart } from '@/components/charts'
-import type { ChartUnit } from '@/lib/chart-format'
+import { axisTick, type ChartUnit } from '@/lib/chart-format'
 import {
   dbAvailable,
   getAssetCoverageReview,
@@ -27,7 +27,7 @@ import {
 import { periodTiles } from '@/lib/overview-period-tiles'
 import { attentionItems } from '@/lib/overview-attention'
 import { fmtCount, overviewLinkedStatus } from '@/lib/header-status'
-import { isoDaysBefore, previousYearEnd, totalAssetsChange, type TotalAssetsChange } from '@/lib/total-assets-change'
+import { monthEndBefore, previousYearEnd, totalAssetsChange, type TotalAssetsChange } from '@/lib/total-assets-change'
 import {
   HEALTHY_TREND_COST_COVERAGE,
   MIN_TREND_COST_COVERAGE,
@@ -120,8 +120,12 @@ export default async function OverviewPage({
   // the /net-worth chart, and the change over a month and since the year began.
   const assetsSeries = netWorth ? getTotalAssetsSeries(getSnapshotDates(366), netWorth) : null
   const today = portfolioToday()
-  const monthChange = assetsSeries ? totalAssetsChange(assetsSeries.points, isoDaysBefore(today, 30)) : null
-  const yearChange = assetsSeries ? totalAssetsChange(assetsSeries.points, previousYearEnd(today)) : null
+  // Bases are month ends because history keeps month-end snapshots (see monthEndBefore).
+  const changeSince = (since: string) => (assetsSeries ? totalAssetsChange(assetsSeries.points, since) : null)
+  const monthChange = changeSince(monthEndBefore(today, 1))
+  const quarterChange = changeSince(monthEndBefore(today, 3))
+  const yearChange = changeSince(previousYearEnd(today))
+  const twelveMonthChange = changeSince(monthEndBefore(today, 12))
   // This month / this year, all view only: each figure is a summary of its own page.
   const display = currencyPreferences.displayCurrency
   const tiles = netWorth
@@ -279,16 +283,32 @@ export default async function OverviewPage({
       value={change ? fmtSigned(change.change, (v) => money(v, 'KRW')) : EMPTY_VALUE}
       tone={change ? signTone(change.change) : 'neutral'}
       hint={
-        change
-          ? [
+        change ? (
+          <>
+            {[
               change.pct == null ? null : fmtPct(change.pct, { digits: 1, signed: true }),
               copy.changeSince(fmtDate(change.baseDate, language)),
               change.addedClasses.length ? copy.changeAddedClasses(change.addedClasses.map((key) => copy.assetClasses[key]).join(', ')) : null,
-            ].filter(Boolean).join(' · ')
-          : copy.changeUnavailable
+            ].filter(Boolean).join(' · ')}
+            {changeDrivers(change)}
+          </>
+        ) : copy.changeUnavailable
       }
     />
   )
+  // The two classes that moved most, so a large change says where it came from.
+  const changeDrivers = (change: TotalAssetsChange | null) =>
+    change?.byClass.length ? (
+      <span className="mt-1 block">
+        {change.byClass.slice(0, 2).map((driver, index) => (
+          <span key={driver.key}>
+            {index ? ' · ' : null}
+            {copy.assetClasses[driver.key]}{' '}
+            <span className={signClass(driver.change)}>{fmtSigned(driver.change, (v) => axisTick(v, { kind: 'money', currency: 'KRW' }, language))}</span>
+          </span>
+        ))}
+      </span>
+    ) : null
 
   return (
     <>
@@ -336,8 +356,10 @@ export default async function OverviewPage({
               </div>
             </div>
             <KpiBand columns={4}>
-              {changeField(copy.change1m, monthChange)}
+              {changeField(copy.changeMtd, monthChange)}
+              {changeField(copy.change3m, quarterChange)}
               {changeField(copy.changeYtd, yearChange)}
+              {changeField(copy.change1y, twelveMonthChange)}
             </KpiBand>
           </MetricHeroCard>
         ) : (
