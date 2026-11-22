@@ -14,7 +14,7 @@ balance includes its core money-market position (see FIDELITY_CORE_FUNDS).
 from __future__ import annotations
 
 import csv, hashlib, io, importlib.util, json, math, os, re, subprocess, sys, tempfile, unicodedata
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -1625,6 +1625,59 @@ def anchored(series, points, anchor):
     return sorted(merged.items())
 
 
+def derive_accounts(account_map, inflow_sources, findings, notes=None):
+    """Own accounts no statement covers, rebuilt from the transfers another statement shows.
+
+    A closed savings account or CD has no statement on file, but every dollar that went in or
+    came out is a row of the checking statement that fed it, named by a fixed phrase
+    ("Online Transfer to SAV ...1234"). The account map names the account, the statement it
+    shares rows with (`from`), the phrase (`match`) and the day it was closed (`closedOn`).
+    Money out of the checking is money into the account, so the balance after each row is the
+    running sum of those rows; the account was empty once closed, which fixes where it started
+    (the sum of every row), and that start is carried back to the day before the checking
+    statement begins. Interest the account earned is not in the rows, so it lands in the last
+    withdrawal and the opening balance reads that much high.
+
+    A series that would go below zero cannot be the account: it is reported and not written.
+    """
+    out = []
+    for entry in account_map.get("derivedAccounts", []):
+        label = entry.get("account")
+        phrase = " ".join(str(entry.get("match") or "").split())
+        closed_on = str(entry.get("closedOn") or "")
+        source = next(((inst, alias, cur, txns) for inst, alias, cur, txns in inflow_sources if alias == entry.get("from")), None)
+        if not (label and phrase and closed_on and source):
+            findings.append(f"{label or 'a derived account'}: needs account, from, match and closedOn, and its source statement on file; not derived")
+            continue
+        _inst, _alias, currency, txns = source
+        rows = sorted((t for t in txns if phrase in " ".join(str(t.get("description", "")).split())), key=lambda t: (t["date"], t["seq"]))
+        if not rows:
+            findings.append(f"{label}: no row of {entry.get('from')} names {phrase!r}; not derived")
+            continue
+        start = min(t["date"] for t in txns)
+        opening = round(sum(t["amount"] for t in rows), 2)
+        if opening < 0:
+            findings.append(f"{label}: its rows take out more than they put in ({-opening:.2f}), so it cannot be closed at zero; not derived")
+            continue
+        before = (datetime.strptime(start, "%Y-%m-%d") - timedelta(days=1)).date().isoformat()
+        by_day, running = {}, opening
+        for t in rows:
+            running = round(running - t["amount"], 2)
+            by_day[t["date"]] = running
+        if closed_on >= rows[-1]["date"]:
+            by_day[closed_on] = 0.0
+        if min([opening, *by_day.values()]) < -0.5:
+            findings.append(f"{label}: the rebuilt balance goes below zero; not derived")
+            continue
+        balances = [{"date": before, "balance": opening}] + [{"date": d, "balance": max(0.0, v)} for d, v in sorted(by_day.items())]
+        out.append({"institution": entry.get("institution") or _inst, "account": label, "kind": entry.get("kind") or "savings",
+                    "currency": currency, "owner": "self", "derived": True,
+                    "sources": [f"derived from {entry.get('from')} transfers"], "balances": balances, "continuityBreaks": []})
+        if notes is not None:
+            notes.append(f"{label}: rebuilt from {len(rows)} row(s) of {entry.get('from')}, opening {opening:.2f}, closed {closed_on}")
+    return out
+
+
 def estimate_closed_accounts(statements, transfers, account_map, findings, notes=None):
     """Estimated balances of accounts held outside the statements, from the statements' own transfers.
 
@@ -1823,6 +1876,7 @@ def main():
                 "description": t.get("description", ""), "counterparty": t.get("counterparty", ""),
                 "ownTransfer": bool(t.get("ownTransfer") or t.get("term"))}
                for inst, alias, cur, txns in inflow_sources for t in txns if t["amount"] > 0]
+    accounts.extend(derive_accounts(account_map, inflow_sources, findings, notes))
     OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     document = {"generatedAt": datetime.now(timezone.utc).isoformat(), "accounts": accounts, "coverage": coverage,
                 "estimatedAccounts": estimated, "externalInflows": external_inflows, "inflows": inflows,
