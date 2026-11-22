@@ -21,6 +21,7 @@ export const FINANCE_FILES = Object.freeze({
   STOCK_FX_LEDGER_PATH: ['runtime', 'fx-ledger.json'],
   STOCK_FX_RATE_OBSERVATIONS_PATH: ['state', 'fx-rate-observations.json'],
   STOCK_HANA_FX_SCREENSHOT_EVIDENCE_PATH: ['state', 'fx-hana-screenshot-evidence.json'],
+  STOCK_FX_TRANSFER_OVERRIDES_PATH: ['state', 'fx-transfer-overrides.json'],
   STOCK_REFRESH_RUNS_PATH: ['runtime', 'refresh-runs.json'],
   STOCK_REFRESH_LOCK_PATH: ['runtime', '.refresh.lock'],
   STOCK_MANUAL_MAPPINGS_PATH: ['state', 'manual-mappings.json'],
@@ -41,6 +42,11 @@ export const FINANCE_FILES = Object.freeze({
   STOCK_BRIEFING_ARCHIVE_DIR: ['archive', 'briefing-archive'],
   STOCK_PENSION_DIR: ['records', 'pension'],
 })
+const curatedFxKeys = new Set([
+  'STOCK_FX_RATE_OBSERVATIONS_PATH',
+  'STOCK_HANA_FX_SCREENSHOT_EVIDENCE_PATH',
+  'STOCK_FX_TRANSFER_OVERRIDES_PATH',
+])
 const text = (value) => (typeof value === 'string' ? value.trim() : '')
 const currentKey = (legacy) => legacy.replace(/^STOCK_/, 'FINANCE_')
 const rootNames = [
@@ -136,7 +142,7 @@ export function financeFile(key, env = process.env, cwd = process.cwd()) {
   let fallback
   if (
     roots.mode === 'sample' ||
-    (kind === 'state' && text(env.FINANCE_STATE_DIR)) ||
+    (kind === 'state' && (text(env.FINANCE_STATE_DIR) || curatedFxKeys.has(key))) ||
     (['runtime', 'output'].includes(kind) && text(env.FINANCE_RUNTIME_DIR))
   ) {
     fallback = path.join(kind === 'state' ? roots.stateDir : roots.runtimeDir, basename)

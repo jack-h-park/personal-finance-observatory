@@ -61,7 +61,7 @@ Preserve existing per-file overrides, resolver behavior and sample isolation in 
 | --- | --- | --- |
 | Curated observation input | `STOCK_FX_RATE_OBSERVATIONS_PATH` and existing finance resolver | Reviewed input path on the designated authority; generator output cannot alias it |
 | Screenshot annotation input | `STOCK_HANA_FX_SCREENSHOT_EVIDENCE_PATH` and existing finance resolver | Separate annotation path and validated original-evidence references |
-| Transfer interpretation input | Extractor's `STOCK_FX_TRANSFER_OVERRIDES_PATH` / existing fallback | Explicitly inventory this legacy extractor override; do not assume it already belongs to the generic `FINANCE_FILES` registry |
+| Transfer interpretation input | Shared private-state resolver with the legacy `STOCK_FX_TRANSFER_OVERRIDES_PATH` alias | See the [private FX cutover plan](../../operations/private-fx-cutover.md) for staged adoption |
 | Briefing producer source checkout | External wrapper's `BRIEFING_REPO` | Exact reviewed producer checkout and entrypoint, distinct from archive storage |
 | Briefing producer archive | External wrapper/publisher's `BRIEFING_ARCHIVE_DIR` | Explicit private configuration, identical for wrapper, document writer, benchmark updater, archive commit and renderer |
 | PFO archive reader | `STOCK_BRIEFING_ARCHIVE_DIR` | Same existing canonical directory as the producer, resolved using PFO's actual configuration |

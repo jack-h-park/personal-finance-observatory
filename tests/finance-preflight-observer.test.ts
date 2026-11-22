@@ -93,10 +93,14 @@ test('hard-linked generated output conflicts with curated input without reading 
   f.request.requestedContracts = ['curated_fx_authority']; f.request.curatedFx = { curator: { state: 'unconfirmed', role: 'finance_curator' }, committer: { state: 'unconfirmed', role: 'application_operator' }, inputs: keys.map(resource => ({ resource, endpoint: f.explicit(resource), authority: f.explicit(resource) })), outputs: [f.explicit('output')] }
   const r = f.run(); assert.ok(issueCodes(r).includes('physical_input_output_collision')); assert.equal(r.assessment.status, 'conflict'); assert.equal(readFileSync(path.join(f.dir, keys[0]), 'utf8'), 'original-financial-bytes')
 })
-test('legacy transfer setting uses its explicit extractor rule, not generic finance key aliases', t => {
-  const f = fixture(t); mkdirSync(path.join(f.dir, 'data')); writeFileSync(path.join(f.dir, 'data/fx-transfer-overrides.json'), '{}')
+test('legacy transfer observation resolves the same state path and aliases as the extractor', t => {
+  const f = fixture(t)
   f.request.archive!.producer = { cwd: f.dir, allowedRoot: f.dir, source: { kind: 'legacy_transfer_override' } }
-  const r = f.run(); assert.equal(r.input.archive!.producer.configuredPath, path.join(f.dir, 'data/fx-transfer-overrides.json'))
+  assert.equal(f.run().input.archive!.producer.configuredPath, financeFile('STOCK_FX_TRANSFER_OVERRIDES_PATH', f.env, f.dir))
+  const env = { ...f.env, FINANCE_FX_TRANSFER_OVERRIDES_PATH: 'synthetic-override.json' }
+  assert.equal(observeFinancePreflight(f.request, { ...f.context, env }).input.archive!.producer.configuredPath, path.join(f.dir, 'synthetic-override.json'))
+  f.request.archive!.producer.source = { kind: 'finance_file', key: 'STOCK_FX_TRANSFER_OVERRIDES_PATH' }
+  assert.equal(observeFinancePreflight(f.request, { ...f.context, env }).input.archive!.producer.configuredPath, path.join(f.dir, 'synthetic-override.json'))
 })
 for (const mutate of [
   (x: ObservationRequest) => { x.archive!.producer.allowedRoot = '/' },

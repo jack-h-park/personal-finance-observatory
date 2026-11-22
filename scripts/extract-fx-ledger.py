@@ -41,9 +41,10 @@ KR_TSV = Path(os.environ.get("STOCK_KR_STATEMENTS_DIR", ROOT / "data/kr-statemen
 OUT_DIR = DATA_DIR / "outputs/stock-portfolio-observatory"
 OUT_PATH = Path(os.environ.get("STOCK_FX_LEDGER_PATH", OUT_DIR / "fx-ledger.json"))
 CACHE_PATH = Path(os.environ.get("STOCK_HANA_FX_CACHE_PATH", OUT_DIR / "hana-usd-reference-rates.json"))
-OVERRIDES_PATH = Path(os.environ.get("STOCK_FX_TRANSFER_OVERRIDES_PATH", ROOT / "data/fx-transfer-overrides.json"))
-OBSERVATIONS_PATH = Path(os.environ.get("STOCK_FX_RATE_OBSERVATIONS_PATH", ROOT / "data/fx-rate-observations.json"))
-SCREENSHOT_EVIDENCE_PATH = Path(os.environ.get("STOCK_HANA_FX_SCREENSHOT_EVIDENCE_PATH", ROOT / "data/fx-hana-screenshot-evidence.json"))
+STATE_DIR = Path(os.environ.get("FINANCE_STATE_DIR", DATA_DIR / "outputs/personal-finance-observatory/state"))
+OVERRIDES_PATH = Path(os.environ.get("STOCK_FX_TRANSFER_OVERRIDES_PATH", STATE_DIR / "fx-transfer-overrides.json"))
+OBSERVATIONS_PATH = Path(os.environ.get("STOCK_FX_RATE_OBSERVATIONS_PATH", STATE_DIR / "fx-rate-observations.json"))
+SCREENSHOT_EVIDENCE_PATH = Path(os.environ.get("STOCK_HANA_FX_SCREENSHOT_EVIDENCE_PATH", STATE_DIR / "fx-hana-screenshot-evidence.json"))
 HANA_URL = "https://www.hanabank.com/cms/rate/wpfxd651_01i_01.do"
 HANA_PAGE = "https://www.hanabank.com/cont/mall/mall15/mall1501/index.jsp"
 PREFERENCE = 0.90
@@ -214,16 +215,31 @@ def parse_hana_xls():
     return rows, sources, findings
 
 
-def parse_hana_screenshot_evidence():
+def curated_fx_input(path, key, *, required=False):
+    try:
+        record = json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        if not required:
+            return None
+        raise ValueError(f"Curated FX input is missing: {path.name}") from None
+    except (OSError, UnicodeError, ValueError):
+        raise ValueError(f"Curated FX input is invalid: {path.name}") from None
+    if (not isinstance(record, dict) or record.get("version") != 1
+            or not isinstance(record.get(key), list) or any(not isinstance(row, dict) for row in record[key])):
+        raise ValueError(f"Curated FX input is invalid: {path.name}")
+    return record
+
+
+def parse_hana_screenshot_evidence(*, required=False):
     """Load reviewed OCR from Hana FX Market mobile captures.
 
     The screenshots contain the actual applied rate and timestamp. Cancellations
     and expired reservations are retained in the evidence file but are not
     emitted as exchange lots because no USD was acquired.
     """
-    if not SCREENSHOT_EVIDENCE_PATH.exists():
+    payload = curated_fx_input(SCREENSHOT_EVIDENCE_PATH, "rows", required=required)
+    if payload is None:
         return [], [], []
-    payload = json.loads(SCREENSHOT_EVIDENCE_PATH.read_text(encoding="utf-8"))
     rows, screenshots = [], set()
     for item in payload.get("rows", []):
         screenshots.add(item.get("sourceScreenshot"))
@@ -363,24 +379,22 @@ def reference_rates(days):
     return cached, findings
 
 
-def load_overrides():
-    try:
-        rows = json.loads(OVERRIDES_PATH.read_text(encoding="utf-8")).get("overrides", [])
-        return {(r["institution"], r["date"], r["direction"], round(r["usdAmount"], 2)): r for r in rows}
-    except Exception:
-        return {}
+def load_overrides(*, required=False):
+    payload = curated_fx_input(OVERRIDES_PATH, "overrides", required=required) or {"overrides": []}
+    return {(r["institution"], r["date"], r["direction"], round(r["usdAmount"], 2)): r for r in payload["overrides"]}
 
 
-def load_rate_observations():
-    try:
-        rows = json.loads(OBSERVATIONS_PATH.read_text(encoding="utf-8")).get("observations", [])
-        return {(r["institution"], r["date"], r["transactionTime"]): r for r in rows}
-    except Exception:
-        return {}
+def load_rate_observations(*, required=False):
+    payload = curated_fx_input(OBSERVATIONS_PATH, "observations", required=required) or {"observations": []}
+    return {(r["institution"], r["date"], r["transactionTime"]): r for r in payload["observations"]}
 
 
-def hana_events(rows, rates):
-    events, overrides, observations = [], load_overrides(), load_rate_observations()
+def hana_events(rows, rates, *, overrides=None, observations=None):
+    events = []
+    if overrides is None:
+        overrides = load_overrides()
+    if observations is None:
+        observations = load_rate_observations()
     for row in rows:
         amount = row["deposit"] or row["withdrawal"]
         if amount <= 0:
@@ -476,15 +490,21 @@ def toss_events():
 
 
 def main():
+    # An existing Hana workflow must not rebuild on incomplete private inputs.
+    curated_paths = (OVERRIDES_PATH, OBSERVATIONS_PATH, SCREENSHOT_EVIDENCE_PATH)
+    hana_sources = ("hana-usd-history-*.pdf", "hana-usd-history-*.xls", "hana-usd-history-*.xlsx")
+    required = any(p.exists() for p in curated_paths) or any(any(SOURCE_DIR.glob(pattern)) for pattern in hana_sources)
+    overrides = load_overrides(required=required)
+    observations = load_rate_observations(required=required)
+    screenshot_rows, screenshot_sources, screenshot_findings = parse_hana_screenshot_evidence(required=required)
     pdf_rows, pdf_sources = parse_hana_pdfs()
     xls_rows, xls_sources, findings = parse_hana_xls()
     hana_rows = merge_hana_rows(pdf_rows, xls_rows)
-    screenshot_rows, screenshot_sources, screenshot_findings = parse_hana_screenshot_evidence()
     hana_rows = merge_hana_screenshot_rows(hana_rows, screenshot_rows)
     exchange_days = [r["date"] for r in hana_rows if (r["kind"] == "원화대가" and "FX마켓" in (r.get("memo") or "")) or r["kind"] == "외화지폐"]
     rates, rate_findings = reference_rates(exchange_days)
     toss, toss_sources, toss_findings = toss_events()
-    events = hana_events(hana_rows, rates) + toss
+    events = hana_events(hana_rows, rates, overrides=overrides, observations=observations) + toss
     events.sort(key=lambda row: (row["date"], row.get("time") or "", row["institution"], row["event_type"]))
     OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     balances = [{"institution": "Hana Bank", "account": HANA_USD_ACCOUNT, "as_of_date": source["snapshotDate"],

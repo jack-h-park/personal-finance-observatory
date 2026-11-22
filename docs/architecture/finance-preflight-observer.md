@@ -16,8 +16,8 @@ The [request types and validator](../../lib/domain/finance-preflight/observation
 | Source kind | How the configured path is obtained |
 | --- | --- |
 | `environment` | Only the effective process `BRIEFING_ARCHIVE_DIR` value; absent/empty stays unavailable, without legacy fallback |
-| `finance_file` | An explicitly selected PFO archive, FX observations, screenshot annotation or generated ledger key, resolved by existing `financeFile` with its current/legacy precedence and sample/private rules |
-| `legacy_transfer_override` | The extractor's `STOCK_FX_TRANSFER_OVERRIDES_PATH`, or its explicit base cwd plus existing `data/fx-transfer-overrides.json` fallback; not a fictitious generic registered key |
+| `finance_file` | An explicitly selected PFO archive, FX observations, screenshot annotations, transfer overrides or generated ledger key, resolved by existing `financeFile` with its current/legacy precedence and sample/private rules |
+| `legacy_transfer_override` | Compatibility selector for the shared transfer-override resolver, including current and legacy aliases and the private state default |
 | `explicit_path` | A caller-provided literal path, identified as such; not proof that a running producer consumes it |
 
 The collector snapshots only the finance resolver's supported path roots/overrides, its mode/write flag and the selected producer/legacy keys. It neither reads nor executes `.env`, shell profiles, arbitrary configuration scripts or credentials. URI-shaped configured paths are rejected without copying their value into receipts. Unrelated environment values are not copied or hashed. Supported path keys outside the requested endpoint are retained in that settings snapshot because they can affect implicit sample/private mode; no unrequested endpoint is probed. The configuration fingerprint hashes this allowlisted settings/source/cwd snapshot, not the bytes of an environment file or installed producer code.
