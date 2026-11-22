@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { clsx } from 'clsx'
-import { activeHref, navItems, type NavSection } from '@/lib/nav'
+import { activeHref, navItems, showNavLink, type NavSection } from '@/lib/nav'
 
 /**
  * The sidebar's link list. Hook-free so it renders without a router: the
@@ -16,6 +16,7 @@ export function SidebarNav({
   sections,
   pathname,
   showAllAssets,
+  showSpendingPilot,
   openGroups,
   onToggle,
   label,
@@ -23,11 +24,13 @@ export function SidebarNav({
   sections: readonly NavSection[]
   pathname: string
   showAllAssets: boolean
+  showSpendingPilot?: boolean
   openGroups: Readonly<Record<string, boolean>>
   onToggle: (group: string, open: boolean) => void
   label: string
 }) {
-  const active = activeHref(pathname, navItems(sections, { supplementary: showAllAssets }).map((item) => item.href))
+  const options = { supplementary: showAllAssets, localPilot: showSpendingPilot }
+  const active = activeHref(pathname, navItems(sections, options).map((item) => item.href))
 
   const link = (item: { href: string; label: string }) => {
     const current = item.href === active
@@ -61,7 +64,7 @@ export function SidebarNav({
           <div className="px-2 text-label font-medium text-ink-3">{section.label}</div>
           <ul className="mt-1.5 flex flex-col gap-0.5">
             {section.items.map((entry) => {
-              if (!('group' in entry)) return showAllAssets || !entry.supplementary ? link(entry) : null
+              if (!('group' in entry)) return showNavLink(entry, options) ? link(entry) : null
               const open = openGroups[entry.group] !== false || entry.items.some((item) => item.href === active)
               return (
                 <li key={entry.group}>

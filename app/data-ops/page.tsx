@@ -3,6 +3,7 @@ import { AccountCoverageSummary } from '@/components/AccountCoverageSummary'
 import { summarizeAccountCoverage } from '@/lib/application/account-coverage-summary'
 import { InvestmentUpdateAction, coverageDetailLabel, type CoverageCopy } from '@/components/AccountUpdateAction'
 import { SupplementaryCoverageTable } from '@/components/SupplementaryCoverageTable'
+import { SpendingAccountPanel } from '@/components/SpendingAccountPanel'
 import { DataTable } from '@/components/DataTable'
 import { FreshnessRows } from '@/components/Freshness'
 import { PageHeader } from '@/components/PageHeader'
@@ -78,6 +79,8 @@ export default async function DataOpsPage() {
       />
 
       <AccountCoverageSummary freshness={summarizeSupplementaryFreshness(supplementary.rows)} language={language} summary={summarizeAccountCoverage({ investmentRows: coverage.rows, supplementaryRows: supplementary.rows })} />
+
+      <SpendingAccountPanel mode="review" language={language} />
 
       <Card title={coverageCopy.title} info={coverageCopy.info} issues={{ count: coverage.actionNeeded, severity: 'problem' }} className="mb-5" action={<TextLink href="#account-coverage">{coverageCopy.viewAll}</TextLink>}>
         <Columns columns="3" gap={3} className="mb-4">

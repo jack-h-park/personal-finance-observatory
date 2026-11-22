@@ -18,6 +18,7 @@ import { getCurrencyPreferences } from '@/lib/currency-server'
 import { APP_NAME } from '@/lib/page-names'
 import { getUiCopy, UI_COPY_BY_LANG } from '@/lib/ui-copy'
 import { hasSupplementaryAssets } from '@/lib/adapters/portfolio-db'
+import { spendingPilotEnabled } from '@/lib/adapters/spending-view'
 
 export const metadata: Metadata = {
   title: {
@@ -73,7 +74,8 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         <LanguageProvider language={language} currencyPreferences={currencyPreferences}>
           <StudioAppNavigation language={language} />
           <div className="finance-shell flex flex-col lg:flex-row">
-            <Sidebar language={language} displayCurrency={currencyPreferences.displayCurrency} assetView={assetView} showAllAssets={showAllAssets} />
+            <Sidebar language={language} displayCurrency={currencyPreferences.displayCurrency} assetView={assetView}
+              showAllAssets={showAllAssets} showSpendingPilot={spendingPilotEnabled()} />
             {/*
               max-md:overflow-x-clip stops the page itself scrolling sideways on a
               narrow viewport. /tax-settings could be dragged 234px to the right onto blank

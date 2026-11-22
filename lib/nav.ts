@@ -5,7 +5,7 @@ import type { RouteHref } from '@/lib/page-names'
  * list every reader of it walks, and which item a path lights.
  */
 
-export type NavLink = { href: RouteHref; label: string; supplementary?: true }
+export type NavLink = { href: RouteHref; label: string; supplementary?: true; localPilot?: true }
 
 /** A collapsible run of links inside a section. Its items carry no supplementary gate. */
 export type NavGroup = { group: string; collapsible: true; items: { href: RouteHref; label: string }[] }
@@ -30,13 +30,19 @@ export type NavItem = { href: RouteHref; label: string; section: string; group?:
  * heading always names the section. `supplementary: false` drops the links
  * that only make sense when the database holds supplementary data.
  */
-export function navItems(sections: readonly NavSection[], opts: { supplementary: boolean }): NavItem[] {
+type NavOptions = { supplementary: boolean; localPilot?: boolean }
+
+export function showNavLink(link: NavLink, options: NavOptions) {
+  return (options.supplementary || !link.supplementary) && (options.localPilot || !link.localPilot)
+}
+
+export function navItems(sections: readonly NavSection[], opts: NavOptions): NavItem[] {
   const items: NavItem[] = []
   for (const section of sections) {
     for (const entry of section.items) {
       if ('group' in entry) {
         for (const item of entry.items) items.push({ href: item.href, label: item.label, section: section.label, group: entry.group })
-      } else if (opts.supplementary || !entry.supplementary) {
+      } else if (showNavLink(entry, opts)) {
         items.push({ href: entry.href, label: entry.label, section: section.label })
       }
     }

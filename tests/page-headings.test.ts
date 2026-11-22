@@ -35,6 +35,7 @@ const COPY_FOR: Record<RouteHref, PageKey | { page: PageKey; title: string }> = 
   '/rebalance/settings': 'rebalanceSettings',
   '/income': 'income',
   '/cash-inflow': 'cashInflow',
+  '/spending': 'spending',
   '/tax-planning': 'taxPlanning',
   '/taxes': 'taxHistory',
   '/taxes/history': { page: 'taxHistory', title: 'historyTitle' },

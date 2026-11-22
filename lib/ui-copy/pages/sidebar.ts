@@ -1,5 +1,6 @@
 import { navSections } from '@/lib/nav'
 import { defineCopy } from '@/lib/ui-copy/define'
+import { spendingTitles } from '@/lib/ui-copy/pages/spending'
 
 export const sidebar = defineCopy({
   en: {
@@ -31,6 +32,7 @@ export const sidebar = defineCopy({
           { href: '/pension', label: 'Pension', supplementary: true },
           { href: '/income', label: 'Income' },
           { href: '/cash-inflow', label: 'Cash Inflow' },
+          { href: '/spending', label: spendingTitles.en, localPilot: true },
           {
             group: 'Detailed Records',
             collapsible: true,
@@ -102,6 +104,7 @@ export const sidebar = defineCopy({
           { href: '/pension', label: '연금', supplementary: true },
           { href: '/income', label: '수익 내역' },
           { href: '/cash-inflow', label: '현금 유입' },
+          { href: '/spending', label: spendingTitles.ko, localPilot: true },
           {
             group: '상세 기록',
             collapsible: true,
