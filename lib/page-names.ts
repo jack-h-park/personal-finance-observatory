@@ -43,6 +43,7 @@ export const ROUTE_HREFS = [
   '/health',
   '/data-ops',
   '/reconciliation',
+  '/data-connections',
   '/data-map',
 ] as const
 

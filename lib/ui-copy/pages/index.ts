@@ -7,6 +7,7 @@ import { taxSettings } from '@/lib/ui-copy/pages/taxSettings'
 import { taxHistory } from '@/lib/ui-copy/pages/taxHistory'
 import { taxPlanning } from '@/lib/ui-copy/pages/taxPlanning'
 import { sidebar } from '@/lib/ui-copy/pages/sidebar'
+import { dataConnections } from '@/lib/ui-copy/pages/dataConnections'
 import { dataMap } from '@/lib/ui-copy/pages/dataMap'
 import { review } from '@/lib/ui-copy/pages/review'
 import { rebalance } from '@/lib/ui-copy/pages/rebalance'
@@ -44,6 +45,7 @@ export const PAGE_COPY = {
   taxSettings,
   taxPlanning,
   sidebar,
+  dataConnections,
   dataMap,
   review,
   rebalance,
