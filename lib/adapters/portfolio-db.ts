@@ -1408,22 +1408,46 @@ function hanaUsdRows(conn: Database.Database): CashBalanceRow[] {
   if (!['institution', 'account', 'date', 'direction', 'usd_amount', 'balance_usd'].every((column) => columns.has(column))) return []
   const events = conn
     .prepare(
-      `select account, date, direction, usd_amount as amount, balance_usd as printed
+      `select account, date, time, direction, usd_amount as amount, balance_usd as printed
        from fx_events where institution = 'Hana Bank' order by date, coalesce(time, ''), id`
     )
-    .all() as { account: string; date: string; direction: string; amount: number | null; printed: number | null }[]
+    .all() as { account: string; date: string; time: string | null; direction: string; amount: number | null; printed: number | null }[]
   const rows: CashBalanceRow[] = []
   const running = new Map<string, number>()
-  for (const event of events) {
-    let balance: number | undefined = event.printed ?? undefined
-    if (balance == null) {
-      const before = running.get(event.account)
-      const sign = event.direction === 'OUT' ? -1 : event.direction === 'IN' || event.direction === 'BUY_USD' ? 1 : 0
-      if (before == null || event.amount == null) continue
-      balance = before + sign * Number(event.amount)
+  const sign = (direction: string) => (direction === 'OUT' ? -1 : direction === 'IN' || direction === 'BUY_USD' ? 1 : 0)
+  const days = new Map<string, typeof events>()
+  for (const event of events) days.set(`${event.account}|${event.date}`, [...(days.get(`${event.account}|${event.date}`) ?? []), event])
+  for (const group of days.values()) {
+    const account = group[0].account
+    let ordered = group
+    // Events of one day without a time are listed in no particular order, and the balance
+    // printed after each only makes sense in the order they happened: a wire out after the
+    // arrivals that funded it. Chain them: the next event is the one whose printed balance,
+    // less its own move, is the balance now. Reading the file order instead left the day's
+    // closing at a balance the account had already spent.
+    if (group.some((event) => !event.time)) {
+      const left = [...group]
+      ordered = []
+      let now = running.get(account) ?? 0
+      while (left.length) {
+        let next = left.find((event) => event.printed != null && event.amount != null && Math.abs(event.printed - sign(event.direction) * Number(event.amount) - now) < 0.5)
+        next ??= left.find((event) => event.printed == null)
+        next ??= left[0]
+        left.splice(left.indexOf(next), 1)
+        ordered.push(next)
+        now = next.printed ?? now + sign(next.direction) * Number(next.amount ?? 0)
+      }
     }
-    running.set(event.account, balance)
-    rows.push({ institution: 'fx-ledger:Hana Bank', account: event.account, currency: 'USD', date: event.date, balance })
+    for (const event of ordered) {
+      let balance: number | undefined = event.printed ?? undefined
+      if (balance == null) {
+        const before = running.get(event.account)
+        if (before == null || event.amount == null) continue
+        balance = before + sign(event.direction) * Number(event.amount)
+      }
+      running.set(event.account, balance)
+      rows.push({ institution: 'fx-ledger:Hana Bank', account: event.account, currency: 'USD', date: event.date, balance })
+    }
   }
   return rows
 }

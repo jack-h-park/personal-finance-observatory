@@ -369,3 +369,33 @@ test('a Hana USD event with no printed balance is walked from the balance before
   assert.equal(dec.cash, 0, 'the wire out has cleared the account by year-end')
   assert.equal(jan.cash, 15_000)
 })
+
+test('same-day Hana USD events without a time are chained by their printed balances, so a wire out after the arrivals that funded it closes the day at zero', async () => {
+  const dbPath = ingest()
+  const db = new Database(dbPath)
+  db.prepare('delete from portfolio_snapshots').run()
+  db.prepare('delete from cash_balances').run()
+  db.prepare('delete from fx_events').run()
+  db.prepare('delete from historical_fx_rates').run()
+  const insert = db.prepare(
+    `insert into portfolio_snapshots (snapshot_date, captured_at, global_base_cost, global_base_market_value, kr_market_value, us_market_value_base, crypto_market_value_base,
+       kr_cost_basis, us_cost_basis_base, crypto_cost_basis_base, krw_cost, usd_cost, dividends_krw, dividends_usd, holding_count, share_count)
+     values (?, ?, 0, ?, ?, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1)`
+  )
+  for (const date of ['2025-07-31']) insert.run(date, `${date}T00:00:00Z`, 500_000, 500_000)
+  db.prepare('insert into historical_fx_rates (price_date, rate, source) values (?, ?, ?)').run('2025-01-01', 1_000, 'example')
+  const event = db.prepare(
+    `insert into fx_events (institution, account, date, time, event_type, direction, usd_amount, rate_status, match_status, confidence, method, balance_usd, source)
+     values ('Hana Bank', 'USD account', ?, NULL, 'TRANSFER', ?, ?, 'account_reference_only', 'unmatched', 'low', 'bank_transfer_movement', ?, 'example')`
+  )
+  // Listed with the wire out first, though it happened last.
+  event.run('2025-07-30', 'OUT', 300, 0)
+  event.run('2025-07-30', 'IN', 100, 100)
+  event.run('2025-07-30', 'IN', 200, 300)
+  db.close()
+
+  config.stockDbPath = dbPath
+  const { getTotalAssetsSeries } = await import('../lib/adapters/portfolio-db')
+  const [jul] = getTotalAssetsSeries(['2025-07-31']).points
+  assert.equal(jul.cash, 0, 'the day closes at zero, not at the balance printed on the last listed row')
+})
