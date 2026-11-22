@@ -34,6 +34,7 @@ export const netWorth = defineCopy({
     },
     asOfNote: (label: string, asOf: string) => `${label} as of ${asOf}`,
     trend: 'Total assets trend',
+    eventsToggle: (title: string, count: number) => `${title} (${count})`,
     trendStarts: (parts: string[]) => (parts.length ? `Each class starts on its first data: ${parts.join(' · ')}` : 'No asset class has data yet.'),
     classSince: (label: string, date: string) => `${label} from ${date}`,
     trendNote:
@@ -95,6 +96,7 @@ export const netWorth = defineCopy({
     },
     asOfNote: (label: string, asOf: string) => `${label} ${asOf} 기준`,
     trend: '자산 현황 추이',
+    eventsToggle: (title: string, count: number) => `${title} (${count}건)`,
     trendStarts: (parts: string[]) => (parts.length ? `자산군별 데이터 시작일: ${parts.join(' · ')}` : '아직 데이터가 있는 자산군이 없습니다.'),
     classSince: (label: string, date: string) => `${label} ${date}부터`,
     trendNote:

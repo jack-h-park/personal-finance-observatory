@@ -1,10 +1,11 @@
 import { AssetCoverageNote } from '@/components/AssetCoverageNote'
 import { DataTable } from '@/components/DataTable'
 import { PageHeader } from '@/components/PageHeader'
-import { Badge, Card, MetricField, Note } from '@/components/ui'
-import { CardRow, Columns } from '@/components/layout'
+import { Badge, Card, Label, MetricField, Note } from '@/components/ui'
+import { CardRow, Columns, KpiBand } from '@/components/layout'
+import { TotalAssetsChangeField } from '@/components/TotalAssetsChangeField'
 import { StackedAssetChart } from '@/components/charts'
-import { getAssetCoverageReview, getAssetAllocation, getAssetEvents, getChildAssets, getMeta, getNetWorth, getSnapshotDates, getTotalAssetsSeries } from '@/lib/adapters/portfolio-db'
+import { getAssetCoverageReview, getAssetAllocation, getAssetEvents, getChildAssets, getMeta, getNetWorth, getSnapshotDates, getTotalAssetsSeries, portfolioToday } from '@/lib/adapters/portfolio-db'
 import { convertMoney, createMoneyFormatter, formatKrw, formatUsd } from '@/lib/currency'
 import { getCurrencyPreferences } from '@/lib/currency-server'
 import { fmtDate, fmtDateTime } from '@/lib/format'
@@ -21,6 +22,7 @@ import type { AllocationClass } from '@/lib/asset-allocation'
 import { ASSET_CLASS_COLOR, WRAPPER_COLOR } from '@/lib/palette'
 import { getPageCopy } from '@/lib/ui-copy'
 import { maskAccountLabel } from '@/lib/account-label'
+import { monthEndBefore, previousYearEnd, totalAssetsChange } from '@/lib/total-assets-change'
 
 export const dynamic = 'force-dynamic'
 export const generateMetadata = routeMetadata('/net-worth')
@@ -64,6 +66,16 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
   // Every snapshot date, plus today. The month-end table keeps the last point of
   // each month: the month's last snapshot, and today for the current month.
   const totalAssets = getTotalAssetsSeries(getSnapshotDates(100 * 365), netWorth)
+  // The same changes as the Overview hero, from the same month-end bases.
+  const overviewCopy = getPageCopy('overview', language)
+  const today = portfolioToday()
+  const changeSince = (since: string) => totalAssetsChange(totalAssets.points, since)
+  const changes = [
+    { label: overviewCopy.changeMtd, change: changeSince(monthEndBefore(today, 1)) },
+    { label: overviewCopy.change3m, change: changeSince(monthEndBefore(today, 3)) },
+    { label: overviewCopy.changeYtd, change: changeSince(previousYearEnd(today)) },
+    { label: overviewCopy.change1y, change: changeSince(monthEndBefore(today, 12)) },
+  ]
   // The chart and its events cover the selected period only (?trend=, 2Y by
   // default, as on the overview); the month-end table keeps every month.
   const selectedRange = resolveTrendRange(params.trend)
@@ -107,26 +119,87 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
       />
       <AssetCoverageNote summary={netWorth} language={language} review={getAssetCoverageReview(netWorth)} />
 
-      <CardRow columns="side-main">
-        <Card>
-          <MetricField label={copy.total} value={money(netWorth.totalKrw)} size="metric" />
-        </Card>
-        <Card title={copy.byClass}>
-          <Columns columns="2-md-5" gap={4} className="p-4">
-            {classes.map((name) => (
-              <MetricField
-                key={name}
-                label={copy.classes[name]}
-                value={money(netWorth.byClass[name])}
-                hint={notesFor(name) || undefined}
-              />
+      <Card
+        id="net-worth-trend"
+        title={copy.trend}
+        info={
+          <span className="flex flex-col gap-2">
+            <span>{copy.trendStarts(classes.filter((key) => totalAssets.startsOn[key]).map((key) => copy.classSince(copy.classes[key], fmtDate(totalAssets.startsOn[key]!, language))))}</span>
+            <span>{copy.trendNote}</span>
+          </span>
+        }
+        accent
+        className="mb-5"
+        action={
+          <div className="flex flex-wrap items-center justify-end gap-1">
+            <TrendRangeLinks selected={selectedRange} hrefFor={(trend) => hrefWith({ trend })} />
+            <LinkChip
+              href={hrefWith({ children: !includeChildren })}
+              active={includeChildren}
+              ariaCurrent="none"
+              aria-label={childCopy.toggleAria(includeChildren)}
+              title={childCopy.toggleHint}
+            >
+              {childCopy.toggle}
+            </LinkChip>
+          </div>
+        }
+      >
+        <div className="flex flex-col gap-4">
+          <div>
+            <Label variant="eyebrow">{copy.total}</Label>
+            <div className="mt-2 text-hero-sm font-medium leading-none tracking-normal text-ink sm:text-hero">{money(netWorth.totalKrw)}</div>
+          </div>
+          <KpiBand columns={4}>
+            {changes.map(({ label, change }) => (
+              <TotalAssetsChangeField key={label} label={label} change={change} labels={overviewCopy} money={(krw) => money(krw)} language={language} />
             ))}
-          </Columns>
-          {netWorth.asOfNotes.length ? (
-            <Note band="top" relaxed>{copy.asOfNotesHint}</Note>
-          ) : null}
-        </Card>
-      </CardRow>
+          </KpiBand>
+          <StackedAssetChart
+            points={trendAssets.points.map((point) => ({
+              date: point.date,
+              stocks: point.stocks == null ? null : toDisplay(point.stocks),
+              crypto: point.crypto == null ? null : toDisplay(point.crypto),
+              cash: point.cash == null ? null : toDisplay(point.cash),
+              pensions: point.pensions == null ? null : toDisplay(point.pensions),
+              gold: point.gold == null ? null : toDisplay(point.gold),
+              total: toDisplay(point.total),
+              ...(includeChildren ? { children: childrenOn.get(point.date) == null ? null : toDisplay(childrenOn.get(point.date)!) } : {}),
+            }))}
+            childrenBand={includeChildren ? { label: childCopy.band, combinedLabel: childCopy.combined } : undefined}
+            startsOn={trendAssets.startsOn}
+            labels={{ ...copy.classes, total: copy.historyColumns.total }}
+            axisLabel={currencyPreferences.displayCurrency === 'USD' ? copy.chartAxisUsd : copy.chartAxisKrw}
+            unit={{ kind: 'money', currency: currencyPreferences.displayCurrency }}
+            language={language}
+            emptyMessage={copy.noTrend}
+            height={320}
+            markers={chartMarkers(eventMarkers, trendAssets.points[0]?.date)}
+          />
+        </div>
+        {eventMarkers.length ? (
+          <details className="-mx-4 -mb-4 mt-4 border-t border-line-subtle">
+            <summary className="cursor-pointer px-4 py-3 text-label text-ink-2">{copy.eventsToggle(eventsCopy.title, eventMarkers.length)}</summary>
+            <AssetEventList markers={eventMarkers} copy={eventsCopy} money={(krw) => money(krw)} language={language} />
+          </details>
+        ) : null}
+      </Card>
+
+      <Card title={copy.byClass} className="mb-5">
+        <Columns columns="2-md-5" gap={4} className="p-4">
+          {classes.map((name) => (
+            <MetricField
+              key={name}
+              label={copy.classes[name]}
+              value={money(netWorth.byClass[name])}
+              hint={notesFor(name) || undefined}
+            />
+          ))}
+        </Columns>
+        {netWorth.asOfNotes.length ? (
+          <Note band="top" relaxed>{copy.asOfNotesHint}</Note>
+        ) : null}
+      </Card>
 
       <Card title={allocationCopy.title} className="mb-5">
         <Columns columns="1-md-2" className="divide-y divide-line-subtle md:divide-x md:divide-y-0">
@@ -166,52 +239,6 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
         </div>
       </Card>
 
-      <Card
-        title={copy.trend}
-        className="mb-5"
-        action={
-          <div className="flex flex-wrap items-center justify-end gap-1">
-            <TrendRangeLinks selected={selectedRange} hrefFor={(trend) => hrefWith({ trend })} />
-            <LinkChip
-              href={hrefWith({ children: !includeChildren })}
-              active={includeChildren}
-              ariaCurrent="none"
-              aria-label={childCopy.toggleAria(includeChildren)}
-              title={childCopy.toggleHint}
-            >
-              {childCopy.toggle}
-            </LinkChip>
-          </div>
-        }
-      >
-        <StackedAssetChart
-          points={trendAssets.points.map((point) => ({
-            date: point.date,
-            stocks: point.stocks == null ? null : toDisplay(point.stocks),
-            crypto: point.crypto == null ? null : toDisplay(point.crypto),
-            cash: point.cash == null ? null : toDisplay(point.cash),
-            pensions: point.pensions == null ? null : toDisplay(point.pensions),
-            gold: point.gold == null ? null : toDisplay(point.gold),
-            total: toDisplay(point.total),
-            ...(includeChildren ? { children: childrenOn.get(point.date) == null ? null : toDisplay(childrenOn.get(point.date)!) } : {}),
-          }))}
-          childrenBand={includeChildren ? { label: childCopy.band, combinedLabel: childCopy.combined } : undefined}
-          startsOn={trendAssets.startsOn}
-          labels={{ ...copy.classes, total: copy.historyColumns.total }}
-          axisLabel={currencyPreferences.displayCurrency === 'USD' ? copy.chartAxisUsd : copy.chartAxisKrw}
-          unit={{ kind: 'money', currency: currencyPreferences.displayCurrency }}
-          language={language}
-          emptyMessage={copy.noTrend}
-          markers={chartMarkers(eventMarkers, trendAssets.points[0]?.date)}
-        />
-        <div className="mt-1 text-label text-ink-3">
-          {copy.trendStarts(classes.filter((key) => totalAssets.startsOn[key]).map((key) => copy.classSince(copy.classes[key], fmtDate(totalAssets.startsOn[key]!, language))))}
-        </div>
-        <div className="mt-2 text-label leading-relaxed text-ink-3">{copy.trendNote}</div>
-        <div className="mt-4">
-          <AssetEventList markers={eventMarkers} copy={eventsCopy} money={(krw) => money(krw)} language={language} />
-        </div>
-      </Card>
 
       {includeChildren ? (
         <Card title={childCopy.title} className="mb-5">
