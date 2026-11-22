@@ -48,12 +48,14 @@ test('supplementary items hide without supplementary data, and the rest of the s
   assert.match(render('/'), /href="\/net-worth"/)
 })
 
-test('the sidebar carries one gradient wordmark and puts the switchers after the nav', () => {
+// The Studio app bar is the one place for the JHP mark and the app name, and its
+// display settings row owns the language (workspace-governance guidelines D14, D16).
+test('the sidebar leaves identity and language to the app bar and puts the switchers after the nav', () => {
   const source = fs.readFileSync(path.join(__dirname, '../components/Sidebar.tsx'), 'utf8')
-  assert.equal(source.split('{BRAND.wordmark}').length - 1, 1)
+  assert.doesNotMatch(source, /jhp-mark|BRAND\.|<LanguageSwitcher/)
   const nav = source.indexOf('<SidebarNav')
   assert.ok(nav > 0)
-  for (const switcher of ['<LanguageSwitcher', '<CurrencySwitcher', '<AssetViewSwitcher']) {
+  for (const switcher of ['<CurrencySwitcher', '<AssetViewSwitcher']) {
     assert.ok(source.indexOf(switcher) > nav, `${switcher} renders after the nav`)
   }
   assert.ok(source.indexOf('{copy.readOnly}') > source.indexOf('<AssetViewSwitcher'))

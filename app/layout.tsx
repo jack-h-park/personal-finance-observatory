@@ -12,7 +12,7 @@ import { EntranceMotion } from '@/components/EntranceMotion'
 import { DevCopyBadge } from '@/components/DevCopyBadge'
 import { PrivateAccessNotice } from '@/components/PrivateAccessNotice'
 import { config } from '@/config'
-import { getLanguage } from '@/lib/i18n-server'
+import { getLanguage, getThemeAttribute } from '@/lib/i18n-server'
 import { getAssetView } from '@/lib/asset-view-server'
 import { getCurrencyPreferences } from '@/lib/currency-server'
 import { APP_NAME } from '@/lib/page-names'
@@ -42,6 +42,7 @@ export const metadata: Metadata = {
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const language = await getLanguage()
+  const theme = await getThemeAttribute()
   const currencyPreferences = await getCurrencyPreferences()
   const assetView = await getAssetView()
   // Never let a DB hiccup in this optional check take down every page.
@@ -54,7 +55,16 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   const skipLabel = getUiCopy(language).common.skipToContent
 
   return (
-    <html lang={language} data-theme="jp" className={`${geistSans.variable} ${geistMono.variable}`}>
+    // data-jp scopes jp-theme.css. data-theme is the shared theme preference (guidelines
+    // D15): light, dark, or absent to follow the OS. data-jhp-shell="workspace" lines the
+    // Studio app bar up with the sidebar (D13; --jhp-sidebar-pad in globals.css).
+    <html
+      lang={language}
+      data-jp=""
+      data-theme={theme}
+      data-jhp-shell="workspace"
+      className={`${geistSans.variable} ${geistMono.variable}`}
+    >
       <body>
         <a href="#main-content" className="sr-only z-[100] rounded-sm bg-card px-4 py-3 text-ink focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:ring-2 focus:ring-info">
           {skipLabel}

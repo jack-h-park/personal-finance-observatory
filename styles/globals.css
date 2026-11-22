@@ -16,6 +16,13 @@ body {
   --finance-studio-offset: calc(49px + env(safe-area-inset-top));
   --jhp-nav-z: 35;
 }
+/* Workspace shell (guidelines D13): the bar's mark lines up with the local chrome's
+   inline padding — the mobile header's px-4, then the sidebar's px-3 from lg up. The
+   attribute selector outranks jhp-nav.css's :root default, which loads later. */
+:root[data-jhp-shell="workspace"] { --jhp-sidebar-pad: 1rem; }
+@media (min-width: 1024px) {
+  :root[data-jhp-shell="workspace"] { --jhp-sidebar-pad: 0.75rem; }
+}
 html { scroll-padding-block-start: calc(var(--finance-studio-offset) + var(--space-2)); }
 .finance-shell { min-height: calc(100dvh - var(--finance-studio-offset)); }
 .finance-local-header { top: var(--finance-studio-offset); }

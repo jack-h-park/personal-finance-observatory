@@ -1,5 +1,26 @@
-/* nav-kit-version: 1
-   Source: workspace-governance/docs/ux/kit. Load after jhp-app-theme.css. */
+/* nav-kit-version: 3
+   Source: workspace-governance/docs/ux/kit. Load after jhp-app-theme.css.
+
+   Shell (guidelines D13), set on <html>:
+     data-jhp-shell="page"       default: bar and content share one container;
+                                 wrap the page content in .jhp-shell
+     data-jhp-shell="workspace"  full-width bar for apps with a sidebar; set
+                                 --jhp-sidebar-pad to the sidebar's inline padding
+     data-jhp-width="wide"       1280 px container instead of 1120 px */
+
+:root {
+  --jhp-shell-width: 1120px;
+  --jhp-shell-gutter: var(--space-4);
+  --jhp-sidebar-pad: var(--space-4);
+}
+:root[data-jhp-width="wide"] { --jhp-shell-width: 1280px; }
+
+/* The page container the bar lines up with. */
+.jhp-shell {
+  box-sizing: border-box;
+  width: min(var(--jhp-shell-width), calc(100% - 2 * var(--jhp-shell-gutter)));
+  margin-inline: auto;
+}
 
 .jhp-nav {
   position: sticky;
@@ -18,7 +39,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  width: min(1120px, calc(100% - var(--space-6)));
+  width: min(var(--jhp-shell-width), calc(100% - 2 * var(--jhp-shell-gutter)));
   min-height: 48px;
   margin-inline: auto;
 }
@@ -32,6 +53,8 @@
   color: inherit;
 }
 
+/* The mark's left edge is the shell's left edge; the target stays 44 px. */
+.jhp-nav__home { justify-content: flex-start; }
 .jhp-nav__home img { display: block; border-radius: var(--radius-sm); }
 
 .jhp-nav__current {
@@ -71,7 +94,7 @@
 .jhp-nav__panel {
   position: absolute;
   inset: 100% 0 auto;
-  width: min(1120px, calc(100% - var(--space-6)));
+  width: min(var(--jhp-shell-width), calc(100% - 2 * var(--jhp-shell-gutter)));
   max-block-size: calc(100vh - 64px - env(safe-area-inset-top));
   max-block-size: calc(100dvh - 64px - env(safe-area-inset-top));
   margin-inline: auto;
@@ -120,11 +143,110 @@
 .jhp-nav__link[aria-current="page"] { font-weight: 500; }
 .jhp-nav .jhp-locked { opacity: 1; color: var(--text-secondary); }
 
+.jhp-lock-badge, .jhp-nav__lock-legend {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.jhp-lock-icon {
+  inline-size: 1em;
+  block-size: 1em;
+  flex: none;
+  fill: currentColor;
+}
+
+.jhp-nav__lock-legend {
+  margin: 0 0 var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  color: var(--text-secondary);
+  font-size: var(--t-meta);
+}
+
+.jhp-nav__link.jhp-locked {
+  justify-content: space-between;
+  flex-wrap: nowrap;
+}
+
+.jhp-nav__link .jhp-lock-label {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 .jhp-nav__external {
   display: block;
   border-top: 1px solid var(--border-default);
   margin-top: var(--space-2);
 }
+
+/* Workspace shell: the bar spans the viewport and its mark sits above the
+   sidebar's first item. */
+:root[data-jhp-shell="workspace"] .jhp-nav__inner {
+  width: auto;
+  margin-inline: 0;
+  padding-inline: var(--jhp-sidebar-pad);
+}
+:root[data-jhp-shell="workspace"] .jhp-nav__panel {
+  width: min(var(--jhp-shell-width), calc(100% - 2 * var(--jhp-sidebar-pad)));
+  margin-inline: var(--jhp-sidebar-pad) auto;
+}
+
+/* Display settings row at the foot of the panel (guidelines D15, D16) */
+.jhp-nav__settings {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-5);
+  margin-top: var(--space-2);
+  padding: var(--space-3) var(--space-2) var(--space-1);
+  border-top: 1px solid var(--border-default);
+}
+.jhp-nav__settings-title {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--t-meta);
+  font-weight: 500;
+}
+.jhp-nav__setting {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.jhp-nav__setting-label { color: var(--text-secondary); font-size: var(--t-meta); }
+.jhp-nav__choices {
+  display: inline-flex;
+  padding: 2px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+}
+.jhp-nav__choice { position: relative; display: inline-flex; }
+.jhp-nav__choice input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.jhp-nav__choice span {
+  display: inline-flex;
+  align-items: center;
+  min-block-size: 32px;
+  padding: 0 var(--space-3);
+  border-radius: calc(var(--radius-md) - 2px);
+  color: var(--text-secondary);
+}
+/* Inverted, so the chosen value reads at a glance in both themes. */
+.jhp-nav__choice input:checked + span {
+  background: var(--text-primary);
+  color: var(--bg-page);
+  font-weight: 500;
+}
+.jhp-nav__choice input:focus-visible + span { box-shadow: var(--focus-ring); }
 
 @media (max-width: 600px) {
   .jhp-nav__groups { grid-template-columns: 1fr; }

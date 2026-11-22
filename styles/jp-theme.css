@@ -1,5 +1,5 @@
 /* Console aliases and layout layered over the shared workspace-governance theme. */
-[data-theme="jp"] {
+[data-jp] {
   --t-h2: var(--t-section);
   --lh-h2: var(--lh-section);
   --tr-h2: -0.015em;
@@ -12,7 +12,7 @@
 /* ── Component overrides ─────────────────────────────────────────── */
 
 /* Root: body font and color */
-[data-theme="jp"] {
+[data-jp] {
   font-family: var(--font-sans);
   color: var(--text-primary);
 }
@@ -33,10 +33,10 @@
 /* Page header — short gradient brand tick above the title.
    Replaces the unused .ai-page-header-card stripe; PageHeader is a bare
    header (not a card), so the mark is a 44px rounded tick, not a full rule. */
-[data-theme="jp"] .ai-page-header {
+[data-jp] .ai-page-header {
   position: relative;
 }
-[data-theme="jp"] .ai-page-header::before {
+[data-jp] .ai-page-header::before {
   content: "";
   position: absolute;
   top: -10px;
@@ -56,17 +56,17 @@
   to   { opacity: 1; transform: none; }
 }
 @media (prefers-reduced-motion: no-preference) {
-  [data-theme="jp"]:not([data-entered]) .jp-stagger > * {
+  [data-jp]:not([data-entered]) .jp-stagger > * {
     animation: jp-fade-up var(--dur-4) var(--ease-std) both;
   }
-  [data-theme="jp"]:not([data-entered]) .jp-stagger > *:nth-child(1) { animation-delay: 0ms; }
-  [data-theme="jp"]:not([data-entered]) .jp-stagger > *:nth-child(2) { animation-delay: 50ms; }
-  [data-theme="jp"]:not([data-entered]) .jp-stagger > *:nth-child(3) { animation-delay: 100ms; }
-  [data-theme="jp"]:not([data-entered]) .jp-stagger > *:nth-child(4) { animation-delay: 150ms; }
-  [data-theme="jp"]:not([data-entered]) .jp-stagger > *:nth-child(5) { animation-delay: 200ms; }
-  [data-theme="jp"]:not([data-entered]) .jp-stagger > *:nth-child(6) { animation-delay: 250ms; }
-  [data-theme="jp"]:not([data-entered]) .jp-stagger > *:nth-child(7) { animation-delay: 300ms; }
-  [data-theme="jp"]:not([data-entered]) .jp-stagger > *:nth-child(n+8) { animation-delay: 350ms; }
+  [data-jp]:not([data-entered]) .jp-stagger > *:nth-child(1) { animation-delay: 0ms; }
+  [data-jp]:not([data-entered]) .jp-stagger > *:nth-child(2) { animation-delay: 50ms; }
+  [data-jp]:not([data-entered]) .jp-stagger > *:nth-child(3) { animation-delay: 100ms; }
+  [data-jp]:not([data-entered]) .jp-stagger > *:nth-child(4) { animation-delay: 150ms; }
+  [data-jp]:not([data-entered]) .jp-stagger > *:nth-child(5) { animation-delay: 200ms; }
+  [data-jp]:not([data-entered]) .jp-stagger > *:nth-child(6) { animation-delay: 250ms; }
+  [data-jp]:not([data-entered]) .jp-stagger > *:nth-child(7) { animation-delay: 300ms; }
+  [data-jp]:not([data-entered]) .jp-stagger > *:nth-child(n+8) { animation-delay: 350ms; }
 }
 
 /* Gradient primary button — one per surface for the primary CTA */
@@ -79,10 +79,10 @@
 
 /* ── Semantic type scale ────────────────────────────────────────────
    Use these classes instead of Tailwind font-size/weight combinations
-   inside [data-theme="jp"] surfaces. They respond to the theme toggle.
+   inside [data-jp] surfaces. They respond to the theme toggle.
    ─────────────────────────────────────────────────────────────────── */
 
-[data-theme="jp"] .t-h2 {
+[data-jp] .t-h2 {
   font-family: var(--font-sans);
   font-size: var(--t-h2);
   font-weight: 500;
@@ -90,7 +90,7 @@
   letter-spacing: var(--tr-h2);
   color: var(--text-primary);
 }
-[data-theme="jp"] .t-eyebrow {
+[data-jp] .t-eyebrow {
   font-family: var(--font-sans);
   font-size: var(--t-eyebrow);
   font-weight: 500;
@@ -101,7 +101,7 @@
 }
 
 /* Emphasis for a single key word per heading */
-[data-theme="jp"] .t-emph-gradient {
+[data-jp] .t-emph-gradient {
   color: var(--accent-info);
   font-weight: 500;
 }

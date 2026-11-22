@@ -3,13 +3,11 @@
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { clsx } from 'clsx'
-import { AssetViewSwitcher, CurrencySwitcher, LanguageSwitcher } from '@/components/LanguageSwitcher'
+import { AssetViewSwitcher, CurrencySwitcher } from '@/components/LanguageSwitcher'
 import type { AssetView } from '@/lib/asset-view'
 import type { DisplayCurrency } from '@/lib/currency'
 import type { Language } from '@/lib/i18n'
-import { Label } from '@/components/ui'
 import { getPageCopy } from '@/lib/ui-copy'
-import { BRAND } from '@/lib/brand'
 import { SidebarNav } from '@/components/SidebarNav'
 
 
@@ -67,10 +65,6 @@ export function Sidebar({
             <line x1="3" y1="18" x2="21" y2="18" />
           </svg>
         </button>
-        <div className="flex min-w-0 items-baseline gap-1.5">
-          <Label as="span" size="micro" variant="eyebrow">{BRAND.eyebrow}</Label>
-          <span className="text-body-lg font-semibold leading-tight tracking-tight text-ink">{BRAND.wordmark}</span>
-        </div>
       </header>
 
       {open ? <div className="fixed inset-0 z-40 bg-black/30 lg:hidden" onClick={() => setOpen(false)} aria-hidden /> : null}
@@ -95,17 +89,8 @@ export function Sidebar({
           </svg>
         </button>
 
-        <div className="flex items-center gap-2.5 px-1">
-          {/* The JHP mark in the brand slot, as on the other Studio surfaces; the
-              browser tab carries this app's own icon. */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/brand/jhp-mark.png" alt="Jack H. Park Studio" width={40} height={40} className="h-10 w-10 shrink-0" />
-          <div className="min-w-0">
-            <div className="truncate text-body font-medium leading-tight text-ink">{BRAND.short}</div>
-            <div className="mt-0.5 text-micro font-medium tracking-[0.08em] text-ink-3">{copy.tagline}</div>
-          </div>
-        </div>
-
+        {/* The JHP mark and the app name live only in the Studio app bar above
+            (guidelines D14); the sidebar starts with its own navigation. */}
         <SidebarNav
           sections={copy.sections}
           pathname={pathname}
@@ -117,10 +102,6 @@ export function Sidebar({
 
         <div className="mt-auto px-2 pt-6 text-micro leading-relaxed text-ink-3">
           <div className="mt-6 grid gap-2 px-1">
-            <div>
-              <div className="mb-1.5 px-0.5 text-micro font-medium text-ink-3">{copy.language}</div>
-              <LanguageSwitcher language={language} label={copy.language} />
-            </div>
             <div>
               <div className="mb-1.5 px-0.5 text-micro font-medium text-ink-3">{copy.currency}</div>
               <CurrencySwitcher displayCurrency={displayCurrency} label={copy.currency} labels={copy.currencies} />
