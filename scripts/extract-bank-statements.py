@@ -518,6 +518,37 @@ def merge_txns(groups, order_by_time=False):
     return [{**txn, "seq": i} for i, (_, txn) in enumerate(picked)]
 
 
+def rebase_overlapping_balances(groups):
+    """Carry each later certificate's balances onto the earlier certificate's scale.
+
+    A 미래에셋 CMA certificate can only walk balances from its own first row: the
+    발행어음 principal held before its period is unknown, so every balance on it is
+    short by that principal. A later certificate that overlaps an earlier one
+    repeats rows the earlier one already priced, and the gap between the two
+    balances on the first shared row is exactly the missing principal. Adding that
+    gap to every balance of the later file puts the two on one scale; without it
+    the first row after the earlier file ends restarts the balance from near zero
+    and the account reads as if its principal had vanished.
+
+    `groups` are per-file row lists, earliest file first, and are not modified.
+    A later file sharing no row with the earlier ones is returned as it is.
+    """
+    out, priced = [], {}
+    for rows in groups:
+        offset = 0.0
+        for txn in sorted(rows, key=lambda t: (t["date"], t["seq"])):
+            key = (txn["date"], txn.get("description", ""), round(txn["amount"], 2))
+            if txn["balance"] is not None and key in priced:
+                offset = priced[key] - txn["balance"]
+                break
+        shifted = [{**t, "balance": round(t["balance"] + offset, 2) if t["balance"] is not None else None} for t in rows] if abs(offset) > 0.5 else rows
+        out.append(shifted)
+        for txn in shifted:
+            if txn["balance"] is not None:
+                priced[(txn["date"], txn.get("description", ""), round(txn["amount"], 2))] = txn["balance"]
+    return out
+
+
 def end_of_day(txns):
     last = {}
     for txn in sorted(txns, key=lambda t: (t["date"], t["seq"])):
@@ -1739,8 +1770,11 @@ def main():
                     continue
                 parsed.append((min(t["date"] for t in rows), path.name, rows))
             parsed.sort(key=lambda item: (item[0], item[1]))
+            groups = [rows for _, _, rows in parsed]
+            if (institution, kind) == ("mirae", "cma"):
+                groups = rebase_overlapping_balances(groups)
             try:
-                txns = merge_txns([rows for _, _, rows in parsed], order_by_time=institution in ('hana', 'kb'))
+                txns = merge_txns(groups, order_by_time=institution in ('hana', 'kb'))
             except ValueError as error:
                 findings.append(f'{labels.get(key, institution)}: {error}; account skipped')
                 rejected = {path.name for path in paths}
