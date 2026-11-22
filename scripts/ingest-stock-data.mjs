@@ -12,6 +12,7 @@ import { portfolioDate, priceDatesByMarket, valuePortfolio } from './portfolio-s
 import { repriceFromQuote } from './broker-quote-reprice.mjs'
 import { resolveCryptoFiles, resolveUsHoldingFiles, resolveUsTransactionFiles, robinhoodStrategyLabel } from './source-files.mjs'
 import { anchoredCashSeries, nextBusinessDay, openingAnchorFromFlows } from './anchored-cash.mjs'
+import { householdTransitSeries } from './household-transit.mjs'
 import { DECIDABLE_WRAPPERS, resolveWrapperTreatment } from './wrapper-treatment.mjs'
 import { pensionProductId } from './pension-ids.mjs'
 import { matchGoldLots } from './gold-lots.mjs'
@@ -5653,6 +5654,29 @@ for (const { brokerage, account, anchors } of sweepAnchors.values()) {
         asset_class: 'security',
       })
     }
+  }
+}
+// Own dollars passing through a household member's account (scripts/household-transit.mjs).
+// The map names the holder and declares the sends no tracked account shows a destination for,
+// so a month-end inside the round trip does not lose the money and the month it returns does not gain it.
+if (accountMap.householdTransit) {
+  const transit = householdTransitSeries({
+    events: (fxLedger.events ?? []).filter((e) => e.institution === 'Hana Bank'),
+    moves: accountMap.householdTransit.moves ?? [],
+    match: accountMap.householdTransit.counterpartyMatch ?? [],
+  })
+  for (const point of transit) {
+    brokerageCashRows.push({
+      institution: 'Household',
+      account: 'Household transit',
+      pool: 'transit',
+      currency: 'USD',
+      as_of_date: point.date,
+      balance: point.balance,
+      source: 'derived:household_transit',
+      account_wrapper: 'taxable',
+      asset_class: 'security',
+    })
   }
 }
 const brokerageCashCoverageRows = (readTsvAt(krStatementsDir, 'cash-coverage.tsv')?.rows ?? [])
