@@ -2,13 +2,14 @@ import { financeFile } from './finance-paths.mjs'
 import fs from 'node:fs'
 import path from 'node:path'
 import { loadLocalEnv } from './env.mjs'
-import { readUsHoldingTickers, resolveUsHoldingFiles } from './source-files.mjs'
+import { collectUsPriceTickers, resolveUsHoldingFiles } from './source-files.mjs'
 
 loadLocalEnv()
 
 const dataDir = financeFile('STOCK_DATA_DIR')
 const evidencePath = financeFile('STOCK_US_PDF_EVIDENCE_PATH')
 const outPath = financeFile('STOCK_US_PRICES_PATH')
+const robinhoodSnapshotPath = financeFile('STOCK_ROBINHOOD_SNAPSHOT_PATH')
 
 // Same resolver the ingest uses, so a re-downloaded holdings export is priced
 // from the current file rather than a stale hardcoded name. Entries are
@@ -30,25 +31,26 @@ function isoDateFromSeconds(seconds) {
   return new Date(seconds * 1000).toISOString().slice(0, 10)
 }
 
+function readJsonIfPresent(file) {
+  return fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : null
+}
+
 function collectTickers() {
-  // One shared reader for the holdings files, in source-files.mjs beside the
+  // One shared reader for every source, in source-files.mjs beside the
   // resolver. This used to be a second copy of the ingest's parsing, and the
   // copy read Merrill by fixed column offsets — correct for the tax-lot layout,
   // and the description column of the flat one. A flat export therefore asked
   // Yahoo for `JPMORGAN`, `SCHWAB`, `INVESCO` and `ML`, and the four misses
   // exited non-zero and failed the whole refresh before the ingest ran.
-  const tickers = new Set(readUsHoldingTickers(usHoldingFiles))
-
-  if (fs.existsSync(evidencePath)) {
-    const evidence = JSON.parse(fs.readFileSync(evidencePath, 'utf8'))
-    for (const report of evidence.reports ?? []) {
-      for (const lot of report.lots ?? []) {
-        if (text(lot.ticker)) tickers.add(text(lot.ticker))
-      }
-    }
-  }
-
-  return [...tickers].sort()
+  //
+  // The Robinhood snapshot is read too: the ingest takes Robinhood lots from it
+  // whenever it has any, so a position opened after the last Gain/Loss PDF is
+  // known only there, and leaving it out left that row with no market value.
+  return collectUsPriceTickers({
+    holdingFiles: usHoldingFiles,
+    evidence: readJsonIfPresent(evidencePath),
+    robinhoodSnapshot: readJsonIfPresent(robinhoodSnapshotPath),
+  })
 }
 
 async function fetchPrice(ticker) {

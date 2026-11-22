@@ -584,6 +584,71 @@ export function readUsHoldingTickers(files) {
   return [...tickers].sort()
 }
 
+// The Robinhood MCP snapshot's field names, read through the same aliases the
+// ingest uses (`firstOf` in scripts/ingest-stock-data.mjs). Kept in step with
+// it for the same reason as the holdings readers above: a symbol the ingest
+// values and this reader misses is a position with no market value.
+const SNAPSHOT_SYMBOL_KEYS = ['symbol', 'instrument_symbol', 'ticker']
+const SNAPSHOT_QUANTITY_KEYS = ['quantity', 'open_quantity', 'units']
+const firstOf = (object, keys) => {
+  for (const key of keys) {
+    const value = object?.[key]
+    if (value != null && value !== '') return value
+  }
+  return null
+}
+const heldQuantity = (value) => {
+  const quantity = Number(String(value ?? '').replace(/,/g, '').trim())
+  return Number.isFinite(quantity) && quantity !== 0
+}
+
+/**
+ * Every ticker the Robinhood MCP snapshot holds: positions with shares, and
+ * any symbol that carries an open lot.
+ *
+ * The ingest prefers the snapshot's lots over the Gain/Loss PDFs whenever the
+ * snapshot has any, so a position opened after the last PDF exists only here.
+ */
+export function readRobinhoodSnapshotTickers(snapshot) {
+  const tickers = new Set()
+  const add = (value) => {
+    const ticker = String(value ?? '').replace(/^'/, '').trim()
+    if (ticker && !US_CASH_EQUIVALENT_TICKERS.has(ticker)) tickers.add(ticker)
+  }
+  for (const account of snapshot?.accounts ?? []) {
+    for (const position of account.positions ?? []) {
+      if (heldQuantity(firstOf(position, SNAPSHOT_QUANTITY_KEYS))) add(firstOf(position, SNAPSHOT_SYMBOL_KEYS))
+    }
+    for (const group of account.lots ?? []) {
+      const groupSymbol = firstOf(group, SNAPSHOT_SYMBOL_KEYS)
+      for (const lot of group.lots ?? []) {
+        if (heldQuantity(firstOf(lot, SNAPSHOT_QUANTITY_KEYS))) add(firstOf(lot, SNAPSHOT_SYMBOL_KEYS) ?? groupSymbol)
+      }
+    }
+  }
+  return [...tickers].sort()
+}
+
+/**
+ * The tickers the US price fetch asks for: the holdings CSVs, the Robinhood
+ * Gain/Loss PDF evidence, and the Robinhood MCP snapshot. The ingest values US
+ * rows from all three sources, so the fetch has to cover all three; it runs
+ * first, and a ticker it never asks for reaches the ingest with no price.
+ *
+ * @param {{ holdingFiles?: { brokerage: string, filename: string }[], evidence?: any, robinhoodSnapshot?: any }} sources
+ */
+export function collectUsPriceTickers({ holdingFiles = [], evidence = null, robinhoodSnapshot = null } = {}) {
+  const tickers = new Set(readUsHoldingTickers(holdingFiles))
+  for (const report of evidence?.reports ?? []) {
+    for (const lot of report.lots ?? []) {
+      const ticker = String(lot.ticker ?? '').trim()
+      if (ticker) tickers.add(ticker)
+    }
+  }
+  for (const ticker of readRobinhoodSnapshotTickers(robinhoodSnapshot)) tickers.add(ticker)
+  return [...tickers].sort()
+}
+
 export function resolveUsTransactionFiles(dataDir) {
   return resolve(US_TRANSACTION_SPECS, dataDir)
 }
