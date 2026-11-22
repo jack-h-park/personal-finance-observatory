@@ -33,3 +33,12 @@ test('selects default to the selection, else the first and last date', () => {
   assert.match(html, /<option value="2026-02-28" selected=""/)
   assert.match(html, /<option value="2026-03-31" selected=""/)
 })
+
+test('the form is keyed by the period, so a client-side navigation remounts the selects', () => {
+  const props = { dates: ['2026-01-31', '2026-02-28'], keep: {}, labels: { from: 'From', to: 'To', submit: 'Show' } }
+  const a = RangeSelectForm({ ...props, from: '2026-01-31', to: '2026-02-28' }) as React.ReactElement
+  const b = RangeSelectForm({ ...props, from: null, to: null }) as React.ReactElement
+  assert.equal(a.type, 'form')
+  assert.equal(a.key, '2026-01-31:2026-02-28')
+  assert.equal(b.key, ':')
+})

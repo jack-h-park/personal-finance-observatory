@@ -6,6 +6,10 @@ import { Select } from '@/components/form'
  * a submit, as a plain GET form so the choice lands in the URL like a drag does.
  * Every other current query parameter rides along as a hidden input. Copy comes
  * in through `labels` and `formatDate`; the component knows no language.
+ *
+ * The selects are uncontrolled, so the form is keyed by the period: a chart
+ * drag navigates on the client, and without a new key the selects would keep
+ * the old period and submitting would undo the drag.
  */
 export function RangeSelectForm({
   dates,
@@ -29,7 +33,7 @@ export function RangeSelectForm({
   const first = dates[0] ?? ''
   const last = dates[dates.length - 1] ?? ''
   return (
-    <form method="get" action={action} className="flex flex-wrap items-end gap-3">
+    <form key={`${from ?? ''}:${to ?? ''}`} method="get" action={action} className="flex flex-wrap items-end gap-3">
       {Object.entries(keep)
         .filter(([key]) => key !== 'from' && key !== 'to')
         .map(([key, value]) => (

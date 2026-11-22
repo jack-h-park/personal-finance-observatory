@@ -385,7 +385,8 @@ export function StackedAssetChart({
     const range = orderedDragRange(dragStart, dragEnd)
     setDragStart(null)
     setDragEnd(null)
-    if (range && rangeSelect) router.push(rangeHref(rangeSelect.baseHref, range[0], range[1]))
+    // Stay where the reader is: the default scrolls a client navigation to the top.
+    if (range && rangeSelect) router.push(rangeHref(rangeSelect.baseHref, range[0], range[1]), { scroll: false })
   }
   const dragging = rangeSelect ? orderedDragRange(dragStart, dragEnd) : null
   const selectedBand = rangeSelect?.from && rangeSelect.to ? [rangeSelect.from, rangeSelect.to] : null
