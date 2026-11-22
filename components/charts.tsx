@@ -551,7 +551,16 @@ export function StackedBarChart({
             onClick={linkKey ? open(s.key) : undefined}
             style={linkKey ? { cursor: 'pointer' } : undefined}
           >
-            {partial ? data.map((row, i) => <Cell key={i} fillOpacity={row[partial.key] ? 0.4 : 1} />) : null}
+            {partial ? data.map((row, i) => {
+              const inProgress = Boolean(row[partial.key])
+              return (
+                <Cell
+                  key={i}
+                  fillOpacity={inProgress ? 0.4 : 1}
+                  stroke={inProgress ? 'var(--text-secondary)' : undefined}
+                />
+              )
+            }) : null}
           </Bar>
         ))}
       </BarChart>
