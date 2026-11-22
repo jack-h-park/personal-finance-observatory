@@ -247,6 +247,14 @@ test('/cash-inflow shows the split by category between the lead card and the tab
   assert.doesNotMatch(text, /copy\.kpi\.(salary|investment|investmentShare)/)
 })
 
+test('/cash-inflow period table: extra columns only when a row has some, and a footer from the range', () => {
+  const text = source('app/cash-inflow/page.tsx')
+  // Reimbursement and unclassified are no longer always added under All.
+  assert.doesNotMatch(text, /\[\.\.\.categories, 'reimbursement', 'unclassified'\]/)
+  assert.match(text, /data\.periods\.some\(\(p\) => p\[c\] !== 0\)/)
+  assert.match(text, /footerRows=\{tableFooter\}/)
+})
+
 test('app/review/page.tsx draws its summary with StatStrip and names the concentration rows from copy', () => {
   const text = source('app/review/page.tsx')
   assert.match(text, /StatStrip/)

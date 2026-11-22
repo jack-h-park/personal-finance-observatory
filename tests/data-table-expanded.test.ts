@@ -35,3 +35,26 @@ test('nothing expands without a matching key', async () => {
   assert.ok(!(await render()).includes('detail of'))
   assert.ok(!(await render('zzz')).includes('detail of'))
 })
+
+test('footer rows render in a tfoot after the body, one cell per column, empty where a key is missing', async () => {
+  const { DataTable } = await import('../components/DataTable')
+  const html = renderToStaticMarkup(
+    React.createElement(DataTable, {
+      rows,
+      columns,
+      getRowKey: (r: any) => r.id,
+      footerRows: [{ id: 'Sum', v: '6' }, { id: 'Avg' }],
+    })
+  )
+  const foot = html.slice(html.indexOf('<tfoot>'))
+  assert.ok(html.indexOf('<tfoot>') > html.indexOf('</tbody>'))
+  assert.match(foot, />Sum<.*>6</)
+  // The second row still has a cell for every column.
+  assert.equal((foot.match(/<td/g) ?? []).length, 4)
+})
+
+test('the open row shares the panel tint', async () => {
+  const html = await render('b')
+  const rowB = html.slice(html.lastIndexOf('<tr', html.indexOf('>b<')), html.indexOf('>b<'))
+  assert.match(rowB, /bg-surface\/60/)
+})

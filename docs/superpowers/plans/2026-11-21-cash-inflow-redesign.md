@@ -1,6 +1,6 @@
 # Cash inflow page (`/cash-inflow`) — redesign plan
 
-**Status:** decisions confirmed 2026-11-21; phases 1–3 built. Each phase is one stacked PR; where a phase departs from this plan it says so under the phase.
+**Status:** decisions confirmed 2026-11-21; phases 1–4 built. Each phase is one stacked PR; where a phase departs from this plan it says so under the phase.
 
 ## Why
 
@@ -49,6 +49,8 @@ Each phase is one PR, stacked, with the screenshot net, `pnpm ui:guardrails`, `p
 
    *As built:* a card `id="cash-inflow-composition"` (분류별 구성 / By category) sits between the lead card and the table whenever the filter shows more than one category and the range holds money, so under All and under 투자 수익. Each line is the category's share, amount and change; the change comes from `getCashInflow`'s new `totals.byCategory`, which carries every category's range amount and its change on the same whole-month windows as the headline change (no change shown when the window before held nothing). The bar's title follows the filter (총 유입 대비 비중, 투자 수익 대비 비중). Under All, below a rule, the investment subtotal line and, only when the range has any, the reimbursement line marked 합계 제외. The lead card keeps only the monthly average beside the change; the adapter's `salary`, `investment` and `investmentShare` totals stay, since tests and other callers read them.
 4. **Table polish.** Footer total row, emphasised Total column, conditional reimbursement and unclassified columns, detail panel heading aligned with the row it opened from.
+
+   *As built:* under All, the reimbursement and unclassified columns appear only when a row in the table is non-zero in them. `DataTable` gained `footerRows`, a `tfoot` that keeps each column's alignment and priority; the period table uses it for two lines named by the range: the range total per column (muted for the two extra columns), then the monthly average of the counted categories and of the total. Both come from `totals.byCategory` and `rangeTotal`, so under the yearly view they match the lead card, not the sum of whole-year rows (the yearly note already says so). The Total column was already emphasised in phase 1. For the detail panel, the row it opened from now shares the panel's tint and drops its bottom border, so the two read as one block; the panel's heading text is unchanged.
 5. **Phone pass.** At 390×844 the total, the change and the start of the chart fit the first screen under the access banner and page header; no horizontal page scroll; the period table scrolls inside its own container with the period column pinned.
 
 Tests to update with the phases: `tests/page-blocks.test.ts` (the cash-inflow assertion around the filter bar and `cash-inflow-lead`), copy-catalog tests for any renamed key, and the screenshot net baselines for `/cash-inflow`, `/cash-inflow?category=unclassified` and `/cash-inflow?view=year`.
