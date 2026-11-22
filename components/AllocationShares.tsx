@@ -20,6 +20,7 @@ export function AllocationShares<K extends string>({
   note,
   details,
   detailLabel,
+  extra,
 }: {
   title: string
   shares: AllocationShare<K>[]
@@ -31,6 +32,8 @@ export function AllocationShares<K extends string>({
   /** Shown in a popover beside a row's label, for the rows that have one. */
   details?: Partial<Record<K, ReactNode>>
   detailLabel?: (label: string) => string
+  /** One more column after the share, such as a change; a row without a value shows nothing. */
+  extra?: { label: string; values: Partial<Record<K, ReactNode>> }
 }) {
   return (
     <section className="flex flex-col gap-3 p-4">
@@ -46,6 +49,7 @@ export function AllocationShares<K extends string>({
             <th scope="col" className="py-1 text-left font-normal">{columns.name}</th>
             <th scope="col" className="py-1 text-right font-normal">{columns.value}</th>
             <th scope="col" className="py-1 text-right font-normal">{columns.pct}</th>
+            {extra ? <th scope="col" className="py-1 text-right font-normal">{extra.label}</th> : null}
           </tr>
         </thead>
         <tbody>
@@ -62,6 +66,7 @@ export function AllocationShares<K extends string>({
               </th>
               <td className="py-2 text-right tabular-nums">{money(share.valueKrw)}</td>
               <td className="py-2 text-right font-medium tabular-nums text-ink">{fmtPct(share.pct, { digits: 1 })}</td>
+              {extra ? <td className="py-2 text-right tabular-nums">{extra.values[share.key] ?? null}</td> : null}
             </tr>
           ))}
         </tbody>

@@ -1,14 +1,16 @@
 import { AssetCoverageNote } from '@/components/AssetCoverageNote'
 import { DataTable } from '@/components/DataTable'
 import { PageHeader } from '@/components/PageHeader'
-import { Badge, Card, Label, MetricField, Note } from '@/components/ui'
+import { Badge, Card, Label, Note } from '@/components/ui'
 import { CardRow, Columns, KpiBand } from '@/components/layout'
 import { TotalAssetsChangeField } from '@/components/TotalAssetsChangeField'
 import { StackedAssetChart } from '@/components/charts'
 import { getAssetCoverageReview, getAssetAllocation, getAssetEvents, getChildAssets, getMeta, getNetWorth, getSnapshotDates, getTotalAssetsSeries, portfolioToday } from '@/lib/adapters/portfolio-db'
 import { convertMoney, createMoneyFormatter, formatKrw, formatUsd } from '@/lib/currency'
 import { getCurrencyPreferences } from '@/lib/currency-server'
-import { fmtDate, fmtDateTime } from '@/lib/format'
+import { fmtDate, fmtDateTime, fmtSigned } from '@/lib/format'
+import { compactAmount } from '@/lib/chart-format'
+import { signClass } from '@/lib/tone'
 import { getLanguage } from '@/lib/i18n-server'
 import { routeMetadata, routeSection } from '@/lib/page-names'
 import { ASSET_CLASSES, type NetWorth, type TotalAssetsPoint } from '@/lib/net-worth'
@@ -107,6 +109,20 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
     const text = query.toString()
     return text ? `/net-worth?${text}` : '/net-worth'
   }
+  // Composition: each class's value and share of the total, and its change
+  // since the previous month end (the same base as the band above).
+  const classShares = classes
+    .filter((key) => netWorth.byClass[key] !== 0)
+    .map((key) => ({ key, valueKrw: netWorth.byClass[key], pct: netWorth.totalKrw > 0 ? (netWorth.byClass[key] / netWorth.totalKrw) * 100 : 0 }))
+  const monthChange = changes[0].change
+  const classMonthChange = Object.fromEntries(
+    (monthChange?.byClass ?? []).map((driver) => [
+      driver.key,
+      <span key={driver.key} className={signClass(driver.change)}>
+        {fmtSigned(driver.change, (v) => compactAmount(v, { kind: 'money', currency: 'KRW' }, language))}
+      </span>,
+    ]),
+  )
   // The change over the selected range, from its first plotted point.
   const rangeChange = trendAssets.points.length ? changeSince(trendAssets.points[0].date) : null
   const rangeLabel = copy.rangeChange(selectedRange.key === 'all' ? copy.rangeAll : selectedRange.label)
@@ -238,24 +254,27 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
         ) : null}
       </Card>
 
-      <Card title={copy.byClass} className="mb-5">
-        <Columns columns="2-md-5" gap={4} className="p-4">
-          {classes.map((name) => (
-            <MetricField
-              key={name}
-              label={copy.classes[name]}
-              value={money(netWorth.byClass[name])}
-              hint={notesFor(name) || undefined}
-            />
-          ))}
-        </Columns>
-        {netWorth.asOfNotes.length ? (
-          <Note band="top" relaxed>{copy.asOfNotesHint}</Note>
-        ) : null}
-      </Card>
 
-      <Card title={allocationCopy.title} className="mb-5">
-        <Columns columns="1-md-2" className="divide-y divide-line-subtle md:divide-x md:divide-y-0">
+      <Card id="net-worth-composition" title={copy.composition} info={allocationCopy.note} className="mb-5">
+        <Columns columns="lg-3" className="-m-4 divide-y divide-line-subtle lg:divide-x lg:divide-y-0">
+          <div>
+            <AllocationShares
+              title={copy.byClass}
+              shares={classShares}
+              labels={copy.classes}
+              colors={ASSET_CLASS_COLOR}
+              money={money}
+              columns={allocationCopy.columns}
+              extra={{ label: overviewCopy.changeMtd, values: classMonthChange }}
+            />
+            {netWorth.asOfNotes.length ? (
+              <div className="px-4 pb-4">
+                <Note relaxed>
+                  {classes.map((key) => notesFor(key) && `${copy.classes[key]}: ${notesFor(key)}`).filter(Boolean).join(' · ')} {copy.asOfNotesHint}
+                </Note>
+              </div>
+            ) : null}
+          </div>
           <AllocationShares
             title={allocationCopy.byClass}
             shares={allocation.classes}
@@ -276,20 +295,21 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
             note={allocationCopy.wrapperNote}
           />
         </Columns>
-        <div className="flex flex-col gap-1 border-t border-line-subtle bg-surface px-4 py-3 text-label leading-relaxed text-ink-3">
-          <p>{allocationCopy.note}</p>
-          {allocation.marketDefaults.length ? (
-            <details>
-              <summary className="cursor-pointer">
-                {allocationCopy.marketDefaults(allocation.marketDefaults.length)} {allocationCopy.showDefaults}
-              </summary>
-              <p className="mt-1">
-                {allocation.marketDefaults.map((row) => `${row.market}:${row.ticker} ${row.name} (${allocationCopy.classes[row.market === 'US' ? 'us_equity' : 'kr_equity']})`).join(' · ')}
-              </p>
-            </details>
-          ) : null}
-          {allocation.unclassified.length ? <p>{allocationCopy.unclassified(allocation.unclassified.map((row) => row.name).join(', '))}</p> : null}
-        </div>
+        {allocation.marketDefaults.length || allocation.unclassified.length ? (
+          <div className="-mx-4 -mb-4 mt-4 flex flex-col gap-1 border-t border-line-subtle bg-surface px-4 py-3 text-label leading-relaxed text-ink-3">
+            {allocation.marketDefaults.length ? (
+              <details>
+                <summary className="cursor-pointer">
+                  {allocationCopy.marketDefaults(allocation.marketDefaults.length)} {allocationCopy.showDefaults}
+                </summary>
+                <span className="mt-1 block">
+                  {allocation.marketDefaults.map((row) => `${row.market}:${row.ticker} ${row.name} (${allocationCopy.classes[row.market === 'US' ? 'us_equity' : 'kr_equity']})`).join(' · ')}
+                </span>
+              </details>
+            ) : null}
+            {allocation.unclassified.length ? <span>{allocationCopy.unclassified(allocation.unclassified.map((row) => row.name).join(', '))}</span> : null}
+          </div>
+        ) : null}
       </Card>
 
 
