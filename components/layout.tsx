@@ -227,3 +227,63 @@ export function Total({ label, value, tone = 'neutral' }: { label: ReactNode; va
     </div>
   )
 }
+
+/**
+ * Equal columns of fields, panels or cards inside a card body, one entry per
+ * column recipe in use. The key spells the recipe: a bare number is the base
+ * column count, `sm-2` is two columns from `sm`, `2-md-4` is two columns that
+ * become four at `md`. Two recipes that differ by one class stay two entries:
+ * merging them would move pixels on one of the pages that uses them.
+ */
+const COLUMN_RECIPES = {
+  '2': 'grid-cols-2',
+  '3': 'grid-cols-3',
+  'sm-2': 'sm:grid-cols-2',
+  'sm-3': 'sm:grid-cols-3',
+  'md-3': 'md:grid-cols-3',
+  'lg-3': 'lg:grid-cols-3',
+  'sm-2-xl-1': 'sm:grid-cols-2 xl:grid-cols-1',
+  'sm-2-lg-4': 'sm:grid-cols-2 lg:grid-cols-4',
+  'sm-2-xl-4': 'sm:grid-cols-2 xl:grid-cols-4',
+  'md-2-xl-4': 'md:grid-cols-2 xl:grid-cols-4',
+  '1-md-2': 'grid-cols-1 md:grid-cols-2',
+  '1-sm-3': 'grid-cols-1 sm:grid-cols-3',
+  '2-sm-4': 'grid-cols-2 sm:grid-cols-4',
+  '2-md-4': 'grid-cols-2 md:grid-cols-4',
+  '2-md-5': 'grid-cols-2 md:grid-cols-5',
+} as const
+
+/**
+ * The gaps between those columns. Leave `gap` out for cells that draw their own
+ * separation (dividers or borders carried in `className`).
+ */
+const COLUMN_GAPS = {
+  2: 'gap-2',
+  3: 'gap-3',
+  4: 'gap-4',
+  'x-4-y-1': 'gap-x-4 gap-y-1',
+  'x-8-y-3': 'gap-x-8 gap-y-3',
+} as const
+
+/**
+ * An equal-column grid inside a card body. `columns` and `gap` name the only
+ * grid classes it may carry; `className` holds what the call site keeps
+ * besides them (margins, padding, text size, dividers, borders) and never a
+ * `grid-cols-*` or `gap-*` class. `as="dl"` or `as="ul"` keeps the element a
+ * definition or item list.
+ */
+export function Columns({
+  columns,
+  gap,
+  as: Element = 'div',
+  className,
+  children,
+}: {
+  columns: keyof typeof COLUMN_RECIPES
+  gap?: keyof typeof COLUMN_GAPS
+  as?: 'div' | 'dl' | 'ul'
+  className?: string
+  children: ReactNode
+}) {
+  return <Element className={clsx('grid', COLUMN_RECIPES[columns], gap != null && COLUMN_GAPS[gap], className)}>{children}</Element>
+}

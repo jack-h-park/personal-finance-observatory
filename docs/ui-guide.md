@@ -103,6 +103,7 @@ a leading substring instead.
 | a route's loading state | `app/loading.tsx` renders `<PageSkeleton>` |
 | a position in a table cell | `<PositionCell>` — market badge and ticker link, with the name under them or alone |
 | a main column and a fixed side column inside a card | `<Split>` — `side`, `at`, `gap`, `sideFirst` |
+| equal columns of fields, panels or cards inside a card | `<Columns>` — `columns` (a recipe key such as `sm-2`, `2-md-4`), `gap`, `as` div / dl / ul; `className` never carries `grid-cols-*` or `gap-*` |
 
 Do not write the grid class by hand. Fifty-one copies of five arrangements
 existed before `CardRow`, which is how a fifty-second comes to differ by one
@@ -115,7 +116,7 @@ re-exports four modules: `components/card.tsx` (`Card`, `MetricHeroCard`,
 `SectionHeading`), `components/table.tsx` (`Table`, `Thead`, `Th`, `Tbody`,
 `Tr`, `Td`) and `components/controls.tsx` (`Button`, `SegmentedControl`,
 `TextLink`, `Badge`). The rest are imported from their own files:
-`components/layout.tsx` (`CardRow`, `Split`, `KpiBand` and the strips, the one
+`components/layout.tsx` (`CardRow`, `Split`, `Columns`, `KpiBand` and the strips, the one
 file allowed to write `grid-cols-*`), `components/bars.tsx`,
 `components/PositionCell.tsx`, `components/LinkChips.tsx`,
 `components/Tabs.tsx`, `components/FormNotice.tsx` and
@@ -522,6 +523,8 @@ counts from one path to the other.
 A grid that really belongs to one page (a layout the primitives have no reason
 to know about) can be marked with a `guardrail:allow grid` comment on its line or
 the line above, and G4 skips it. Say why in the same comment.
+What qualifies is a row template aligning the cells of one list's repeated rows
+(the comment names what it aligns); an equal-column grid is `<Columns>` instead.
 
 G12 does not read what is not a word: a `className=` value, an operand of `===`
 or `!==`, a backticked span inside a literal (`` `make pull-prod-db` ``), an

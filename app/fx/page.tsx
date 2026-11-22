@@ -11,7 +11,7 @@ import { getLanguage } from '@/lib/i18n-server'
 import { getPageCopy } from '@/lib/ui-copy'
 import { routeMetadata, routeSection } from '@/lib/page-names'
 import { signTone } from '@/lib/tone'
-import { CardRow, KpiBand } from '@/components/layout'
+import { CardRow, Columns, KpiBand } from '@/components/layout'
 
 export const dynamic = 'force-dynamic'
 export const generateMetadata = routeMetadata('/fx')
@@ -76,13 +76,13 @@ export default async function FxPage() {
         </MetricHeroCard>
 
         <Card title={copy.method}>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
+          <Columns columns="sm-2-xl-1" gap={4}>
             <MetricField label={copy.actual} value={fmtNumber(data.summary.actualCount)} hint={copy.actualHint} size="metric" />
             <MetricField label={copy.estimated} value={fmtNumber(data.summary.estimatedCount)} hint={copy.estimatedHint} tone="warning" size="metric" />
             <MetricField label={copy.transfers} value={fmtNumber(data.summary.transferCount)} hint={`${copy.missing}: ${fmtNumber(data.summary.missingDestinationCount)}`} />
             <MetricField label={copy.balance} value={hana?.latestBalanceUsd == null ? EMPTY_VALUE : money(hana.latestBalanceUsd, 'USD')} hint={hana?.latestBalanceDate ?? EMPTY_VALUE} />
             <MetricField label={copy.current} value={data.summary.currentUsdKrw == null ? EMPTY_VALUE : `₩${fmtNumber(data.summary.currentUsdKrw, 2)}`} hint={data.summary.currentUsdKrwAsOf ?? EMPTY_VALUE} />
-          </div>
+          </Columns>
         </Card>
       </CardRow>
 
@@ -100,7 +100,7 @@ export default async function FxPage() {
       </Card>
 
       <Card title={copy.hanaOutbound} className="mb-5" info={copy.hanaOutboundHint}>
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <Columns columns="sm-2-xl-4" gap={4}>
           <MetricField label={copy.outbound.total} value={formatUsd(data.summary.hanaOutboundUsd)} hint={copy.outbound.rowCount(fmtNumber(data.summary.hanaOutboundTransferCount))} size="metric" />
           <MetricField label={copy.knownMirae} value={formatUsd(data.summary.hanaKnownMiraeUsd)} hint={copy.outbound.knownMiraeHint} />
           <MetricField label={copy.destinationUnknown} value={formatUsd(data.summary.hanaUnknownDestinationUsd)} hint={copy.outbound.destinationUnknownHint} tone="warning" />
@@ -111,7 +111,7 @@ export default async function FxPage() {
           <MetricField label={copy.estimatedGl} value={dual(data.summary.hanaOutboundEstimatedUnrealizedKrw, data.summary.hanaOutboundEstimatedUnrealizedKrw / (data.summary.currentUsdKrw || 1))} hint={copy.outbound.estimatedGlHint} tone="warning" />
           <MetricField label={copy.tossMatched} value={formatUsd(data.summary.hanaTossMatchedUsd)} hint={copy.outbound.tossUnmatched(formatUsd(data.summary.hanaTossUnmatchedUsd))} />
           <MetricField label={copy.outbound.otherInbound} value={formatUsd(data.summary.hanaOtherInboundUsd)} hint={copy.outbound.otherInboundHint} />
-        </div>
+        </Columns>
       </Card>
 
       <CardRow>

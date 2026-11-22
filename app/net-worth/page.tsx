@@ -2,7 +2,7 @@ import { AssetCoverageNote } from '@/components/AssetCoverageNote'
 import { DataTable } from '@/components/DataTable'
 import { PageHeader } from '@/components/PageHeader'
 import { Badge, Card, MetricField, Note } from '@/components/ui'
-import { CardRow } from '@/components/layout'
+import { CardRow, Columns } from '@/components/layout'
 import { StackedAssetChart } from '@/components/charts'
 import { getAssetCoverageReview, getAssetAllocation, getAssetEvents, getChildAssets, getMeta, getNetWorth, getSnapshotDates, getTotalAssetsSeries } from '@/lib/adapters/portfolio-db'
 import { convertMoney, createMoneyFormatter, formatKrw, formatUsd } from '@/lib/currency'
@@ -112,7 +112,7 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
           <MetricField label={copy.total} value={money(netWorth.totalKrw)} size="metric" />
         </Card>
         <Card title={copy.byClass}>
-          <div className="grid grid-cols-2 gap-4 p-4 md:grid-cols-5">
+          <Columns columns="2-md-5" gap={4} className="p-4">
             {classes.map((name) => (
               <MetricField
                 key={name}
@@ -121,7 +121,7 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
                 hint={notesFor(name) || undefined}
               />
             ))}
-          </div>
+          </Columns>
           {netWorth.asOfNotes.length ? (
             <Note band="top" relaxed>{copy.asOfNotesHint}</Note>
           ) : null}
@@ -129,7 +129,7 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
       </CardRow>
 
       <Card title={allocationCopy.title} className="mb-5">
-        <div className="grid grid-cols-1 divide-y divide-line-subtle md:grid-cols-2 md:divide-x md:divide-y-0">
+        <Columns columns="1-md-2" className="divide-y divide-line-subtle md:divide-x md:divide-y-0">
           <AllocationShares
             title={allocationCopy.byClass}
             shares={allocation.classes}
@@ -149,7 +149,7 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
             columns={allocationCopy.columns}
             note={allocationCopy.wrapperNote}
           />
-        </div>
+        </Columns>
         <div className="flex flex-col gap-1 border-t border-line-subtle bg-surface px-4 py-3 text-label leading-relaxed text-ink-3">
           <p>{allocationCopy.note}</p>
           {allocation.marketDefaults.length ? (

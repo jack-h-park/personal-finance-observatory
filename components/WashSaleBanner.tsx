@@ -44,7 +44,11 @@ export function WashSaleBanner({ review, copy }: { review: WashSaleReview; copy:
             const replaced = w.sales.some((sale) => sale.replacementQuantity > 0)
             const disallowed = fmtMoney(Math.abs(w.possiblyDisallowed), 'USD')
             return (
-              <li key={w.ticker} className="grid gap-x-4 gap-y-1 py-2.5 xl:grid-cols-[5rem_7rem_minmax(0,21rem)_minmax(0,1fr)]">
+              <li
+                key={w.ticker}
+                // guardrail:allow grid — aligns the ticker, loss and detail cells of every wash-sale row
+                className="grid gap-x-4 gap-y-1 py-2.5 xl:grid-cols-[5rem_7rem_minmax(0,21rem)_minmax(0,1fr)]"
+              >
                 <div className="flex items-baseline justify-between gap-3 xl:contents">
                   <span className="font-mono font-semibold text-ink">{w.ticker}</span>
                   <span className="whitespace-nowrap font-mono text-danger xl:text-right" title={copy.columns.loss}>

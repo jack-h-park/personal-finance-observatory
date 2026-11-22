@@ -10,7 +10,7 @@ import { getGlossary } from '@/lib/glossary'
 import { getLanguage } from '@/lib/i18n-server'
 import { getPageCopy } from '@/lib/ui-copy'
 import { routeMetadata, routeSection } from '@/lib/page-names'
-import { CardRow, KpiBand } from '@/components/layout'
+import { CardRow, Columns, KpiBand } from '@/components/layout'
 import { PositionCell } from '@/components/PositionCell'
 import { SubmitButton } from '@/components/SubmitButton'
 import { MARKET_GAP_HOLD_PCT, SHORT_TERM_WATCH_PCT, getRebalancePolicy } from '@/lib/rebalance-policy'
@@ -344,11 +344,11 @@ export default async function RebalancePage({ searchParams }: { searchParams: Pr
                   </div>
                   <Badge tone={PROPOSAL_STATUS_TONE[openProposal.status]}>{proposalCopy.statuses[openProposal.status]}</Badge>
                 </div>
-                <dl className="mt-2 grid grid-cols-3 gap-2 text-label">
+                <Columns columns="3" gap={2} as="dl" className="mt-2 text-label">
                   <div><dt className="text-ink-3">{pc.kind}</dt><dd className="text-ink">{proposalCopy.kinds[openProposal.kind]}</dd></div>
                   <div><dt className="text-ink-3">{pc.created}</dt><dd className="tabular-nums text-ink">{fmtDateShort(openProposal.createdAt, language)}</dd></div>
                   <div><dt className="text-ink-3">{pc.expires}</dt><dd className="tabular-nums text-ink">{fmtDateShort(openProposal.expiresAt, language)}</dd></div>
-                </dl>
+                </Columns>
               </div>
             ) : (
               <div className="space-y-2">

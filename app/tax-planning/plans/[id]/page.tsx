@@ -4,7 +4,7 @@ import { getTaxPlanningLots } from '@/lib/adapters/portfolio-db'
 import { PageHeader } from '@/components/PageHeader'
 import { TaxPlanTimeline } from '@/components/TaxPlanTimeline'
 import { Badge, Card, Panel } from '@/components/ui'
-import { Split, Stat, StatStrip } from '@/components/layout'
+import { Columns, Split, Stat, StatStrip } from '@/components/layout'
 import { ProgressBar } from '@/components/bars'
 import { fmtDateShort, fmtDateTime, fmtKrw, fmtNumber, fmtPct, fmtSigned } from '@/lib/format'
 import { getLanguage } from '@/lib/i18n-server'
@@ -179,12 +179,12 @@ export default async function SavedTaxPlanPage({
       />
 
       <Card title={copy.snapshotProvenance} className="mb-5">
-        <dl className="grid gap-x-8 gap-y-3 text-caption sm:grid-cols-2 lg:grid-cols-4">
+        <Columns columns="sm-2-lg-4" gap="x-8-y-3" as="dl" className="text-caption">
           <div><dt className="text-ink-3">{copy.strategy}</dt><dd className="mt-1 text-ink">{masterPlanName(saved.plan, pageCopy)}</dd></div>
           <div><dt className="text-ink-3">{copy.executionWindow}</dt><dd className="mt-1 tabular-nums text-ink">{saved.executionMonths} {copy.months}</dd></div>
           <div><dt className="text-ink-3">{copy.taxHorizon}</dt><dd className="mt-1 tabular-nums text-ink">{saved.horizonYears} {copy.years}</dd></div>
           <div><dt className="text-ink-3">{copy.taxPolicy}</dt><dd className="mt-1 tabular-nums text-ink">{copy.version} {saved.policyVersion}</dd></div>
-        </dl>
+        </Columns>
       </Card>
     </>
   )

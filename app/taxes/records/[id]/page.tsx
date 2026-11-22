@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { PageHeader } from '@/components/PageHeader'
 import { Card, FormError } from '@/components/ui'
+import { Columns } from '@/components/layout'
 import { config } from '@/config'
 import { readTaxHistory } from '@/lib/adapters/tax-history-store'
 import { indexEvidenceRoot, resolveTaxEvidence } from '@/lib/application/evidence-index'
@@ -69,7 +70,7 @@ export default async function TaxRecordPage({
       </p>
       {!config.finance.stateWritable && <p className="mb-4 text-body">{copy.readOnly}</p>}
       <Card title={copy.basis}>
-        <dl className="grid gap-3 p-4 text-body sm:grid-cols-3">
+        <Columns columns="sm-3" gap={3} as="dl" className="p-4 text-body">
           {[
             [copy.reported, row.liabilityMinor],
             [copy.settled, row.principalSettledMinor],
@@ -82,7 +83,7 @@ export default async function TaxRecordPage({
               </dd>
             </div>
           ))}
-        </dl>
+        </Columns>
         {row.issues.length > 0 && (
           <ul className="px-4 pb-4 text-body text-ink-2">
             {row.issues.map((issue) => (

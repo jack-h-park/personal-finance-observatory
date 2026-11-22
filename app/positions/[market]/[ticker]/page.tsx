@@ -19,7 +19,7 @@ import { getGlossary } from '@/lib/glossary'
 import { EVIDENCE_LINK_SEVERITY, POSITION_EVENT_TONE, REVIEW_SEVERITY, bucketTone, categoryTone, signClass, signTone, statusTone, toneTextClass } from '@/lib/tone'
 import { getLanguage } from '@/lib/i18n-server'
 import { getPageCopy } from '@/lib/ui-copy'
-import { CardRow, KpiBand, Total, TotalsStrip } from '@/components/layout'
+import { CardRow, Columns, KpiBand, Total, TotalsStrip } from '@/components/layout'
 import { positionHeading } from '@/lib/page-headings'
 import { AccountCell } from '@/components/PositionCell'
 import { displayAccount } from '@/lib/account-label'
@@ -87,7 +87,7 @@ function ReconciliationStrip({
         <span className="font-medium text-ink">{label}</span>
         <Badge tone={statusTone(REVIEW_SEVERITY, ok ? 'clear' : 'needs_review')}>{ok ? copy.matched : copy.needsReview}</Badge>
       </div>
-      <div className="mt-2 grid gap-2 text-label sm:grid-cols-3">
+      <Columns columns="sm-3" gap={2} className="mt-2 text-label">
         <div>
           <div className="text-ink-3">{copy.holdings}</div>
           <div className="font-medium tabular-nums text-ink">{unit === 'KRW' ? money(left, 'KRW') : fmtNumber(left, 4)}</div>
@@ -102,7 +102,7 @@ function ReconciliationStrip({
             {unit === 'KRW' ? money(diff, 'KRW') : fmtNumber(diff, 4)}
           </div>
         </div>
-      </div>
+      </Columns>
     </Panel>
   )
 }
@@ -383,7 +383,11 @@ export default async function PositionPage({ params }: { params: Promise<{ marke
             ) : (
               <ul className="divide-y divide-line-subtle">
                 {timeline.map((event) => (
-                  <li key={event.id} className="grid gap-2 py-2.5 text-caption lg:grid-cols-[7rem_6rem_1fr_8rem_8rem] lg:items-center">
+                  <li
+                    key={event.id}
+                    // guardrail:allow grid — aligns the date, kind, detail and amount cells of every event row
+                    className="grid gap-2 py-2.5 text-caption lg:grid-cols-[7rem_6rem_1fr_8rem_8rem] lg:items-center"
+                  >
                     <span className="tabular-nums text-ink-3">{event.date}</span>
                     <Badge tone={categoryTone(POSITION_EVENT_TONE, event.kind, 'info')}>{translated(event.kind, copy.eventKinds, copy.transactionTypes)}</Badge>
                     <span className="min-w-0 truncate text-ink">
