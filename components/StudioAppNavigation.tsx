@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
+import { useRouter } from 'next/navigation'
+import { DisplaySettings } from '@/components/studio-ui/display-settings'
 import type { Language } from '@/lib/i18n'
 import { studioNavigation } from '@/lib/ui-copy/studio-navigation'
 import directory from '@/lib/studio-service-directory.json'
@@ -18,6 +20,7 @@ const groups = Object.entries(directory.groups)
 
 export function StudioAppNavigation({ language: locale }: { language: Language }) {
   const copy = studioNavigation[locale]
+  const router = useRouter()
   const [open, setOpen] = useState(false)
   const nav = useRef<HTMLElement>(null)
   const toggle = useRef<HTMLButtonElement>(null)
@@ -95,6 +98,18 @@ export function StudioAppNavigation({ language: locale }: { language: Language }
             {directory.groups.external[locale]}
           </a>
         </div>
+        {/* Theme and language for every Studio app (guidelines D15, D16). A language
+            change refreshes the server render; AutoRefresh and HelpPopover read the
+            language off the document, so it changes there too. */}
+        <DisplaySettings
+          locale={locale}
+          language={locale}
+          languages={['ko', 'en']}
+          onLanguageChange={next => {
+            document.documentElement.lang = next
+            router.refresh()
+          }}
+        />
       </div>
     </nav>
   )

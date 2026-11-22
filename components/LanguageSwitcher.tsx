@@ -9,31 +9,11 @@ import {
   type DisplayCurrency,
 } from '@/lib/currency'
 import { ASSET_VIEWS, ASSET_VIEW_COOKIE, type AssetView } from '@/lib/asset-view'
-import { LANGUAGE_COOKIE, LANGUAGE_LABELS, type Language } from '@/lib/i18n'
 
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 365
 
 function persist(name: string, value: string) {
   document.cookie = `${name}=${value}; path=/; max-age=${COOKIE_MAX_AGE}; samesite=lax`
-}
-
-export function LanguageSwitcher({ language, label }: { language: Language; label: string }) {
-  const router = useRouter()
-
-  return (
-    <SegmentedControl
-      label={label}
-      value={language}
-      options={(['en', 'ko'] as Language[]).map((option) => ({ value: option, label: LANGUAGE_LABELS[option] }))}
-      onChange={(next) => {
-        persist(LANGUAGE_COOKIE, next)
-        // AutoRefresh and HelpPopover read the language off the document, so it
-        // has to change here as well as in the cookie the server reads.
-        document.documentElement.lang = next
-        router.refresh()
-      }}
-    />
-  )
 }
 
 export function CurrencySwitcher({

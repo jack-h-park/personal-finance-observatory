@@ -83,7 +83,7 @@ test('the eyebrow is not clipped to a gradient', () => {
 test('the entrance fade runs on first load only', () => {
   const css = read('styles/jp-theme.css')
   assert.ok(css.includes(':not([data-entered]) .jp-stagger > *'))
-  assert.doesNotMatch(css, /\[data-theme="jp"\] \.jp-stagger/)
+  assert.doesNotMatch(css, /\[data-jp\] \.jp-stagger/)
 })
 
 test('EntranceMotion marks the document entered after the fade settles', async () => {
