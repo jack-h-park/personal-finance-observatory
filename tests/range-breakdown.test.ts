@@ -77,6 +77,15 @@ test('realized gain under another market joins the held security', () => {
   assert.equal(r.securities[0].marketEffect, 170)
 })
 
+test('a realized gain counts only in its own market section', () => {
+  const rows = [row(A, 'X', 1000, 1000), row(B, 'X', 1000, 1100), row(A, 'X', 500, 500, { market: 'CRYPTO' }), row(B, 'X', 500, 600, { market: 'CRYPTO' })]
+  const realized = [gain('X', 70, 'US')]
+  const crypto = run(rows, realized, ['CRYPTO'])
+  assert.deepEqual(crypto.securities.map((s) => s.realized), [0])
+  const stocks = run(rows, realized, ['KR', 'US'])
+  assert.equal(stocks.securities.reduce((sum, s) => sum + s.realized, 0), 70)
+})
+
 test('securities are sorted by absolute value change', () => {
   const r = run([row(B, 'S', 100, 100), row(B, 'L', 100, 5000), row(A, 'N', 900, 900)])
   assert.deepEqual(r.securities.map((s) => s.ticker), ['L', 'N', 'S'])

@@ -49,6 +49,9 @@ export function rangeBreakdown(input: { from: string; to: string; rows: Position
   }
 
   for (const g of input.realized) {
+    // A gain belongs to its own market's section; filtering after the
+    // cross-market redirect below would count it in two sections.
+    if (!markets.includes(g.market)) continue
     let key = keyOf(g.market, g.ticker)
     if (!byKey.has(key)) {
       // The same ticker can be recorded under another market (sheet lots vs bridge lots).
@@ -57,7 +60,6 @@ export function rangeBreakdown(input: { from: string; to: string; rows: Position
     }
     let entry = byKey.get(key)
     if (!entry) {
-      if (!markets.includes(g.market)) continue
       entry = { market: g.market, ticker: g.ticker, name: g.ticker, realized: 0 }
       byKey.set(key, entry)
     }
