@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import type { ReactNode } from 'react'
@@ -12,6 +13,7 @@ import {
   Cell,
   Line,
   LineChart,
+  ReferenceArea,
   ReferenceLine,
   ResponsiveContainer,
   Legend,
@@ -24,6 +26,7 @@ import { EMPTY_VALUE } from '@/lib/format'
 import { axisTick, hasPlottablePoint, tooltipValue, type ChartUnit } from '@/lib/chart-format'
 import type { Language } from '@/lib/i18n'
 import { EmptyState } from '@/components/ui'
+import { orderedDragRange, rangeHref } from '@/lib/range-selection'
 
 const AXIS = { fontSize: 10, fill: 'var(--text-tertiary)' }
 
@@ -349,6 +352,7 @@ export function StackedAssetChart({
   unit,
   language,
   emptyMessage,
+  rangeSelect,
 }: ChartContract & {
   points: StackedAssetPoint[]
   startsOn: Partial<Record<AssetClass, string>>
@@ -361,16 +365,42 @@ export function StackedAssetChart({
   childrenBand?: { label: string; combinedLabel: string }
   /** The classes drawn, in any order (stack order is fixed); a class left out draws no area, start line or tooltip row. */
   classes?: readonly AssetClass[]
+  /**
+   * Turns on drag-to-select: dragging across the plot navigates to `baseHref`
+   * with `from`/`to` set. `from`/`to` are the period already in the URL (drawn
+   * as a persistent band, with a clear link); `baseHref` must carry no #fragment.
+   */
+  rangeSelect?: { from: string | null; to: string | null; baseHref: string; clearHref: string; clearLabel: string }
 }) {
+  const router = useRouter()
+  const [dragStart, setDragStart] = useState<string | null>(null)
+  const [dragEnd, setDragEnd] = useState<string | null>(null)
   const shown = STACK_ORDER.filter((key) => classes.includes(key))
   const seriesKeys: string[] = childrenBand ? [...shown, 'children'] : [...shown]
   if (!hasPlottablePoint(points, seriesKeys)) return <EmptyState>{emptyMessage}</EmptyState>
   const formatValue = (value: number) => tooltipValue(value, unit, language)
   const firstDate = points[0]?.date
   const starts = shown.filter((key) => startsOn[key] && startsOn[key] !== firstDate)
-  return (
+  const endDrag = () => {
+    const range = orderedDragRange(dragStart, dragEnd)
+    setDragStart(null)
+    setDragEnd(null)
+    // Stay where the reader is: the default scrolls a client navigation to the top.
+    if (range && rangeSelect) router.push(rangeHref(rangeSelect.baseHref, range[0], range[1]), { scroll: false })
+  }
+  const dragging = rangeSelect ? orderedDragRange(dragStart, dragEnd) : null
+  const selectedBand = rangeSelect?.from && rangeSelect.to ? [rangeSelect.from, rangeSelect.to] : null
+  const chart = (
     <ResponsiveContainer width="100%" height={height}>
-      <AreaChart data={points} margin={{ top: markers.length ? 18 : 8, right: 8, bottom: 0, left: -18 }}>
+      <AreaChart
+        data={points}
+        margin={{ top: markers.length ? 18 : 8, right: 8, bottom: 0, left: -18 }}
+        style={rangeSelect ? { cursor: 'crosshair', userSelect: 'none' } : undefined}
+        onMouseDown={rangeSelect ? (state) => { setDragStart(state?.activeLabel ?? null); setDragEnd(null) } : undefined}
+        onMouseMove={rangeSelect ? (state) => { if (dragStart) setDragEnd(state?.activeLabel ?? null) } : undefined}
+        onMouseUp={rangeSelect ? endDrag : undefined}
+        onMouseLeave={rangeSelect ? () => { setDragStart(null); setDragEnd(null) } : undefined}
+      >
         <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" vertical={false} />
         <XAxis dataKey="date" tick={AXIS} tickLine={false} axisLine={{ stroke: 'var(--border-default)' }} />
         <YAxis
@@ -459,8 +489,30 @@ export function StackedAssetChart({
             isAnimationActive={false}
           />
         ) : null}
+        {selectedBand && !dragging ? (
+          <ReferenceArea x1={selectedBand[0]} x2={selectedBand[1]} fill="var(--accent-link)" fillOpacity={0.12} stroke="var(--accent-link)" strokeOpacity={0.5} ifOverflow="visible" />
+        ) : null}
+        {dragging ? (
+          <ReferenceArea x1={dragging[0]} x2={dragging[1]} fill="var(--accent-link)" fillOpacity={0.2} ifOverflow="visible" />
+        ) : null}
       </AreaChart>
     </ResponsiveContainer>
+  )
+  if (!rangeSelect) return chart
+  return (
+    <div>
+      {selectedBand ? (
+        <div className="mb-1 flex justify-end">
+          <Link
+            href={rangeSelect.clearHref}
+            className="inline-flex min-h-6 items-center text-caption font-medium text-info hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info/40"
+          >
+            {rangeSelect.clearLabel}
+          </Link>
+        </div>
+      ) : null}
+      {chart}
+    </div>
   )
 }
 

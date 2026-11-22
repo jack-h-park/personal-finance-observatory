@@ -8,6 +8,7 @@ import Database from 'better-sqlite3'
 import { replayPensionHistory } from './pension-replay.mjs'
 import { STOCK_WRAPPERS, activePensionEntries, assetClassFor, loadAccountMap, ownerFor, tagRows, wrapperFor } from './account-map.mjs'
 import { loadLocalEnv } from './env.mjs'
+import { buildTodayPositions, writePositionSnapshots } from './position-snapshots.mjs'
 import { portfolioDate, priceDatesByMarket, valuePortfolio } from './portfolio-snapshot.mjs'
 import { repriceFromQuote } from './broker-quote-reprice.mjs'
 import { resolveCryptoFiles, resolveUsHoldingFiles, resolveUsTransactionFiles, robinhoodStrategyLabel } from './source-files.mjs'
@@ -914,6 +915,7 @@ function required(value) {
 fs.mkdirSync(outDir, { recursive: true })
 fs.mkdirSync(path.dirname(dbPath), { recursive: true })
 let previousPortfolioSnapshots = []
+let previousPositionSnapshots = []
 if (fs.existsSync(dbPath)) {
   const previousDb = new Database(dbPath, { readonly: true })
   try {
@@ -921,6 +923,10 @@ if (fs.existsSync(dbPath)) {
       .prepare("select 1 from sqlite_master where type = 'table' and name = 'portfolio_snapshots'")
       .get()
     if (hasSnapshots) previousPortfolioSnapshots = previousDb.prepare('select * from portfolio_snapshots order by snapshot_date').all()
+    const hasPositions = previousDb
+      .prepare("select 1 from sqlite_master where type = 'table' and name = 'position_snapshots'")
+      .get()
+    if (hasPositions) previousPositionSnapshots = previousDb.prepare('select * from position_snapshots order by snapshot_date').all()
   } finally {
     previousDb.close()
   }
@@ -1483,6 +1489,20 @@ create table portfolio_snapshots (
 
 create index idx_portfolio_snapshots_date on portfolio_snapshots(snapshot_date);
 
+-- One row per security per snapshot date; the net worth range breakdown reads
+-- these to say which holdings moved the total between two dates.
+create table position_snapshots (
+  id integer primary key,
+  snapshot_date text not null,
+  market text not null,
+  ticker text not null,
+  name text,
+  quantity real not null,
+  cost_krw real not null,
+  market_value_krw real,
+  unique(snapshot_date, market, ticker)
+);
+
 create table historical_prices (
   id integer primary key,
   market text not null,
@@ -1575,6 +1595,18 @@ insertMany(db, 'portfolio_snapshots', previousPortfolioSnapshots.filter((row) =>
   'us_price_date_oldest',
   'crypto_price_date_newest',
   'crypto_price_date_oldest',
+])
+
+// Past per-security rows ride along the same way. They were written by the
+// month-end backfill and by earlier ingests, and nothing here can rebuild them.
+insertMany(db, 'position_snapshots', previousPositionSnapshots.filter((row) => row.snapshot_date < snapshotDate), [
+  'snapshot_date',
+  'market',
+  'ticker',
+  'name',
+  'quantity',
+  'cost_krw',
+  'market_value_krw',
 ])
 
 const historicalPriceDocument = fs.existsSync(historicalPricesPath)
@@ -8336,6 +8368,47 @@ check(
   'warning'
 )
 
+// The stock views carry the maintainer's own accounts only; a child's account
+// is shown apart. A row of another owner reaching them would put that account
+// into every stock total, so this names the count and never the account.
+const otherOwnerRows = ['holdings', 'tax_lots', 'realized_lots']
+  .map((table) => ({ table, n: db.prepare(`select count(*) as n from ${table} where owner != 'self'`).get().n }))
+  .filter((entry) => entry.n > 0)
+check(
+  'stock_views_self_only',
+  otherOwnerRows.length === 0,
+  otherOwnerRows.length === 0
+    ? 'holdings, tax lots and realized lots in the stock views are all the maintainer\'s own'
+    : `${otherOwnerRows.map((entry) => `${entry.table}: ${entry.n} row(s)`).join(', ')} belong to another owner`,
+  'warning'
+)
+
+// Today's per-security rows (written below). Held quantity no open lot covers
+// would record a zero cost and read as a free position, so count it.
+const {
+  positions: todayPositions,
+  uncosted: uncostedPositions,
+  orphanLots: orphanPositionLots,
+} = buildTodayPositions(stockOnly(holdingRows), stockOnly(taxLotRows))
+check(
+  'position_snapshot_costs_present',
+  uncostedPositions.length === 0,
+  uncostedPositions.length === 0
+    ? `${todayPositions.length} held security(ies) carry a lot cost in today's position rows`
+    : `${uncostedPositions.length} of ${todayPositions.length} held security(ies) hold quantity no open lot covers, so today's position rows record no cost for it`,
+  'warning'
+)
+// Open-lot cost that no today row carries: the period breakdown would read it
+// as a sale on any period ending today.
+check(
+  'position_snapshot_lot_costs_used',
+  orphanPositionLots.length === 0,
+  orphanPositionLots.length === 0
+    ? "every open lot's cost is carried by one of today's position rows"
+    : `${orphanPositionLots.length} security lot group(s) carry open-lot cost that no row of today's positions picked up`,
+  'warning'
+)
+
 insertMany(db, 'missing_disposals', robinhoodMissingDisposalRows, ['market', 'brokerage', 'account_type', 'ticker', 'replay_qty', 'held_qty'])
 insertMany(db, 'validation_checks', checks, ['name', 'status', 'detail', 'severity', 'scope'])
 
@@ -8398,6 +8471,9 @@ db.prepare(`
   currentPriceDates.US.newest, currentPriceDates.US.oldest,
   currentPriceDates.CRYPTO.newest, currentPriceDates.CRYPTO.oldest
 )
+
+// Today's per-security rows are built beside the validation checks above.
+writePositionSnapshots(db, snapshotDate, todayPositions)
 
 db.exec(`
 create index idx_holdings_account on holdings_all(account);

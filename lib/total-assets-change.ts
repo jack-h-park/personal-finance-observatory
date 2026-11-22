@@ -24,8 +24,25 @@ export type ClassDriver = { key: ClassKey; change: number }
  */
 export function totalAssetsChange(points: TotalAssetsPoint[], since: string): TotalAssetsChange | null {
   const latest = points[points.length - 1]
-  let base: TotalAssetsPoint | undefined
-  for (const point of points) if (point.date <= since) base = point
+  if (!latest) return null
+  return totalAssetsChangeBetween(points, since, latest.date)
+}
+
+/** The latest point dated on or before `date`, or undefined when none is that old. */
+function latestOnOrBefore<T extends { date: string }>(points: T[], date: string): T | undefined {
+  let found: T | undefined
+  for (const point of points) if (point.date <= date) found = point
+  return found
+}
+
+/**
+ * The change in total assets between two dates, each snapped to the latest
+ * point on or before it. Null when either end has no point, or the base is not
+ * before the end.
+ */
+export function totalAssetsChangeBetween(points: TotalAssetsPoint[], from: string, to: string): TotalAssetsChange | null {
+  const base = latestOnOrBefore(points, from)
+  const latest = latestOnOrBefore(points, to)
   if (!latest || !base || base.date >= latest.date) return null
   const change = latest.total - base.total
   return {
@@ -77,8 +94,14 @@ export type InvestmentResult = { unrealized: number; realized: number; total: nu
  */
 export function investmentResult(points: InvestmentPoint[], since: string): InvestmentResult | null {
   const latest = points[points.length - 1]
-  let base: InvestmentPoint | undefined
-  for (const point of points) if (point.date <= since) base = point
+  if (!latest) return null
+  return investmentResultBetween(points, since, latest.date)
+}
+
+/** The same measure between two dates, each snapped to the latest snapshot on or before it. */
+export function investmentResultBetween(points: InvestmentPoint[], from: string, to: string): InvestmentResult | null {
+  const base = latestOnOrBefore(points, from)
+  const latest = latestOnOrBefore(points, to)
   if (!latest || !base || base.date >= latest.date || latest.unrealized == null || base.unrealized == null) return null
   const unrealized = latest.unrealized - base.unrealized
   const realized = (latest.realized ?? 0) - (base.realized ?? 0)
