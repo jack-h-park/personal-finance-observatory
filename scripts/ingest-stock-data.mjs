@@ -8,7 +8,7 @@ import Database from 'better-sqlite3'
 import { replayPensionHistory } from './pension-replay.mjs'
 import { STOCK_WRAPPERS, activePensionEntries, assetClassFor, loadAccountMap, ownerFor, tagRows, wrapperFor } from './account-map.mjs'
 import { loadLocalEnv } from './env.mjs'
-import { aggregatePositions, writePositionSnapshots } from './position-snapshots.mjs'
+import { buildTodayPositions, writePositionSnapshots } from './position-snapshots.mjs'
 import { portfolioDate, priceDatesByMarket, valuePortfolio } from './portfolio-snapshot.mjs'
 import { repriceFromQuote } from './broker-quote-reprice.mjs'
 import { resolveCryptoFiles, resolveUsHoldingFiles, resolveUsTransactionFiles, robinhoodStrategyLabel } from './source-files.mjs'
@@ -1555,18 +1555,6 @@ db.prepare('insert into meta (key, value) values (?, ?)').run('portfolio_snapsho
 // implementation. On the iMac, a refresh after 17:00 Pacific used to write the
 // next UTC date; preserving it would leave a stale future row ahead of the new
 // portfolio-local snapshot forever.
-// Past per-security rows ride along the same way. They were written by the
-// month-end backfill and by earlier ingests, and nothing here can rebuild them.
-insertMany(db, 'position_snapshots', previousPositionSnapshots.filter((row) => row.snapshot_date < snapshotDate), [
-  'snapshot_date',
-  'market',
-  'ticker',
-  'name',
-  'quantity',
-  'cost_krw',
-  'market_value_krw',
-])
-
 insertMany(db, 'portfolio_snapshots', previousPortfolioSnapshots.filter((row) => row.snapshot_date < snapshotDate), [
   'snapshot_date',
   'captured_at',
@@ -1607,6 +1595,18 @@ insertMany(db, 'portfolio_snapshots', previousPortfolioSnapshots.filter((row) =>
   'us_price_date_oldest',
   'crypto_price_date_newest',
   'crypto_price_date_oldest',
+])
+
+// Past per-security rows ride along the same way. They were written by the
+// month-end backfill and by earlier ingests, and nothing here can rebuild them.
+insertMany(db, 'position_snapshots', previousPositionSnapshots.filter((row) => row.snapshot_date < snapshotDate), [
+  'snapshot_date',
+  'market',
+  'ticker',
+  'name',
+  'quantity',
+  'cost_krw',
+  'market_value_krw',
 ])
 
 const historicalPriceDocument = fs.existsSync(historicalPricesPath)
@@ -8383,6 +8383,18 @@ check(
   'warning'
 )
 
+// Today's per-security rows (written below). A held security with no open lot
+// anywhere would record a zero cost and read as a free position, so count them.
+const { positions: todayPositions, uncosted: uncostedPositions } = buildTodayPositions(stockOnly(holdingRows), stockOnly(taxLotRows))
+check(
+  'position_snapshot_costs_present',
+  uncostedPositions.length === 0,
+  uncostedPositions.length === 0
+    ? `${todayPositions.length} held security(ies) carry a lot cost in today's position rows`
+    : `${uncostedPositions.length} of ${todayPositions.length} held security(ies) have no open lot, so today's position rows record zero cost for them`,
+  'warning'
+)
+
 insertMany(db, 'missing_disposals', robinhoodMissingDisposalRows, ['market', 'brokerage', 'account_type', 'ticker', 'replay_qty', 'held_qty'])
 insertMany(db, 'validation_checks', checks, ['name', 'status', 'detail', 'severity', 'scope'])
 
@@ -8446,27 +8458,7 @@ db.prepare(`
   currentPriceDates.CRYPTO.newest, currentPriceDates.CRYPTO.oldest
 )
 
-// Today's per-security rows. Value comes from the holdings so it matches the
-// Total assets card; cost comes from the open lots because the past rows use
-// lot cost, and a broker's average cost would show up as a phantom purchase.
-const lotCostBySecurity = new Map()
-for (const lot of stockOnly(taxLotRows)) {
-  const key = `${lot.market}:${lot.ticker}`
-  lotCostBySecurity.set(key, (lotCostBySecurity.get(key) ?? 0) + Number(lot.cost_basis_krw || 0))
-}
-const positionNames = new Map()
-for (const row of stockHoldingRows) positionNames.set(`${row.market}:${row.ticker}`, row.name)
-const todayPositions = aggregatePositions(
-  stockHoldingRows.map((row) => ({
-    market: row.market,
-    account: row.account,
-    ticker: row.ticker,
-    quantity: row.quantity,
-    cost: 0,
-    marketValue: row.base_market_value,
-  })),
-  positionNames
-).map((row) => ({ ...row, cost_krw: lotCostBySecurity.get(`${row.market}:${row.ticker}`) ?? 0 }))
+// Today's per-security rows are built beside the validation checks above.
 writePositionSnapshots(db, snapshotDate, todayPositions)
 
 db.exec(`
