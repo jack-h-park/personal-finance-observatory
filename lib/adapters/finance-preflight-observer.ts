@@ -16,7 +16,7 @@ export const localMetadata: ReadOnlyMetadata = {
   readable: (name, kind) => accessSync(name, constants.R_OK | (kind === 'directory' ? constants.X_OK : 0)),
 }
 const rootKeys = ['FINANCE_MODE', 'FINANCE_STATE_WRITABLE', 'FINANCE_RECORDS_DIR', 'FINANCE_TAX_DIR', 'FINANCE_STATE_DIR', 'FINANCE_RUNTIME_DIR', 'STOCK_DATA_DIR', 'FINANCE_CONNECTOR_RECORDS_DIR', 'STOCK_CONNECTOR_RECORDS_DIR', 'FINANCE_CONNECTOR_EXPORT_DIR', 'STOCK_CONNECTOR_EXPORT_DIR']
-const settingKeys = [...rootKeys, ...Object.keys(FINANCE_FILES).flatMap(key => [key, key.replace(/^STOCK_/, 'FINANCE_')]), 'BRIEFING_ARCHIVE_DIR', 'STOCK_FX_TRANSFER_OVERRIDES_PATH']
+const settingKeys = [...rootKeys, ...Object.keys(FINANCE_FILES).flatMap(key => [key, key.replace(/^STOCK_/, 'FINANCE_')]), 'BRIEFING_ARCHIVE_DIR']
 export const fingerprint = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex')
 export function selectedSettings(env: Record<string, string | undefined>): Record<string, string | undefined> {
   return Object.fromEntries([...new Set(settingKeys)].sort().filter(k => env[k] !== undefined).map(k => [k, env[k]]))
@@ -34,9 +34,8 @@ function configuredPath(request: EndpointRequest, env: Record<string, string | u
   if (s.kind === 'explicit_path') return s.path
   if (s.kind === 'environment') return env[s.key]
   if (s.kind === 'finance_file') return financeFile(s.key, env as NodeJS.ProcessEnv, request.cwd)
-  // This legacy Python extractor key is deliberately not sent to financeFile.
-  const legacy = env.STOCK_FX_TRANSFER_OVERRIDES_PATH
-  return legacy === undefined ? posix.join(request.cwd, 'data/fx-transfer-overrides.json') : legacy
+  // Keep old observation requests compatible with the extractor's shared resolver.
+  return financeFile('STOCK_FX_TRANSFER_OVERRIDES_PATH', env as NodeJS.ProcessEnv, request.cwd)
 }
 export function collectEndpoint(request: EndpointRequest, context: { env: Record<string, string | undefined>; hostname: string; hostId: string; metadata: ReadOnlyMetadata }): CollectedEndpoint {
   const result: CollectedEndpoint = {

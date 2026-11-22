@@ -2,7 +2,7 @@ import { posix } from 'node:path'
 import type { ContractId, EndpointObservation, ResourceId, RoleAssignment, StageId } from './types'
 import { validateFinancePreflightInput } from './validation'
 
-export const observedFinanceKeys = ['STOCK_BRIEFING_ARCHIVE_DIR', 'STOCK_FX_RATE_OBSERVATIONS_PATH', 'STOCK_HANA_FX_SCREENSHOT_EVIDENCE_PATH', 'STOCK_FX_LEDGER_PATH'] as const
+export const observedFinanceKeys = ['STOCK_BRIEFING_ARCHIVE_DIR', 'STOCK_FX_RATE_OBSERVATIONS_PATH', 'STOCK_HANA_FX_SCREENSHOT_EVIDENCE_PATH', 'STOCK_FX_TRANSFER_OVERRIDES_PATH', 'STOCK_FX_LEDGER_PATH'] as const
 export type PathSource = { kind: 'environment'; key: 'BRIEFING_ARCHIVE_DIR' }
   | { kind: 'finance_file'; key: typeof observedFinanceKeys[number] }
   | { kind: 'explicit_path'; path: string }

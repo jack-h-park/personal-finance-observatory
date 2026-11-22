@@ -92,3 +92,20 @@ test('Python handoff carries resolved paths without mutating the caller', () => 
   assert.equal(handoff.STOCK_ALLOW_NO_ACCOUNT_MAP, '1')
   assert.equal(env.STOCK_DATA_DIR, undefined)
 })
+
+test('curated FX files default to private state and sample runs cannot inherit overrides', () => {
+  const keys = ['STOCK_FX_RATE_OBSERVATIONS_PATH', 'STOCK_HANA_FX_SCREENSHOT_EVIDENCE_PATH', 'STOCK_FX_TRANSFER_OVERRIDES_PATH']
+  const names = ['fx-rate-observations.json', 'fx-hana-screenshot-evidence.json', 'fx-transfer-overrides.json']
+  for (const [i, key] of keys.entries()) {
+    const env = { STOCK_DATA_DIR: '/private/records' }
+    const fallback = `/private/records/outputs/personal-finance-observatory/state/${names[i]}`
+    assert.equal(financeFile(key, env, cwd), fallback)
+    assert.equal(financeEnvironment(env, cwd)[key], fallback)
+    assert.equal(financeFile(key, {}, cwd), `${cwd}/private-data/personal-finance-sample/state/${names[i]}`)
+    assert.equal(financeFile(key, { ...env, FINANCE_STATE_DIR: '/separate/state' }, cwd), `/separate/state/${names[i]}`)
+    assert.equal(financeFile(key, { ...env, [key]: './legacy.json' }, cwd), `${cwd}/legacy.json`)
+    const currentKey = key.replace(/^STOCK_/, 'FINANCE_')
+    assert.throws(() => financeFile(key, { ...env, [key]: './legacy.json', [currentKey]: './different.json' }, cwd), /Conflicting configuration/)
+    assert.throws(() => resolveFinancePaths({ FINANCE_MODE: 'sample', [key]: './private.json' }, cwd), /sample/i)
+  }
+})

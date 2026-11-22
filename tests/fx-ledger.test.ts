@@ -22,45 +22,54 @@ test('Hana PDF/XLS overlap is deduplicated and the XLS actual rate wins', () => 
 import importlib.util, json
 spec=importlib.util.spec_from_file_location('fx', 'scripts/extract-fx-ledger.py')
 m=importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
-pdf={'date':'2025-10-29','time':None,'kind':'원화대가','memo':'FX마켓 살래요','branch':'','deposit':100.0,'withdrawal':0.0,'balance':0.0,'applied_rate':None,'source':'annual.pdf','source_path':'annual.pdf','page':5}
-xls={**pdf,'time':'15:54:36','balance':None,'applied_rate':1432.3,'source':'recent.xls','source_path':'recent.xls','page':None}
+pdf={'date':'2025-02-17','time':None,'kind':'원화대가','memo':'FX마켓 살래요','branch':'','deposit':100.0,'withdrawal':0.0,'balance':0.0,'applied_rate':None,'source':'synthetic.pdf','source_path':'synthetic.pdf','page':5}
+xls={**pdf,'time':'12:34:56','balance':None,'applied_rate':1203.0,'source':'synthetic.xls','source_path':'synthetic.xls','page':None}
 merged=m.merge_hana_rows([pdf],[xls])
-events=m.hana_events(merged, {'2025-10-29':{'base':1434.3,'ttSend':1448.3,'cashBuy':1459.4}})
+events=m.hana_events(merged, {'2025-02-17':{'base':1190.0,'ttSend':1220.0,'cashBuy':1230.0}}, overrides={}, observations={})
 print(json.dumps({'rows':len(merged),'event':events[0]}))
 `)
   assert.equal(result.rows, 1)
   assert.equal(result.event.rate_status, 'actual')
-  assert.equal(result.event.applied_rate, 1432.3)
-  assert.equal(result.event.reference_base_rate, 1430.9)
-  assert.equal(result.event.reference_customer_rate, 1444.9)
+  assert.equal(result.event.applied_rate, 1203)
+  assert.equal(result.event.reference_base_rate, 1190)
 })
 
-// The mobile screenshots print the time to the minute; the bank XLS prints it to
-// the second, and the published-rate observations are keyed on the second. When
-// a screenshot replaced the XLS row it carried its own coarser time, the
-// observation lookup missed, and the event fell back to the day's first
-// published rate — 1434.3 / 1448.3 instead of 1430.9 / 1444.9 — which reads the
-// same 1432.3 fill as a 114% preference.
-test('a screenshot merged onto the XLS row keeps the transaction-time reference rate', () => {
+// Matching uses the second-precision XLS time instead of the screenshot's minute.
+test('private FX inputs preserve transaction-time reference rates and reviewed transfer overrides', () => {
   const result = runPython(`
-import importlib.util, json
+import importlib.util, json, tempfile
+from pathlib import Path
 spec=importlib.util.spec_from_file_location('fx', 'scripts/extract-fx-ledger.py')
 m=importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
-pdf={'date':'2025-10-29','time':None,'kind':'원화대가','memo':'FX마켓 살래요','branch':'','deposit':100.0,'withdrawal':0.0,'balance':0.0,'applied_rate':None,'source':'annual.pdf','source_path':'annual.pdf','page':5}
-xls={**pdf,'time':'15:54:36','balance':None,'applied_rate':1432.3,'source':'recent.xls','source_path':'recent.xls','page':None}
-shot={**pdf,'time':'15:54','balance':None,'applied_rate':1432.3,'branch':'모바일 캡처','source':'shot','source_path':'shot.json','page':None}
-merged=m.merge_hana_screenshot_rows(m.merge_hana_rows([pdf],[xls]), [shot])
-events=m.hana_events(merged, {'2025-10-29':{'base':1434.3,'ttSend':1448.3,'cashBuy':1459.4}})
-print(json.dumps({'rows':len(merged),'time':merged[0]['time'],'event':events[0]}))
+with tempfile.TemporaryDirectory() as tmp:
+    root=Path(tmp)
+    m.SOURCE_DIR=root/'statements'
+    m.OUT_PATH=root/'ledger.json'
+    m.OVERRIDES_PATH=root/'overrides.json'
+    m.OBSERVATIONS_PATH=root/'observations.json'
+    m.SCREENSHOT_EVIDENCE_PATH=root/'screenshots.json'
+    day='2025-02-17'
+    m.OVERRIDES_PATH.write_text(json.dumps({'version':1,'overrides':[{'institution':'Hana Bank','date':day,'direction':'OUT','usdAmount':20.0,'counterparty':'Synthetic bank','confidence':'high','matchStatus':'matched','provenance':'invented'}]}))
+    m.OBSERVATIONS_PATH.write_text(json.dumps({'version':1,'observations':[{'institution':'Hana Bank','date':day,'transactionTime':'12:34:56','baseRate':1200.0,'ttSendRate':1230.0,'publishedRound':7,'publishedTime':'12:30','source':'synthetic-reference'}]}))
+    m.SCREENSHOT_EVIDENCE_PATH.write_text(json.dumps({'version':1,'rows':[{'date':day,'time':'12:34','status':'거래완료','usdAmount':100.0,'appliedRate':1203.0,'sourceScreenshot':'invented.png'}]}))
+    base={'date':day,'time':'12:34:56','kind':'원화대가','memo':'FX마켓 살래요','branch':'','deposit':100.0,'withdrawal':0.0,'balance':None,'applied_rate':1203.0,'source':'synthetic.xls','source_path':'synthetic.xls','page':None}
+    transfer={**base,'time':'14:00','kind':'외화대체','memo':'','deposit':0.0,'withdrawal':20.0}
+    m.parse_hana_xls=lambda: ([base,transfer],[],[])
+    m.reference_rates=lambda days: ({day:{'base':1190.0,'ttSend':1220.0,'cashBuy':1230.0}},[])
+    m.toss_events=lambda: ([],[],[])
+    import contextlib, io
+    with contextlib.redirect_stdout(io.StringIO()):
+        assert m.main()==0
+    print(m.OUT_PATH.read_text())
 `)
-  assert.equal(result.rows, 1)
-  assert.equal(result.time, '15:54:36')
-  assert.equal(result.event.reference_base_rate, 1430.9)
-  assert.equal(result.event.reference_customer_rate, 1444.9)
-  const preference =
-    1 - (result.event.applied_rate - result.event.reference_base_rate) /
-      (result.event.reference_customer_rate - result.event.reference_base_rate)
-  assert.ok(Math.abs(preference - 0.9) < 1e-6, `preference ${preference}`)
+  assert.equal(result.events.length, 2)
+  const [exchange, transfer] = result.events
+  assert.equal(exchange.time, '12:34:56')
+  assert.equal(exchange.reference_base_rate, 1200)
+  assert.equal(exchange.reference_customer_rate, 1230)
+  assert.equal(exchange.applied_rate, 1203)
+  assert.equal(transfer.counterparty, 'Synthetic bank')
+  assert.equal(result.sources[0].rows, 1)
 })
 
 test('a screenshot keeps its own time when the bank row disagrees on the minute', () => {
@@ -152,4 +161,37 @@ test('a configured STOCK_SOFFICE_BIN still wins over the app bundle', () => {
   writeFileSync(configured, '#!/bin/sh\n', { mode: 0o755 })
   const { result } = findSoffice({ STOCK_SOFFICE_BIN: configured })
   assert.equal(result, configured)
+})
+
+test('Hana extraction fails before reading statements or replacing output if curated inputs are absent or malformed', () => {
+  const result = runPython(`
+import importlib.util, json, tempfile
+from pathlib import Path
+spec=importlib.util.spec_from_file_location('fx', 'scripts/extract-fx-ledger.py')
+m=importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+with tempfile.TemporaryDirectory() as tmp:
+    root=Path(tmp)
+    m.SOURCE_DIR=root/'statements'; m.SOURCE_DIR.mkdir()
+    (m.SOURCE_DIR/'hana-usd-history-synthetic.pdf').touch()
+    m.OVERRIDES_PATH=root/'overrides.json'
+    m.OBSERVATIONS_PATH=root/'observations.json'
+    m.SCREENSHOT_EVIDENCE_PATH=root/'screenshots.json'
+    m.OUT_PATH=root/'ledger.json'
+    m.OUT_PATH.write_text('last-good-ledger')
+    failures=[]
+    for malformed in [False, True]:
+        if malformed:
+            m.OVERRIDES_PATH.write_text('{"version":1,"overrides":[]}')
+            m.OBSERVATIONS_PATH.write_text('{"version":1,"observations":[]}')
+            m.SCREENSHOT_EVIDENCE_PATH.write_text('{"version":1,"rows":{}}')
+        try:
+            m.main()
+        except ValueError as error:
+            failures.append(str(error))
+    print(json.dumps({'failures':failures,'output':m.OUT_PATH.read_text()}))
+`)
+  assert.equal(result.failures.length, 2)
+  assert.match(result.failures[0], /Curated FX input is missing/)
+  assert.match(result.failures[1], /Curated FX input is invalid/)
+  assert.equal(result.output, 'last-good-ledger')
 })
