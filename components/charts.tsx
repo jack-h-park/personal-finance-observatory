@@ -345,6 +345,7 @@ export function StackedAssetChart({
   axisLabel,
   markers = [],
   childrenBand,
+  classes = STACK_ORDER,
   unit,
   language,
   emptyMessage,
@@ -358,12 +359,15 @@ export function StackedAssetChart({
   markers?: { date: string; label: string }[]
   /** Labels for the children's band and the combined total, when the page includes the children. Absent: no band. */
   childrenBand?: { label: string; combinedLabel: string }
+  /** The classes drawn, in any order (stack order is fixed); a class left out draws no area, start line or tooltip row. */
+  classes?: readonly AssetClass[]
 }) {
-  const seriesKeys: string[] = childrenBand ? [...STACK_ORDER, 'children'] : [...STACK_ORDER]
+  const shown = STACK_ORDER.filter((key) => classes.includes(key))
+  const seriesKeys: string[] = childrenBand ? [...shown, 'children'] : [...shown]
   if (!hasPlottablePoint(points, seriesKeys)) return <EmptyState>{emptyMessage}</EmptyState>
   const formatValue = (value: number) => tooltipValue(value, unit, language)
   const firstDate = points[0]?.date
-  const starts = STACK_ORDER.filter((key) => startsOn[key] && startsOn[key] !== firstDate)
+  const starts = shown.filter((key) => startsOn[key] && startsOn[key] !== firstDate)
   return (
     <ResponsiveContainer width="100%" height={height}>
       <AreaChart data={points} margin={{ top: markers.length ? 18 : 8, right: 8, bottom: 0, left: -18 }}>
@@ -375,6 +379,7 @@ export function StackedAssetChart({
           axisLine={false}
           allowDecimals={integerTicks(unit)}
           tickFormatter={tickFormatter(unit, language)}
+          domain={unit.kind === 'percent' ? [0, 100] : undefined}
           label={axisLabel ? { value: axisLabel, angle: -90, position: 'insideLeft', style: AXIS } : undefined}
         />
         <Tooltip
@@ -390,7 +395,7 @@ export function StackedAssetChart({
                     <span style={{ fontVariantNumeric: 'tabular-nums' }}>{point.children == null ? EMPTY_VALUE : formatValue(point.children)}</span>
                   </div>
                 ) : null}
-                {[...STACK_ORDER].reverse().map((key) => (
+                {[...shown].reverse().map((key) => (
                   <div key={key} style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
                     <span style={{ color: ASSET_CLASS_COLOR[key] }}>{labels[key]}</span>
                     <span style={{ fontVariantNumeric: 'tabular-nums' }}>{point[key] == null ? EMPTY_VALUE : formatValue(point[key]!)}</span>
@@ -423,7 +428,7 @@ export function StackedAssetChart({
             label={{ value: marker.label, position: 'top', fontSize: 10, fill: 'var(--text-secondary)' }}
           />
         ))}
-        {STACK_ORDER.map((key) => (
+        {shown.map((key) => (
           <Area
             key={key}
             type="linear"

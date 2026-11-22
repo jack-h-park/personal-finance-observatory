@@ -23,6 +23,7 @@ import { ASSET_CLASS_COLOR, WRAPPER_COLOR } from '@/lib/palette'
 import { getPageCopy } from '@/lib/ui-copy'
 import { maskAccountLabel } from '@/lib/account-label'
 import { monthEndBefore, previousYearEnd, totalAssetsChange } from '@/lib/total-assets-change'
+import { ASSET_CLASS_KEYS, resolveClasses, toggleClass, viewPoints } from '@/lib/total-assets-view'
 
 export const dynamic = 'force-dynamic'
 export const generateMetadata = routeMetadata('/net-worth')
@@ -88,14 +89,30 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
   const childAssets = includeChildren ? getChildAssets(totalAssets.points.map((point) => point.date)) : null
   const childrenOn = new Map((childAssets?.points ?? []).map((point) => [point.date, point.total]))
   const childCopy = copy.children
-  const hrefWith = (next: { children?: boolean; trend?: TrendRange['key'] }) => {
+  // Chart filters: which classes to draw (?classes=, every class when absent)
+  // and amounts or shares (?view=share). Both shape the chart only; the total
+  // and the period changes above it always cover every class.
+  const selectedClasses = resolveClasses(params.classes)
+  const allClasses = selectedClasses.length === ASSET_CLASS_KEYS.length
+  const shareView = (Array.isArray(params.view) ? params.view[0] : params.view) === 'share'
+  const classesParam = allClasses ? null : selectedClasses.join(',')
+  const hrefWith = (next: { children?: boolean; trend?: TrendRange['key']; classes?: string | null; share?: boolean }) => {
     const query = new URLSearchParams()
     const trend = next.trend ?? selectedRange.key
     if (trend !== DEFAULT_TREND_RANGE.key) query.set('trend', trend)
+    const classesValue = next.classes === undefined ? classesParam : next.classes
+    if (classesValue) query.set('classes', classesValue)
+    if (next.share ?? shareView) query.set('view', 'share')
     if (next.children ?? includeChildren) query.set('children', '1')
     const text = query.toString()
     return text ? `/net-worth?${text}` : '/net-worth'
   }
+  // The change over the selected range, from its first plotted point.
+  const rangeChange = trendAssets.points.length ? changeSince(trendAssets.points[0].date) : null
+  const rangeLabel = copy.rangeChange(selectedRange.key === 'all' ? copy.rangeAll : selectedRange.label)
+  const chartPoints = viewPoints(trendAssets.points, selectedClasses, shareView)
+  // Children are never inside a share: the band is drawn in the amount view only.
+  const childrenBandShown = includeChildren && !shareView
   const childRows: ChildRow[] = (childAssets?.owners ?? []).flatMap((owner) => [
     ...owner.accounts.map((account) => ({ key: `${owner.owner}|${account.account}`, owner: owner.label, account: account.account, asOf: account.asOf, valueKrw: account.valueKrw })),
     { key: `${owner.owner}|total`, owner: owner.label, account: childCopy.subtotal(owner.label), asOf: null, valueKrw: owner.totalKrw, subtotal: true },
@@ -155,22 +172,58 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
               <TotalAssetsChangeField key={label} label={label} change={change} labels={overviewCopy} money={(krw) => money(krw)} language={language} />
             ))}
           </KpiBand>
+          <div className="flex flex-col gap-3 border-t border-line-subtle pt-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="min-w-0">
+              <TotalAssetsChangeField label={rangeLabel} change={rangeChange} labels={overviewCopy} money={(krw) => money(krw)} language={language} />
+            </div>
+            <div className="flex flex-col gap-2 lg:items-end">
+              <div className="flex flex-wrap items-center gap-1">
+                <span className="mr-1 text-label text-ink-3">{copy.classFilter}</span>
+                {ASSET_CLASS_KEYS.map((key) => (
+                  <LinkChip
+                    key={key}
+                    href={hrefWith({ classes: toggleClass(selectedClasses, key) })}
+                    active={selectedClasses.includes(key)}
+                    ariaCurrent="none"
+                    aria-label={copy.classToggleAria(copy.classes[key], selectedClasses.includes(key))}
+                  >
+                    {copy.classes[key]}
+                  </LinkChip>
+                ))}
+              </div>
+              <div className="flex flex-wrap items-center gap-1">
+                <span className="mr-1 text-label text-ink-3">{copy.viewFilter}</span>
+                <LinkChip href={hrefWith({ share: false })} active={!shareView}>
+                  {copy.viewAmount}
+                </LinkChip>
+                <LinkChip href={hrefWith({ share: true })} active={shareView}>
+                  {copy.viewShare}
+                </LinkChip>
+              </div>
+            </div>
+          </div>
+          {shareView && includeChildren ? <Note>{copy.shareChildrenNote}</Note> : null}
           <StackedAssetChart
-            points={trendAssets.points.map((point) => ({
-              date: point.date,
-              stocks: point.stocks == null ? null : toDisplay(point.stocks),
-              crypto: point.crypto == null ? null : toDisplay(point.crypto),
-              cash: point.cash == null ? null : toDisplay(point.cash),
-              pensions: point.pensions == null ? null : toDisplay(point.pensions),
-              gold: point.gold == null ? null : toDisplay(point.gold),
-              total: toDisplay(point.total),
-              ...(includeChildren ? { children: childrenOn.get(point.date) == null ? null : toDisplay(childrenOn.get(point.date)!) } : {}),
-            }))}
-            childrenBand={includeChildren ? { label: childCopy.band, combinedLabel: childCopy.combined } : undefined}
+            points={chartPoints.map((point) => {
+              const value = (v: number | null) => (v == null ? null : shareView ? v : toDisplay(v))
+              const child = childrenOn.get(point.date)
+              return {
+                date: point.date,
+                stocks: value(point.stocks),
+                crypto: value(point.crypto),
+                cash: value(point.cash),
+                pensions: value(point.pensions),
+                gold: value(point.gold),
+                total: shareView ? point.total : toDisplay(point.total),
+                ...(childrenBandShown ? { children: child == null ? null : toDisplay(child) } : {}),
+              }
+            })}
+            classes={selectedClasses}
+            childrenBand={childrenBandShown ? { label: childCopy.band, combinedLabel: childCopy.combined } : undefined}
             startsOn={trendAssets.startsOn}
-            labels={{ ...copy.classes, total: copy.historyColumns.total }}
-            axisLabel={currencyPreferences.displayCurrency === 'USD' ? copy.chartAxisUsd : copy.chartAxisKrw}
-            unit={{ kind: 'money', currency: currencyPreferences.displayCurrency }}
+            labels={{ ...copy.classes, total: allClasses ? copy.historyColumns.total : copy.shownTotal }}
+            axisLabel={shareView ? copy.chartAxisShare : currencyPreferences.displayCurrency === 'USD' ? copy.chartAxisUsd : copy.chartAxisKrw}
+            unit={shareView ? { kind: 'percent' } : { kind: 'money', currency: currencyPreferences.displayCurrency }}
             language={language}
             emptyMessage={copy.noTrend}
             height={320}
