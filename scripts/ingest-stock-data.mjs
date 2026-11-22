@@ -11,7 +11,7 @@ import { loadLocalEnv } from './env.mjs'
 import { portfolioDate, priceDatesByMarket, valuePortfolio } from './portfolio-snapshot.mjs'
 import { repriceFromQuote } from './broker-quote-reprice.mjs'
 import { resolveCryptoFiles, resolveUsHoldingFiles, resolveUsTransactionFiles, robinhoodStrategyLabel } from './source-files.mjs'
-import { nextBusinessDay, robinhoodCashSeries } from './robinhood-cash.mjs'
+import { anchoredCashSeries, nextBusinessDay } from './anchored-cash.mjs'
 import { DECIDABLE_WRAPPERS, resolveWrapperTreatment } from './wrapper-treatment.mjs'
 import { pensionProductId } from './pension-ids.mjs'
 import { matchGoldLots } from './gold-lots.mjs'
@@ -3345,7 +3345,7 @@ for (const source of usTransactionFiles) {
         account_type: source.account ?? '',
         source_system: path.basename(source.filename),
         date: dateIso(r['Activity Date']),
-        // Not stored: read by the cash series (scripts/robinhood-cash.mjs), which
+        // Not stored: read by the cash series (scripts/anchored-cash.mjs), which
         // anchors on statements kept on settlement dates.
         settle_date: dateIso(r['Settle Date']) || null,
         account: `${source.brokerage} ${source.account ?? ''}`.trim(),
@@ -5446,7 +5446,7 @@ const brokerageCashRows = (readTsvAt(krStatementsDir, 'cash.tsv')?.rows ?? [])
   })
   .filter((r) => r.account && r.pool && r.currency && r.as_of_date && r.balance != null)
 // Robinhood's uninvested cash, one series per equity account
-// (scripts/robinhood-cash.mjs). Each monthly statement's closing cash is an
+// (scripts/anchored-cash.mjs). Each monthly statement's closing cash is an
 // anchor and the days after it are derived forward from the account's cash
 // movements; the snapshot's `portfolio.cash` is today's figure. Without it, a
 // sale moved value out of total assets and a later buy from that cash read as
@@ -5497,7 +5497,7 @@ for (const account of robinhoodSnapshot?.accounts ?? []) {
       .filter((r) => r.type === 'BUY' || r.type === 'SELL')
       .map((r) => ({ date: text(r.date), settle: text(r.date), amount: (r.type === 'BUY' ? -1 : 1) * (number(r.amount) ?? 0) })),
   ]
-  const series = robinhoodCashSeries({
+  const series = anchoredCashSeries({
     statements: robinhoodStatementCash.get(hint) ?? [],
     snapshot: snapshotCash != null && snapshotDate ? { date: snapshotDate, balance: snapshotCash } : null,
     flows,
@@ -5511,7 +5511,88 @@ for (const account of robinhoodSnapshot?.accounts ?? []) {
       currency: 'USD',
       as_of_date: point.date,
       balance: point.balance,
-      source: point.source === 'statement' ? 'robinhood_statement' : point.source === 'snapshot' ? 'robinhood_mcp' : 'derived:robinhood_cash_flows',
+      source: point.source === 'anchor' ? 'robinhood_statement' : point.source === 'snapshot' ? 'robinhood_mcp' : 'derived:robinhood_cash_flows',
+      account_wrapper: 'taxable',
+      asset_class: 'security',
+    })
+  }
+}
+// Sweep cash at Chase and Merrill. Neither holdings export lists its cash as a
+// position (Chase's sweep is `QACDS`, Merrill's are the `Money accounts`,
+// `Cash balance` and `Pending activity` rows), so the parsers above skip it, and buying with it read
+// as new money. Each holdings export on disk is an anchor, not only the newest:
+// every one printed the account's cash on its own date.
+//
+// Chase: the anchor is every `Cash & Money Market Funds` row, the `QACDS` sweep
+// plus the core `US DOLLAR` balance a sale lands in before it is swept, and the
+// days after it are derived forward (scripts/anchored-cash.mjs) from the
+// account's transaction rows other than `QACDS`. Those rows move the cash
+// between the core balance and the sweep, so counting them too would count each
+// movement twice. Merrill's cash has stayed put, so its exports are anchors
+// with nothing derived between them. Nothing is written before an account's
+// first export.
+const SWEEP_ANCHOR_FILE = /^(chase|merrill)-holdings-(\d{8})\.csv$/
+const sweepAnchorFiles = fs.existsSync(path.join(dataDir, 'us-holdings'))
+  ? fs.readdirSync(path.join(dataDir, 'us-holdings')).filter((name) => SWEEP_ANCHOR_FILE.test(name)).sort()
+  : []
+const sweepAnchors = new Map()
+const addSweepAnchor = (brokerage, account, date, balance, file) => {
+  if (!account || !date || balance == null) return
+  const entry = sweepAnchors.get(account) ?? { brokerage, account, anchors: [] }
+  entry.anchors.push({ date, balance, file })
+  sweepAnchors.set(account, entry)
+}
+for (const name of sweepAnchorFiles) {
+  const filename = path.join(dataDir, 'us-holdings', name)
+  if (name.startsWith('chase-')) {
+    const byAccount = new Map()
+    for (const r of readCsvObjects(filename, (row) => row.includes('Account name') && row.includes('Ticker'))) {
+      if (!text(r['Asset Class']).startsWith('Cash')) continue
+      const account = `Chase ${text(r['Account name'])} ${text(r['Account number'])}`.trim()
+      const entry = byAccount.get(account) ?? { date: '', balance: 0 }
+      entry.balance += number(r.Value) ?? 0
+      entry.date = entry.date || dateIso(r['As of'] || r['Pricing Date'])
+      byAccount.set(account, entry)
+    }
+    for (const [account, { date, balance }] of byAccount) addSweepAnchor('Chase', account, date, balance, name)
+  } else {
+    const rows = parseCsv(fs.readFileSync(filename, 'utf8')).filter((r) => r.some((c) => c.trim()))
+    const accountLine = rows.find((r) => r[0]?.includes('Selected account'))
+    const account = accountLine ? `Merrill ${accountLine.join(' ').split(':').slice(1).join(':').trim()}` : 'Merrill'
+    const exportedLine = rows.find((r) => text(r[0]).startsWith('Exported on:'))
+    const date = exportedLine ? dateIso(text(exportedLine[0]).replace(/^Exported on:\s*/, '').replace(/\s+\d{1,2}:\d{2}.*$/, '')) : ''
+    const header = rows.find((r) => r.some((c) => ['Symbol', 'Positions'].includes(text(c)))) ?? []
+    const valueAt = header.findIndex((c) => text(c).toLowerCase() === 'value')
+    // `Pending activity` is a trade that has not settled; its position is already
+    // in the holdings, so the cash it will spend is netted here too. Labels are
+    // matched by their start: an export appended "Executed Tranx" to one.
+    const balances = rows.filter((r) =>
+      r.some((c) => ['Money accounts', 'Cash balance', 'Pending activity'].some((label) => text(c).startsWith(label)))
+    )
+    // A file whose Value column cannot be found, or that prints no balance rows, is not an anchor.
+    if (valueAt < 0 || !balances.length) continue
+    addSweepAnchor('Merrill', account, date, balances.reduce((sum, r) => sum + (number(r[valueAt]) ?? 0), 0), name)
+  }
+}
+const sweepCashAccounts = []
+for (const { brokerage, account, anchors } of sweepAnchors.values()) {
+  const flows =
+    brokerage === 'Chase'
+      ? transactionRows
+          .filter((r) => r.brokerage === 'Chase' && r.account === account && r.date && text(r.ticker) !== 'QACDS')
+          .map((r) => ({ date: r.date, settle: r.date, amount: number(r.native_amount) ?? 0 }))
+      : []
+  const series = anchoredCashSeries({ statements: anchors, snapshot: null, flows })
+  sweepCashAccounts.push({ brokerage, account, anchors, series })
+  for (const point of series.points) {
+    brokerageCashRows.push({
+      institution: brokerage,
+      account,
+      pool: 'sweep',
+      currency: 'USD',
+      as_of_date: point.date,
+      balance: point.balance,
+      source: point.source === 'anchor' ? `${brokerage.toLowerCase()}_holdings` : `derived:${brokerage.toLowerCase()}_cash_flows`,
       account_wrapper: 'taxable',
       asset_class: 'security',
     })
@@ -7163,7 +7244,7 @@ check(
           : ''),
   'warning'
 )
-// Robinhood cash (scripts/robinhood-cash.mjs). A series starts at the
+// Robinhood cash (scripts/anchored-cash.mjs). A series starts at the
 // account's first filed monthly statement and ends at the snapshot's
 // `portfolio.cash`. Without a statement the account's cash stays out of total
 // assets, as before; without the snapshot figure the series stops at the last
@@ -7233,6 +7314,40 @@ check(
           return `${a.label}: ${a.series.negative.length} day(s) below zero from ${a.series.negative[0].date}, lowest ${usd(low.balance)} on ${low.date}`
         })
         .join('; ') + ' — an inflow the rows do not show (a transfer from checking, a deposit after the newest CSV) or a margin debit',
+  'warning'
+)
+// Chase sweep cash, derived forward from one holdings export to the next, has
+// to land on the next export's printed cash. A gap is a movement the
+// transactions do not show (or a transactions export that stops short of the
+// holdings date); the series puts it on the export's own day and says so here.
+// Only the newest export can fail: an older gap is history.
+const sweepTolerance = Number(process.env.STOCK_SWEEP_CASH_TOLERANCE_USD || 1)
+const sweepOpen = []
+const sweepOld = []
+let sweepSegments = 0
+for (const a of sweepCashAccounts) {
+  if (a.brokerage !== 'Chase') continue
+  const newest = a.anchors.map((x) => x.date).sort().at(-1)
+  for (const segment of a.series.segments) {
+    if (segment.residual == null) continue
+    sweepSegments += 1
+    if (Math.abs(segment.residual) <= sweepTolerance) continue
+    const line = `${a.account} ${segment.from} → ${segment.to}: ${usd(segment.residual)}`
+    if (segment.to === newest) sweepOpen.push(line)
+    else sweepOld.push(line)
+  }
+}
+check(
+  'us_sweep_cash_reconciles',
+  sweepOpen.length === 0,
+  (sweepCashAccounts.length === 0
+    ? 'no Chase or Merrill holdings export carries a cash balance'
+    : sweepOpen.length
+      ? `the cash derived from the transactions misses the newest holdings export — ${sweepOpen.join('; ')}. ` +
+        'A movement the transactions do not show, or a transactions export that ends before the holdings date; it is counted on the export date'
+      : `${sweepCashAccounts.map((a) => `${a.account}: ${a.anchors.length} export(s) from ${a.anchors.map((x) => x.date).sort()[0]}`).join('; ')}; ` +
+        `${sweepSegments} Chase interval(s) checked, each within ${sweepTolerance} USD`) +
+    (sweepOld.length ? `. Earlier intervals: ${sweepOld.join('; ')}` : ''),
   'warning'
 )
 // The statements are downloaded by hand, once a month. Without a new one the

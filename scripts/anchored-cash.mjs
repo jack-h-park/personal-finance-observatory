@@ -1,6 +1,11 @@
-// robinhood-cash.mjs — a Robinhood account's uninvested cash, day by day.
+// anchored-cash.mjs — a brokerage account's uninvested cash, day by day, from
+// balances the broker printed (anchors) and the cash each transaction moved.
 //
-// Two sources print the balance itself:
+// Robinhood is the case this was written for, and the comments below are its.
+// Chase and Merrill use the same series with their holdings exports as the
+// anchors (see "Sweep cash at Chase and Merrill" in the ingest).
+//
+// For Robinhood, two sources print the balance itself:
 //
 //   - the monthly account statement (extract-us-pdf-evidence.py), at each
 //     month-end: "Brokerage Cash Balance" plus "Deposit Sweep Balance". It is
@@ -33,12 +38,13 @@ const cents = (value) => Math.round(value * 100) / 100
 const dayAfter = (date) => new Date(Date.parse(`${date}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10)
 
 /**
- * statements: [{ date, balance }]  month-end cash, settled basis.
+ * statements: [{ date, balance }]  the printed balances (Robinhood: month-end
+ *             statements, settled basis; Chase/Merrill: holdings exports).
  * snapshot:   { date, balance } | null  today's cash, trade basis.
  * flows:      [{ date, settle, amount }]  trade date, settlement date, signed USD.
  *
  * Returns
- *   points:   [{ date, balance, source }] ascending; source is 'statement',
+ *   points:   [{ date, balance, source }] ascending; source is 'anchor',
  *             'derived' or 'snapshot'. A reader carries each point forward.
  *   segments: one per anchor: { from, to, toSource, derived, actual, residual }.
  *             `derived` is the anchor plus every flow up to the next anchor,
@@ -46,7 +52,7 @@ const dayAfter = (date) => new Date(Date.parse(`${date}T00:00:00Z`) + 86_400_000
  *             did not explain (null for an open segment with no next anchor).
  *   negative: the derived points below zero.
  */
-export function robinhoodCashSeries({ statements, snapshot, flows }) {
+export function anchoredCashSeries({ statements, snapshot, flows }) {
   const byDate = new Map()
   for (const s of statements) if (s.date && Number.isFinite(s.balance)) byDate.set(s.date, s.balance)
   const anchors = [...byDate].sort(([a], [b]) => a.localeCompare(b)).map(([date, balance]) => ({ date, balance }))
@@ -58,15 +64,15 @@ export function robinhoodCashSeries({ statements, snapshot, flows }) {
   const segments = []
   anchors.forEach((start, index) => {
     const next = anchors[index + 1] ?? today
-    const toSource = anchors[index + 1] ? 'statement' : today ? 'snapshot' : null
-    points.push({ date: start.date, balance: cents(start.balance), source: 'statement' })
+    const toSource = anchors[index + 1] ? 'anchor' : today ? 'snapshot' : null
+    points.push({ date: start.date, balance: cents(start.balance), source: 'anchor' })
     // A flow belongs after `start` once it settles after it. It belongs before
     // the next statement if it settled by then; before the snapshot if it
     // traded by then, because the broker's live cash already reflects it.
     const inSegment = usable.filter((f) => {
       if ((f.settle || f.date) <= start.date) return false
       if (!next) return true
-      return toSource === 'statement' ? (f.settle || f.date) <= next.date : f.date <= next.date
+      return toSource === 'anchor' ? (f.settle || f.date) <= next.date : f.date <= next.date
     })
     const moved = new Map()
     for (const f of inSegment) {

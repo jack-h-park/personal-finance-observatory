@@ -5,11 +5,11 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 import Database from 'better-sqlite3'
-import { nextBusinessDay, robinhoodCashSeries } from '../scripts/robinhood-cash.mjs'
+import { anchoredCashSeries, nextBusinessDay } from '../scripts/anchored-cash.mjs'
 import { REPO_ROOT, runIngest } from './ingest-harness'
 import { writeSheetPayloads } from './sheet-payloads'
 
-// Robinhood's uninvested cash in total assets (scripts/robinhood-cash.mjs).
+// Robinhood's uninvested cash in total assets (scripts/anchored-cash.mjs).
 //
 // Selling stock moved value out of total assets and a later buy from that cash
 // read as new money, because the cash itself was counted nowhere. Each monthly
@@ -24,7 +24,7 @@ import { writeSheetPayloads } from './sheet-payloads'
 // --- the series ------------------------------------------------------------------
 
 test('the days after a statement are derived forward, and the snapshot is today', () => {
-  const { points, segments, negative } = robinhoodCashSeries({
+  const { points, segments, negative } = anchoredCashSeries({
     statements: [{ date: '2026-10-31', balance: 1000 }],
     snapshot: { date: '2026-11-10', balance: 605 },
     flows: [
@@ -38,7 +38,7 @@ test('the days after a statement are derived forward, and the snapshot is today'
     ],
   })
   assert.deepEqual(points, [
-    { date: '2026-10-31', balance: 1000, source: 'statement' },
+    { date: '2026-10-31', balance: 1000, source: 'anchor' },
     { date: '2026-11-01', balance: 900, source: 'derived' },
     { date: '2026-11-04', balance: 905, source: 'derived' },
     { date: '2026-11-05', balance: 805, source: 'derived' },
@@ -52,7 +52,7 @@ test('the days after a statement are derived forward, and the snapshot is today'
 })
 
 test('a transfer the rows do not show lands on the next anchor as new money, never on the past', () => {
-  const { points, segments, negative } = robinhoodCashSeries({
+  const { points, segments, negative } = anchoredCashSeries({
     statements: [
       { date: '2026-09-30', balance: 100 },
       { date: '2026-10-31', balance: 2100 },
@@ -78,7 +78,7 @@ test('a transfer the rows do not show lands on the next anchor as new money, nev
 })
 
 test('no statement means no cash written at all, whatever the snapshot says', () => {
-  const series = robinhoodCashSeries({
+  const series = anchoredCashSeries({
     statements: [],
     snapshot: { date: '2026-11-10', balance: 605 },
     flows: [{ date: '2026-11-04', settle: '2026-11-04', amount: 5 }],
@@ -388,4 +388,94 @@ test('a crypto purchase moves the cash of the account its statement section name
   // Without the crypto row the 11-06 day does not move, and the snapshot reads 200 unexplained.
   assert.equal(day(without.rows, '2026-11-06'), undefined)
   assert.match(without.check('robinhood_cash_unexplained')?.detail ?? '', /-200\.00 USD/)
+})
+
+// --- Chase and Merrill sweep cash --------------------------------------------------
+//
+// Neither holdings export lists its cash as a position, so the parsers skip it
+// and a buy from the sweep read as new money. Every holdings export on disk is an
+// anchor; Chase's days between them are derived from its transactions other than
+// the `QACDS` sweep rows, which only move cash between the core balance and the
+// sweep.
+
+const CHASE_HOLDINGS_HEADER = '"Account name","Account number","Account type","Asset Class","Description","Ticker","Quantity","Value","As of","Pricing Date"'
+const chaseCash = (asOf: string, ticker: string, description: string, value: string) =>
+  `"Self-Directed","...0000","Brokerage","Cash & Money Market Funds","${description}","${ticker}","${value}","${value}","${asOf}","${asOf} 08:00:00"`
+const CHASE_TX_HEADER = '"Trade Date","Account Name","Account Number","Account Type","Type","Description","Ticker","Quantity","Amount USD"'
+const chaseTx = (date: string, type: string, ticker: string, quantity: string, amount: string) =>
+  `"${date}","Self-Directed","...0000","Brokerage","${type}","${ticker} example","${ticker}","${quantity}","${amount}"`
+
+function ingestSweeps(laterSweep: string) {
+  const dir = mkdtempSync(path.join(tmpdir(), 'sweep-cash-'))
+  mkdirSync(path.join(dir, 'us-holdings'), { recursive: true })
+  mkdirSync(path.join(dir, 'us-transactions'), { recursive: true })
+  writeFileSync(path.join(dir, 'us-holdings', 'chase-holdings-20261009.csv'), [CHASE_HOLDINGS_HEADER, chaseCash('10/08/2026', 'QACDS', 'CHASE DEPOSIT SWEEP', '15.00')].join('\n') + '\n')
+  writeFileSync(
+    path.join(dir, 'us-holdings', 'chase-holdings-20261113.csv'),
+    // The core balance is a cash row with no ticker; zero here, the sweep holds it all.
+    [CHASE_HOLDINGS_HEADER, chaseCash('11/12/2026', 'QACDS', 'CHASE DEPOSIT SWEEP', laterSweep), chaseCash('11/12/2026', '', 'US DOLLAR', '0')].join('\n') + '\n'
+  )
+  writeFileSync(
+    path.join(dir, 'us-transactions', 'chase-transactions-20261001-20261110.csv'),
+    [
+      CHASE_TX_HEADER,
+      chaseTx('11/2/2026', 'Reinvest', 'QACDS', '0.04', '-0.04'),
+      chaseTx('11/2/2026', 'Interest', '', '0', '0.04'),
+      chaseTx('10/21/2026', 'WDL', 'QACDS', '-400', '400'),
+      chaseTx('10/20/2026', 'Buy', 'ACME', '4', '-400'),
+      chaseTx('10/13/2026', 'DBS', 'QACDS', '1000', '-1000'),
+      chaseTx('10/9/2026', 'Sell', 'KEEP', '-10', '1000'),
+    ].join('\n') + '\n'
+  )
+  writeFileSync(
+    path.join(dir, 'us-holdings', 'merrill-holdings-20261113.csv'),
+    [
+      'Exported on: 11/13/2026 01:49 PM ET',
+      'Selected account(s):Example 000-00000',
+      '"" ,"Symbol " ,"Quantity" ,"Unit Cost" ,"Cost Basis" ,"Price" ,"Value" ,"Unrealized Gain/Loss $ Chg % Chg" ," "',
+      '"" ,"Balances" ,"" ,"" ,"" ,"" ,"" ,"" ,""',
+      '"" ,"Money accounts  Executed Tranx" ,"28" ,"--" ,"--" ,"$1.00" ,"$28.00" ,"-- --" ,""',
+      '"" ,"Cash balance" ,"" ,"" ,"" ,"" ,"$0.48" ," " ,""',
+      '"" ,"Pending activity" ,"" ,"" ,"" ,"" ,"-$10.00" ," " ,""',
+    ].join('\n') + '\n'
+  )
+  writeSheetPayloads(dir)
+  const dbPath = runIngest(dir, { allowFailure: true })
+  const db = new Database(dbPath, { readonly: true })
+  const rows = db
+    .prepare(
+      `select institution, account, pool, as_of_date, balance, source from brokerage_cash
+       where institution in ('Chase', 'Merrill') order by institution, as_of_date`
+    )
+    .all()
+  const check = db.prepare("select status, detail from validation_checks where name = 'us_sweep_cash_reconciles'").get() as
+    | { status: string; detail: string }
+    | undefined
+  db.close()
+  return { rows, check }
+}
+
+test('Chase sweep cash is anchored on each holdings export and derived between them; Merrill nets its pending activity', () => {
+  const { rows, check } = ingestSweeps('615.04')
+  const chase = (as_of_date: string, balance: number, source: string) => ({
+    institution: 'Chase', account: 'Chase Self-Directed ...0000', pool: 'sweep', as_of_date, balance, source,
+  })
+  assert.deepEqual(rows, [
+    chase('2026-10-08', 15, 'chase_holdings'),
+    // The sale lands in the core balance; the sweep deposit that follows moves nothing.
+    chase('2026-10-09', 1015, 'derived:chase_cash_flows'),
+    chase('2026-10-20', 615, 'derived:chase_cash_flows'),
+    chase('2026-11-02', 615.04, 'derived:chase_cash_flows'),
+    chase('2026-11-12', 615.04, 'chase_holdings'),
+    { institution: 'Merrill', account: 'Merrill Example 000-00000', pool: 'sweep', as_of_date: '2026-11-13', balance: 18.48, source: 'merrill_holdings' },
+  ])
+  assert.equal(check?.status, 'pass', check?.detail)
+})
+
+test('a Chase export whose cash the transactions do not reach is named, and the gap lands on its date', () => {
+  const { rows, check } = ingestSweeps('815.04')
+  const last = (rows as { institution: string; as_of_date: string; balance: number }[]).filter((r) => r.institution === 'Chase').at(-1)
+  assert.deepEqual([last?.as_of_date, last?.balance], ['2026-11-12', 815.04])
+  assert.equal(check?.status, 'fail')
+  assert.match(check?.detail ?? '', /Chase Self-Directed \.\.\.0000 2026-10-08 → 2026-11-12: 200\.00 USD/)
 })
