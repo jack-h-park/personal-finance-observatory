@@ -1020,8 +1020,26 @@ extends the series back to that month-end. `robinhood_statement_fresh` warns whe
 the newest statement is more than 45 days old (`STOCK_ROBINHOOD_STATEMENT_MAX_DAYS`),
 `robinhood_cash_anchored` names an account with no statement or no snapshot cash,
 and `robinhood_cash_derivation_nonnegative` names a derived day below zero (an
-inflow the rows do not show, or a margin debit). Chase and Merrill sweep cash is
-not counted.
+inflow the rows do not show, or a margin debit).
+
+**Sweep cash at Chase and Merrill** uses the same series (`scripts/anchored-cash.mjs`)
+with the holdings exports as anchors, pool `sweep`. Neither export lists its cash
+as a position, so the holdings parsers skip it; every export on disk, not only
+the newest, is read for its cash on its own date:
+
+- **Chase**: every `Cash & Money Market Funds` row, the `QACDS` deposit sweep plus
+  the core `US DOLLAR` balance a sale lands in before it is swept. Between exports
+  the days are derived forward from the account's transactions other than
+  `QACDS`; the `QACDS` rows (`DBS`, `WDL`, `Reinvest`) only move cash between the
+  core balance and the sweep, so counting them too would count each movement
+  twice. `us_sweep_cash_reconciles` warns when the cash derived up to the newest
+  export misses that export's printed cash by more than 1 USD
+  (`STOCK_SWEEP_CASH_TOLERANCE_USD`); older gaps are listed without failing.
+- **Merrill**: `Money accounts` plus `Cash balance` plus `Pending activity` (a
+  trade not yet settled, whose position is already in the holdings), read from
+  the `Value` column. Anchors only, nothing derived between them.
+
+Nothing is written before an account's first export.
 
 **Crypto exchanges in the FBAR table.** Exchange accounts follow the brokerage
 rule (Bithumb is foreign, Robinhood Crypto domestic) and are valued from their
