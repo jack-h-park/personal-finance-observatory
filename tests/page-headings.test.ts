@@ -27,6 +27,7 @@ type PageKey = keyof typeof PAGE_COPY
 const COPY_FOR: Record<RouteHref, PageKey | { page: PageKey; title: string }> = {
   '/': 'overview',
   '/net-worth': 'netWorth',
+  '/net-worth/settings': 'netWorthSettings',
   '/daily-briefing': 'dailyBriefing',
   '/holdings': 'holdings',
   '/review': 'review',
