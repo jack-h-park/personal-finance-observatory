@@ -28,6 +28,12 @@ export const DISPLAY_SETTINGS_COPY = {
   en: { title: 'Display', theme: 'Theme', system: 'System', light: 'Light', dark: 'Dark', language: 'Language' },
 } as const
 
+/** The Studio app bar's own labels (StudioAppBar in studio-app-bar.tsx). */
+export const APP_BAR_COPY = {
+  ko: { landmark: 'Studio 앱', launcher: 'Studio 앱 홈', apps: '앱', display: '표시 설정', crumbs: '현재 위치' },
+  en: { landmark: 'Studio apps', launcher: 'Studio apps home', apps: 'Apps', display: 'Display settings', crumbs: 'You are here' },
+} as const
+
 /** Each language named in itself. */
 export const LANGUAGE_NAMES: Record<LanguagePreference, string> = { ko: '한국어', en: 'English' }
 

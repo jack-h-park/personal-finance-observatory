@@ -1,4 +1,4 @@
-/* nav-kit-version: 3
+/* nav-kit-version: 4
    Source: workspace-governance/docs/ux/kit. Load after jhp-app-theme.css.
 
    Shell (guidelines D13), set on <html>:
@@ -36,6 +36,7 @@
 .jhp-nav *, .jhp-nav *::before, .jhp-nav *::after { box-sizing: border-box; }
 
 .jhp-nav__inner {
+  position: relative;
   display: flex;
   align-items: center;
   gap: var(--space-2);
@@ -57,13 +58,110 @@
 .jhp-nav__home { justify-content: flex-start; }
 .jhp-nav__home img { display: block; border-radius: var(--radius-sm); }
 
+/* Breadcrumb (guidelines D17): mark (the Launcher), app name (the app's home),
+   current page. jhp-nav.js builds it from the generated markup. */
+.jhp-nav__crumbs {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.jhp-nav__crumbs > li { display: flex; align-items: center; min-inline-size: 0; }
+.jhp-nav__crumbs > li:first-child { flex: none; }
+
 .jhp-nav__current {
   min-inline-size: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-weight: 500;
+  color: inherit;
+  text-decoration: none;
 }
+a.jhp-nav__current { display: inline-flex; align-items: center; min-block-size: 44px; }
+a.jhp-nav__current:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+.jhp-nav__page { color: var(--text-secondary); }
+.jhp-nav__page::before {
+  content: "›";
+  margin-inline-end: var(--space-2);
+  color: var(--text-tertiary);
+}
+.jhp-nav__page > span {
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Display settings: one click from every app (guidelines D15, D16). */
+.jhp-nav__display {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  inline-size: 44px;
+  block-size: 44px;
+  margin-inline-start: auto;
+  padding: 0;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  color: inherit;
+  cursor: pointer;
+}
+.jhp-nav__display + .jhp-nav__toggle { margin-inline-start: 0; }
+.jhp-nav__icon {
+  inline-size: 18px;
+  block-size: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.jhp-nav__popover {
+  position: absolute;
+  inset-block-start: calc(100% + var(--space-1));
+  inset-inline-end: 0;
+  z-index: 1;
+  min-inline-size: 260px;
+  max-inline-size: calc(100vw - 2 * var(--jhp-shell-gutter));
+  padding: var(--space-3);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--bg-card);
+  box-shadow: var(--shadow-popover);
+}
+.jhp-nav__popover[hidden] { display: none; }
+/* Dark mode: lift the popover and the Apps panel off the page. There --bg-card
+   equals the page surface and the default border is nearly invisible. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .jhp-nav__popover,
+  :root:not([data-theme="light"]) .jhp-nav__panel {
+    background: color-mix(in srgb, var(--bg-card) 92%, var(--text-primary));
+    border-color: color-mix(in srgb, var(--border-default) 50%, var(--text-tertiary));
+  }
+}
+:root[data-theme="dark"] .jhp-nav__popover,
+:root[data-theme="dark"] .jhp-nav__panel,
+:root.dark .jhp-nav__popover,
+:root.dark .jhp-nav__panel {
+  background: color-mix(in srgb, var(--bg-card) 92%, var(--text-primary));
+  border-color: color-mix(in srgb, var(--border-default) 50%, var(--text-tertiary));
+}
+.jhp-nav__popover .jhp-nav__settings {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.jhp-nav__popover .jhp-nav__setting { justify-content: space-between; gap: var(--space-4); }
 
 .jhp-nav__toggle {
   gap: var(--space-2);
@@ -190,12 +288,13 @@
   margin-inline: 0;
   padding-inline: var(--jhp-sidebar-pad);
 }
+:root[data-jhp-shell="workspace"] .jhp-nav__popover { inset-inline-end: var(--jhp-sidebar-pad); }
 :root[data-jhp-shell="workspace"] .jhp-nav__panel {
   width: min(var(--jhp-shell-width), calc(100% - 2 * var(--jhp-sidebar-pad)));
   margin-inline: var(--jhp-sidebar-pad) auto;
 }
 
-/* Display settings row at the foot of the panel (guidelines D15, D16) */
+/* Display settings row: in the display popover since nav kit 4 (guidelines D15, D16) */
 .jhp-nav__settings {
   display: flex;
   flex-wrap: wrap;
@@ -224,11 +323,24 @@
   border-radius: var(--radius-md);
   background: var(--bg-surface);
 }
-.jhp-nav__choice { position: relative; display: inline-flex; }
+/* Apps often style bare label and input elements; the row must not inherit them. */
+.jhp-nav__settings label,
+.jhp-nav__settings input {
+  font: inherit;
+  letter-spacing: normal;
+  text-transform: none;
+}
+.jhp-nav__choice { position: relative; display: inline-flex; margin: 0; padding: 0; }
 .jhp-nav__choice input {
   position: absolute;
   inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+  min-inline-size: 0;
+  min-block-size: 0;
   margin: 0;
+  padding: 0;
+  border: 0;
   opacity: 0;
   cursor: pointer;
 }
@@ -250,4 +362,6 @@
 
 @media (max-width: 600px) {
   .jhp-nav__groups { grid-template-columns: 1fr; }
+  /* The page heading already names the page; keep the app name readable. */
+  .jhp-nav__crumbs > .jhp-nav__page { display: none; }
 }

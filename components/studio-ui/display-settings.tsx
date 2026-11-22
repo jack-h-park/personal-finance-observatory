@@ -66,6 +66,11 @@ function readThemeCookie(): ThemePreference {
   return parseTheme(readCookie(document.cookie, THEME_COOKIE))
 }
 
+/** The saved theme preference, re-read whenever the display settings change it. */
+export function useThemePreference(): ThemePreference {
+  return useSyncExternalStore(subscribeTheme, readThemeCookie, () => 'system' as ThemePreference)
+}
+
 /**
  * `languages` lists the catalogs this app has; with fewer than two only the
  * theme control is shown. `onLanguageChange` applies a new language (for
@@ -89,7 +94,7 @@ export function DisplaySettings({
   onThemeChange?: (theme: ThemePreference) => void
 }) {
   const copy = DISPLAY_SETTINGS_COPY[locale]
-  const theme = useSyncExternalStore(subscribeTheme, readThemeCookie, () => 'system' as ThemePreference)
+  const theme = useThemePreference()
 
   return (
     <div className="jhp-nav__settings" data-jhp-nav-settings="">
