@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { spawnSync } from 'node:child_process'
+import { execFileSync, spawnSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -205,6 +205,56 @@ test('older layouts: an unmasked account number, an account opened that month, a
     { account: '0003', opening_cash_usd: 813.79, closing_cash_usd: 814.35 },
   ])
   assert.deepEqual(report.metrics.summary_mismatches, ['0004: closing cash, sweep and securities do not add up to the portfolio value'])
+})
+
+// --- filing the statement from the inbox -------------------------------------------
+
+function claims(pages: string[]) {
+  const program = `
+import importlib.util, json, sys
+from pathlib import Path
+spec = importlib.util.spec_from_file_location('filer', 'scripts/file-downloads.py')
+m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+pages = json.loads(sys.argv[1])
+class Doc:
+    path = Path('statement.pdf')
+    suffix = '.pdf'
+    pdf_meta = {}
+    def page_text(self, i):
+        return pages[i] if i < len(pages) else ''
+out = []
+for label, detect in m.DETECTORS:
+    try:
+        got = detect(Doc())
+    except Exception:
+        continue
+    if isinstance(got, m.Plan):
+        out.append({'label': label, 'plan': got.subdir + '/' + got.name})
+    elif got is not None:
+        out.append({'label': label, 'reason': got.reason})
+print(json.dumps(out))
+`
+  return JSON.parse(
+    execFileSync(process.env.STOCK_PYTHON_BIN || 'python3', ['-c', program, JSON.stringify(pages)], { cwd: REPO_ROOT, encoding: 'utf8' })
+  )
+}
+
+test('the filer names a Robinhood statement by its first account and its own period, masked or not', () => {
+  // The broker's public support address is the marker, beside the Account Summary.
+  const masked = summaryPage('0001', ['$1.00', '$2.00'], ['$0.00', '$0.00'], ['$9.00', '$8.00'], ['$10.00', '$10.00']).replace(
+    'help@example.invalid',
+    'help@robinhood.com'
+  )
+  // The extractor's fixtures, without that address, are claimed by nothing.
+  assert.deepEqual(claims([summaryPage('0001', ['$1.00', '$2.00'], ['$0.00', '$0.00'], ['$9.00', '$8.00'], ['$10.00', '$10.00'])]), [])
+  assert.deepEqual(claims([masked]), [
+    { label: 'Robinhood account statement', plan: 'us-transactions/robinhood-statement-0001-20261001-20261031.pdf' },
+  ])
+  const unmasked = masked.replace('Individual Account #:*****0001', 'Individual Account #:000000001')
+  assert.equal(claims([unmasked])[0].plan, 'us-transactions/robinhood-statement-0001-20261001-20261031.pdf')
+  assert.deepEqual(claims([masked.replace('10/01/2026 to 10/31/2026', '')]), [
+    { label: 'Robinhood account statement', reason: 'page 1 does not print its `MM/DD/YYYY to MM/DD/YYYY` period' },
+  ])
 })
 
 // --- the ingest, end to end --------------------------------------------------------

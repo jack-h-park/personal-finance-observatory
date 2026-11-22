@@ -904,6 +904,37 @@ def detect_robinhood_crypto_statement(doc):
                 [f"statement month {year}-{month}"])
 
 
+def detect_robinhood_statement(doc):
+    """Robinhood monthly account statement → us-transactions/robinhood-statement-<acct>-<start>-<end>.pdf
+
+    One PDF holds every account under the login, each in its own section; the
+    name carries the first section's account, the one on page 1. The ingest reads
+    every section's month-end cash from the Account Summary
+    (scripts/extract-us-pdf-evidence.py), so the period is the statement's own
+    `MM/DD/YYYY to MM/DD/YYYY`, never the download date. Older statements print
+    the account number in full, newer ones masked; only the last four are used.
+    """
+    text = doc.page_text(0)
+    if "help@robinhood.com" not in text or "Account Summary" not in text:
+        return None
+    period = re.search(r"(\d{2})/(\d{2})/(\d{4}) to (\d{2})/(\d{2})/(\d{4})", text)
+    account = re.search(r"Account #:\**(\d{4,})\b", text)
+    if not period or not account:
+        return Refusal(
+            "Robinhood account statement",
+            "page 1 does not print "
+            + ("its `MM/DD/YYYY to MM/DD/YYYY` period" if not period else "an `Account #:` number"),
+        )
+    start = date(int(period.group(3)), int(period.group(1)), int(period.group(2)))
+    end = date(int(period.group(6)), int(period.group(4)), int(period.group(5)))
+    last4 = account.group(1)[-4:]
+    return Plan(
+        DIR_US_TRANSACTIONS,
+        f"robinhood-statement-{last4}-{compact(start)}-{compact(end)}.pdf",
+        [f"account …{last4} on page 1", f"statement period {iso(start)} to {iso(end)}"],
+    )
+
+
 def detect_robinhood_gain_loss(doc):
     """Robinhood Gain/Loss report → us-holdings/robinhood-holdings-<acct>-<asof>.pdf
 
@@ -2265,6 +2296,7 @@ DETECTORS = [
     ("삼성증권 계좌거래내역 (주식보상)", detect_samsung_rsu),
     ("Robinhood Crypto statement", detect_robinhood_crypto_statement),
     ("Robinhood Gain/Loss report", detect_robinhood_gain_loss),
+    ("Robinhood account statement", detect_robinhood_statement),
     ("consolidated 1099 (Fidelity / Chase / Robinhood)", detect_tax_form),
     ("빗썸 거래내역확인서", detect_bithumb_statement),
     ("빗썸 기간별 거래 내역 (.xlsx)", detect_bithumb_activity),

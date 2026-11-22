@@ -1169,6 +1169,7 @@ was confirmed against the files already on disk.
 | Hana KRW / KB checking XLS | bank-specific header layout, mapped full account number, valid transaction rows and printed query window | `bank-statements/<hana\|kb>-deposit-<last4>-<from>-<to>.xls` |
 | 삼성 주식보상 | `계좌거래내역` + `종합(주식보상)` | `kr-statements/samsung-rsu-transactions-<계좌 last 5>` |
 | Robinhood Crypto 명세서 | first line `Crypto Statement` + `MM-YYYY` | `crypto-robinhood/robinhood-crypto-statement-<YYYYMM>` |
+| Robinhood account statement (monthly, every account in one PDF) | `help@robinhood.com` + `Account Summary` on page 1, its `MM/DD/YYYY to MM/DD/YYYY` period, and the first `Account #:` | `us-transactions/robinhood-statement-<last4>-<start>-<end>` |
 | Robinhood Gain/Loss | `OPEN LONGS` + `WS Cost Adj`; account and as-of from the PDF **title** | `us-holdings/robinhood-holdings-<acct>-<asof>` |
 | Consolidated 1099 | broker mark + `Form 1099`; Fidelity's also carries the account | `us-tax-documents/<broker>-1099-[<acct>-]<year>` |
 | 빗썸 거래내역확인서 | `거래내역확인서` + `조회기간` | `crypto-bithumb/bithumb-statement-<period>[-partial]` |
