@@ -26,7 +26,7 @@ import { getPageCopy, getUiCopy } from '@/lib/ui-copy'
 import { labelFor } from '@/lib/ui-copy/label'
 import { CHECK_RESULT_SEVERITY, COVERAGE_SEVERITY, FAULT_SEVERITY, MAPPING_STATUS_SEVERITY, POSITION_BREAK_SEVERITY, TO_REVIEW_SEVERITY, countTone, mappingStatusKey, priorityTone, statusTone } from '@/lib/tone'
 import { routeMetadata, routeSection } from '@/lib/page-names'
-import { CardRow, KpiBand } from '@/components/layout'
+import { CardRow, Columns, KpiBand } from '@/components/layout'
 import { PositionCell } from '@/components/PositionCell'
 import { maskAccountLabel } from '@/lib/account-label'
 import { dataOpsLinkedIssues, dataOpsQueueTiles, fmtCount, mappingSuggestionRows, positionBreaksCapped, queueRowCapped } from '@/lib/header-status'
@@ -80,11 +80,11 @@ export default async function DataOpsPage() {
       <AccountCoverageSummary freshness={summarizeSupplementaryFreshness(supplementary.rows)} language={language} summary={summarizeAccountCoverage({ investmentRows: coverage.rows, supplementaryRows: supplementary.rows })} />
 
       <Card title={coverageCopy.title} info={coverageCopy.info} issues={{ count: coverage.actionNeeded, severity: 'problem' }} className="mb-5" action={<TextLink href="#account-coverage">{coverageCopy.viewAll}</TextLink>}>
-        <div className="mb-4 grid grid-cols-3 gap-3">
+        <Columns columns="3" gap={3} className="mb-4">
           <MetricField label={coverageCopy.actionNeeded} value={fmtNumber(coverage.actionNeeded)} tone={countTone(FAULT_SEVERITY, coverage.actionNeeded)} />
           <MetricField label={coverageCopy.dueSoon} value={fmtNumber(coverage.dueSoon)} tone={countTone(TO_REVIEW_SEVERITY, coverage.dueSoon)} />
           <MetricField label={coverageCopy.current} value={fmtNumber(coverage.current)} tone="success" />
-        </div>
+        </Columns>
         <div id="account-coverage">
           <DataTable
             caption={coverageCopy.title}

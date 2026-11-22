@@ -17,7 +17,7 @@ import { SubmitButton } from '@/components/SubmitButton'
 import { displayAccount } from '@/lib/account-label'
 import { ProgressBar } from '@/components/bars'
 import { PositionCell } from '@/components/PositionCell'
-import { Split } from '@/components/layout'
+import { Columns, Split } from '@/components/layout'
 import { masterPlanDescription, masterPlanName } from './view-utils'
 
 type MoneyFormatter = ReturnType<typeof createMoneyFormatter>
@@ -120,7 +120,7 @@ export function MasterPlanOverview({
         </Callout>
       </div>
 
-      <div className="grid grid-cols-2 divide-x divide-line-subtle border-b border-line-subtle md:grid-cols-4">
+      <Columns columns="2-md-4" className="divide-x divide-line-subtle border-b border-line-subtle">
         <PlanMetric
           label={copy.overview.plannedSales}
           value={money(plan.summary.proceedsKrw)}
@@ -145,7 +145,7 @@ export function MasterPlanOverview({
           info={copy.overview.inputCoverageInfo}
           tone={countTone(TO_REVIEW_SEVERITY, inputIssueCount)}
         />
-      </div>
+      </Columns>
 
       {coverageNeedsReview ? (
         <Callout tone="warning" emphasis="soft" size="caption" relaxed role="status" spacing="mt-3">
@@ -154,7 +154,7 @@ export function MasterPlanOverview({
         </Callout>
       ) : null}
 
-      <div className="mt-3 grid gap-3 lg:grid-cols-3">
+      <Columns columns="lg-3" gap={3} className="mt-3">
         <Callout tone="info" emphasis="rule">
           <Label size="micro">{copy.overview.lotsStillWaiting}</Label>
           <div className="mt-1 text-caption leading-relaxed text-ink-2">
@@ -179,7 +179,7 @@ export function MasterPlanOverview({
             </span>
           </div>
         </Callout>
-      </div>
+      </Columns>
     </Card>
   )
 }
@@ -229,6 +229,7 @@ export function MasterScenarioComparison({
           return (
             <div
               key={scenarioRow.strategy}
+              // guardrail:allow grid — aligns the strategy, estimated-tax and schedule cells of every scenario row
               className={`grid gap-3 py-3 lg:grid-cols-[minmax(18rem,1.5fr)_minmax(15rem,1fr)_minmax(14rem,0.8fr)] lg:items-center ${
                 selected ? '-mx-2 rounded-md bg-surface px-2' : ''
               }`}
@@ -267,7 +268,7 @@ export function MasterScenarioComparison({
                 </div>
               </div>
 
-              <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-label">
+              <Columns columns="2" gap="x-4-y-1" as="dl" className="text-label">
                 <dt className="text-ink-3">{copy.comparison.execution}</dt>
                 <dd className="text-right text-ink">
                   {fmtDateShort(scenarioRow.summary.startDate, language)} {copy.comparison.to} {fmtDateShort(scenarioRow.summary.endDate, language)}
@@ -278,7 +279,7 @@ export function MasterScenarioComparison({
                 <dd className="text-right tabular-nums text-ink">{fmtDurationDays(scenarioRow.summary.averageWaitDays, language)}</dd>
                 <dt className="text-ink-3">{copy.comparison.krTopUp}</dt>
                 <dd className="text-right tabular-nums text-ink">{money(scenarioRow.summary.incrementalKrTaxAfterCreditKrw)}</dd>
-              </dl>
+              </Columns>
             </div>
           )
         })}
@@ -345,7 +346,11 @@ export function SavedPlansPanel({
               {visiblePlans.map((saved) => {
                 const progress = savedTaxPlanProgress(saved)
                 return (
-                  <div key={saved.id} className="grid gap-3 py-3 first:pt-0 lg:grid-cols-[minmax(15rem,1fr)_12rem_11rem_auto] lg:items-center">
+                  <div
+                    key={saved.id}
+                    // guardrail:allow grid — aligns the name, progress, amount and update-time cells of every saved-plan row
+                    className="grid gap-3 py-3 first:pt-0 lg:grid-cols-[minmax(15rem,1fr)_12rem_11rem_auto] lg:items-center"
+                  >
                     <div>
                       <div className="flex flex-wrap items-center gap-2">
                         <Link href={`/tax-planning/plans/${saved.id}`} className="inline-flex min-h-6 items-center text-body font-medium text-info hover:underline">

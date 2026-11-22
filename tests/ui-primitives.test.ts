@@ -1,10 +1,10 @@
 import { strict as assert } from 'node:assert'
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { test } from 'node:test'
 import * as React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 
-import { CardRow, KpiBand, MiniStat, MiniStatGrid, Split, Stat, StatStrip, Total, TotalsStrip } from '@/components/layout'
+import { CardRow, Columns, KpiBand, MiniStat, MiniStatGrid, Split, Stat, StatStrip, Total, TotalsStrip } from '@/components/layout'
 import { ProgressBar, ShareBar } from '@/components/bars'
 import { AccountCell, PositionCell } from '@/components/PositionCell'
 import { maskAccountLabel } from '@/lib/account-label'
@@ -183,6 +183,47 @@ test('TotalsStrip columns="sm-4"', () => {
 test('TotalsStrip columns="sm-5"', () => {
   const html = renderToStaticMarkup(h(TotalsStrip, { columns: 'sm-5', children: 'x' }))
   assert.equal(outerClass(html), `${TOTALS} sm:grid-cols-5`)
+})
+
+/** The class set of the outermost element, order ignored. */
+function outerClassSet(html: string): string[] {
+  return (outerClass(html) ?? '').split(/\s+/).sort()
+}
+
+test('Columns writes grid, the recipe and the gap, then the call site classes', () => {
+  const html = renderToStaticMarkup(h(Columns, { columns: 'sm-2', gap: 4, children: 'x' }))
+  assert.match(html, /^<div /)
+  assert.equal(outerClass(html), 'grid sm:grid-cols-2 gap-4')
+})
+
+test('Columns with a two-breakpoint recipe and no gap keeps the call site dividers', () => {
+  const html = renderToStaticMarkup(
+    h(Columns, { columns: '1-md-2', className: 'divide-y divide-line-subtle md:divide-x md:divide-y-0', children: 'x' })
+  )
+  assert.deepEqual(
+    outerClassSet(html),
+    'grid grid-cols-1 divide-y divide-line-subtle md:grid-cols-2 md:divide-x md:divide-y-0'.split(' ').sort()
+  )
+})
+
+test('Columns as="dl" renders a definition list with the split gap', () => {
+  const html = renderToStaticMarkup(h(Columns, { columns: 'sm-2-lg-4', gap: 'x-8-y-3', as: 'dl', className: 'text-caption', children: 'x' }))
+  assert.match(html, /^<dl /)
+  assert.deepEqual(outerClassSet(html), 'grid gap-x-8 gap-y-3 text-caption sm:grid-cols-2 lg:grid-cols-4'.split(' ').sort())
+})
+
+test('no Columns call site passes grid-cols or gap classes through className', () => {
+  const offenders: string[] = []
+  for (const dir of ['app', 'components']) {
+    for (const entry of readdirSync(dir, { recursive: true, encoding: 'utf8' })) {
+      if (!entry.endsWith('.tsx')) continue
+      const source = readFileSync(`${dir}/${entry}`, 'utf8')
+      for (const match of source.matchAll(/<Columns\b[^>]*?className="([^"]*)"/g)) {
+        if (match[1].split(/\s+/).some((cls) => /(^|:)(grid-cols-|gap-)/.test(cls))) offenders.push(`${dir}/${entry}: ${match[1]}`)
+      }
+    }
+  }
+  assert.deepEqual(offenders, [])
 })
 
 test('Total is a bare div with the default Label and a neutral value', () => {

@@ -2,7 +2,7 @@ import { DataTable } from '@/components/DataTable'
 import { PageHeader } from '@/components/PageHeader'
 import { WrapperReviewCard } from '@/components/WrapperReviewCard'
 import { Badge, Card, EmptyState, MetricField, Note, SectionHeading, Signed } from '@/components/ui'
-import { CardRow } from '@/components/layout'
+import { CardRow, Columns } from '@/components/layout'
 import { dbAvailable, getMeta, getPensionAccounts, getWrapperReview, type PensionAccount, type PensionHolding } from '@/lib/adapters/portfolio-db'
 import { createMoneyFormatter } from '@/lib/currency'
 import { getCurrencyPreferences } from '@/lib/currency-server'
@@ -42,7 +42,7 @@ export default async function PensionPage() {
       <CardRow columns={2}>
         {list.map((account: PensionAccount) => (
           <Card key={`${account.wrapper}:${account.account}`} title={maskAccountLabel(account.account)} action={<Badge tone="info">{copy.wrappers[account.wrapper] ?? account.wrapper}</Badge>}>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <Columns columns="1-sm-3" gap={4}>
               <MetricField
                 label={copy.value}
                 value={money(account.valueKrw)}
@@ -53,7 +53,7 @@ export default async function PensionPage() {
                 label={copy.return}
                 value={<Signed value={account.returnPct} format={(n) => fmtPct(n)} nullText={copy.none} />}
               />
-            </div>
+            </Columns>
           </Card>
         ))}
       </CardRow>

@@ -25,7 +25,7 @@ import { Input, Select } from '@/components/form'
 import { DataTable } from '@/components/DataTable'
 import { getPageCopy, getUiCopy } from '@/lib/ui-copy'
 import { routeMetadata, routeSection } from '@/lib/page-names'
-import { CardRow, Split } from '@/components/layout'
+import { CardRow, Columns, Split } from '@/components/layout'
 import { taxPlanningLinkedIssues } from '@/lib/header-status'
 import { TAX_DUE_SEVERITY, countTone } from '@/lib/tone'
 
@@ -382,7 +382,7 @@ function ScenarioTimeline({ scenario, copy }: { scenario: MultiYearTaxScenario; 
                 <div className="text-micro text-ink-3">{fmtPct(year.effectiveTaxRatePct)}</div>
               </div>
             </div>
-            <div className="mt-2 grid gap-2 sm:grid-cols-2">
+            <Columns columns="sm-2" gap={2} className="mt-2">
               {year.markets.length === 0 ? (
                 <div className="text-label text-ink-3">{copy.opportunity.noAllocatedSaleLots}</div>
               ) : (
@@ -399,7 +399,7 @@ function ScenarioTimeline({ scenario, copy }: { scenario: MultiYearTaxScenario; 
                   </div>
                 ))
               )}
-            </div>
+            </Columns>
           </div>
         ))}
       </div>

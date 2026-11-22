@@ -8,7 +8,7 @@ import {
 } from '@/lib/tax-planning'
 import { scenarioFromTaxYearProfile, type FilingScenario, type TaxPolicy, type TaxYearProfile } from '@/lib/tax-policy'
 import { DataTable } from '@/components/DataTable'
-import { Split } from '@/components/layout'
+import { Columns, Split } from '@/components/layout'
 import type { getPageCopy } from '@/lib/ui-copy'
 import { PLANNING_INPUT_TONE, PLANNING_RESULT_TONE, TAX_DECISION_SEVERITY, TO_REVIEW_SEVERITY, categoryTone, countTone, statusTone } from '@/lib/tone'
 
@@ -282,7 +282,7 @@ export function DecisionSummary({
             </SectionHeading>
           </div>
           <p className="mt-2 max-w-[56rem] text-body leading-relaxed text-ink-2">{body}</p>
-          <div className="mt-4 grid gap-2 md:grid-cols-3">
+          <Columns columns="md-3" gap={2} className="mt-4">
             <Panel>
               <Label size="micro">{copy.opportunity.step1}</Label>
               <div className="mt-1 text-caption text-ink">{copy.opportunity.step1Body}</div>
@@ -295,10 +295,10 @@ export function DecisionSummary({
               <Label size="micro">{copy.opportunity.step3}</Label>
               <div className="mt-1 text-caption text-ink">{copy.opportunity.step3Body}</div>
             </Panel>
-          </div>
+          </Columns>
         </div>
         <Panel pad="md">
-          <div className="grid h-full gap-3 sm:grid-cols-2">
+          <Columns columns="sm-2" gap={3} className="h-full">
             <MetricField
               label={copy.opportunity.openLots}
               value={fmtNumber(openLotCount)}
@@ -323,7 +323,7 @@ export function DecisionSummary({
               hint={hasPlanningTarget ? fmtPct(bestScenario?.summary.effectiveTaxRatePct) : opportunities.bestLoss ? `${opportunities.bestLoss.year} ${opportunities.bestLoss.market}` : copy.opportunity.modeledLossInventory}
               tone={categoryTone(PLANNING_RESULT_TONE, !hasPlanningTarget ? 'harvest' : (bestScenario?.summary.taxKrw ?? 0) > 0 ? 'tax_due' : 'no_tax')}
             />
-          </div>
+          </Columns>
         </Panel>
       </Split>
     </Card>
@@ -409,7 +409,7 @@ function OpportunityTable({
       <Panel text="caption-note" spacing="mb-3">
         {copy.opportunity.stressTestNote}
       </Panel>
-      <div className="mb-4 grid overflow-hidden rounded-md border border-line-subtle bg-card sm:grid-cols-2 xl:grid-cols-4">
+      <Columns columns="sm-2-xl-4" className="mb-4 overflow-hidden rounded-md border border-line-subtle bg-card">
         <div className="border-b border-line-subtle px-3 py-2 sm:border-r xl:border-b-0">
           <Label size="micro">{copy.opportunity.fullHoldingsGl}</Label>
           <div className="mt-1 text-body-lg font-medium tabular-nums text-ink">{fmtKrw(coverage.holdingsUnrealizedGainKrw)}</div>
@@ -426,9 +426,9 @@ function OpportunityTable({
           <Label size="micro">{copy.opportunity.unmodeledGlDifference}</Label>
           <div className="mt-1 text-body-lg font-medium tabular-nums text-warning">{fmtKrw(coverage.unmodeledGainKrw)}</div>
         </div>
-      </div>
+      </Columns>
       {takeaways.length > 0 && (
-        <div className="mb-4 grid gap-3 lg:grid-cols-3">
+        <Columns columns="lg-3" gap={3} className="mb-4">
           {takeaways.map((takeaway) => (
             <Panel key={`${takeaway.title}-${takeaway.metric}`} pad="tall" layout="tall">
               <div className="flex items-center justify-between gap-2">
@@ -444,7 +444,7 @@ function OpportunityTable({
               <div className="mt-auto pt-3 text-micro leading-relaxed text-ink-3">{takeaway.caveat}</div>
             </Panel>
           ))}
-        </div>
+        </Columns>
       )}
       <DataTable
         caption={copy.opportunity.years}

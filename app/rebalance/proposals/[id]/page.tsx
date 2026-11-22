@@ -8,7 +8,7 @@ import { ConfirmSubmitButton } from '@/components/ConfirmSubmitButton'
 import { SubmitButton } from '@/components/SubmitButton'
 import { Badge, Callout, Card, EmptyState, Note, Panel, SectionHeading, Signed, TextLink } from '@/components/ui'
 import { Checkbox, Input, Select } from '@/components/form'
-import { CardRow, Split, Stat, StatStrip } from '@/components/layout'
+import { CardRow, Columns, Split, Stat, StatStrip } from '@/components/layout'
 import { dbAvailable, portfolioToday } from '@/lib/adapters/portfolio-db'
 import { getRebalanceInput } from '@/lib/adapters/rebalance-input'
 import { EMPTY_VALUE, fmtDateShort, fmtDateTime, fmtKrw, fmtMoney, fmtNumber, fmtPct, fmtPctRange, fmtQuantity, fmtSigned } from '@/lib/format'
@@ -995,12 +995,12 @@ export default async function RebalanceProposalPage({
         <Split side="20rem" at="lg" gap={4}>
           <div className="space-y-2">
             <p className="text-caption text-ink">{copy.statusCard.next[nextKey]}</p>
-            <dl className="grid grid-cols-2 gap-2 text-label sm:grid-cols-4">
+            <Columns columns="2-sm-4" gap={2} as="dl" className="text-label">
               <div><dt className="text-ink-3">{copy.statusCard.created}</dt><dd className="tabular-nums text-ink">{fmtDateTime(proposal.createdAt, language)}</dd></div>
               <div><dt className="text-ink-3">{copy.statusCard.expires}</dt><dd className="tabular-nums text-ink">{fmtDateTime(proposal.expiresAt, language)}</dd></div>
               <div><dt className="text-ink-3">{copy.statusCard.updated}</dt><dd className="tabular-nums text-ink">{fmtDateTime(proposal.updatedAt, language)}</dd></div>
               <div><dt className="text-ink-3">{copy.statusCard.triggers}</dt><dd className="text-ink">{proposal.triggers.length ? proposal.triggers.join(', ') : copy.statusCard.none}</dd></div>
-            </dl>
+            </Columns>
           </div>
           <div className="space-y-3">
             {proposal.status === 'reconciled' && (

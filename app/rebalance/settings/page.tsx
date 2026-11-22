@@ -4,7 +4,7 @@ import { PageHeader } from '@/components/PageHeader'
 import { SubmitButton } from '@/components/SubmitButton'
 import { Badge, Card, EmptyState, FormError, Note } from '@/components/ui'
 import { Checkbox, Field, Input, Select } from '@/components/form'
-import { CardRow } from '@/components/layout'
+import { CardRow, Columns } from '@/components/layout'
 import { dbAvailable, portfolioToday } from '@/lib/adapters/portfolio-db'
 import { getRebalanceInput } from '@/lib/adapters/rebalance-input'
 import { displayAccount } from '@/lib/account-label'
@@ -148,11 +148,11 @@ export default async function RebalanceSettingsPage({ searchParams }: { searchPa
       <CardRow>
         <Card title={copy.limits.title} info={copy.limits.info}>
           <form action={saveLimits} className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2">
+            <Columns columns="sm-2" gap={4}>
               {SCALAR_FIELDS.map(([name, unit]) => (
                 <Field key={name} label={copy.limits[name]} name={name} defaultValue={policy.bounds[name]} suffix={copy.limits[unit]} />
               ))}
-            </div>
+            </Columns>
             <label className="flex items-start gap-2 text-caption text-ink-2">
               <Checkbox name="investor_usTaxPerson" defaultChecked={policy.investor?.usTaxPerson ?? false} />
               <span>

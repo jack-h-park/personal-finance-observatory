@@ -12,7 +12,7 @@ import { CheckField, CompactCheck, Field, Select } from '@/components/form'
 import { DataTable } from '@/components/DataTable'
 import { getPageCopy } from '@/lib/ui-copy'
 import { routeMetadata, routeSection } from '@/lib/page-names'
-import { CardRow, KpiBand } from '@/components/layout'
+import { CardRow, Columns, KpiBand } from '@/components/layout'
 import { SubmitButton } from '@/components/SubmitButton'
 
 export const dynamic = 'force-dynamic'
@@ -135,7 +135,7 @@ export default async function TaxSettingsPage({ searchParams }: { searchParams: 
 
       <form action={saveTaxSettings} className="space-y-5">
         <Card title={copy.filingProfile.title}>
-          <div className="grid gap-4 lg:grid-cols-3">
+          <Columns columns="lg-3" gap={4}>
             <label className="block">
               <Label as="span" className="mb-1 block">{copy.filingProfile.activeScenario}</Label>
               <Select name="activeScenario" defaultValue={policy.activeScenario} className="w-full">
@@ -149,7 +149,7 @@ export default async function TaxSettingsPage({ searchParams }: { searchParams: 
             <Panel text="caption-note">
               {copy.filingProfile.note}
             </Panel>
-          </div>
+          </Columns>
         </Card>
 
         <Card
@@ -264,7 +264,7 @@ export default async function TaxSettingsPage({ searchParams }: { searchParams: 
 
         <CardRow spacing="none">
           <Card title={copy.us.title}>
-            <div className="grid gap-4 sm:grid-cols-2">
+            <Columns columns="sm-2" gap={4}>
               <Field label={copy.us.fallbackShortTermRate} name="usFederalShortTermRatePct" defaultValue={assumptionNumber(policy, 'US', 'federalShortTermRatePct', 24)} suffix="%" />
               <Field label={copy.us.fallbackLongTermRate} name="usFederalLongTermRatePct" defaultValue={assumptionNumber(policy, 'US', 'federalLongTermRatePct', 15)} suffix="%" />
               <Field label={copy.us.fallbackStateRate} name="usStateRatePct" defaultValue={assumptionNumber(policy, 'US', 'stateRatePct', 9.3)} suffix="%" />
@@ -292,11 +292,11 @@ export default async function TaxSettingsPage({ searchParams }: { searchParams: 
               <Panel text="label-note" layout="span-2">
                 {copy.us.note}
               </Panel>
-            </div>
+            </Columns>
           </Card>
 
           <Card title={copy.kr.title}>
-            <div className="grid gap-4 sm:grid-cols-2">
+            <Columns columns="sm-2" gap={4}>
               <Field label={copy.kr.stockBasicDeduction} name="krStockBasicDeductionKrw" defaultValue={assumptionNumber(policy, 'KR', 'stockBasicDeductionKrw', 2500000)} suffix="KRW" />
               <Field
                 label={copy.kr.ytdRealizedTaxableGain}
@@ -320,12 +320,13 @@ export default async function TaxSettingsPage({ searchParams }: { searchParams: 
                 <CheckField label={copy.kr.domesticMajorShareholder} name="krDomesticMajorShareholder" defaultChecked={assumptionBool(policy, 'KR', 'domesticMajorShareholder', false)} />
                 <CheckField label={copy.kr.listedOffMarketSale} name="krDomesticListedOffMarketSale" defaultChecked={assumptionBool(policy, 'KR', 'domesticListedOffMarketSale', false)} />
               </div>
-            </div>
+            </Columns>
           </Card>
         </CardRow>
 
         <Card title={copy.localPolicy.title}>
           <div className="space-y-3 text-caption text-ink-2">
+            {/* guardrail:allow grid — aligns each policy label with its value in one label/value list */}
             <div className="grid gap-2 lg:grid-cols-[8rem_1fr]">
               <span className="text-ink-3">{copy.localPolicy.localPath}</span>
               <code className="break-words font-mono text-label text-ink">{state.path}</code>
@@ -339,7 +340,7 @@ export default async function TaxSettingsPage({ searchParams }: { searchParams: 
         </Card>
 
         <Card title={copy.calculationBasis.title} info={copy.calculationBasis.info}>
-          <div className="grid gap-3 text-caption text-ink-2 md:grid-cols-2 xl:grid-cols-4">
+          <Columns columns="md-2-xl-4" gap={3} className="text-caption text-ink-2">
             <Panel as="a" href="https://www.irs.gov/newsroom/irs-releases-tax-inflation-adjustments-for-tax-year-2026-including-amendments-from-the-one-big-beautiful-bill" target="_blank" rel="noreferrer">
               <span className="block font-medium text-ink">{copy.calculationBasis.federalBrackets}</span>
               <span className="mt-1 block text-label text-ink-3">{copy.calculationBasis.federalBracketsNote}</span>
@@ -356,7 +357,7 @@ export default async function TaxSettingsPage({ searchParams }: { searchParams: 
               <span className="block font-medium text-ink">{copy.calculationBasis.californiaSchedule}</span>
               <span className="mt-1 block text-label text-ink-3">{copy.calculationBasis.californiaScheduleNote}</span>
             </Panel>
-          </div>
+          </Columns>
         </Card>
       </form>
     </>
