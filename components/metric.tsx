@@ -1,5 +1,5 @@
 import { clsx } from 'clsx'
-import React, { createElement, type ReactNode } from 'react'
+import React, { createElement, type ComponentProps, type ReactNode } from 'react'
 import { HelpPopover } from '@/components/HelpPopover'
 import { EMPTY_VALUE, fmtSigned } from '@/lib/format'
 import { signClass, type Tone } from '@/lib/tone'
@@ -161,6 +161,7 @@ export function MetricField({
   value,
   hint,
   info,
+  infoAlign,
   tone = 'neutral',
   size = 'title',
   truncate,
@@ -170,6 +171,7 @@ export function MetricField({
   value: ReactNode
   hint?: ReactNode
   info?: ReactNode
+  infoAlign?: ComponentProps<typeof HelpPopover>['align']
   tone?: Tone
   /** Type size of the value: `title` (default), `metric` for the lead figure, `caption` inside a dense breakdown. */
   size?: keyof typeof METRIC_VALUE_SIZE
@@ -181,7 +183,7 @@ export function MetricField({
     <div className="min-w-0">
       <Label className={clsx('flex items-center', labelClassName)}>
         {label}
-        {info ? <HelpPopover>{info}</HelpPopover> : null}
+        {info ? <HelpPopover align={infoAlign}>{info}</HelpPopover> : null}
       </Label>
       <div
         className={clsx(

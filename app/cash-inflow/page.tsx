@@ -232,6 +232,7 @@ export default async function CashInflowPage({
                   label={copy.kpi.change}
                   labelClassName="sm:justify-end"
                   info={copy.changeInfo}
+                  infoAlign="right"
                   value={fmtPct(fractionPct(data.totals.change), { signed: true, nullText: copy.notAvailable })}
                   tone={data.totals.change == null ? undefined : signTone(data.totals.change)}
                   hint={changeHint}
