@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import type { PositionSnapshotRow } from '../lib/adapters/portfolio-db'
 import type { TotalAssetsPoint } from '../lib/net-worth'
-import { rangeBreakdownView } from '../lib/range-breakdown-view'
+import { positionLinkMarket, rangeBreakdownView } from '../lib/range-breakdown-view'
 
 const point = (date: string, stocks: number | null, crypto: number | null = null): TotalAssetsPoint => ({
   date,
@@ -88,4 +88,17 @@ test('a start before any holding is covered: everything is money put in', () => 
   const points = [point('2025-12-31', null), ...totalPoints]
   const view = rangeBreakdownView({ from: '2025-12-31', to: '2026-01-31', totalPoints: points, investmentPoints, snapshots, realized: [] })
   assert.equal(view.stocks?.shown[0].moneyIn, 500)
+})
+
+test('a row links to the market its security is held under now', () => {
+  assert.equal(positionLinkMarket('KR', 'X', [{ market: 'US', ticker: 'X' }]), 'US')
+  assert.equal(positionLinkMarket('KR', 'X', [{ market: 'KR', ticker: 'X' }, { market: 'US', ticker: 'X' }]), 'KR')
+  assert.equal(positionLinkMarket('KR', 'X', [{ market: 'US', ticker: 'X' }, { market: 'CRYPTO', ticker: 'X' }]), 'KR')
+  assert.equal(positionLinkMarket('KR', 'X', [{ market: 'US', ticker: 'Y' }]), 'KR')
+})
+
+test('the view carries a link market per security row', () => {
+  const view = rangeBreakdownView({ from: '2026-01-31', to: '2026-03-31', totalPoints, investmentPoints, snapshots, realized, held: [{ market: 'US', ticker: 'AAA' }] })
+  assert.equal(view.linkMarkets['KR:AAA'], 'US')
+  assert.equal(view.linkMarkets['CRYPTO:BTC'], 'CRYPTO')
 })

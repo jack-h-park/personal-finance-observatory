@@ -33,6 +33,7 @@ export function RangeBreakdownPanel({
   stocks,
   crypto,
   unpriced,
+  linkMarkets = {},
   copy,
   money,
   language,
@@ -48,6 +49,8 @@ export function RangeBreakdownPanel({
   stocks: Drivers | null
   crypto: Drivers | null
   unpriced: Unpriced[]
+  /** Per `market:ticker` row key, the market of its position page; the row's own market when absent. */
+  linkMarkets?: Record<string, string>
   copy: { breakdown: BreakdownCopy; classes: Record<ClassKey, string>; field: TotalAssetsChangeLabels }
   /** Formats a KRW amount in the display currency. */
   money: (krw: number) => string
@@ -88,10 +91,10 @@ export function RangeBreakdownPanel({
       ) : null}
 
       {stocks && (stocks.shown.length || stocks.other) ? (
-        <DriverSection id="breakdown-stocks" title={text.stocks} drivers={stocks} text={text} signed={signed} />
+        <DriverSection id="breakdown-stocks" title={text.stocks} drivers={stocks} text={text} signed={signed} linkMarkets={linkMarkets} />
       ) : null}
       {crypto && (crypto.shown.length || crypto.other) ? (
-        <DriverSection id="breakdown-crypto" title={text.crypto} drivers={crypto} text={text} signed={signed} />
+        <DriverSection id="breakdown-crypto" title={text.crypto} drivers={crypto} text={text} signed={signed} linkMarkets={linkMarkets} />
       ) : null}
 
       {noData ? <Note relaxed>{text.noData}</Note> : null}
@@ -129,12 +132,14 @@ function DriverSection({
   drivers,
   text,
   signed,
+  linkMarkets,
 }: {
   id: string
   title: string
   drivers: Drivers
   text: BreakdownCopy
   signed: (krw: number) => string
+  linkMarkets: Record<string, string>
 }) {
   const rows = drivers.other ? [...drivers.shown, drivers.other] : drivers.shown
   const scale = rows.reduce((max, row) => Math.max(max, extent(row)), 0)
@@ -162,7 +167,7 @@ function DriverSection({
               kind="security"
               label={label}
               sublabel={isOther || row.name === row.ticker ? null : row.ticker}
-              href={isOther ? null : positionHref(row.market, row.ticker)}
+              href={isOther ? null : positionHref(linkMarkets[`${row.market}:${row.ticker}`] ?? row.market, row.ticker)}
               value={signed(row.valueChange)}
               sign={row.valueChange}
               detail={`${text.moneyIn} ${signed(row.moneyIn)} · ${text.marketEffect} ${signed(row.marketEffect)}`}

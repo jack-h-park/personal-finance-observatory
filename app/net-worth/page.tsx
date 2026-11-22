@@ -5,7 +5,7 @@ import { Badge, Card, Label, Note } from '@/components/ui'
 import { CardRow, Columns, KpiBand } from '@/components/layout'
 import { TotalAssetsChangeField } from '@/components/TotalAssetsChangeField'
 import { StackedAssetChart } from '@/components/charts'
-import { getAssetCoverageReview, getAssetAllocation, getAssetEvents, getChildAssets, getMeta, getNetWorth, getPortfolioSnapshots, getPositionSnapshots, getRealizedGains, getSnapshotDates, getTotalAssetsSeries, portfolioToday } from '@/lib/adapters/portfolio-db'
+import { getAssetCoverageReview, getAssetAllocation, getAssetEvents, getChildAssets, getHoldings, getMeta, getNetWorth, getPortfolioSnapshots, getPositionSnapshots, getRealizedGains, getSnapshotDates, getTotalAssetsSeries, portfolioToday } from '@/lib/adapters/portfolio-db'
 import { convertMoney, createMoneyFormatter, formatKrw, formatUsd } from '@/lib/currency'
 import { getCurrencyPreferences } from '@/lib/currency-server'
 import { fmtDate, fmtDateTime, fmtSigned } from '@/lib/format'
@@ -191,6 +191,7 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
         investmentPoints,
         snapshots: getPositionSnapshots([selection.from, selection.to]),
         realized: getRealizedGains(selection.from, selection.to),
+        held: getHoldings(100_000),
       })
     : null
   // The page without a period: what the chart adds from/to to, and the clear link.

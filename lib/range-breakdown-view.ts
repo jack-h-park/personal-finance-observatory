@@ -21,6 +21,21 @@ export type RangeBreakdownView = {
   stocks: ReturnType<typeof topDrivers> | null
   crypto: ReturnType<typeof topDrivers> | null
   unpriced: Unpriced[]
+  /** Per `market:ticker` row key, the market its position page is under (see positionLinkMarket). */
+  linkMarkets: Record<string, string>
+}
+
+/**
+ * The market whose position page a breakdown row links to. Rows are keyed by
+ * the LOT market, while the position page matches holdings by the holding's
+ * market: a Toss US security keyed KR:<ticker> is held as US:<ticker>. When the
+ * row's own market holds nothing now but exactly one other market holds the
+ * ticker, the link goes there; otherwise it stays on the row's market.
+ */
+export function positionLinkMarket(market: string, ticker: string, held: { market: string; ticker: string }[]): string {
+  const markets = new Set(held.filter((row) => row.ticker === ticker).map((row) => row.market))
+  if (markets.has(market)) return market
+  return markets.size === 1 ? [...markets][0] : market
 }
 
 /**
@@ -41,9 +56,11 @@ export function rangeBreakdownView(input: {
   snapshots: PositionSnapshotRow[] | null
   /** Realized gains sold after `from` and on or before `to`. */
   realized: RealizedGainRow[]
+  /** Current holdings' market and ticker, to point each row's link at a position page that exists. */
+  held?: { market: string; ticker: string }[]
   topN?: number
 }): RangeBreakdownView {
-  const { from, to, totalPoints, investmentPoints, snapshots, realized, topN = 8 } = input
+  const { from, to, totalPoints, investmentPoints, snapshots, realized, held = [], topN = 8 } = input
   const change = totalAssetsChangeBetween(totalPoints, from, to)
   const byClass = change?.byClass ?? []
   const kpiInvestment = investmentResultBetween(investmentPoints, from, to)
@@ -55,7 +72,7 @@ export function rangeBreakdownView(input: {
     return !point || (!point.stocks && !point.crypto)
   }
   if (!covered(from) || !covered(to)) {
-    return { change, investment: kpiInvestment, gap: null, byClass, stocks: null, crypto: null, unpriced: [] }
+    return { change, investment: kpiInvestment, gap: null, byClass, stocks: null, crypto: null, unpriced: [], linkMarkets: {} }
   }
 
   const rows = snapshots ?? []
@@ -66,6 +83,9 @@ export function rangeBreakdownView(input: {
   // Only a period ending today can differ by cost basis: today's KPI uses the
   // broker's average cost, past snapshots and this breakdown use lot cost.
   const endsToday = totalPoints[totalPoints.length - 1]?.date === to
+  const linkMarkets = Object.fromEntries(
+    [...stocks.securities, ...crypto.securities].map((d) => [`${d.market}:${d.ticker}`, positionLinkMarket(d.market, d.ticker, held)]),
+  )
   return {
     change,
     investment: { unrealized: marketEffect - realizedTotal, realized: realizedTotal, total: marketEffect },
@@ -74,5 +94,6 @@ export function rangeBreakdownView(input: {
     stocks: topDrivers(stocks.securities, topN),
     crypto: topDrivers(crypto.securities, topN),
     unpriced: [...stocks.unpriced, ...crypto.unpriced],
+    linkMarkets,
   }
 }

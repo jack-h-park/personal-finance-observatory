@@ -100,3 +100,9 @@ test('renders the noData note when snapshots are missing', () => {
   // The class view still renders.
   assert.ok(html.includes('id="breakdown-classes"'))
 })
+
+test('a row links to the position page under its link market', () => {
+  const html = render({ linkMarkets: { 'KR:T0': 'US' } })
+  assert.ok(html.includes('href="/positions/US/T0"'))
+  assert.ok(html.includes('href="/positions/KR/T1"'))
+})
