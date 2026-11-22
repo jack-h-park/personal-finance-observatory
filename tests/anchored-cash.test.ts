@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 import Database from 'better-sqlite3'
-import { anchoredCashSeries, nextBusinessDay } from '../scripts/anchored-cash.mjs'
+import { anchoredCashSeries, nextBusinessDay, openingAnchorFromFlows } from '../scripts/anchored-cash.mjs'
 import { REPO_ROOT, runIngest } from './ingest-harness'
 import { writeSheetPayloads } from './sheet-payloads'
 
@@ -479,3 +479,35 @@ test('a Chase export whose cash the transactions do not reach is named, and the 
   assert.equal(check?.status, 'fail')
   assert.match(check?.detail ?? '', /Chase Self-Directed \.\.\.0000 2026-10-08 → 2026-11-12: 200\.00 USD/)
 })
+
+test('an account whose history reaches its first movement opens at zero, only when the flows land on the first anchor', () => {
+  const flows = [
+    { date: '2025-09-12', amount: 10_000 },
+    { date: '2025-10-03', amount: -6_000 },
+    { date: '2025-12-01', amount: 40 },
+  ]
+  // 10,000 - 6,000 + 40 = 4,040, which is the first anchor: the history is complete.
+  const opening = openingAnchorFromFlows({ anchors: [{ date: '2026-01-15', balance: 4_040.4 }], flows })
+  assert.deepEqual(opening, { date: '2025-09-11', balance: 0 })
+  const series = anchoredCashSeries({ statements: [opening!, { date: '2026-01-15', balance: 4_040.4 }], snapshot: null, flows })
+  assert.deepEqual(
+    series.points.map((p) => [p.date, p.balance]),
+    [
+      ['2025-09-11', 0],
+      ['2025-09-12', 10_000],
+      ['2025-10-03', 4_000],
+      ['2025-12-01', 4_040],
+      ['2026-01-15', 4_040.4],
+    ]
+  )
+})
+
+test('a history that does not add up to the first anchor, or that has no movement before it, opens nothing', () => {
+  const anchors = [{ date: '2026-01-15', balance: 9_000 }]
+  // The rows start after the account did: they sum to 4,040, not 9,000.
+  assert.equal(openingAnchorFromFlows({ anchors, flows: [{ date: '2025-09-12', amount: 4_040 }] }), null)
+  // Nothing before the anchor.
+  assert.equal(openingAnchorFromFlows({ anchors, flows: [{ date: '2026-02-01', amount: 9_000 }] }), null)
+  assert.equal(openingAnchorFromFlows({ anchors: [], flows: [{ date: '2025-09-12', amount: 1 }] }), null)
+})
+

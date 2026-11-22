@@ -104,3 +104,33 @@ export function nextBusinessDay(date) {
   while ([0, 6].includes(new Date(`${day}T00:00:00Z`).getUTCDay())) day = dayAfter(day)
   return day
 }
+
+/**
+ * A zero balance the day before an account's first recorded movement, when the
+ * rows prove it.
+ *
+ * Holdings exports only anchor from the day they were taken, so the cash before
+ * the first one is unknown and nothing is written for it. When a transaction
+ * export reaches back to the account's first movement, that history is complete
+ * and the cash before it was zero. The proof is arithmetic: every flow up to the
+ * first anchor, summed from zero, must land on that anchor's own balance. A
+ * history that starts after the account did, or misses movements, or repeats
+ * some, will not, and no opening anchor is returned.
+ *
+ * anchors: [{ date, balance }]  printed balances, any order.
+ * flows:   [{ date, amount }]   signed USD, every movement of the cash.
+ * Returns { date, balance: 0 } or null.
+ */
+export function openingAnchorFromFlows({ anchors, flows, tolerance = 5 }) {
+  const first = [...anchors].filter((a) => a.date && Number.isFinite(a.balance)).sort((a, b) => a.date.localeCompare(b.date))[0]
+  if (!first) return null
+  const usable = flows.filter((f) => f.date && Number.isFinite(f.amount) && f.amount !== 0 && f.date <= first.date)
+  if (!usable.length) return null
+  const start = usable.map((f) => f.date).sort()[0]
+  if (start >= first.date) return null
+  const sum = usable.reduce((total, f) => total + f.amount, 0)
+  if (Math.abs(sum - first.balance) > tolerance) return null
+  const before = new Date(Date.parse(`${start}T00:00:00Z`) - 86_400_000).toISOString().slice(0, 10)
+  return { date: before, balance: 0 }
+}
+
