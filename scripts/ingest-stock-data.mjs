@@ -8,6 +8,7 @@ import Database from 'better-sqlite3'
 import { replayPensionHistory } from './pension-replay.mjs'
 import { STOCK_WRAPPERS, activePensionEntries, assetClassFor, loadAccountMap, ownerFor, tagRows, wrapperFor } from './account-map.mjs'
 import { loadLocalEnv } from './env.mjs'
+import { aggregatePositions, writePositionSnapshots } from './position-snapshots.mjs'
 import { portfolioDate, priceDatesByMarket, valuePortfolio } from './portfolio-snapshot.mjs'
 import { repriceFromQuote } from './broker-quote-reprice.mjs'
 import { resolveCryptoFiles, resolveUsHoldingFiles, resolveUsTransactionFiles, robinhoodStrategyLabel } from './source-files.mjs'
@@ -914,6 +915,7 @@ function required(value) {
 fs.mkdirSync(outDir, { recursive: true })
 fs.mkdirSync(path.dirname(dbPath), { recursive: true })
 let previousPortfolioSnapshots = []
+let previousPositionSnapshots = []
 if (fs.existsSync(dbPath)) {
   const previousDb = new Database(dbPath, { readonly: true })
   try {
@@ -921,6 +923,10 @@ if (fs.existsSync(dbPath)) {
       .prepare("select 1 from sqlite_master where type = 'table' and name = 'portfolio_snapshots'")
       .get()
     if (hasSnapshots) previousPortfolioSnapshots = previousDb.prepare('select * from portfolio_snapshots order by snapshot_date').all()
+    const hasPositions = previousDb
+      .prepare("select 1 from sqlite_master where type = 'table' and name = 'position_snapshots'")
+      .get()
+    if (hasPositions) previousPositionSnapshots = previousDb.prepare('select * from position_snapshots order by snapshot_date').all()
   } finally {
     previousDb.close()
   }
@@ -1549,6 +1555,18 @@ db.prepare('insert into meta (key, value) values (?, ?)').run('portfolio_snapsho
 // implementation. On the iMac, a refresh after 17:00 Pacific used to write the
 // next UTC date; preserving it would leave a stale future row ahead of the new
 // portfolio-local snapshot forever.
+// Past per-security rows ride along the same way. They were written by the
+// month-end backfill and by earlier ingests, and nothing here can rebuild them.
+insertMany(db, 'position_snapshots', previousPositionSnapshots.filter((row) => row.snapshot_date < snapshotDate), [
+  'snapshot_date',
+  'market',
+  'ticker',
+  'name',
+  'quantity',
+  'cost_krw',
+  'market_value_krw',
+])
+
 insertMany(db, 'portfolio_snapshots', previousPortfolioSnapshots.filter((row) => row.snapshot_date < snapshotDate), [
   'snapshot_date',
   'captured_at',
@@ -8350,6 +8368,21 @@ check(
   'warning'
 )
 
+// The stock views carry the maintainer's own accounts only; a child's account
+// is shown apart. A row of another owner reaching them would put that account
+// into every stock total, so this names the count and never the account.
+const otherOwnerRows = ['holdings', 'tax_lots', 'realized_lots']
+  .map((table) => ({ table, n: db.prepare(`select count(*) as n from ${table} where owner != 'self'`).get().n }))
+  .filter((entry) => entry.n > 0)
+check(
+  'stock_views_self_only',
+  otherOwnerRows.length === 0,
+  otherOwnerRows.length === 0
+    ? 'holdings, tax lots and realized lots in the stock views are all the maintainer\'s own'
+    : `${otherOwnerRows.map((entry) => `${entry.table}: ${entry.n} row(s)`).join(', ')} belong to another owner`,
+  'warning'
+)
+
 insertMany(db, 'missing_disposals', robinhoodMissingDisposalRows, ['market', 'brokerage', 'account_type', 'ticker', 'replay_qty', 'held_qty'])
 insertMany(db, 'validation_checks', checks, ['name', 'status', 'detail', 'severity', 'scope'])
 
@@ -8412,6 +8445,29 @@ db.prepare(`
   currentPriceDates.US.newest, currentPriceDates.US.oldest,
   currentPriceDates.CRYPTO.newest, currentPriceDates.CRYPTO.oldest
 )
+
+// Today's per-security rows. Value comes from the holdings so it matches the
+// Total assets card; cost comes from the open lots because the past rows use
+// lot cost, and a broker's average cost would show up as a phantom purchase.
+const lotCostBySecurity = new Map()
+for (const lot of stockOnly(taxLotRows)) {
+  const key = `${lot.market}:${lot.ticker}`
+  lotCostBySecurity.set(key, (lotCostBySecurity.get(key) ?? 0) + Number(lot.cost_basis_krw || 0))
+}
+const positionNames = new Map()
+for (const row of stockHoldingRows) positionNames.set(`${row.market}:${row.ticker}`, row.name)
+const todayPositions = aggregatePositions(
+  stockHoldingRows.map((row) => ({
+    market: row.market,
+    account: row.account,
+    ticker: row.ticker,
+    quantity: row.quantity,
+    cost: 0,
+    marketValue: row.base_market_value,
+  })),
+  positionNames
+).map((row) => ({ ...row, cost_krw: lotCostBySecurity.get(`${row.market}:${row.ticker}`) ?? 0 }))
+writePositionSnapshots(db, snapshotDate, todayPositions)
 
 db.exec(`
 create index idx_holdings_account on holdings_all(account);
