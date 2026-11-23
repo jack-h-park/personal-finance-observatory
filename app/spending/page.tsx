@@ -1,10 +1,13 @@
+import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { DataTable } from '@/components/DataTable'
-import { CardRow } from '@/components/layout'
 import { PageHeader } from '@/components/PageHeader'
+import { SpendingAnalytics } from '@/components/SpendingAnalytics'
 import { Button, Callout, Card, MetricField, Note, TextLink } from '@/components/ui'
+import { portfolioToday } from '@/lib/adapters/portfolio-db'
 import { loadSpendingPilot } from '@/lib/adapters/spending-view'
-import { projectSpending, type SpendingHold } from '@/lib/domain/spending-view'
+import type { Currency } from '@/lib/domain/spending-import'
+import { analyzeSpending, projectSpending, spendingMerchantKey, type SpendingHold } from '@/lib/domain/spending-view'
 import { EMPTY_VALUE, localeFor } from '@/lib/format'
 import { getLanguage } from '@/lib/i18n-server'
 import { routeMetadata, routeName, routeSection } from '@/lib/page-names'
@@ -15,6 +18,10 @@ export const generateMetadata = routeMetadata('/spending')
 
 const base = '/spending'
 const pageSize = 25
+const currencies = ['USD', 'KRW'] as const
+const views = ['summary', 'transactions', 'review'] as const
+type View = (typeof views)[number]
+const filterLink = 'inline-flex min-h-11 items-center rounded-md px-3 text-caption focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info'
 const selectStyle = 'h-11 w-full rounded-md border border-line bg-card px-3 text-body text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info'
 
 export default async function SpendingPage({ searchParams }: {
@@ -24,11 +31,12 @@ export default async function SpendingPage({ searchParams }: {
   if (pilot.status === 'disabled') notFound()
   const language = await getLanguage()
   const copy = getPageCopy('spending', language)
+  const status = pilot.status === 'available' && pilot.publicationDate ? copy.published(pilot.publicationDate) : copy.pilot
   const header = (
     <PageHeader
       eyebrow={routeSection('/spending', language)}
       title={routeName('/spending', language)}
-      subtitle={<>{copy.subtitle}<span className="mt-1 block text-caption text-ink-3">{copy.pilot}</span></>}
+      subtitle={<>{copy.subtitle}<span className="mt-1 block text-caption text-ink-3">{status}</span></>}
       autoRefresh={false}
     />
   )
@@ -40,8 +48,25 @@ export default async function SpendingPage({ searchParams }: {
   const accounts = pilot.accounts[language]
   const params = await searchParams
   const param = (key: string) => typeof params[key] === 'string' ? params[key] : undefined
-  const { account, month, months, rows, coverage, holds, totals } =
-    projectSpending(snapshot, { account: param('account'), month: param('month') })
+  const requestedView = param('view')
+  const { account, month, months, rows: ledgerRows, coverage, holds } =
+    projectSpending(snapshot, { account: param('account'), month: requestedView === 'review' ? undefined : param('month') })
+  const period = param('period') === '24' ? 24 : 12
+  const today = portfolioToday()
+  const analytics = analyzeSpending(snapshot.rows, { today, period, account })
+  const view: View = requestedView === 'review' ? 'review'
+    : requestedView === 'transactions' || month || param('page') ? 'transactions' : 'summary'
+  const currency = currencies.find(unit => unit === param('currency'))
+  const category = param('category')
+  const merchant = param('merchant')
+  const transaction = param('transaction')
+  const matches = ledgerRows.filter(row =>
+    (month || row.activityDate >= analytics.firstDay && row.activityDate <= today) &&
+    (!currency || row.currency === currency) &&
+    (!category || row.category === category) &&
+    (!merchant || spendingMerchantKey(row.merchantLabel ?? row.description) === merchant && row.kind === 'purchase'))
+  const selected = transaction ? matches.find(row => row.id === transaction) : undefined
+  const rows = selected ? [selected] : matches
   const unlistedMonth = month && !months.includes(month)
   const locale = localeFor(language)
   const count = new Intl.NumberFormat(locale).format
@@ -51,18 +76,29 @@ export default async function SpendingPage({ searchParams }: {
   }
   const amount = (minor: number, currency: keyof typeof money) => money[currency].format(minor / (currency === 'USD' ? 100 : 1))
   const name = (id: string) => accounts.get(id)?.label ?? id
+  const accountIds = [...new Set(snapshot.coverage.map(item => item.accountId))]
+  const href = (target: View, options: Record<string, string | undefined> = {}) => {
+    const query = new URLSearchParams({ view: target, period: String(period) })
+    if (account) query.set('account', account)
+    for (const [key, value] of Object.entries(options)) {
+      if (value) query.set(key, value)
+      else query.delete(key)
+    }
+    return base + '?' + query.toString()
+  }
   const lastPage = Math.max(1, Math.ceil(rows.length / pageSize))
   const requestedPage = param('page')
   const page = requestedPage && /^\d{1,6}$/.test(requestedPage) ? Math.max(1, Math.min(Number(requestedPage), lastPage)) : 1
   const shown = rows.slice((page - 1) * pageSize, page * pageSize)
-  const pageHref = (next: number) => {
-    const query = new URLSearchParams({ page: String(next) })
-    if (account) query.set('account', account)
-    if (month) query.set('month', month)
-    return base + '?' + query.toString() + '#spending-transactions'
-  }
+  const pageHref = (next: number) => href('transactions', { month, currency, category, merchant, page: String(next) })
+  const transactionHref = (row: typeof ledgerRows[number]) => href('transactions', {
+    month: row.activityDate.slice(0, 7), transaction: row.id,
+  })
+  const merchantTitle = merchant && (matches[0]?.merchantLabel ?? matches[0]?.description ?? merchant)
   const byAccount = new Map<string, SpendingHold[]>()
+  const holdReasons = new Map<string, number>()
   for (const hold of holds) {
+    holdReasons.set(hold.reason, (holdReasons.get(hold.reason) ?? 0) + 1)
     const group = byAccount.get(hold.accountId) ?? []
     group.push(hold)
     byAccount.set(hold.accountId, group)
@@ -72,47 +108,84 @@ export default async function SpendingPage({ searchParams }: {
     <>
       {header}
       <div className="space-y-4">
-        <Card>
-          <form action={base} method="get" className="flex flex-wrap items-end gap-3">
-            <label className="min-w-36 flex-1 space-y-1 text-caption text-ink-2">
-              <span>{copy.month}</span>
+        <nav aria-label={copy.title} className="flex flex-wrap gap-1 border-b border-line">
+          {views.map(item => <Link key={item} href={href(item)} aria-current={view === item ? 'page' : undefined}
+            className={filterLink + (view === item ? ' bg-surface font-medium text-ink' : ' text-ink-2 hover:text-ink')}>
+            {copy.views[item]}
+          </Link>)}
+        </nav>
+        <div className="flex flex-wrap items-end gap-3">
+          <nav aria-label={copy.periodChoices} className="flex flex-wrap gap-1 rounded-lg border border-line bg-card p-1">
+            {([12, 24] as const).map(item => <Link key={item} href={href(view, { period: String(item), month, currency, category, merchant })}
+              aria-current={period === item ? 'true' : undefined} aria-label={copy.periods[item]}
+              className={filterLink + (period === item ? ' bg-surface font-medium text-ink' : ' text-ink-2 hover:text-ink')}>
+              {copy.shortPeriods[item]}
+            </Link>)}
+          </nav>
+          {view === 'transactions' ? <form key={JSON.stringify([view, period, month, account, currency, category, merchant])}
+            method="get" action={base}
+            className="flex min-w-36 flex-1 flex-wrap items-end gap-2">
+            <input type="hidden" name="view" value={view} />
+            <input type="hidden" name="period" value={period} />
+            {currency ? <input type="hidden" name="currency" value={currency} /> : null}
+            {category ? <input type="hidden" name="category" value={category} /> : null}
+            {merchant ? <input type="hidden" name="merchant" value={merchant} /> : null}
+            <label className="min-w-28 space-y-1 text-caption text-ink-2">
+              <span>{copy.detailMonth}</span>
               <select className={selectStyle} name="month" defaultValue={month ?? ''}>
-                <option value="">{copy.allMonths}</option>
+                <option value="">{copy.periods[period]}</option>
                 {unlistedMonth ? <option value={month}>{month}</option> : null}
                 {months.map(item => <option key={item} value={item}>{item}</option>)}
               </select>
             </label>
-            <label className="min-w-48 flex-1 space-y-1 text-caption text-ink-2">
+            <label className="min-w-0 max-w-60 flex-1 space-y-1 text-caption text-ink-2">
               <span>{copy.account}</span>
               <select className={selectStyle} name="account" defaultValue={account ?? ''}>
                 <option value="">{copy.allAccounts}</option>
-                {snapshot.coverage.map(item => <option key={item.accountId} value={item.accountId}>{name(item.accountId)}</option>)}
+                {accountIds.map(id =>
+                  <option key={id} value={id}>{name(id)}</option>)}
               </select>
             </label>
             <Button type="submit" className="min-h-11">{copy.apply}</Button>
-            {month || account ? <TextLink href={base} className="flex min-h-11 items-center">{copy.reset}</TextLink> : null}
-          </form>
-        </Card>
+          </form> : <details key={view + ':' + (account ?? '')} className="relative min-w-32 max-w-60 flex-1">
+            <summary className="min-h-11 cursor-pointer rounded-md border border-line bg-card px-3 py-3 text-caption focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info">
+              {account ? name(account) : copy.allAccounts}
+            </summary>
+            <ul className="absolute right-0 z-20 mt-1 max-h-72 w-60 max-w-[80vw] overflow-y-auto rounded-md border border-line bg-card p-1">
+              {['', ...accountIds].map(id => <li key={id}>
+                <Link href={href(view, { account: id })} aria-current={(account ?? '') === id ? 'true' : undefined}
+                  className={filterLink + ' w-full hover:bg-surface'}>
+                  {id ? name(id) : copy.allAccounts}
+                </Link>
+              </li>)}
+            </ul>
+          </details>}
+        </div>
 
-        <CardRow columns={2} spacing="none">
-          {(['USD', 'KRW'] as const).map(currency => {
-            const total = totals[currency]
-            const visible = rows.some(row => row.currency === currency)
-            return (
-              <Card key={currency} title={currency} id={`spending-${currency.toLowerCase()}`}>
-                <MetricField label={copy.net} size="metric" value={visible ? amount(total.net, currency) : EMPTY_VALUE} />
-                {visible ? (
-                  <dl className="mt-3 flex flex-wrap gap-x-6 gap-y-2 text-caption">
-                    <div><dt className="text-ink-2">{copy.purchases}</dt><dd className="font-mono tabular-nums">{amount(total.purchase, currency)}</dd></div>
-                    <div><dt className="text-ink-2">{copy.refunds}</dt><dd className="font-mono tabular-nums">{amount(total.refund, currency)}</dd></div>
-                  </dl>
-                ) : <p className="mt-3 text-caption text-ink-2">{copy.noCurrency}</p>}
-              </Card>
-            )
-          })}
-        </CardRow>
-        <p className="text-caption text-ink-2">{copy.totalsHint}</p>
+        {view === 'summary' ? <>
+          <Card title={copy.net} id="spending-period">
+            <p className="mb-3 text-caption text-ink-2">{copy.window(analytics.firstDay, today)}</p>
+            <div className="flex flex-wrap gap-x-4 gap-y-3">
+              {currencies.map(unit => {
+                const total = analytics.totals[unit]
+                return <section key={unit} className="min-w-32 flex-1">
+                  <MetricField label={unit} value={<span className="break-words font-mono sm:text-metric">
+                    {total.net === null ? EMPTY_VALUE : amount(total.net, unit)}
+                  </span>} />
+                  <p className="mt-1 text-caption text-ink-2">{copy.observedMonths(count(total.observedMonths), count(period))}</p>
+                </section>
+              })}
+            </div>
+          </Card>
+          <SpendingAnalytics data={analytics} language={language} amount={amount} count={count}
+            monthHref={target => href('transactions', { month: target })}
+            rankingHref={(unit: Currency, filter, term) => href('transactions', {
+              currency: unit, [filter]: filter === 'merchant' ? spendingMerchantKey(term) : term,
+            })}
+            transactionHref={transactionHref} />
+        </> : null}
 
+        {view === 'review' ? <>
         <Card title={copy.coverage} id="spending-coverage"
           action={<TextLink href="/accounts#spending-coverage">{copy.viewCoverage}</TextLink>}>
           <p className="mb-3 text-caption text-ink-2">{copy.coverageHint}</p>
@@ -138,6 +211,16 @@ export default async function SpendingPage({ searchParams }: {
           {snapshot.reviewIncomplete ? <p role="status" className="mt-2 text-caption text-warning">{copy.incomplete}</p> : null}
           {holds.some(row => row.date === null) ? <p className="mt-2 text-caption text-ink-2">{copy.unknownDates}</p> : null}
           {holds.length === 0 && !snapshot.reviewIncomplete ? <p className="mt-3 text-body">{copy.allClear}</p> : null}
+          {holdReasons.size ? <dl className="mt-3 divide-y divide-line-subtle">
+            {[...holdReasons].sort((a, b) => b[1] - a[1]).map(([reason, total]) =>
+              <div key={reason} className="flex justify-between gap-4 py-2 text-body">
+                <div>
+                  <dt>{copy.reasons[reason] ?? copy.unknownReason}</dt>
+                  {copy.evidenceForHold[reason] ? <dd className="text-caption text-ink-2">{copy.evidenceForHold[reason]}</dd> : null}
+                </div>
+                <dd className="shrink-0 font-mono">{count(total)}</dd>
+              </div>)}
+          </dl> : null}
           <div className="mt-2 divide-y divide-line-subtle">
             {[...byAccount].map(([id, items]) => (
               <details key={id} open={items.length <= 5} className="py-1">
@@ -161,26 +244,47 @@ export default async function SpendingPage({ searchParams }: {
           </div>
         </Card>
 
-        <Card title={copy.transactions} id="spending-transactions">
+        </> : null}
+
+        {view === 'transactions' ? <Card title={selected ? copy.selectedTransaction : copy.transactions} id="spending-transactions">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-caption text-ink-2">
+            <p>{[month ?? copy.periods[period], currency, category, merchantTitle].filter(Boolean).join(' · ')}</p>
+            {selected ? <TextLink href={href('transactions', { month })}>{copy.backToMatches}</TextLink> : null}
+            {!selected && (category || merchant || currency) ? <TextLink href={href('transactions', { month })}>{copy.clearDetail}</TextLink> : null}
+          </div>
           <p className="mb-3 text-caption text-ink-2">{copy.pageSummary(count(shown.length), count(rows.length))}</p>
-          <DataTable rows={shown} caption={copy.transactions} minWidth="37rem" emptyMessage={copy.noRows}
+          {shown.length ? <ol className="divide-y divide-line-subtle md:hidden">
+            {shown.map(row => <li key={row.id} className="flex items-start justify-between gap-3 py-3 text-body">
+              <div className="min-w-0 break-words">
+                {selected ? <p>{row.description}</p> : <TextLink href={transactionHref(row)}>{row.merchantLabel ?? row.description}</TextLink>}
+                <p className="text-caption text-ink-2">{row.activityDate} · {name(row.accountId)}</p>
+                <p className="text-caption text-ink-2">{[copy.kinds[row.kind], row.category].filter(Boolean).join(' · ')}</p>
+              </div>
+              <span className="shrink-0 font-mono tabular-nums">{amount(row.amountMinor, row.currency)}</span>
+            </li>)}
+          </ol> : <p className="text-body text-ink-2 md:hidden">{copy.noRows}</p>}
+          <div className="hidden md:block">
+          <DataTable rows={shown} caption={copy.transactions} minWidth="42rem" emptyMessage={copy.noRows}
             getRowKey={row => row.id}
             columns={[
               { key: 'activityDate', label: copy.activityDate, nowrap: true, render: row => <span className="font-mono">{row.activityDate}</span> },
               { key: 'accountId', label: copy.account, render: row => name(row.accountId) },
-              { key: 'description', label: copy.description },
+              { key: 'description', label: copy.description, render: row => selected ? row.description
+                : <TextLink href={transactionHref(row)}>{row.merchantLabel ?? row.description}</TextLink> },
               { key: 'kind', label: copy.type, render: row => copy.kinds[row.kind] },
+              { key: 'category', label: copy.category, render: row => row.category ?? EMPTY_VALUE },
               { key: 'amount', label: copy.amount, nowrap: true, align: 'right',
                 render: row => <span className="font-mono">{amount(row.amountMinor, row.currency)}</span> },
             ]}
           />
+          </div>
           {lastPage > 1 ? (
             <div className="mt-3 flex flex-wrap gap-4">
               {page > 1 ? <TextLink href={pageHref(page - 1)} className="flex min-h-8 items-center">{copy.previous}</TextLink> : null}
               {page < lastPage ? <TextLink href={pageHref(page + 1)} className="flex min-h-8 items-center">{copy.next}</TextLink> : null}
             </div>
           ) : null}
-        </Card>
+        </Card> : null}
       </div>
     </>
   )

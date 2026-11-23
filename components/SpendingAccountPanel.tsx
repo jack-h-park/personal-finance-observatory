@@ -24,7 +24,9 @@ export function SpendingAccountPanel({ language, mode }: { language: Language; m
   const rows = reviewMode ? coverage.filter(row => row.heldCount > 0) : coverage
   const count = new Intl.NumberFormat(localeFor(language)).format
   const viewAccount = (accountId: string, anchor: string) =>
-    '/spending?' + new URLSearchParams({ account: accountId }).toString() + '#' + anchor
+    '/spending?' + new URLSearchParams({
+      account: accountId, view: anchor === 'spending-holds' ? 'review' : 'transactions',
+    }).toString() + '#' + anchor
   return (
     <Card title={title} id={id} className="mb-5" action={
       <TextLink href={reviewMode ? '/accounts#spending-coverage' : '/data-ops#spending-review'}>
