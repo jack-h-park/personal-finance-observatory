@@ -173,7 +173,12 @@ export default async function OverviewPage({
         try {
           const pilot = loadSpendingPilot()
           spending = pilot.status === 'available'
-            ? { status: 'available', window: sumSpendingWindow({ rows: pilot.snapshot.rows, window, today, display, ...getUsdKrwHistory() }) }
+            ? {
+                status: 'available',
+                window: sumSpendingWindow({ rows: pilot.snapshot.rows, window, today, display, ...getUsdKrwHistory() }),
+                asOf: pilot.publicationDate,
+                reviewIncomplete: pilot.snapshot.reviewIncomplete,
+              }
             : { status: pilot.status }
         } catch {
           spending = { status: 'unavailable' }
@@ -618,24 +623,24 @@ export default async function OverviewPage({
               label={copy.flowSpending}
               value={flow.spending?.converted == null ? EMPTY_VALUE : money(flow.spending.converted, display)}
               sub={
-                <>
+                <span className="flex flex-col">
                   {flow.spending && flow.spendingState === 'available' ? (
-                    <span className="flex flex-col">
-                      {(['USD', 'KRW'] as const).map((currency) => {
-                        const native = flow.spending!.native[currency]
-                        return native.netMinor == null ? null : (
-                          <span key={currency} className="tabular-nums">
-                            {fmtMoney(currency === 'USD' ? native.netMinor / 100 : native.netMinor, currency)} · {copy.flowObserved(fmtNumber(native.observedMonths), fmtNumber(flow.window.months))}
-                          </span>
-                        )
-                      })}
-                      {flow.spending.undatedCount > 0 ? <span>{copy.flowUndated(flow.spending.undatedCount)}</span> : null}
-                    </span>
+                    (['USD', 'KRW'] as const).map((currency) => {
+                      const native = flow.spending!.native[currency]
+                      return native.netMinor == null ? null : (
+                        <span key={currency} className="tabular-nums">
+                          {fmtMoney(currency === 'USD' ? native.netMinor / 100 : native.netMinor, currency)} · {copy.flowObserved(fmtNumber(native.observedMonths), fmtNumber(flow.window.months))}
+                        </span>
+                      )
+                    })
                   ) : (
                     <span>{flow.spendingState === 'noActivity' ? copy.flowNoActivity : flow.spendingState === 'unreadable' ? copy.flowUnreadable : copy.flowNotPublished}</span>
                   )}
-                  {flow.spendingState === 'notPublished' ? null : <TextLink href={spendingHref(flow.range)}>{copy.openSpending}</TextLink>}
-                </>
+                  {flow.spendingAsOf ? <span>{copy.flowAsOf(fmtDate(flow.spendingAsOf, language))}</span> : null}
+                  {flow.spendingReviewIncomplete ? <span className="text-warning">{copy.flowReviewIncomplete}</span> : null}
+                  {flow.spending && flow.spending.undatedCount > 0 ? <span>{copy.flowUndated(flow.spending.undatedCount)}</span> : null}
+                  {flow.spendingState === 'notPublished' ? null : <span><TextLink href={spendingHref(flow.range)}>{copy.openSpending}</TextLink></span>}
+                </span>
               }
             />
           </StatStrip>

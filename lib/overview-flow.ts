@@ -13,7 +13,11 @@ export function resolveFlowRange(value: string | undefined): FlowRange {
   return FLOW_RANGES.find((range) => range === value) ?? '12m'
 }
 
-export type SpendingRead = { status: 'disabled' } | { status: 'unavailable' } | { status: 'available'; window: SpendingWindow }
+export type SpendingRead =
+  | { status: 'disabled' }
+  | { status: 'unavailable' }
+  /** `asOf` is the published snapshot's date; a local ledger has none. */
+  | { status: 'available'; window: SpendingWindow; asOf?: string; reviewIncomplete?: boolean }
 
 export type OverviewFlow = {
   range: FlowRange
@@ -23,6 +27,9 @@ export type OverviewFlow = {
   /** null unless spending is available. */
   spending: SpendingWindow | null
   spendingState: 'available' | 'noActivity' | 'notPublished' | 'unreadable'
+  /** The snapshot's publication date: spending stops there while income runs to today. */
+  spendingAsOf: string | null
+  spendingReviewIncomplete: boolean
 }
 
 export function overviewFlow(input: {
@@ -43,6 +50,8 @@ export function overviewFlow(input: {
     income: input.inflow.hasRecords ? input.inflow.rangeTotal : null,
     spending: spending.status === 'available' ? spending.window : null,
     spendingState,
+    spendingAsOf: spending.status === 'available' ? spending.asOf ?? null : null,
+    spendingReviewIncomplete: spending.status === 'available' && spending.reviewIncomplete === true,
   }
 }
 

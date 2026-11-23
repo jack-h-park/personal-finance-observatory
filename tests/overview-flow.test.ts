@@ -66,3 +66,15 @@ test('overviewHref carries every control, so a trend chip keeps the flow period 
   assert.equal(overviewHref({ ...state, trend: '3m' }), '/?trend=3m&scope=global&metric=market_value&view=combined&flow=ytd')
   assert.equal(overviewHref({ ...state, flow: 'lastYear' }), '/?trend=1y&scope=global&metric=market_value&view=combined&flow=lastYear')
 })
+
+test('a published snapshot carries its date and review state onto the card', () => {
+  const flow = overviewFlow({ range: '12m', window, inflow, spending: { status: 'available', window: spent, asOf: '2026-10-15', reviewIncomplete: true } })
+  assert.equal(flow.spendingAsOf, '2026-10-15')
+  assert.equal(flow.spendingReviewIncomplete, true)
+})
+
+test('a local ledger has no publication date', () => {
+  const flow = overviewFlow({ range: '12m', window, inflow, spending: { status: 'available', window: spent } })
+  assert.equal(flow.spendingAsOf, null)
+  assert.equal(flow.spendingReviewIncomplete, false)
+})
