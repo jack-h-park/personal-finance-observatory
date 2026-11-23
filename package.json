@@ -49,6 +49,7 @@
     "ingest": "node scripts/ingest-stock-data.mjs",
     "backfill:history": "node scripts/backfill-portfolio-history.mjs",
     "refresh": "node scripts/refresh.mjs",
+    "refresh:prices": "node scripts/refresh.mjs --prices",
     "summary": "tsx scripts/summary.mjs",
     "tax:annual:preview": "tsx scripts/annual-tax-preview.ts",
     "tax:annual:compare": "tsx scripts/annual-tax-compare.ts",
