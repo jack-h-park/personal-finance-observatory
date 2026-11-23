@@ -94,7 +94,7 @@ const VIEWPORTS = [
  * matches 초/분/시간/일 as well as the Latin unit letters.
  */
 const VOLATILE_TEXT =
-  /Last refresh|Refreshing|Auto-refresh|Offline|마지막 갱신|갱신 중|오프라인|초마다 자동 갱신|\d+\s*[smhd]\s*(old|elapsed|ago)|\d+\s*(?:[smhd]|초|분|시간|일)\s*경과/
+  /Last refresh|Page refreshed|Refreshing|Auto-refresh|Offline|마지막 갱신|화면 갱신|갱신 중|오프라인|초마다 자동 갱신|저장된 자료를 다시|\d+\s*[smhd]\s*(old|elapsed|ago)|\d+\s*(?:[smhd]|초|분|시간|일)\s*경과/
 
 const LANGUAGE_COOKIE = 'stock-observatory-language'
 const CURRENCY_COOKIE = 'stock-observatory-display-currency'

@@ -48,6 +48,7 @@ import {
   singleTrendPoints,
   type TrendMetricKey,
 } from '@/lib/overview-trend'
+import { formatPriceBasis, pricesDifferByDate } from '@/lib/price-basis'
 import { config } from '@/config'
 import { EMPTY_VALUE, fmtDate, fmtDateTime, fmtMoney, fmtMonth, fmtNumber, fmtPct, fmtSigned } from '@/lib/format'
 import { convertMoney, createMoneyFormatter } from '@/lib/currency'
@@ -298,6 +299,8 @@ export default async function OverviewPage({
   // Which prices the latest point was valued at, and whether the ingest that
   // wrote it is recent: a failed refresh leaves the last good snapshot in place.
   const latestPriceDates = snapshotPriceDates(latestSnapshot, selectedScope)
+  // The hero's stock value is the whole portfolio whatever scope the trend chart is on.
+  const heroPriceDates = snapshotPriceDates(storedSnapshots[storedSnapshots.length - 1], 'global')
   const latestSnapshotStale = isSnapshotStale(latestSnapshot?.captured_at)
   const trendValueLabel = (value: number) => selectedMetric.key === 'return_pct' ? fmtPct(value, { digits: 1 }) : money(value, currencyPreferences.displayCurrency)
   const trendChangeLabel = selectedMetric.key === 'return_pct'
@@ -428,7 +431,23 @@ export default async function OverviewPage({
           </MetricHeroCard>
         )}
 
-        <HeroAside title={copy.supportingMetrics} note={copy.fxNote(fxLabel)}>
+        <HeroAside
+          title={copy.supportingMetrics}
+          note={
+            <>
+              {copy.fxNote(fxLabel)}
+              {heroPriceDates.length ? (
+                <>
+                  {' '}
+                  {copy.stockPriceNote(
+                    formatPriceBasis(heroPriceDates, { market: copy.scopeLabels, oldest: copy.priceOldest }),
+                    pricesDifferByDate(heroPriceDates)
+                  )}
+                </>
+              ) : null}
+            </>
+          }
+        >
           {netWorth ? (
             <MetricField
               label={copy.stockValue}

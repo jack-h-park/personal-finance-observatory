@@ -810,7 +810,7 @@ test('PageHeader slot wraps between children and never inside one', () => {
 test('PageHeader clock shows no refresh interval; the title still names it', () => {
   const html = renderHeader({})
   assert.ok(!/30/.test(visibleText(html)), visibleText(html))
-  assert.match(html, /title="Auto-refresh every 30s"/)
+  assert.match(html, /title="The page re-reads the stored data every 30s\./)
 })
 
 test('PageHeader no longer takes action', () => {
