@@ -10,11 +10,12 @@ import { Total, TotalsStrip } from '@/components/layout'
 import { getHoldings, getOperationalHealth, getPortfolioSnapshots, getPositionTrendRows, portfolioToday, type FreshnessItem } from '@/lib/adapters/portfolio-db'
 import { MIX_MARKETS, marketMixSeries, mixShares, mixSummary } from '@/lib/market-mix'
 import { DEFAULT_TREND_RANGE, resolveTrendRange, trendRangeDays } from '@/lib/trend-ranges'
-import { StackedSeriesChart } from '@/components/charts'
+import { PortfolioMultiTrendChart, StackedSeriesChart } from '@/components/charts'
+import { SHARE_SCOPES, positionShares, shareDates, shareMoves, type ShareScope } from '@/lib/position-shares'
 import { TrendRangeLinks } from '@/components/TrendRangeLinks'
 import { LinkChip } from '@/components/LinkChips'
 import { holdingWeight, trendChangePct, trendDates, trendSeries, weightTotal } from '@/lib/holdings-view'
-import { marketColor } from '@/lib/palette'
+import { OTHER_SERIES_COLOR, SERIES_COLORS, marketColor } from '@/lib/palette'
 import { DivergingBar, InlineBar, ShareBar } from '@/components/bars'
 import { Sparkline } from '@/components/Sparkline'
 import { freshnessLabel } from '@/lib/freshness-text'
@@ -272,6 +273,38 @@ export default async function HoldingsPage({
   const mixNow = mixSummary(mixPoints)
   const mixRangeLabel = mixRange.key === 'all' ? mixCopy.rangeAll : mixRange.label
 
+  // The security-weight trend under it: same period (?trend=), its own scope
+  // (?wscope=), stacked or lines (?wview=lines), and securities pinned out of
+  // Other (?pin=KR:005930,US:NVDA). Also blind to the table filters.
+  const weightCopy = copy.weights
+  const weightScope: ShareScope = (SHARE_SCOPES as readonly string[]).includes(String(params.wscope)) ? (params.wscope as ShareScope) : 'all'
+  const weightLines = (Array.isArray(params.wview) ? params.wview[0] : params.wview) === 'lines'
+  const pins = (typeof params.pin === 'string' ? params.pin.split(',') : []).filter(Boolean)
+  const weightRows = getPositionTrendRows(trendRangeDays(mixRange.days)) ?? []
+  const weights = positionShares({ rows: weightRows, dates: shareDates(weightRows.map((row) => row.date)), held: rows, scope: weightScope, pins })
+  const weightColor = (index: number) => SERIES_COLORS[index] ?? OTHER_SERIES_COLOR
+  const weightMoves = shareMoves(weights.points, weights.series)
+  const otherNow = weights.points.filter((point) => point.other != null).at(-1)?.other ?? null
+  // Pin candidates: the largest securities held now in this scope that have no
+  // band of their own, plus any already pinned (to unpin).
+  const drawnKeys = new Set(weights.series.map((s) => s.key))
+  const heldNow = new Map<string, { name: string; value: number }>()
+  for (const row of rows) {
+    if (weightScope !== 'all' && row.market !== weightScope) continue
+    const key = `${row.market}:${row.ticker}`
+    const current = heldNow.get(key) ?? { name: row.name ?? row.ticker, value: 0 }
+    current.value += row.base_market_value ?? 0
+    heldNow.set(key, current)
+  }
+  const pinCandidates = [...heldNow.entries()]
+    .filter(([key]) => pins.includes(key) || !drawnKeys.has(key))
+    .sort((a, b) => Number(pins.includes(b[0])) - Number(pins.includes(a[0])) || b[1].value - a[1].value)
+    .slice(0, 12)
+  const pinHref = (key: string) => {
+    const next = pins.includes(key) ? pins.filter((pin) => pin !== key) : [...pins, key]
+    return withParam(BASE, params, 'pin', next.length ? next.join(',') : null)
+  }
+
   const groupLabels: Record<string, string> = {
     market: copy.market,
     brokerage: copy.broker,
@@ -341,6 +374,93 @@ export default async function HoldingsPage({
                   </li>
                 ))}
               </ul>
+            </div>
+          )}
+        </div>
+      </Card>
+      <Card
+        title={weightCopy.title}
+        info={weightCopy.info}
+        className="mb-5"
+        action={<TrendRangeLinks selected={mixRange} hrefFor={(key) => withParam(BASE, params, 'trend', key === DEFAULT_TREND_RANGE.key ? null : key)} />}
+      >
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <div className="flex flex-wrap items-center gap-1">
+              <span className="mr-1 text-label text-ink-3">{weightCopy.scopeFilter}</span>
+              {SHARE_SCOPES.map((scope) => (
+                <LinkChip key={scope} href={withParam(BASE, params, 'wscope', scope === 'all' ? null : scope)} active={weightScope === scope}>
+                  {weightCopy.scopes[scope]}
+                </LinkChip>
+              ))}
+            </div>
+            <div className="flex flex-wrap items-center gap-1">
+              <span className="mr-1 text-label text-ink-3">{weightCopy.viewFilter}</span>
+              <LinkChip href={withParam(BASE, params, 'wview', null)} active={!weightLines}>
+                {weightCopy.viewStack}
+              </LinkChip>
+              <LinkChip href={withParam(BASE, params, 'wview', 'lines')} active={weightLines}>
+                {weightCopy.viewLines}
+              </LinkChip>
+            </div>
+          </div>
+          {weightLines ? (
+            <PortfolioMultiTrendChart
+              data={weights.points}
+              series={weights.series.map((s, i) => ({ dataKey: s.id, name: s.name, color: weightColor(i) }))}
+              axisLabel={weightCopy.axis}
+              unit={{ kind: 'percent' }}
+              language={language}
+              emptyMessage={weightCopy.empty}
+              height={260}
+            />
+          ) : (
+            <StackedSeriesChart
+              points={weights.points}
+              series={[
+                ...weights.series.map((s, i) => ({ key: s.id, label: s.name, color: weightColor(i) })),
+                ...(otherNow != null && otherNow > 0 ? [{ key: 'other', label: weightCopy.other, color: OTHER_SERIES_COLOR }] : []),
+              ]}
+              totalLabel={weightCopy.total}
+              axisLabel={weightCopy.axis}
+              unit={{ kind: 'percent' }}
+              language={language}
+              emptyMessage={weightCopy.empty}
+              height={260}
+            />
+          )}
+          {weights.series.length > 0 && (
+            <ul className="flex flex-wrap gap-x-5 gap-y-1 text-caption text-ink-2" aria-label={weightCopy.scopeHint[weightScope]}>
+              {weights.series.map((s, i) => {
+                const move = weightMoves[i]
+                return (
+                  <li key={s.key} className="inline-flex items-center gap-1.5">
+                    <span aria-hidden className="h-2 w-2 rounded-pill" style={{ backgroundColor: weightColor(i) }} />
+                    <span>{s.name}</span>
+                    <span className="font-medium tabular-nums text-ink">{fmtPct(move.pct, { digits: 1 })}</span>
+                    {move.changePp != null && (
+                      <span className="tabular-nums text-ink-3">{mixCopy.shareChange(fmtPct(move.changePp, { digits: 1, signed: true, unit: 'pp' }), mixRangeLabel)}</span>
+                    )}
+                  </li>
+                )
+              })}
+              {otherNow != null && otherNow > 0 && (
+                <li className="inline-flex items-center gap-1.5">
+                  <span aria-hidden className="h-2 w-2 rounded-pill" style={{ backgroundColor: OTHER_SERIES_COLOR }} />
+                  <span>{weightCopy.other}</span>
+                  <span className="font-medium tabular-nums text-ink">{fmtPct(otherNow, { digits: 1 })}</span>
+                </li>
+              )}
+            </ul>
+          )}
+          {pinCandidates.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1">
+              <span className="mr-1 text-label text-ink-3">{weightCopy.pinFilter}</span>
+              {pinCandidates.map(([key, held]) => (
+                <LinkChip key={key} href={pinHref(key)} active={pins.includes(key)} ariaCurrent="none" aria-label={weightCopy.pinAria(held.name, pins.includes(key))}>
+                  {held.name}
+                </LinkChip>
+              ))}
             </div>
           )}
         </div>

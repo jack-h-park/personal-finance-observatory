@@ -113,3 +113,11 @@ export const CASH_INFLOW_CATEGORY_COLOR: Record<
   reimbursement: 'var(--brand-pink)',
   unclassified: TONE_VAR.warning,
 }
+
+/**
+ * The categorical series colours (styles/globals.css --series-1..8), in the
+ * order they are assigned. Eight, never cycled: anything past them folds into
+ * "Other", drawn in OTHER_SERIES_COLOR.
+ */
+export const SERIES_COLORS = Array.from({ length: 8 }, (_, i) => `var(--series-${i + 1})`)
+export const OTHER_SERIES_COLOR = 'var(--text-tertiary)'
