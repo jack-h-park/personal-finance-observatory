@@ -246,6 +246,28 @@ function issueStatus(
   return clear
 }
 
+/**
+ * /spending: holds lead the pill and link to the holds card, whose badge shows
+ * the same count. An incomplete review links there too; transactions without
+ * an exchange rate join the holds or stand alone without a link, since no
+ * card lists them.
+ */
+export function spendingLinkedIssues(
+  copy: ReturnType<typeof getPageCopy<'spending'>>,
+  input: { holds: number; reviewIncomplete: boolean; missingFx: number; reviewHref: string },
+): LinkedIssues {
+  const { holds, reviewIncomplete, missingFx, reviewHref } = input
+  const status: HeaderStatus =
+    holds > 0
+      ? { severity: TO_REVIEW, label: missingFx > 0 ? copy.statusHoldsAndMissingFx(fmtNumber(holds), fmtNumber(missingFx)) : copy.statusHolds(fmtNumber(holds)), href: reviewHref }
+      : reviewIncomplete
+        ? { severity: TO_REVIEW, label: copy.statusIncomplete, href: reviewHref }
+        : missingFx > 0
+          ? { severity: TO_REVIEW, label: copy.statusMissingFx(fmtNumber(missingFx)), href: undefined }
+          : { severity: 'ok', label: copy.statusClear, href: undefined }
+  return { status, issues: { count: holds, severity: TO_REVIEW } }
+}
+
 export function incomeHeaderStatus(copy: ReturnType<typeof getPageCopy<'income'>>, tickerless: number, undated: number): HeaderStatus {
   return issueStatus(
     tickerless,

@@ -6,6 +6,11 @@ const notionName = 'Notion'
 export const spending = defineCopy({
   en: {
     title: spendingTitles.en,
+    statusHolds: (count: string) => `${count} held for review`,
+    statusHoldsAndMissingFx: (holds: string, missing: string) => `${holds} held for review · ${missing} without a rate`,
+    statusIncomplete: 'Review evidence incomplete',
+    statusMissingFx: (count: string) => `${count} without an exchange rate`,
+    statusClear: 'Nothing held for review',
     views: { summary: 'Summary', transactions: 'Transactions', review: 'Data review' },
     periodChoices: 'Spending period',
     exactMonths: 'View monthly amounts',
@@ -107,6 +112,11 @@ export const spending = defineCopy({
   },
   ko: {
     title: spendingTitles.ko,
+    statusHolds: (count: string) => `보류 ${count}건 확인 필요`,
+    statusHoldsAndMissingFx: (holds: string, missing: string) => `보류 ${holds}건 · 환율 없음 ${missing}건`,
+    statusIncomplete: '검토 근거 일부 확인 불가',
+    statusMissingFx: (count: string) => `환율 없는 거래 ${count}건`,
+    statusClear: '보류 항목 없음',
     views: { summary: '요약', transactions: '거래', review: '데이터 검토' },
     periodChoices: '지출 조회 기간',
     exactMonths: '월별 금액 보기',
