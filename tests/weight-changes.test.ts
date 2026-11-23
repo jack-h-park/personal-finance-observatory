@@ -21,7 +21,7 @@ test('value change splits into trading at the start price and the rest as price'
     to: 'b',
     held: [],
     scope: 'all',
-  })!
+  })!.changes
   close(a.tradeKrw, 500)
   close(a.priceKrw, 300)
 })
@@ -33,7 +33,7 @@ test('a new position is all trading, a sold-out one all trading the other way', 
     to: 'b',
     held: [],
     scope: 'all',
-  })!
+  })!.changes
   const by = Object.fromEntries(changes.map((c) => [c.ticker, c]))
   close(by.NEW.tradeKrw, 600)
   close(by.NEW.priceKrw, 0)
@@ -50,7 +50,7 @@ test('shares move against each date total, largest move first', () => {
     to: 'b',
     held: [],
     scope: 'all',
-  })!
+  })!.changes
   assert.deepEqual(changes.map((c) => [c.ticker, c.startPct, c.endPct, c.changePp]), [
     ['A', 50, 80, 30],
     ['B', 50, 20, -30],
@@ -71,7 +71,7 @@ test('Toss US rows fold into the US security, and a market scope divides by that
     to: 'b',
     held: [{ market: 'US', ticker: 'TSLA' }],
     scope: 'US',
-  })!
+  })!.changes
   const tsla = changes.find((c) => c.key === 'US:TSLA')!
   close(tsla.startValue, 200)
   close(tsla.startPct, 100)
@@ -79,10 +79,28 @@ test('Toss US rows fold into the US security, and a market scope divides by that
   assert.ok(!changes.some((c) => c.market === 'KR'))
 })
 
-test('an unpriced row on either date gives no table', () => {
-  assert.equal(
-    weightChanges({ rows: [row('a', 'KR', 'A', 1, 100), row('a', 'KR', 'B', 1, null), row('b', 'KR', 'A', 1, 100)], from: 'a', to: 'b', held: [], scope: 'all' }),
-    null
-  )
-  assert.equal(weightChanges({ rows: [row('a', 'KR', 'A', 1, 100)], from: 'a', to: 'b', held: [], scope: 'all' }), null)
+test('a security unpriced on either date is left out of both, and reported with its cost share', () => {
+  const result = weightChanges({
+    rows: [
+      { ...row('a', 'KR', 'A1', 1, 500), costKrw: 400 },
+      { ...row('a', 'KR', 'BOND1', 1, 100), costKrw: 100 },
+      { ...row('b', 'KR', 'A1', 1, 600), costKrw: 400 },
+      { ...row('b', 'KR', 'B1', 1, 400), costKrw: 400 },
+      { ...row('b', 'KR', 'BOND1', 1, null), costKrw: 200 },
+    ],
+    from: 'a',
+    to: 'b',
+    held: [],
+    scope: 'all',
+  })!
+  assert.deepEqual(result.changes.map((c) => [c.ticker, c.startPct, c.endPct]), [
+    ['A1', 100, 60],
+    ['B1', 0, 40],
+  ])
+  assert.deepEqual(result.excluded, { count: 1, costPct: 20 })
+})
+
+test('a date with nothing priced gives no table', () => {
+  assert.equal(weightChanges({ rows: [row('a', 'KR', 'A1', 1, 100), row('b', 'KR', 'A1', 1, null)], from: 'a', to: 'b', held: [], scope: 'all' }), null)
+  assert.equal(weightChanges({ rows: [row('a', 'KR', 'A1', 1, 100)], from: 'a', to: 'b', held: [], scope: 'all' }), null)
 })
