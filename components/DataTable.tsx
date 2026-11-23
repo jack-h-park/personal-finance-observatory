@@ -137,7 +137,13 @@ export function DataTable<Row = any>({
                   ) : (
                     col.label
                   )}
-                  {col.description ? <HelpPopover>{col.description}</HelpPopover> : null}
+                  {/* Edge columns open their help inward: a centred panel on the
+                      last column hangs past the table and widens its scroll. */}
+                  {col.description ? (
+                    <HelpPopover align={colIndex === columns.length - 1 ? 'right' : colIndex === 0 ? 'left' : 'center'}>
+                      {col.description}
+                    </HelpPopover>
+                  ) : null}
                 </span>
               </th>
             ))}

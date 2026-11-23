@@ -79,7 +79,9 @@ export function HelpPopover({
           // absolutely-positioned overflow is what a phone user then has to
           // scroll sideways past. Fixed positioning also keeps it out of the
           // document's scroll width entirely, so the page stops overflowing.
-          'z-50 rounded-md border border-line bg-card p-3 text-left text-caption font-normal normal-case leading-relaxed tracking-normal text-ink-2 shadow-elevated transition-opacity duration-100',
+          // `whitespace-normal`: a help "i" inside a nowrap table header would
+          // otherwise inherit nowrap and run its text out of the panel as one line.
+          'z-50 whitespace-normal rounded-md border border-line bg-card p-3 text-left text-caption font-normal normal-case leading-relaxed tracking-normal text-ink-2 shadow-elevated transition-opacity duration-100',
           'max-md:fixed max-md:inset-x-4 max-md:bottom-4 max-md:w-auto',
           'md:absolute md:top-full md:mt-1.5 md:w-72',
           open ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0 group-hover:opacity-100',

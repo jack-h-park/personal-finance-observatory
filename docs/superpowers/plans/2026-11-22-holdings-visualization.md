@@ -1,0 +1,182 @@
+# /holdings visualization plan
+
+Status: proposal, not started. Written 2026-11-22 against main `ba3bf20`, after
+measuring the live page at 1695 px wide.
+
+## Why
+
+Two problems on `/holdings`:
+
+1. **The table layout breaks.** It has 15 columns. At a 1695 px viewport the
+   table needs 1687 px but its scroll container is 1406 px wide, and the last
+   column, `cost_note` (사유), is the only one with neither `nowrap` nor a
+   minimum width. The browser squeezes it to 46 px, the note wraps one or two
+   characters per line, and each row grows to 169–367 px. A 134-row table
+   becomes several screens of mostly empty rows.
+2. **The page has no picture.** It is a filter bar, four totals, a freshness
+   note and the table. Nothing shows how the portfolio is split between
+   markets, which positions dominate, or how either has moved over time.
+   The overview's total-assets chart answers that question for asset classes;
+   nothing answers it for securities.
+
+## What the data already supports
+
+No new collection is needed for the first five phases.
+
+| Question | Source | Granularity |
+|---|---|---|
+| KR / US / crypto value over time | `portfolio_snapshots` (`kr_market_value`, `us_market_value_base`, `crypto_market_value_base`) via `getPortfolioSnapshots` | every snapshot date |
+| Each security's value over time | `position_snapshots` via `getPositionSnapshots(dates)` | month ends (backfill) + each ingest day |
+| Current weights, gains, lots | `getHoldings` | today, per account |
+
+Caveats the implementation must handle, each with a test:
+
+- **Toss US securities are keyed by lot market.** `position_snapshots` rows
+  for a Toss US stock are `KR:<ticker>`, while holdings call them US
+  (see `positionLinkMarket` in `lib/range-breakdown-view.ts`). A per-market
+  share chart that groups by the raw `market` column puts those stocks in the
+  Korean band. Reclassify with the same rule before grouping.
+- **Unpriced positions are null, not zero.** `market_value_krw` is null when
+  any contributing account row was unpriced. Draw a gap, and exclude that date
+  from share denominators rather than dividing by a partial total.
+- **The denominator must be named.** These charts cover securities held at
+  brokers, not total assets (no cash, pensions, gold). Every chart says
+  "투자자산 대비" or "시장 내" in its title or axis, never a bare "%".
+- **Past points are month ends.** The per-security chart is monthly until the
+  latest month, which has daily points. Say so under the chart instead of
+  interpolating.
+
+## Phases
+
+Each phase is one PR, in this order. V1 ships alone and first because it is a
+bug fix.
+
+### V1 — Fix the table layout (bug)
+
+- Remove the `cost_note` column. It is derived one-to-one from `cost_status`
+  (`copy.costNotes[cost_status]`), so it repeats the status column in a
+  sentence. Move the sentence into the status badge: a `HelpPopover` next to
+  the badge, or a one-line status legend under the table listing each status
+  and its meaning once.
+- ~~Guardrail: a minimum width on every wrapping column.~~ Dropped after
+  measuring all 28 sidebar routes on production: `사유` was the only column
+  whose rows collapsed, while a 96 px floor would have widened about 20
+  short badge/word columns on ten other pages.
+- Found while verifying, fixed in the same PR: a header's help panel inherited
+  the header's `nowrap` and ran its text out of the panel as one line, and a
+  centred panel on the last column hung past the table and widened its scroll.
+  `HelpPopover` now sets `whitespace-normal`; `DataTable` opens the first and
+  last columns' help inward (`tests/data-table-help-align.test.ts`). The three
+  tax-quantity columns get `nowrap`, so their headers stop breaking per letter.
+- Result on a local copy of the data at 1695 px: every row 62 px (was
+  169–367 px). The table still scrolls sideways; V2 removes that.
+
+### V2 — Make the table readable at a glance
+
+Fewer, richer columns. Target: at most 10 visible columns at 1440 px with no
+horizontal scroll.
+
+- **Weight column (비중)** with an inline bar: position value / filtered total,
+  bar coloured by market (`marketColor`). Sortable; the default sort stays by
+  value, which now reads as a ranked bar list.
+- **Merge native/base pairs** into one cell each: value in the position's
+  currency on top, KRW underneath in `text-ink-3` (취득원가, 평가손익). Removes
+  two columns.
+- **Merge the tax columns** (장기, 단기, 세금 단위) into one 세금 단위 cell:
+  "장기 12 · 단기 3" with the lot count beneath. Removes two columns.
+- **Return column** keeps `Signed`, plus a small diverging bar around zero so
+  the sign and size read without parsing the number.
+- **12-month sparkline** of the position's KRW value from `position_snapshots`,
+  in the instrument cell or its own narrow column. One batched query for all
+  rows, not one per row.
+- Optional grouping toggle: flat list / grouped by market with a subtotal row
+  per market.
+
+### V3 — Market mix trend (KR / US / crypto)
+
+A chart card above the table, built like the overview's total-assets chart.
+
+- Stacked area of KR, US and crypto value over time, with an
+  **amount / share (100%)** toggle in the URL (`?mix=amount|share`), and the
+  same range links as the overview (`TrendRangeLinks`: 3M, 1Y, 3Y, all).
+- Tooltip lists each market's value and share and the total.
+- Generalize `StackedAssetChart` rather than copying it: today it is typed to
+  `AssetClass`. Extract a `StackedSeriesChart` that takes
+  `series: { key, label, color }[]`, and keep `StackedAssetChart` as a thin
+  wrapper so the overview and /net-worth do not change.
+- Beside the chart, a current-split `ShareBar` with the three shares and how
+  each moved over the selected range ("미국 54% · 기간 중 +6%p").
+
+### V4 — Security weights over time (the Samsung / SK hynix question)
+
+The chart that answers "how has each stock's weight changed".
+
+- New adapter `getPositionShareSeries(dates, scope)` in
+  `lib/adapters/portfolio-db.ts` (pure shaping in a `lib/` module with tests):
+  reads `position_snapshots`, reclassifies Toss US rows, keeps the top N
+  securities by latest value (N = 8) and folds the rest into 기타.
+- Scope tabs: **전체 / 한국 / 미국 / 암호화폐**. Under 한국 the shares are of
+  the Korean total (시장 내 비중); under 전체 they are of all securities.
+- Default view: 100% stacked area, so a rising band is a rising weight.
+  Alternative view: one line per security (weight %), better for comparing two
+  names that do not touch in the stack. Toggle in the URL.
+- Clicking a legend entry highlights that security and dims the rest; a chip
+  row lets the reader pin specific names (for example Samsung Electronics and
+  SK hynix) so they stay out of 기타 even when outside the top N.
+- Colour: one hue family per market (blues for KR, greens for US, as the
+  market badges use), stepped by rank, 기타 in neutral grey. Validate the
+  palette with the dataviz checker in light and dark.
+
+### V5 — Current composition and concentration
+
+A compact row of three cards between the totals and the table.
+
+- **Top holdings bar**: horizontal bars of the top 10 securities by weight
+  (aggregated across accounts), coloured by market, each linking to its
+  position page. Chosen over a treemap: easier to label in Korean and to read
+  at 375 px.
+- **Concentration KPIs**: top-5 share, top-10 share, and effective number of
+  holdings (1 / Σ wᵢ²), each with its change over the selected range.
+- **Gain contribution**: diverging horizontal bar of unrealized gain in KRW,
+  top 5 contributors and top 5 detractors.
+
+All three respect the filter bar (market, broker, account), so filtering to one
+account recomputes them.
+
+### V6 — What changed between two dates
+
+- A "비중 변화" table: for a chosen range (reuse the /net-worth range
+  selection and drag-to-select), each security's weight at start and end, the
+  change in %p, and whether it came from price or from buying/selling
+  (quantity change × start price vs the rest). Top movers first.
+- Drag-to-select on the V3/V4 charts sets this range, the way /net-worth does.
+
+## Layout after V5
+
+1. Header + freshness (unchanged)
+2. Market mix trend (V3) — full width
+3. Security weights over time (V4) — full width, scope tabs
+4. Composition row (V5) — three cards, stacked on mobile
+5. Filter bar + totals + table (V1, V2)
+6. Weight changes (V6)
+
+If the page grows too long, split 2–4 and 6 into a `추이` tab and keep the
+table as `목록`, using the existing `Tabs` component; decide after V4 lands.
+
+## Gates for every phase
+
+- `pnpm typecheck && pnpm lint && pnpm test && pnpm ui:guardrails && pnpm build`.
+- All new copy in `lib/ui-copy/pages/holdings`, both languages.
+- Screenshot net at 1440 and 375, light and dark; no sideways page scroll at
+  375 px (the table may scroll inside its card).
+- Charts render an empty state, not an empty axis, on a database without
+  `position_snapshots`.
+
+## Decisions for the maintainer
+
+1. V4 granularity: accept month-end points for the past, or add a daily
+   per-security backfill (ingest change, larger PR) before V4.
+2. Top N in V4: 8 by default, or a reader-chosen number.
+3. Whether crypto counts in "전체" shares in V4, or the 전체 view is stocks only.
+4. Status note in V1: popover per badge, or one legend line under the table.
+5. One long page, or a 목록 / 추이 tab split.
