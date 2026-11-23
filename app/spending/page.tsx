@@ -5,6 +5,7 @@ import { FilterBar } from '@/components/FilterBar'
 import { Tabs } from '@/components/Tabs'
 import { ALL } from '@/lib/table-filter'
 import { spendingCategoryName, withCanonicalCategories } from '@/lib/spending-categories'
+import { resolveTransactionOptions, spendingAmountMinor, visibleTransactions } from '@/lib/spending-transactions'
 import { resolveSpendingView, SPENDING_VIEWS, spendingFilterParams, spendingHref, type SpendingView } from '@/lib/spending-links'
 import { SpendingAnalytics } from '@/components/SpendingAnalytics'
 import { Callout, Card, Label, MetricField, Note, TextLink } from '@/components/ui'
@@ -54,7 +55,7 @@ export default async function SpendingPage({ searchParams }: {
   const params = await searchParams
   const param = (key: string) => typeof params[key] === 'string' ? params[key] : undefined
   const requestedView = param('view')
-  const { account, month, rows: ledgerRows, coverage, holds } =
+  const { account, month, rows: ledgerRows, holds } =
     projectSpending(categorized, { account: param('account'), month: requestedView === 'review' ? undefined : param('month') })
   const period = resolveSpendingPeriod(param('period'))
   const today = portfolioToday()
@@ -73,7 +74,9 @@ export default async function SpendingPage({ searchParams }: {
     (!category || row.category === category) &&
     (!merchant || spendingMerchantKey(row.merchantLabel ?? row.description) === merchant && row.kind === 'purchase'))
   const selected = transaction ? matches.find(row => row.id === transaction) : undefined
-  const rows = selected ? [selected] : matches
+  const options = resolveTransactionOptions({ kinds: param('kinds'), sort: param('sort') })
+  const listed = visibleTransactions(matches, options, row => spendingInKrw(row, rates).amount)
+  const rows = selected ? [selected] : listed.rows
   const locale = localeFor(language)
   const count = new Intl.NumberFormat(locale).format
   const money = {
@@ -81,15 +84,16 @@ export default async function SpendingPage({ searchParams }: {
     KRW: new Intl.NumberFormat(locale, { style: 'currency', currency: 'KRW' }),
   }
   const amount = (minor: number, currency: keyof typeof money) => money[currency].format(minor / (currency === 'USD' ? 100 : 1))
+  // Money out as positive, as the spending totals read.
   const transactionAmount = (row: typeof ledgerRows[number]) => {
     const converted = spendingInKrw(row, rates).amount
-    return converted === null ? EMPTY_VALUE : amount(converted, 'KRW')
+    return converted === null ? EMPTY_VALUE : amount(-converted, 'KRW')
   }
   const selectedRate = selected && spendingInKrw(selected, rates).quote
   const name = (id: string) => accounts.get(id)?.label ?? id
   const accountIds = [...new Set(snapshot.coverage.map(item => item.accountId))]
   const href = (target: SpendingView, options: Record<string, string | undefined> = {}) => spendingHref(target, { period, account }, options)
-  const filterParams = spendingFilterParams({ view, period, account, month, currency, category, merchant })
+  const filterParams = spendingFilterParams({ view, period, account, month, currency, category, merchant, ...options })
   // Months of the period with spending activity, newest first, plus a month the URL names outside it.
   const monthChoices = [...(month && !analytics.months.some(item => item.month === month) ? [month] : []),
     ...analytics.months.filter(item => item.USD !== null || item.KRW !== null).map(item => item.month)]
@@ -97,9 +101,10 @@ export default async function SpendingPage({ searchParams }: {
   const requestedPage = param('page')
   const page = requestedPage && /^\d{1,6}$/.test(requestedPage) ? Math.max(1, Math.min(Number(requestedPage), lastPage)) : 1
   const shown = rows.slice((page - 1) * pageSize, page * pageSize)
-  const pageHref = (next: number) => href('transactions', { month, currency, category, merchant, page: String(next) })
+  const listOptions = { kinds: options.kinds === 'all' ? 'all' : undefined, sort: options.sort === 'largest' ? 'largest' : undefined }
+  const pageHref = (next: number) => href('transactions', { month, currency, category, merchant, ...listOptions, page: String(next) })
   const transactionHref = (row: typeof ledgerRows[number]) => href('transactions', {
-    month: row.activityDate.slice(0, 7), transaction: row.id,
+    month: row.activityDate.slice(0, 7), transaction: row.id, ...listOptions,
   })
   const merchantTitle = merchant && (matches[0]?.merchantLabel ?? matches[0]?.description ?? merchant)
   const byAccount = new Map<string, SpendingHold[]>()
@@ -129,8 +134,14 @@ export default async function SpendingPage({ searchParams }: {
             options: SPENDING_PERIODS.map(item => ({ value: String(item), label: copy.periods[item] })) },
           { key: 'account', label: copy.account, selected: account ?? ALL,
             options: [{ value: ALL, label: copy.allAccounts }, ...accountIds.map(id => ({ value: id, label: name(id) }))] },
-          ...(view === 'transactions' ? [{ key: 'month', label: copy.filterMonth, selected: month ?? ALL,
-            options: [{ value: ALL, label: copy.periods[period] }, ...monthChoices.map(item => ({ value: item, label: fmtMonth(item, language, { year: true }) }))] }] : []),
+          ...(view === 'transactions' ? [
+            { key: 'month', label: copy.filterMonth, selected: month ?? ALL,
+              options: [{ value: ALL, label: copy.periods[period] }, ...monthChoices.map(item => ({ value: item, label: fmtMonth(item, language, { year: true }) }))] },
+            { key: 'kinds', label: copy.filterKinds, selected: options.kinds, defaultValue: 'spending',
+              options: (['spending', 'all'] as const).map(value => ({ value, label: copy.kindsOptions[value] })) },
+            { key: 'sort', label: copy.filterSort, selected: options.sort, defaultValue: 'recent', countsAsFilter: false as const,
+              options: (['recent', 'largest'] as const).map(value => ({ value, label: copy.sortOptions[value] })) },
+          ] : []),
         ]} />
 
         {view === 'summary' ? <>
@@ -178,28 +189,12 @@ export default async function SpendingPage({ searchParams }: {
             rankingHref={(filter, term) => href('transactions', {
               [filter]: filter === 'merchant' ? spendingMerchantKey(term) : term,
             })}
-            transactionHref={transactionHref} />
+            largestHref={href('transactions', { sort: 'largest' })} />
         </> : null}
 
         {view === 'review' ? <>
-        <Card title={copy.coverage} id="spending-coverage"
-          action={<TextLink href="/accounts#spending-coverage">{copy.viewCoverage}</TextLink>}>
-          <p className="mb-3 text-caption text-ink-2">{copy.coverageHint}</p>
-          <DataTable rows={coverage} caption={copy.coverage} minWidth="32rem" emptyMessage={copy.noAccountRows}
-            getRowKey={row => row.accountId}
-            columns={[
-              { key: 'account', label: copy.account, render: row => (
-                <div>
-                  <span className="font-medium">{name(row.accountId)}</span>
-                  {accounts.get(row.accountId)?.note ? <Note size="caption">{accounts.get(row.accountId)?.note}</Note> : null}
-                </div>
-              ) },
-              { key: 'first', label: copy.first, nowrap: true, render: row => <span className="font-mono">{row.first}</span> },
-              { key: 'last', label: copy.last, nowrap: true, render: row => <span className="font-mono">{row.last}</span> },
-              { key: 'count', label: copy.count, align: 'right', render: row => <span className="font-mono">{count(row.count)}</span> },
-            ]}
-          />
-        </Card>
+        {/* Coverage has one home, the accounts page; this tab links there. */}
+        <Note size="caption" spacing="below-3">{copy.coverageElsewhere} <TextLink href="/accounts#spending-coverage">{copy.viewCoverage}</TextLink></Note>
 
         <Card title={copy.holds} id="spending-holds" issues={linked.issues}
           action={<TextLink href="/data-ops#spending-review">{copy.spendingReview}</TextLink>}>
@@ -248,40 +243,29 @@ export default async function SpendingPage({ searchParams }: {
             {selected ? <TextLink href={href('transactions', { month })}>{copy.backToMatches}</TextLink> : null}
             {!selected && (category || merchant || currency) ? <TextLink href={href('transactions', { month })}>{copy.clearDetail}</TextLink> : null}
           </div>
-          <p className="mb-3 text-caption text-ink-2">{copy.pageSummary(count(shown.length), count(rows.length))}</p>
+          <p className="mb-3 text-caption text-ink-2">
+            {copy.pageSummary(count(shown.length), count(rows.length))}
+            {!selected && listed.hidden ? ` · ${copy.hiddenRows(count(listed.hidden))}` : null}
+          </p>
+          <Note size="caption" spacing="below-3">{copy.amountSignNote}</Note>
           {selectedRate ? <p className="mb-3 text-caption text-ink-2">
             {copy.rateDetail(selectedRate.date, new Intl.NumberFormat(locale, { maximumFractionDigits: 4 }).format(selectedRate.rate), selectedRate.source)}
           </p> : null}
-          {shown.length ? <ol className="divide-y divide-line-subtle md:hidden">
-            {shown.map(row => <li key={row.id} className="flex items-start justify-between gap-3 py-3 text-body">
-              <div className="min-w-0 break-words">
-                {selected ? <p>{row.description}</p> : <TextLink href={transactionHref(row)}>{row.merchantLabel ?? row.description}</TextLink>}
-                <p className="text-caption text-ink-2">{row.activityDate} · {name(row.accountId)}</p>
-                <p className="text-caption text-ink-2">{[copy.kinds[row.kind], row.category && spendingCategoryName(row.category, copy.categoryNames)].filter(Boolean).join(' · ')}</p>
-              </div>
-              <div className="shrink-0 text-right font-mono tabular-nums">
-                <div>{transactionAmount(row)}</div>
-                {row.currency === 'USD' ? <div className="text-caption text-ink-2">{amount(row.amountMinor, row.currency)}</div> : null}
-              </div>
-            </li>)}
-          </ol> : <p className="text-body text-ink-2 md:hidden">{copy.noRows}</p>}
-          <div className="hidden md:block">
-          <DataTable rows={shown} caption={copy.transactions} minWidth="42rem" emptyMessage={copy.noRows}
+          <DataTable rows={shown} caption={copy.transactions} emptyMessage={copy.noRows}
             getRowKey={row => row.id}
             columns={[
-              { key: 'activityDate', label: copy.activityDate, nowrap: true, render: row => <span className="font-mono">{row.activityDate}</span> },
-              { key: 'accountId', label: copy.account, render: row => name(row.accountId) },
+              { key: 'activityDate', label: copy.activityDate, nowrap: true, render: row => fmtDate(row.activityDate, language) },
               { key: 'description', label: copy.description, render: row => selected ? row.description
                 : <TextLink href={transactionHref(row)}>{row.merchantLabel ?? row.description}</TextLink> },
-              { key: 'kind', label: copy.type, render: row => copy.kinds[row.kind] },
-              { key: 'category', label: copy.category, render: row => row.category ? spendingCategoryName(row.category, copy.categoryNames) : EMPTY_VALUE },
-              { key: 'amount', label: copy.originalAmount, nowrap: true, align: 'right',
-                render: row => <span className="font-mono">{amount(row.amountMinor, row.currency)}</span> },
+              { key: 'accountId', label: copy.account, priority: 'secondary', render: row => name(row.accountId) },
+              { key: 'category', label: copy.category, priority: 'secondary', render: row => row.category ? spendingCategoryName(row.category, copy.categoryNames) : EMPTY_VALUE },
+              { key: 'kind', label: copy.type, priority: 'tertiary', render: row => copy.kinds[row.kind] },
+              { key: 'amount', label: copy.originalAmount, priority: 'tertiary', nowrap: true, align: 'right',
+                render: row => <span className="tabular-nums">{amount(spendingAmountMinor(row), row.currency)}</span> },
               { key: 'converted', label: copy.convertedKrw, nowrap: true, align: 'right',
-                render: row => <span className="font-mono">{transactionAmount(row)}</span> },
+                render: row => <span className="tabular-nums">{transactionAmount(row)}</span> },
             ]}
           />
-          </div>
           {lastPage > 1 ? (
             <div className="mt-3 flex flex-wrap gap-4">
               {page > 1 ? <TextLink href={pageHref(page - 1)} className="flex min-h-8 items-center">{copy.previous}</TextLink> : null}

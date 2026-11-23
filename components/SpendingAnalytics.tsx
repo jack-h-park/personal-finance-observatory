@@ -3,7 +3,7 @@ import { StackedBarChart } from '@/components/charts'
 import { CardRow } from '@/components/layout'
 import { Card, Note, TextLink } from '@/components/ui'
 import type { Currency } from '@/lib/domain/spending-import'
-import type { analyzeSpending, SpendingRank, SpendingViewRow } from '@/lib/domain/spending-view'
+import type { analyzeSpending, SpendingRank } from '@/lib/domain/spending-view'
 import { EMPTY_VALUE } from '@/lib/format'
 import type { Language } from '@/lib/i18n'
 import { getPageCopy } from '@/lib/ui-copy'
@@ -18,7 +18,7 @@ const topCount = 5
 type Analysis = ReturnType<typeof analyzeSpending>
 type Amount = (minor: number, currency: Currency) => string
 
-export function SpendingAnalytics({ data, language, currentMonth, amount, count, monthHref, rankingHref, transactionHref }: {
+export function SpendingAnalytics({ data, language, currentMonth, amount, count, monthHref, rankingHref, largestHref }: {
   data: Analysis
   language: Language
   /** 'YYYY-MM' in the app's time zone: that bar is drawn as a month in progress. */
@@ -27,7 +27,8 @@ export function SpendingAnalytics({ data, language, currentMonth, amount, count,
   count: (value: number) => string
   monthHref: (month: string) => string
   rankingHref: (filter: 'category' | 'merchant', name: string) => string
-  transactionHref: (row: SpendingViewRow) => string
+  /** The Transactions tab, largest purchases first. */
+  largestHref: string
 }) {
   const copy = getPageCopy('spending', language)
   const months = [...data.combined.months].reverse()
@@ -119,20 +120,7 @@ export function SpendingAnalytics({ data, language, currentMonth, amount, count,
 
         <Card title={copy.merchants} id="spending-merchants" info={copy.rankingHint}>
           {ranking(data.combined.merchants, 'merchant', copy.noPurchases)}
-          {data.combined.largest.length ? <details>
-            <summary className={disclosureClass}>{copy.largestPurchases}</summary>
-            <ol className="divide-y divide-line-subtle">
-              {data.combined.largest.slice(0, topCount).map(row => (
-                <li key={row.id} className="flex min-h-11 items-center justify-between gap-3 py-2 text-body">
-                  <div className="min-w-0 break-words">
-                    <TextLink href={transactionHref(row)}>{row.merchantLabel ?? row.description}</TextLink>
-                    <div className="text-caption text-ink-2">{row.activityDate} · {amount(-row.amountMinor, row.currency)}</div>
-                  </div>
-                  <span className="shrink-0 font-mono tabular-nums">{amount(-data.combined.purchaseKrw.get(row.id)!, 'KRW')}</span>
-                </li>
-              ))}
-            </ol>
-          </details> : null}
+          {data.combined.largest.length ? <p className="pt-2 text-caption"><TextLink href={largestHref}>{copy.largestPurchases}</TextLink></p> : null}
         </Card>
       </CardRow>
     </>

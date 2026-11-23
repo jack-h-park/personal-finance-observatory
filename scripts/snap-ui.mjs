@@ -60,6 +60,8 @@ const ROUTES = [
   '/tax-planning/plans/none',
   // The surfaces R2's primitives touch that the net never checked.
   '/cash-inflow',
+  // A 404 where no spending ledger or snapshot is configured; captured as that page then.
+  '/spending',
   '/rebalance/settings',
   '/taxes',
   '/taxes/history',

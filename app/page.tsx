@@ -658,7 +658,7 @@ export default async function OverviewPage({
                   {flow.spendingAsOf ? <span>{copy.flowAsOf(fmtDate(flow.spendingAsOf, language))}</span> : null}
                   {flow.spendingReviewIncomplete ? <span className="text-warning">{copy.flowReviewIncomplete}</span> : null}
                   {flow.spending && flow.spending.missingFx > 0 ? <span className="text-warning">{copy.flowMissingFx(fmtNumber(flow.spending.missingFx))}</span> : null}
-                  {flow.spendingState === 'notPublished' ? null : <span><TextLink href={spendingHref(flow.range)}>{copy.openSpending}</TextLink></span>}
+                  {flow.spendingState === 'notPublished' ? null : <span><TextLink href={spendingHref(flow.range)} className="inline-flex min-h-6 min-w-6 items-center">{copy.openSpending}</TextLink></span>}
                 </span>
               }
             />
