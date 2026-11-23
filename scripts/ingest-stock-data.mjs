@@ -5516,6 +5516,10 @@ let brokerageCashRows = (readTsvAt(krStatementsDir, 'cash.tsv')?.rows ?? [])
 // whose statements name it as the account they settle against: the CSV never
 // shows those, yet each one moves this cash.
 const robinhoodStatementCash = new Map()
+// Transfers from Robinhood checking or savings, read off the account's own statement
+// section: the CSV export leaves them out and the bank export does not say which
+// account received them. Each is a cash movement on the date the statement prints.
+const robinhoodStatementTransfers = new Map()
 for (const report of usPdfEvidence.reports ?? []) {
   if (report.category !== 'robinhood_statement_pdf') continue
   const date = text(report.metrics?.period_end)
@@ -5525,6 +5529,13 @@ for (const report of usPdfEvidence.reports ?? []) {
     const list = robinhoodStatementCash.get(text(entry.account)) ?? []
     list.push({ date, balance })
     robinhoodStatementCash.set(text(entry.account), list)
+    for (const t of entry.bank_transfers ?? []) {
+      const amount = number(t.amount_usd)
+      if (!text(t.date) || amount == null || amount === 0) continue
+      const moved = robinhoodStatementTransfers.get(text(entry.account)) ?? []
+      moved.push({ date: text(t.date), settle: text(t.date), amount })
+      robinhoodStatementTransfers.set(text(entry.account), moved)
+    }
   }
 }
 const robinhoodStatementEnds = [...robinhoodStatementCash.values()].flat().map((s) => s.date).sort()
@@ -5553,6 +5564,8 @@ for (const account of robinhoodSnapshot?.accounts ?? []) {
       .filter((r) => r.venue === 'Robinhood' && hint && text(r.fundingAccount) === hint)
       .filter((r) => r.type === 'BUY' || r.type === 'SELL')
       .map((r) => ({ date: text(r.date), settle: text(r.date), amount: (r.type === 'BUY' ? -1 : 1) * (number(r.amount) ?? 0) })),
+    // Transfers to and from Robinhood checking or savings, where a statement names the account.
+    ...(hint ? (robinhoodStatementTransfers.get(hint) ?? []) : []),
   ]
   const series = anchoredCashSeries({
     statements: robinhoodStatementCash.get(hint) ?? [],

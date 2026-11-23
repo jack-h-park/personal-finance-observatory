@@ -168,8 +168,8 @@ test('the statement gives each account its month-end cash: brokerage cash plus t
   assert.equal(report.metrics.period_end, '2026-10-31')
   assert.deepEqual(report.metrics.summary_mismatches, [])
   assert.deepEqual(report.accounts, [
-    { account: '0001', opening_cash_usd: 10, closing_cash_usd: 500 },
-    { account: '0002', opening_cash_usd: 1, closing_cash_usd: 2 },
+    { account: '0001', opening_cash_usd: 10, closing_cash_usd: 500, bank_transfers: [] },
+    { account: '0002', opening_cash_usd: 1, closing_cash_usd: 2, bank_transfers: [] },
   ])
 })
 
@@ -200,9 +200,9 @@ test('older layouts: an unmasked account number, an account opened that month, a
       'Deposit Sweep Balance $0.00 $0.00', 'Total Securities $9.00 $8.00', 'Portfolio Value $10.00 $99.00']),
   ])
   assert.deepEqual(report.accounts, [
-    { account: '0001', opening_cash_usd: 2016.48, closing_cash_usd: 3000 },
-    { account: '0002', opening_cash_usd: null, closing_cash_usd: 2000.35 },
-    { account: '0003', opening_cash_usd: 813.79, closing_cash_usd: 814.35 },
+    { account: '0001', opening_cash_usd: 2016.48, closing_cash_usd: 3000, bank_transfers: [] },
+    { account: '0002', opening_cash_usd: null, closing_cash_usd: 2000.35, bank_transfers: [] },
+    { account: '0003', opening_cash_usd: 813.79, closing_cash_usd: 814.35, bank_transfers: [] },
   ])
   assert.deepEqual(report.metrics.summary_mismatches, ['0004: closing cash, sweep and securities do not add up to the portfolio value'])
 })
