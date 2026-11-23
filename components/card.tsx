@@ -46,6 +46,8 @@ export function Card({ children, id, className, title, info, action, fill, accen
   return (
     <section
       id={id}
+      // The page-shape card budget counts this marker (scripts/page-shape.mjs CARD_SELECTOR).
+      data-card=""
       className={clsx(
         'relative rounded-md border border-line bg-card',
         fill && 'flex flex-col',

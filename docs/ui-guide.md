@@ -255,7 +255,7 @@ then what they can change, then the evidence.
 
 ### Card budget
 
-A page has at most ten `section.shadow-card` inside `<main>` at 1440×1000, not
+A page has at most ten cards (`section[data-card]`, which every `Card` renders) inside `<main>` at 1440×1000, not
 counting cards inside a `<details>`. The lead's top edge sits at or above 840 px,
 so its title and figure are on the first screen.
 

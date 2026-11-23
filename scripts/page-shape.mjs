@@ -15,6 +15,9 @@
  */
 import { pathToFileURL } from 'node:url'
 
+/** Every `Card` (and so every `MetricHeroCard`) renders this marker; the budget counts it. */
+export const CARD_SELECTOR = 'main section[data-card]'
+
 export const SHAPE_ROUTES = [
   { path: '/tax-planning', lead: '#tax-plan-overview' },
   { path: '/rebalance', lead: '#rebalance-lead' },
@@ -74,15 +77,15 @@ async function main() {
           console.log(`skip ${label}: not served here`)
           continue
         }
-        const m = await page.evaluate((lead) => {
+        const m = await page.evaluate(({ lead, selector }) => {
           // Cards inside a collapsed details element are not part of the page's
           // first read, so they do not count.
-          const cards = [...document.querySelectorAll('main section.shadow-card')].filter(
+          const cards = [...document.querySelectorAll(selector)].filter(
             (el) => !el.closest('details')
           ).length
           const el = document.querySelector(lead)
           return { cards, leadTop: el ? el.getBoundingClientRect().top : null }
-        }, route.lead)
+        }, { lead: route.lead, selector: CARD_SELECTOR })
         const messages = shapeVerdict(m)
         const top = m.leadTop === null ? 'none' : `${Math.round(m.leadTop)}px`
         console.log(`${messages.length === 0 ? 'ok  ' : 'FAIL'} ${label}: ${m.cards} cards, lead at ${top}${messages.length ? ` (${messages.join('; ')})` : ''}`)
