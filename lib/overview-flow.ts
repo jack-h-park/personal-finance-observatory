@@ -55,9 +55,10 @@ export function overviewFlow(input: {
   }
 }
 
-/** /spending offers 12 and 24 months; link the smallest one that holds the window. */
+/** /spending on the same period as the card. */
 export function spendingHref(range: FlowRange): string {
-  return range === '12m' || range === 'ytd' ? '/spending?period=12' : '/spending?period=24'
+  const period = range === '12m' ? '12' : range === '24m' ? '24' : range
+  return `/spending?period=${period}`
 }
 
 /**
