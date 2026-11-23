@@ -3,7 +3,7 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
-import { analyzeSpending, projectSpending, spendingInKrw, summarizeSpendingAccounts, type SpendingFxRate, type SpendingSnapshot } from '../lib/domain/spending-view'
+import { analyzeSpending, projectSpending, resolveSpendingPeriod, spendingInKrw, summarizeSpendingAccounts, type SpendingFxRate, type SpendingSnapshot } from '../lib/domain/spending-view'
 import { spendingPilotEnabled, spendingPublicationPath } from '../lib/adapters/spending-view'
 
 test('the spending route requires a local ledger or explicit private snapshot', () => {
@@ -120,4 +120,48 @@ test('combined view uses posting-date rates, retains source amounts and distingu
   assert.equal(spendingInKrw(snapshot.rows[1], rates).quote?.date, '2026-08-01')
   assert.equal(spendingInKrw(lackingRate, rates).amount, null)
   assert.equal(spendingInKrw({ ...lackingRate, postedDate: '2026-08-31', amountMinor: -2500 }, rates).amount, -35116)
+})
+
+test('the period parameter accepts 12, 24, this year and last year, defaulting to 12', () => {
+  assert.equal(resolveSpendingPeriod(undefined), 12)
+  assert.equal(resolveSpendingPeriod('12'), 12)
+  assert.equal(resolveSpendingPeriod('24'), 24)
+  assert.equal(resolveSpendingPeriod('ytd'), 'ytd')
+  assert.equal(resolveSpendingPeriod('lastYear'), 'lastYear')
+  assert.equal(resolveSpendingPeriod('36'), 12)
+})
+
+test('a rolling window ends today', () => {
+  const data = analyzeSpending(snapshot.rows, { today: '2026-08-10', period: 12 })
+  assert.equal(data.lastDay, '2026-08-10')
+})
+
+test('this year runs from January through this month, ending today', () => {
+  const data = analyzeSpending(snapshot.rows, { today: '2026-08-10', period: 'ytd' })
+  assert.equal(data.months.length, 8)
+  assert.equal(data.months[0].month, '2026-08')
+  assert.equal(data.months.at(-1)?.month, '2026-01')
+  assert.equal(data.firstDay, '2026-01-01')
+  assert.equal(data.lastDay, '2026-08-10')
+  assert.deepEqual(data.totals.USD, { net: 1900, observedMonths: 2 })
+})
+
+test('this year in January is one month', () => {
+  const data = analyzeSpending(snapshot.rows, { today: '2027-01-03', period: 'ytd' })
+  assert.deepEqual(data.months.map(row => row.month), ['2027-01'])
+  assert.equal(data.totals.USD.net, null)
+})
+
+test('last year covers the previous calendar year and nothing from this year', () => {
+  const rows = [...snapshot.rows,
+    { id: 'old', accountId: 'korea', postedDate: '2025-06-02', activityDate: '2025-06-01', currency: 'KRW' as const, amountMinor: -700, kind: 'purchase' as const, description: 'Store' },
+    { id: 'newyear', accountId: 'korea', postedDate: '2026-01-01', activityDate: '2026-01-01', currency: 'KRW' as const, amountMinor: -50, kind: 'purchase' as const, description: 'Store' }]
+  const data = analyzeSpending(rows, { today: '2026-08-10', period: 'lastYear' })
+  assert.equal(data.months.length, 12)
+  assert.equal(data.months[0].month, '2025-12')
+  assert.equal(data.months.at(-1)?.month, '2025-01')
+  assert.equal(data.firstDay, '2025-01-01')
+  assert.equal(data.lastDay, '2025-12-31')
+  assert.deepEqual(data.totals.KRW, { net: 700, observedMonths: 1 })
+  assert.equal(data.totals.USD.net, null)
 })

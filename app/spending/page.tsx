@@ -7,7 +7,7 @@ import { Button, Callout, Card, MetricField, Note, TextLink } from '@/components
 import { portfolioToday } from '@/lib/adapters/portfolio-db'
 import { loadSpendingPilot } from '@/lib/adapters/spending-view'
 import { readSpendingFxRates } from '@/lib/adapters/spending-fx'
-import { analyzeSpending, projectSpending, spendingInKrw, spendingMerchantKey, type SpendingHold } from '@/lib/domain/spending-view'
+import { analyzeSpending, projectSpending, resolveSpendingPeriod, SPENDING_PERIODS, spendingInKrw, spendingMerchantKey, type SpendingHold } from '@/lib/domain/spending-view'
 import { EMPTY_VALUE, localeFor } from '@/lib/format'
 import { getLanguage } from '@/lib/i18n-server'
 import { routeMetadata, routeName, routeSection } from '@/lib/page-names'
@@ -51,7 +51,7 @@ export default async function SpendingPage({ searchParams }: {
   const requestedView = param('view')
   const { account, month, months, rows: ledgerRows, coverage, holds } =
     projectSpending(snapshot, { account: param('account'), month: requestedView === 'review' ? undefined : param('month') })
-  const period = param('period') === '24' ? 24 : 12
+  const period = resolveSpendingPeriod(param('period'))
   const today = portfolioToday()
   const rates = requestedView === 'review' ? new Map() : readSpendingFxRates()
   const analytics = analyzeSpending(snapshot.rows, { today, period, account, rates })
@@ -62,7 +62,7 @@ export default async function SpendingPage({ searchParams }: {
   const merchant = param('merchant')
   const transaction = param('transaction')
   const matches = ledgerRows.filter(row =>
-    (month || row.activityDate >= analytics.firstDay && row.activityDate <= today) &&
+    (month || row.activityDate >= analytics.firstDay && row.activityDate <= analytics.lastDay) &&
     (!currency || row.currency === currency) &&
     (!category || row.category === category) &&
     (!merchant || spendingMerchantKey(row.merchantLabel ?? row.description) === merchant && row.kind === 'purchase'))
@@ -122,7 +122,7 @@ export default async function SpendingPage({ searchParams }: {
         </nav>
         <div className="flex flex-wrap items-end gap-3">
           <nav aria-label={copy.periodChoices} className="flex flex-wrap gap-1 rounded-lg border border-line bg-card p-1">
-            {([12, 24] as const).map(item => <Link key={item} href={href(view, { period: String(item), month, currency, category, merchant })}
+            {SPENDING_PERIODS.map(item => <Link key={item} href={href(view, { period: String(item), month, currency, category, merchant })}
               aria-current={period === item ? 'true' : undefined} aria-label={copy.periods[item]}
               className={filterLink + (period === item ? ' bg-surface font-medium text-ink' : ' text-ink-2 hover:text-ink')}>
               {copy.shortPeriods[item]}
@@ -170,10 +170,10 @@ export default async function SpendingPage({ searchParams }: {
 
         {view === 'summary' ? <>
           <Card title={copy.combinedNet} id="spending-period">
-            <p className="mb-3 text-caption text-ink-2">{copy.window(analytics.firstDay, today)}</p>
+            <p className="mb-3 text-caption text-ink-2">{copy.window(analytics.firstDay, analytics.lastDay)}</p>
             <MetricField label={copy.convertedKrw} size="metric"
               value={<span className="break-words font-mono">{analytics.combined.net === null ? EMPTY_VALUE : amount(analytics.combined.net, 'KRW')}</span>} />
-            <p className="mt-1 text-caption text-ink-2">{copy.observedMonths(count(analytics.combined.observedMonths), count(period))}</p>
+            <p className="mt-1 text-caption text-ink-2">{copy.observedMonths(count(analytics.combined.observedMonths), count(analytics.months.length))}</p>
             <dl className="mt-4 flex flex-wrap gap-x-5 gap-y-2 border-t border-line pt-3 text-caption">
               {currencies.map(unit => {
                 const total = analytics.totals[unit]

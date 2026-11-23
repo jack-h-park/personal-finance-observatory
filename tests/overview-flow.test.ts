@@ -53,11 +53,11 @@ test('no inflow records', () => {
   assert.equal(flow.income, null)
 })
 
-test('spendingHref picks the smallest spending period that holds the window', () => {
+test('spendingHref opens /spending on the same period', () => {
   assert.equal(spendingHref('12m'), '/spending?period=12')
-  assert.equal(spendingHref('ytd'), '/spending?period=12')
+  assert.equal(spendingHref('ytd'), '/spending?period=ytd')
+  assert.equal(spendingHref('lastYear'), '/spending?period=lastYear')
   assert.equal(spendingHref('24m'), '/spending?period=24')
-  assert.equal(spendingHref('lastYear'), '/spending?period=24')
 })
 
 test('overviewHref carries every control, so a trend chip keeps the flow period and a flow chip keeps the trend', () => {

@@ -16,7 +16,24 @@ export type SpendingViewRow = {
   categorySource?: SpendingCategorySource
 }
 
-export type SpendingPeriod = 12 | 24
+/** Rolling 12 or 24 months ending today, this calendar year to date, or the previous calendar year. */
+export type SpendingPeriod = 12 | 24 | 'ytd' | 'lastYear'
+export const SPENDING_PERIODS: readonly SpendingPeriod[] = [12, 'ytd', 'lastYear', 24]
+
+/** The `period` query parameter; anything absent or unknown is the last 12 months. */
+export function resolveSpendingPeriod(value: string | undefined): SpendingPeriod {
+  return SPENDING_PERIODS.find((period) => String(period) === value) ?? 12
+}
+
+/** The months of a period, newest first, and the day it ends. */
+function periodMonths(today: string, period: SpendingPeriod) {
+  const [year, month] = today.split('-').map(Number)
+  const end = period === 'lastYear' ? { year: year - 1, month: 12 } : { year, month }
+  const length = period === 'ytd' ? month : period === 'lastYear' ? 12 : period
+  const months = Array.from({ length }, (_, index) =>
+    new Date(Date.UTC(end.year, end.month - 1 - index, 1)).toISOString().slice(0, 7))
+  return { months, lastDay: period === 'lastYear' ? `${year - 1}-12-31` : today }
+}
 export type SpendingRank = { name: string; amountMinor: number; count: number }
 export type SpendingFxRate = { date: string; rate: number; source: string }
 
@@ -81,9 +98,9 @@ function summarizePurchases(purchases: SpendingViewRow[], value = (row: Spending
 export function analyzeSpending(rows: SpendingViewRow[], options: {
   today: string; period: SpendingPeriod; account?: string; rates?: ReadonlyMap<string, SpendingFxRate>
 }) {
-  const [year, month] = options.today.split('-').map(Number)
-  const months = Array.from({ length: options.period }, (_, index) => ({
-    month: new Date(Date.UTC(year, month - 1 - index, 1)).toISOString().slice(0, 7),
+  const span = periodMonths(options.today, options.period)
+  const months = span.months.map((key) => ({
+    month: key,
     USD: null as number | null,
     KRW: null as number | null,
   }))
@@ -119,7 +136,7 @@ export function analyzeSpending(rows: SpendingViewRow[], options: {
   const combinedMonths = [...combined.values()]
   const coveredMonths = combinedMonths.flatMap(item => item.amount ?? [])
   return {
-    months, firstDay: months[months.length - 1].month + '-01',
+    months, firstDay: months[months.length - 1].month + '-01', lastDay: span.lastDay,
     totals: { USD: totals('USD'), KRW: totals('KRW') },
     USD: summarizePurchases(purchases.USD), KRW: summarizePurchases(purchases.KRW),
     combined: {
