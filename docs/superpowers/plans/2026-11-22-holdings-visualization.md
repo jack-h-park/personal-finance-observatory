@@ -206,6 +206,22 @@ A compact row of three cards between the totals and the table.
 All three respect the filter bar (market, broker, account), so filtering to one
 account recomputes them.
 
+As built (2026-11-23):
+
+- Three panels inside the holdings card, between the totals and the table, so
+  they sit under the filters they follow (search included): the ten largest
+  positions as a ranked bar list in market colours, concentration (top 5,
+  top 10, effective number of holdings, and a top 5 / next 5 / rest bar), and
+  the five largest unrealized gains and losses in KRW on one diverging scale.
+- `lib/holdings-composition.ts` (tested) sums each security across accounts;
+  a position with any unpriced account row is left out of weights rather than
+  counted at a partial value. `components/RankedBars.tsx` holds the two bar
+  lists, server-rendered.
+- Changed from the plan: the concentration figures show today only, with no
+  change over the selected range. The snapshots are per security across
+  accounts, so a past value cannot follow a broker or account filter, and a
+  change that silently ignored the filter would contradict the figure beside it.
+
 ### V6 — What changed between two dates
 
 - A "비중 변화" table: for a chosen range (reuse the /net-worth range

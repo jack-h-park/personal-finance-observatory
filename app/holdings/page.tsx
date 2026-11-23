@@ -6,7 +6,11 @@ import { FilterBar } from '@/components/FilterBar'
 import { Badge, Card, Note, Signed, marketTone } from '@/components/ui'
 import { FreshnessInline } from '@/components/Freshness'
 import { HelpPopover } from '@/components/HelpPopover'
-import { Total, TotalsStrip } from '@/components/layout'
+import { Columns, MiniStat, MiniStatGrid, Total, TotalsStrip } from '@/components/layout'
+import { Panel } from '@/components/card'
+import { Label } from '@/components/metric'
+import { DivergingBarList, RankedBarList } from '@/components/RankedBars'
+import { aggregateSecurities, concentration, gainContributors, securityWeights } from '@/lib/holdings-composition'
 import { getHoldings, getOperationalHealth, getPortfolioSnapshots, getPositionTrendRows, portfolioToday, type FreshnessItem } from '@/lib/adapters/portfolio-db'
 import { MIX_MARKETS, marketMixSeries, mixShares, mixSummary } from '@/lib/market-mix'
 import { DEFAULT_TREND_RANGE, resolveTrendRange, trendRangeDays } from '@/lib/trend-ranges'
@@ -305,6 +309,16 @@ export default async function HoldingsPage({
     return withParam(BASE, params, 'pin', next.length ? next.join(',') : null)
   }
 
+  // Composition panels over the rows the table shows (filters apply), per
+  // security across accounts.
+  const compositionCopy = copy.composition
+  const securities = aggregateSecurities(matched)
+  const topSecurities = securityWeights(securities).slice(0, 10)
+  const concentrationNow = concentration(securities)
+  const contributors = gainContributors(securities)
+  const krw = (value: number) => money(value, 'KRW')
+  const securityItem = (s: { key: string; market: string; ticker: string; name: string }) => ({ key: s.key, label: s.name, href: positionHref(s.market, s.ticker) })
+
   const groupLabels: Record<string, string> = {
     market: copy.market,
     brokerage: copy.broker,
@@ -502,6 +516,85 @@ export default async function HoldingsPage({
               <HelpPopover>{glossary.freshness.description}</HelpPopover>
             </Note>
           )}
+          <Columns columns="lg-3" gap={3}>
+            <Panel pad="md" layout="stack-2">
+              <Label size="micro" className="flex items-center">
+                {compositionCopy.topTitle}
+                <HelpPopover>{compositionCopy.topInfo}</HelpPopover>
+              </Label>
+              {topSecurities.length ? (
+                <RankedBarList
+                  items={topSecurities.map((s) => ({ ...securityItem(s), value: s.pct, valueText: fmtPct(s.pct, { digits: 1 }), color: marketColor(s.market) }))}
+                />
+              ) : (
+                <Note size="caption">{compositionCopy.empty}</Note>
+              )}
+            </Panel>
+            <Panel pad="md" layout="stack-2">
+              <Label size="micro" className="flex items-center">
+                {compositionCopy.concentrationTitle}
+                <HelpPopover>{compositionCopy.concentrationInfo}</HelpPopover>
+              </Label>
+              {concentrationNow ? (
+                <>
+                  <MiniStatGrid columns={3}>
+                    <MiniStat label={compositionCopy.top5} value={fmtPct(concentrationNow.top5Pct, { digits: 1 })} />
+                    <MiniStat label={compositionCopy.top10} value={fmtPct(concentrationNow.top10Pct, { digits: 1 })} />
+                    <MiniStat
+                      label={compositionCopy.effective}
+                      value={compositionCopy.effectiveValue(fmtNumber(concentrationNow.effectiveCount, 1), fmtNumber(concentrationNow.count))}
+                    />
+                  </MiniStatGrid>
+                  <ShareBar
+                    ariaHidden
+                    height="md"
+                    segments={[
+                      { key: 'top5', pct: concentrationNow.top5Pct, className: 'bg-info' },
+                      { key: 'next5', pct: concentrationNow.top10Pct - concentrationNow.top5Pct, className: 'bg-ink-3' },
+                    ]}
+                  />
+                  <div className="flex flex-wrap gap-x-4 text-label text-ink-3" aria-hidden="true">
+                    <span className="inline-flex items-center gap-1.5">
+                      <span aria-hidden className="h-2 w-2 rounded-pill bg-info" />
+                      {compositionCopy.barTop5}
+                    </span>
+                    <span className="inline-flex items-center gap-1.5">
+                      <span aria-hidden className="h-2 w-2 rounded-pill bg-ink-3" />
+                      {compositionCopy.barNext5}
+                    </span>
+                    <span className="inline-flex items-center gap-1.5">
+                      <span aria-hidden className="h-2 w-2 rounded-pill bg-line-subtle" />
+                      {compositionCopy.barRest}
+                    </span>
+                  </div>
+                </>
+              ) : (
+                <Note size="caption">{compositionCopy.empty}</Note>
+              )}
+            </Panel>
+            <Panel pad="md" layout="stack-2">
+              <Label size="micro" className="flex items-center">
+                {compositionCopy.gainTitle}
+                <HelpPopover>{compositionCopy.gainInfo}</HelpPopover>
+              </Label>
+              <span className="block text-label text-ink-3">{compositionCopy.gainers}</span>
+              {contributors.gainers.length ? (
+                <DivergingBarList
+                  items={contributors.gainers.map((s) => ({ ...securityItem(s), value: s.gain, valueText: <Signed value={s.gain} format={krw} /> }))}
+                />
+              ) : (
+                <Note size="caption">{compositionCopy.noGainers}</Note>
+              )}
+              <span className="block pt-1 text-label text-ink-3">{compositionCopy.losers}</span>
+              {contributors.losers.length ? (
+                <DivergingBarList
+                  items={contributors.losers.map((s) => ({ ...securityItem(s), value: s.gain, valueText: <Signed value={s.gain} format={krw} /> }))}
+                />
+              ) : (
+                <Note size="caption">{compositionCopy.noLosers}</Note>
+              )}
+            </Panel>
+          </Columns>
           <DataTable
             rows={filtered}
             caption={copy.caption}
