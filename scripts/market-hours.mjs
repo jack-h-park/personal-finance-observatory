@@ -35,6 +35,18 @@ function localClock(now, timeZone) {
   return { weekday: pick('weekday'), minutes: Number(pick('hour')) * 60 + Number(pick('minute')) }
 }
 
+/**
+ * Minutes since the session opened, for the market that is open at this instant (the grace
+ * period after the close counts), or null when it is not open.
+ */
+export function minutesSinceOpen(market, now = new Date()) {
+  const session = SESSIONS[market]
+  if (!session) return null
+  const { weekday, minutes } = localClock(now, session.timeZone)
+  const open = WEEKDAYS.has(weekday) && minutes >= session.opens && minutes < session.closes + CLOSE_GRACE_MINUTES
+  return open ? minutes - session.opens : null
+}
+
 /** { KR: boolean, US: boolean } for the given instant. */
 export function marketsOpen(now = new Date()) {
   return Object.fromEntries(
