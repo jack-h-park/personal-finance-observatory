@@ -9,6 +9,7 @@ import Database from 'better-sqlite3'
 import { rateOnOrBefore, toRealizedView, type RealizedLotRow, type RealizedLotView } from '@/lib/realized-lots'
 import { config } from '@/config'
 import { datedAmountSql, NET_DIVIDEND_SQL, type DisplayCurrency } from '@/lib/adapters/income-fx'
+import type { UsdKrwRate } from '@/lib/domain/spending-window'
 import { buildTaxPlan, summarizeTaxCandidates, type TaxPlanningLot } from '@/lib/tax-planning'
 import { allocateTax, buildInvestmentEpisodes, mergeAssetEvents, type AssetEvent, type ClosedLot, type DividendRow, type InflowEvent, type OpenLot } from '@/lib/asset-events'
 import { MARKET_GAP_HOLD_PCT, SHORT_TERM_WATCH_PCT, getRebalancePolicy, marketTargetsFor } from '@/lib/rebalance-policy'
@@ -3394,7 +3395,7 @@ const monthsBetween = (start: string, end: string) =>
   (Number(end.slice(0, 4)) - Number(start.slice(0, 4))) * 12 + Number(end.slice(5, 7)) - Number(start.slice(5, 7)) + 1
 
 /** The range's first and last month ('YYYY-MM'), and the window just before it of the same length (null under All time). */
-function cashInflowWindow(range: CashInflowRange, nowYear: number, nowMonth: number, firstMonth: string | null) {
+export function cashInflowWindow(range: CashInflowRange, nowYear: number, nowMonth: number, firstMonth: string | null) {
   const current = monthKey(nowYear, nowMonth)
   const span =
     range === '12m' ? { start: monthKey(nowYear, nowMonth - 11), end: current, back: 12 }
@@ -3405,6 +3406,26 @@ function cashInflowWindow(range: CashInflowRange, nowYear: number, nowMonth: num
   const shift = (key: string, by: number) => monthKey(Number(key.slice(0, 4)), Number(key.slice(5, 7)) - by)
   const previous = span.back == null ? null : { start: shift(span.start, span.back), end: shift(span.end, span.back) }
   return { start: span.start, end: span.end, months: monthsBetween(span.start, span.end), previous }
+}
+
+/**
+ * The dated USD/KRW history (`historical_fx_rates`, oldest first) and today's
+ * rate for anything older, the same pair the ingest's `usdKrwOn` converts with.
+ */
+export function getUsdKrwHistory(): { rates: UsdKrwRate[]; fallbackRate: number | null } {
+  const conn = db()
+  try {
+    const hasTable = (name: string) => Boolean(conn.prepare("select 1 from sqlite_master where type = 'table' and name = ?").get(name))
+    const rates = hasTable('historical_fx_rates')
+      ? (conn.prepare('select price_date as date, rate from historical_fx_rates order by price_date').all() as UsdKrwRate[])
+      : []
+    const current = hasTable('fx_rates')
+      ? (conn.prepare("select rate from fx_rates where from_currency = 'USD' and to_currency = 'KRW' order by as_of_date desc limit 1").get() as { rate: number } | undefined)
+      : undefined
+    return { rates, fallbackRate: current?.rate ?? null }
+  } finally {
+    conn.close()
+  }
 }
 
 /**
