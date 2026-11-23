@@ -21,6 +21,8 @@ export const SHAPE_ROUTES = [
   { path: '/positions/KR/005930', lead: '#position-lead' },
   { path: '/cash-inflow', lead: '#cash-inflow-lead' },
   { path: '/review', lead: '#review-summary' },
+  // Served only where a spending ledger or snapshot is configured; a 404 is skipped, not failed.
+  { path: '/spending', lead: '#spending-lead', optional: true },
 ]
 
 const DEFAULT_LIMITS = { maxCards: 10, maxLeadTop: 840 }
@@ -67,7 +69,11 @@ async function main() {
     for (const route of SHAPE_ROUTES) {
       const label = `${route.path} ${language}`
       try {
-        await page.goto(`${baseUrl}${route.path}`, { waitUntil: 'networkidle', timeout: 45_000 })
+        const response = await page.goto(`${baseUrl}${route.path}`, { waitUntil: 'networkidle', timeout: 45_000 })
+        if (route.optional && response?.status() === 404) {
+          console.log(`skip ${label}: not served here`)
+          continue
+        }
         const m = await page.evaluate((lead) => {
           // Cards inside a collapsed details element are not part of the page's
           // first read, so they do not count.
