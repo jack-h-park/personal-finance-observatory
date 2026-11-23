@@ -102,11 +102,12 @@ purpose. A confirmed purchase can enter spending with no category when the
 item details are unavailable. Preserve any explicit owner classification
 with its evidence and date.
 
-Link repeated observations only when they identify the same transaction.
+Deduplicate repeated observations of the same posting to the same account.
 Use a stable reference where available. For overlapping bank exports, use
 the account, compatible timestamps, amount, description, and adjacent
-running balances. Treat a same-amount observation in another account as a
-candidate until the records identify the same underlying payment.
+running balances. Keep distinct account postings even when they relate to
+one payment. Link those postings as counterparts only when the evidence
+establishes that relationship.
 
 Keep unresolved cases in the private review record with the posting date,
 signed amount, bank description, and evidence needed to resolve the case.
