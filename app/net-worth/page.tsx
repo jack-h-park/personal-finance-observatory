@@ -5,9 +5,9 @@ import { Badge, Card, Label, Note } from '@/components/ui'
 import { CardRow, Columns, KpiBand } from '@/components/layout'
 import { TotalAssetsChangeField } from '@/components/TotalAssetsChangeField'
 import { StackedAssetChart } from '@/components/charts'
-import { getAssetCoverageReview, getAssetAllocation, getAssetEvents, getChildAssets, getHoldings, getMeta, getNetWorth, getPortfolioSnapshots, getPositionSnapshots, getRealizedGains, getSnapshotDates, getTotalAssetsSeries, portfolioToday } from '@/lib/adapters/portfolio-db'
+import { getAssetCoverageReview, getAssetAllocation, getAssetEvents, getChildAssets, getHoldings, getMeta, getNetWorth, getPortfolioSnapshots, getPriceSources, getPositionSnapshots, getRealizedGains, getSnapshotDates, getTotalAssetsSeries, portfolioToday } from '@/lib/adapters/portfolio-db'
 import { snapshotPriceDates } from '@/lib/overview-trend'
-import { formatPriceBasis, pricesDifferByDate } from '@/lib/price-basis'
+import { formatPriceBasis, priceSourceNames, pricesDifferByDate } from '@/lib/price-basis'
 import { convertMoney, createMoneyFormatter, formatKrw, formatUsd } from '@/lib/currency'
 import { getCurrencyPreferences } from '@/lib/currency-server'
 import { fmtDate, fmtDateTime, fmtSigned } from '@/lib/format'
@@ -89,6 +89,7 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
   const portfolioSnapshots = getPortfolioSnapshots(100 * 365)
   // The prices behind the stock and crypto amounts, by market, from the newest snapshot.
   const priceDates = snapshotPriceDates(portfolioSnapshots[portfolioSnapshots.length - 1], 'global')
+  const priceSources = priceSourceNames(Object.values(getPriceSources())).join(' · ')
   const investmentPoints: InvestmentPoint[] = portfolioSnapshots.map((row) => ({
     date: row.snapshot_date,
     unrealized: row.global_base_unrealized_gl,
@@ -383,7 +384,8 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
                   <Note relaxed>
                     {overviewCopy.stockPriceNote(
                       formatPriceBasis(priceDates, { market: overviewCopy.scopeLabels, oldest: overviewCopy.priceOldest }),
-                      pricesDifferByDate(priceDates)
+                      pricesDifferByDate(priceDates),
+                      priceSources
                     )}
                   </Note>
                 ) : null}

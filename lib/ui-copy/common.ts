@@ -68,10 +68,10 @@ export const UI_COPY_BY_LANG = {
         snapshot_prices: 'Prices in figures',
       },
       detail: {
-        PRICE_SNAPSHOT: ({ count, marketDate }: { count: number; marketDate: string | null }) =>
-          `${count} prices · market date ${marketDate ?? 'unknown'}`,
-        CRYPTO_SNAPSHOT: ({ count, quotes }: { count: number; quotes: string[] }) =>
-          `${count} prices · ${quotes.join(', ') || 'none'}`,
+        PRICE_SNAPSHOT: ({ count, marketDate, source }: { count: number; marketDate: string | null; source?: string | null }) =>
+          `${count} prices · market date ${marketDate ?? 'unknown'}${source ? ` · ${source}` : ''}`,
+        CRYPTO_SNAPSHOT: ({ count, quotes, source }: { count: number; quotes: string[]; source?: string | null }) =>
+          `${count} prices · ${quotes.join(', ') || 'none'}${source ? ` · ${source}` : ''}`,
         FX_RATE: ({ rate, source }: { rate: number; source: string }) => `${rate} · ${source}`,
         FX_RATE_MISSING: () => 'No FX rate configured.',
         SOURCE_MISSING: () => 'Source file is missing from disk.',
@@ -223,10 +223,10 @@ export const UI_COPY_BY_LANG = {
         snapshot_prices: '수치에 쓰인 시세',
       },
       detail: {
-        PRICE_SNAPSHOT: ({ count, marketDate }: { count: number; marketDate: string | null }) =>
-          `시세 ${count}건 · 시장 기준일 ${marketDate ?? '미확인'}`,
-        CRYPTO_SNAPSHOT: ({ count, quotes }: { count: number; quotes: string[] }) =>
-          `시세 ${count}건 · ${quotes.join(', ') || '없음'}`,
+        PRICE_SNAPSHOT: ({ count, marketDate, source }: { count: number; marketDate: string | null; source?: string | null }) =>
+          `시세 ${count}건 · 시장 기준일 ${marketDate ?? '미확인'}${source ? ` · ${source}` : ''}`,
+        CRYPTO_SNAPSHOT: ({ count, quotes, source }: { count: number; quotes: string[]; source?: string | null }) =>
+          `시세 ${count}건 · ${quotes.join(', ') || '없음'}${source ? ` · ${source}` : ''}`,
         FX_RATE: ({ rate, source }: { rate: number; source: string }) => `${rate} · ${source}`,
         FX_RATE_MISSING: () => '환율이 설정되지 않았습니다.',
         SOURCE_MISSING: () => '원본 파일이 디스크에 없습니다.',

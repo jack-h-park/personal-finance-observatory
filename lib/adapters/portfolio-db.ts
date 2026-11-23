@@ -278,8 +278,8 @@ export type FreshnessStatus = 'fresh' | 'stale' | 'drift' | 'missing'
 
 /** What a freshness row says, as a code and its values; the sentence is copy (`common.freshness.detail`). */
 export type FreshnessDetail =
-  | { code: 'PRICE_SNAPSHOT'; count: number; marketDate: string | null }
-  | { code: 'CRYPTO_SNAPSHOT'; count: number; quotes: string[] }
+  | { code: 'PRICE_SNAPSHOT'; count: number; marketDate: string | null; source?: string | null }
+  | { code: 'CRYPTO_SNAPSHOT'; count: number; quotes: string[]; source?: string | null }
   | { code: 'FX_RATE'; rate: number; source: string }
   | { code: 'FX_RATE_MISSING' }
   | { code: 'SOURCE_MISSING' }
@@ -2809,6 +2809,23 @@ function snapshotPriceFreshness(conn: Database.Database, thresholdMs: number): F
   ]
 }
 
+/** A price file's own `source` field as text, or null when it names none. */
+function sourceText(value: unknown): string | null {
+  return typeof value === 'string' && value.trim() ? value.trim() : null
+}
+
+/**
+ * Where the stock and crypto prices come from, as each snapshot file names it
+ * ("Yahoo Finance chart API"). A missing or unreadable file contributes nothing.
+ */
+export function getPriceSources(): { KR: string | null; US: string | null; CRYPTO: string | null } {
+  return {
+    KR: sourceText(readJson(config.stockKrPricesPath)?.source),
+    US: sourceText(readJson(config.stockUsPricesPath)?.source),
+    CRYPTO: sourceText(readJson(config.stockCryptoPricesPath)?.source),
+  }
+}
+
 export function getOperationalHealth(): OperationalHealth {
   const conn = db()
   try {
@@ -2836,6 +2853,7 @@ export function getOperationalHealth(): OperationalHealth {
           code: 'PRICE_SNAPSHOT',
           count: krPrices?.prices?.length ?? 0,
           marketDate: krPrices?.prices?.[0]?.asOfDate ?? null,
+          source: sourceText(krPrices?.source),
         },
       }),
       snapshotFreshness({
@@ -2848,6 +2866,7 @@ export function getOperationalHealth(): OperationalHealth {
           code: 'PRICE_SNAPSHOT',
           count: usPrices?.prices?.length ?? 0,
           marketDate: usPrices?.prices?.[0]?.asOfDate ?? null,
+          source: sourceText(usPrices?.source),
         },
       }),
       snapshotFreshness({
@@ -2860,6 +2879,7 @@ export function getOperationalHealth(): OperationalHealth {
           code: 'CRYPTO_SNAPSHOT',
           count: cryptoPrices?.prices?.length ?? 0,
           quotes: cryptoPrices?.prices?.map((price: any) => `${price.venue} ${price.symbol}`) ?? [],
+          source: sourceText(cryptoPrices?.source),
         },
       }),
       snapshotFreshness({

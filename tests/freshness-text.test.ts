@@ -26,6 +26,15 @@ test('the English freshness detail reads as the adapter sentence did', () => {
     '3 prices · market date unknown',
   )
   assert.equal(freshnessDetailText({ code: 'CRYPTO_SNAPSHOT', count: 0, quotes: [] }, 'en'), '0 prices · none')
+  // The provider a price file names is appended when it has one.
+  assert.equal(
+    freshnessDetailText({ code: 'PRICE_SNAPSHOT', count: 3, marketDate: '2020-01-02', source: 'Example Quotes API' }, 'en'),
+    '3 prices · market date 2020-01-02 · Example Quotes API',
+  )
+  assert.equal(
+    freshnessDetailText({ code: 'CRYPTO_SNAPSHOT', count: 1, quotes: ['Venue BTC'], source: 'Example Quotes API' }, 'ko'),
+    '시세 1건 · Venue BTC · Example Quotes API',
+  )
   assert.equal(freshnessDetailText({ code: 'FX_RATE_MISSING' }, 'en'), 'No FX rate configured.')
 })
 
