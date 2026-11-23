@@ -1,0 +1,52 @@
+import type { SpendingWindow } from '@/lib/domain/spending-window'
+
+/**
+ * The Overview's income-and-spending card: the periods it offers, and the value
+ * it renders. Income is counted cash inflow over the window (/cash-inflow);
+ * spending is net purchases over the same months (/spending).
+ */
+export const FLOW_RANGES = ['12m', 'ytd', 'lastYear', '24m'] as const
+export type FlowRange = (typeof FLOW_RANGES)[number]
+
+/** The `flow` query parameter; anything absent or unknown is the last 12 months. */
+export function resolveFlowRange(value: string | undefined): FlowRange {
+  return FLOW_RANGES.find((range) => range === value) ?? '12m'
+}
+
+export type SpendingRead = { status: 'disabled' } | { status: 'unavailable' } | { status: 'available'; window: SpendingWindow }
+
+export type OverviewFlow = {
+  range: FlowRange
+  window: { start: string; end: string; months: number }
+  /** null when cash inflow holds no records at all. */
+  income: number | null
+  /** null unless spending is available. */
+  spending: SpendingWindow | null
+  spendingState: 'available' | 'noActivity' | 'notPublished' | 'unreadable'
+}
+
+export function overviewFlow(input: {
+  range: FlowRange
+  window: { start: string; end: string; months: string[] }
+  inflow: { rangeTotal: number; hasRecords: boolean }
+  spending: SpendingRead
+}): OverviewFlow {
+  const { spending } = input
+  const spendingState =
+    spending.status === 'disabled' ? 'notPublished'
+    : spending.status === 'unavailable' ? 'unreadable'
+    : spending.window.converted == null ? 'noActivity'
+    : 'available'
+  return {
+    range: input.range,
+    window: { start: input.window.start, end: input.window.end, months: input.window.months.length },
+    income: input.inflow.hasRecords ? input.inflow.rangeTotal : null,
+    spending: spending.status === 'available' ? spending.window : null,
+    spendingState,
+  }
+}
+
+/** /spending offers 12 and 24 months; link the smallest one that holds the window. */
+export function spendingHref(range: FlowRange): string {
+  return range === '12m' || range === 'ytd' ? '/spending?period=12' : '/spending?period=24'
+}
