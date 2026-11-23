@@ -98,3 +98,9 @@ Each phase is one PR, ships on its own, and leaves the page better than it found
 2. **Display currency.** Follow the app's KRW/USD display preference in the lead and rankings like every other page (plan default), or keep `/spending` KRW-only as #433 made it?
 3. **Category labels.** Approve one canonical category list that issuer (English) and BankSalad (Korean) categories map into; the plan's S4 cannot start without it.
 4. **Payments in Transactions.** Hide card payments and own-account transfers by default with a toggle (plan default), or keep showing every ledger row?
+
+## Progress
+
+- **Decisions:** all four taken as the plan's defaults (2026-11-23).
+- **S1 (header, lead, status):** done on `claude/spending-gui-s1`. Changes from the plan: no title emphasis (most pages have none and `tests/page-headings.test.ts` allows it; "Spending" has no trailing word to stress); the change figure carries no colour, because more spending is neither a gain nor a fault; exchange rates are now read on every tab so the header pill's missing-rate count is right on Data review too; `/spending` joins `SHAPE_ROUTES` as optional, skipped where the route is a 404.
+- **Found while measuring:** `ui:shape` counts 0 cards on every route, because `section.shadow-card` no longer matches the card markup. The card budget is not being measured; fixing the selector is its own change.

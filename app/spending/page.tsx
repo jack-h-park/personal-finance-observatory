@@ -3,12 +3,15 @@ import { notFound } from 'next/navigation'
 import { DataTable } from '@/components/DataTable'
 import { PageHeader } from '@/components/PageHeader'
 import { SpendingAnalytics } from '@/components/SpendingAnalytics'
-import { Button, Callout, Card, MetricField, Note, TextLink } from '@/components/ui'
+import { Button, Callout, Card, Label, MetricField, Note, TextLink } from '@/components/ui'
+import { KpiBand } from '@/components/layout'
 import { portfolioToday } from '@/lib/adapters/portfolio-db'
 import { loadSpendingPilot } from '@/lib/adapters/spending-view'
 import { readSpendingFxRates } from '@/lib/adapters/spending-fx'
-import { analyzeSpending, projectSpending, resolveSpendingPeriod, SPENDING_PERIODS, spendingInKrw, spendingMerchantKey, type SpendingHold } from '@/lib/domain/spending-view'
-import { EMPTY_VALUE, localeFor } from '@/lib/format'
+import { analyzeSpending, compareSpendingPeriods, projectSpending, resolveSpendingPeriod, SPENDING_PERIODS, spendingInKrw, spendingMerchantKey, type SpendingHold } from '@/lib/domain/spending-view'
+import { EMPTY_VALUE, fmtDate, fmtMonth, fmtPct, localeFor } from '@/lib/format'
+import { fractionPct } from '@/lib/cash-inflow-format'
+import { spendingLinkedIssues, type HeaderStatus } from '@/lib/header-status'
 import { getLanguage } from '@/lib/i18n-server'
 import { routeMetadata, routeName, routeSection } from '@/lib/page-names'
 import { getPageCopy } from '@/lib/ui-copy'
@@ -31,17 +34,18 @@ export default async function SpendingPage({ searchParams }: {
   if (pilot.status === 'disabled') notFound()
   const language = await getLanguage()
   const copy = getPageCopy('spending', language)
-  const status = pilot.status === 'available' && pilot.publicationDate ? copy.published(pilot.publicationDate) : copy.pilot
-  const header = (
+  const source = pilot.status === 'available' && pilot.publicationDate ? copy.published(pilot.publicationDate) : copy.pilot
+  const header = (status?: HeaderStatus) => (
     <PageHeader
+      status={status}
       eyebrow={routeSection('/spending', language)}
       title={routeName('/spending', language)}
-      subtitle={<>{copy.subtitle}<span className="mt-1 block text-caption text-ink-3">{status}</span></>}
+      subtitle={<>{copy.subtitle}<span className="mt-1 block text-caption text-ink-3">{source}</span></>}
       autoRefresh={false}
     />
   )
   if (pilot.status === 'unavailable') {
-    return <>{header}<Callout tone="danger" role="alert"><p>{copy.unavailable}</p><p>{copy.unavailableHint}</p></Callout></>
+    return <>{header()}<Callout tone="danger" role="alert"><p>{copy.unavailable}</p><p>{copy.unavailableHint}</p></Callout></>
   }
 
   const { snapshot } = pilot
@@ -53,8 +57,10 @@ export default async function SpendingPage({ searchParams }: {
     projectSpending(snapshot, { account: param('account'), month: requestedView === 'review' ? undefined : param('month') })
   const period = resolveSpendingPeriod(param('period'))
   const today = portfolioToday()
-  const rates = requestedView === 'review' ? new Map() : readSpendingFxRates()
+  // Rates are read on every tab: the header pill counts transactions without one.
+  const rates = readSpendingFxRates()
   const analytics = analyzeSpending(snapshot.rows, { today, period, account, rates })
+  const comparison = compareSpendingPeriods(snapshot.rows, { today, period, account, rates })
   const view: View = requestedView === 'review' ? 'review'
     : requestedView === 'transactions' || month || param('page') ? 'transactions' : 'summary'
   const currency = currencies.find(unit => unit === param('currency'))
@@ -110,9 +116,16 @@ export default async function SpendingPage({ searchParams }: {
     byAccount.set(hold.accountId, group)
   }
 
+  const linked = spendingLinkedIssues(copy, {
+    holds: holds.length,
+    reviewIncomplete: snapshot.reviewIncomplete,
+    missingFx: analytics.combined.missingFx,
+    reviewHref: href('review') + '#spending-holds',
+  })
+
   return (
     <>
-      {header}
+      {header(linked.status)}
       <div className="space-y-4">
         <nav aria-label={copy.title} className="flex flex-wrap gap-1 border-b border-line">
           {views.map(item => <Link key={item} href={href(item)} aria-current={view === item ? 'page' : undefined}
@@ -169,24 +182,44 @@ export default async function SpendingPage({ searchParams }: {
         </div>
 
         {view === 'summary' ? <>
-          <Card title={copy.combinedNet} id="spending-period">
-            <p className="mb-3 text-caption text-ink-2">{copy.window(analytics.firstDay, analytics.lastDay)}</p>
-            <MetricField label={copy.convertedKrw} size="metric"
-              value={<span className="break-words font-mono">{analytics.combined.net === null ? EMPTY_VALUE : amount(analytics.combined.net, 'KRW')}</span>} />
-            <p className="mt-1 text-caption text-ink-2">{copy.observedMonths(count(analytics.combined.observedMonths), count(analytics.months.length))}</p>
-            <dl className="mt-4 flex flex-wrap gap-x-5 gap-y-2 border-t border-line pt-3 text-caption">
-              {currencies.map(unit => {
-                const total = analytics.totals[unit]
-                return <div key={unit} className="flex flex-wrap items-baseline gap-2">
-                  <dt className="text-ink-2">{copy.nativeNet[unit]}</dt>
-                  <dd className="font-mono tabular-nums">{total.net === null ? EMPTY_VALUE : amount(total.net, unit)}</dd>
+          {/* The lead answers the page's question: how much, against what, over which months. */}
+          <Card id="spending-lead" title={copy.combinedNet} info={copy.exchangePolicy} accent>
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <Label variant="eyebrow">{`${copy.convertedKrw} · ${copy.periods[period]}`}</Label>
+                  <div className="mt-2 text-hero-sm font-medium leading-none tracking-normal text-ink sm:text-hero">
+                    {analytics.combined.net === null ? EMPTY_VALUE : amount(analytics.combined.net, 'KRW')}
+                  </div>
+                  <Note size="caption" spacing="above-2">{copy.window(fmtDate(analytics.firstDay, language), fmtDate(analytics.lastDay, language))}</Note>
                 </div>
-              })}
-            </dl>
-            <Note size="caption" spacing="above-3">{copy.exchangePolicy}</Note>
-            {analytics.combined.missingFx ? <p role="status" className="mt-2 text-caption text-warning">
-              {copy.exchangeMissing(count(analytics.combined.missingFx))}
-            </p> : null}
+                <div className="min-w-0 sm:max-w-[50%] sm:text-right">
+                  <MetricField
+                    label={copy.change}
+                    labelClassName="sm:justify-end"
+                    info={copy.changeInfo}
+                    infoAlign="right"
+                    value={fmtPct(fractionPct(comparison.change), { signed: true, nullText: copy.notAvailable })}
+                    hint={comparison.change === null ? null : <>
+                      {comparison.previous === null ? null : copy.changePrevious(amount(comparison.previous, 'KRW'))}
+                      {comparison.previous !== null && comparison.comparedThrough ? ' · ' : null}
+                      {comparison.comparedThrough ? copy.changeThrough(fmtMonth(comparison.comparedThrough, language, { year: true })) : null}
+                    </>}
+                  />
+                </div>
+              </div>
+              <KpiBand columns={4}>
+                <MetricField label={copy.monthlyAverage} value={comparison.monthlyAverage === null ? EMPTY_VALUE : amount(Math.round(comparison.monthlyAverage), 'KRW')} />
+                {currencies.map(unit => (
+                  <MetricField key={unit} label={copy.nativeNet[unit]}
+                    value={analytics.totals[unit].net === null ? EMPTY_VALUE : amount(analytics.totals[unit].net!, unit)} />
+                ))}
+                <MetricField label={copy.monthsRecorded} value={`${count(analytics.combined.observedMonths)} / ${count(analytics.months.length)}`} />
+              </KpiBand>
+              {analytics.combined.missingFx ? (
+                <Callout tone="warning" emphasis="soft" size="caption" role="status">{copy.exchangeMissing(count(analytics.combined.missingFx))}</Callout>
+              ) : null}
+            </div>
           </Card>
           <SpendingAnalytics data={analytics} language={language} amount={amount} count={count}
             monthHref={target => href('transactions', { month: target })}
@@ -216,7 +249,7 @@ export default async function SpendingPage({ searchParams }: {
           />
         </Card>
 
-        <Card title={copy.holds} id="spending-holds" issues={{ count: holds.length }}
+        <Card title={copy.holds} id="spending-holds" issues={linked.issues}
           action={<TextLink href="/data-ops#spending-review">{copy.spendingReview}</TextLink>}>
           <p className="text-caption text-ink-2">{copy.holdsHint}</p>
           {snapshot.reviewIncomplete ? <p role="status" className="mt-2 text-caption text-warning">{copy.incomplete}</p> : null}

@@ -262,8 +262,10 @@ so its title and figure are on the first screen.
 `pnpm ui:shape --base <url>` measures both limits. Its routes and their lead ids
 are `SHAPE_ROUTES` in `scripts/page-shape.mjs`: `/tax-planning`
 (`#tax-plan-overview`), `/rebalance` (`#rebalance-lead`), `/positions/KR/005930`
-(`#position-lead`), `/cash-inflow` (`#cash-inflow-lead`) and `/review`
-(`#review-summary`). A new page joins the budget by adding a row there.
+(`#position-lead`), `/cash-inflow` (`#cash-inflow-lead`), `/review`
+(`#review-summary`) and `/spending` (`#spending-lead`; skipped where no
+spending ledger or snapshot is configured, since the route is a 404 there).
+A new page joins the budget by adding a row there.
 
 Two exceptions are already in the code and are not precedent:
 
