@@ -85,19 +85,34 @@ export default async function HoldingsPage({
     { key: 'native_unrealized_gl', label: copy.sort.gain, priority: 'secondary', description: copy.gainDescription, align: 'right', sortable: true, nowrap: true, render: (r) => <Signed value={r.native_unrealized_gl} format={(m) => money(m, r.currency)} /> },
     { key: 'base_unrealized_gl', label: copy.baseGain, description: copy.baseGainDescription, align: 'right', sortable: true, priority: 'tertiary', nowrap: true, render: (r) => <Signed value={r.base_unrealized_gl} format={(m) => money(m, 'KRW')} /> },
     { key: 'native_unrealized_gl_pct', label: copy.sort.return, align: 'right', sortable: true, nowrap: true, render: (r) => <Signed value={r.native_unrealized_gl_pct} format={(m) => fmtPct(m)} /> },
-    { key: 'long_term_qty', label: copy.longTerm, description: copy.longTermDescription, align: 'right', sortable: true, priority: 'tertiary', render: (r) => fmtNumber(r.long_term_qty, 2) },
-    { key: 'short_term_qty', label: copy.shortTerm, description: copy.shortTermDescription, align: 'right', sortable: true, priority: 'tertiary', render: (r) => fmtNumber(r.short_term_qty, 2) },
-    { key: 'lot_count', label: copy.taxLots, description: copy.lotDescription, align: 'right', sortable: true, priority: 'tertiary' },
+    { key: 'long_term_qty', label: copy.longTerm, description: copy.longTermDescription, align: 'right', sortable: true, priority: 'tertiary', nowrap: true, render: (r) => fmtNumber(r.long_term_qty, 2) },
+    { key: 'short_term_qty', label: copy.shortTerm, description: copy.shortTermDescription, align: 'right', sortable: true, priority: 'tertiary', nowrap: true, render: (r) => fmtNumber(r.short_term_qty, 2) },
+    { key: 'lot_count', label: copy.taxLots, description: copy.lotDescription, align: 'right', sortable: true, priority: 'tertiary', nowrap: true },
     {
       key: 'cost_status',
       label: copy.costStatusColumn,
+      // What each status means, said once here instead of in a per-row note
+      // column: that column repeated the badge as a sentence, and as the
+      // table's last, unwrapped column it collapsed to a few pixels and
+      // stretched every row to hundreds of pixels tall.
+      // Spans, not <p>/<dl>: the help panel is itself a span inside the header.
+      description: (
+        <>
+          <span className="block">{copy.costStatusDescription}</span>
+          {Object.keys(copy.costStatus).map((status) => (
+            <span key={status} className="mt-1.5 block">
+              <span className="block font-medium text-ink">{copy.costStatus[status]}</span>
+              <span className="block">{copy.costNotes[status]}</span>
+            </span>
+          ))}
+        </>
+      ),
       priority: 'secondary',
       sortable: true,
       sortFirst: 'asc',
       nowrap: true,
       render: (r) => <Badge tone={COST_BASIS_STATUS_TONE[r.cost_status] ?? 'neutral'}>{copy.costStatus[r.cost_status] ?? r.cost_status}</Badge>,
     },
-    { key: 'cost_note', label: copy.costNote, priority: 'tertiary', render: (r) => <div className="max-w-[20rem] text-label text-ink-3">{copy.costNotes[r.cost_status] ?? r.cost_note}</div> },
   ]
   const sort = knownSort(parseSort(params.sort, DEFAULT_SORT), sortableKeys(columns), DEFAULT_SORT)
   const filtered = sortRows(

@@ -45,8 +45,9 @@ export const holdings = defineCopy({
       unpriced: 'Unpriced',
     } as Record<string, string>,
     costStatusColumn: 'Sync Status',
-    costNote: 'Why',
+    costStatusDescription: 'Whether the cost and the current value behind this row are complete:',
     // One sentence per cost_status, as the adapter writes it into cost_note.
+    // Shown once, in the status column's help, rather than repeated on every row.
     costNotes: {
       missing_cost: 'Total Cost is missing or zero; verify this before relying on the row.',
       unpriced: 'Cost exists, but current value/price is missing.',
@@ -98,7 +99,7 @@ export const holdings = defineCopy({
       unpriced: '가격 없음',
     } as Record<string, string>,
     costStatusColumn: '동기화 상태',
-    costNote: '사유',
+    costStatusDescription: '이 행의 취득원가와 현재 평가금액이 완전한지 나타냅니다.',
     costNotes: {
       missing_cost: '총 취득원가가 없거나 0입니다. 이 행을 근거로 쓰기 전에 확인해 주세요.',
       unpriced: '취득원가는 있지만 현재 평가금액이나 가격이 없습니다.',
