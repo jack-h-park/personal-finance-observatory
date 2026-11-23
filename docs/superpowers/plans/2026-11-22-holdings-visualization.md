@@ -128,6 +128,23 @@ A chart card above the table, built like the overview's total-assets chart.
 - Beside the chart, a current-split `ShareBar` with the three shares and how
   each moved over the selected range ("미국 54% · 기간 중 +6%p").
 
+As built (2026-11-23):
+
+- A card above the table: range links (`?trend=`, 2Y default, shared with the
+  overview), an amount / share switch (`?mix=share`), the stacked chart, and
+  under it the current split as a `ShareBar` with each market's share and its
+  move in %p over the range. Both links keep the table's own filters and sort.
+- Data: past `portfolio_snapshots` (KR, US base, crypto base), then today's
+  point summed from the holdings rows, so the last point is the table's own
+  total (`lib/market-mix.ts`, tested). The chart ignores the table filters
+  and says so in its help.
+- The share moves are in neutral ink, not gain/loss colours: a market gaining
+  share is not good news in itself.
+- `StackedAssetChart` is now a thin wrapper over `StackedSeriesChart`
+  (`series: { key, label, color }[]`). Verified on the local database that the
+  overview, /net-worth and /net-worth share view draw identical area paths,
+  colours and legends before and after.
+
 ### V4 — Security weights over time (the Samsung / SK hynix question)
 
 The chart that answers "how has each stock's weight changed".
