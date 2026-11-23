@@ -3,8 +3,24 @@ import { spawn } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import { loadLocalEnv } from './env.mjs'
+import { anyMarketOpen, marketsOpen } from './market-hours.mjs'
+import { PRICE_ONLY_STEPS, keepPerKind } from './refresh-history.mjs'
 
 loadLocalEnv()
+
+// `--prices` runs only what moves a valuation between full refreshes: FX, the price
+// fetches, the ingest and the history backfill. The statement extractors, Toss and the
+// sheet publishes are most of a full run's 150 seconds and change only when a file is
+// filed, so a price-only run takes about 25 seconds and can run every half hour.
+// `--if-market-open` makes it a no-op outside the Korean and US sessions, so the
+// scheduler can fire on a fixed interval and daylight saving needs no cron arithmetic.
+const argv = new Set(process.argv.slice(2))
+const pricesOnly = argv.has('--prices')
+if (argv.has('--if-market-open') && !anyMarketOpen()) {
+  const open = marketsOpen()
+  console.log(`[refresh] no tracked market is open (KR ${open.KR ? 'open' : 'closed'}, US ${open.US ? 'open' : 'closed'}); skipping this price run`)
+  process.exit(0)
+}
 
 const historyPath = financeFile('STOCK_REFRESH_RUNS_PATH')
 const maxRuns = Number(process.env.STOCK_REFRESH_RUNS_LIMIT || 30)
@@ -123,6 +139,11 @@ const steps = [
   { name: 'publish:us-sheet', args: ['publish:us-sheet', '--apply'], optional: true },
 ]
 
+if (pricesOnly) {
+  const keep = steps.filter((step) => PRICE_ONLY_STEPS.has(step.name))
+  steps.splice(0, steps.length, ...keep)
+}
+
 const optionalSteps = new Set(steps.filter((step) => step.optional).map((step) => step.name))
 
 function isoNow() {
@@ -143,7 +164,7 @@ function readHistory() {
 }
 
 function writeHistory(run) {
-  const runs = [run, ...readHistory().filter((item) => item.id !== run.id)].slice(0, maxRuns)
+  const runs = keepPerKind([run, ...readHistory().filter((item) => item.id !== run.id)], maxRuns)
   fs.mkdirSync(path.dirname(historyPath), { recursive: true })
   fs.writeFileSync(historyPath, `${JSON.stringify({ runs }, null, 2)}\n`)
 }
@@ -197,6 +218,7 @@ const startedAt = isoNow()
 const started = Date.now()
 const run = {
   id: startedAt,
+  kind: pricesOnly ? 'prices' : 'full',
   startedAt,
   finishedAt: null,
   durationMs: null,
@@ -313,8 +335,11 @@ if (summary.status !== 'success') {
 
 // Match executed rebalance fills to the transactions this refresh just ingested. Best effort and
 // outside `steps`: a failure here is logged and never changes the refresh's exit status.
-console.log('\n== rebalance reconcile ==')
-const reconcileStep = await runStep({ name: 'rebalance-reconcile', args: ['rebalance:reconcile'] })
-if (reconcileStep.status !== 'success') {
-  console.log('Rebalance reconcile failed — proposals keep their previous reconciliation.')
+// A price-only run ingests no transactions, so there is nothing new to match.
+if (!pricesOnly) {
+  console.log('\n== rebalance reconcile ==')
+  const reconcileStep = await runStep({ name: 'rebalance-reconcile', args: ['rebalance:reconcile'] })
+  if (reconcileStep.status !== 'success') {
+    console.log('Rebalance reconcile failed — proposals keep their previous reconciliation.')
+  }
 }

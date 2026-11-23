@@ -1,6 +1,6 @@
 # Price refresh cadence
 
-**Status:** design, 2026-11-23. Nothing here is implemented. Phase 0 and Phase 1 are the proposal; Phase 2 is an option to decide on after Phase 1 has run.
+**Status:** 2026-11-23. Decisions made by the owner; Phase 1 is implemented in this change and not yet scheduled. Scheduling it on the ops host (the Hermes cron entry under Rollout) is a separate step that needs the owner's go-ahead. Phase 2 is deferred until Phase 1 has run.
 
 ## Why
 
@@ -69,9 +69,24 @@ Decide after Phase 1: if a twenty-minute Korean delay is acceptable at a 30-minu
 - Over a trading day, compare the number of price-only runs with the cron's firings and check the run history keeps the last full runs.
 - Rollback: pause the new Hermes cron entry. The full refresh schedule is unchanged throughout.
 
-## Decisions needed
+## Decisions (2026-11-23)
 
-1. Cadence inside market hours: 15 or 30 minutes (this design assumes 30).
-2. Whether crypto should be refreshed outside the stock sessions (it is cheap; this design refreshes it on every run).
-3. Whether the sheet publishes should join the price-only run.
-4. Whether to pursue Phase 2 after seeing Phase 1.
+1. **Cadence inside market hours: 30 minutes.** Korean quotes are already about twenty minutes behind at the provider, so 15 minutes would change little and doubles the load on an unofficial endpoint.
+2. **Crypto: refreshed on every price run.** It costs about four seconds and trades around the clock. Outside the Korean and US sessions no price run happens, so crypto then follows the six-hour full refresh.
+3. **Sheet publishes: not in the price run.** They add about fourteen seconds and spend Google quota for tabs that people read, not the app. They stay on the full refresh.
+4. **A faster Korean source: decide after Phase 1 has run.** If the twenty-minute delay still bothers, evaluate then.
+
+## What Phase 1 added
+
+- `pnpm refresh:prices` (`scripts/refresh.mjs --prices`) runs the steps in `PRICE_ONLY_STEPS` (`scripts/refresh-history.mjs`): `fetch:fx`, `fetch:kr-prices`, `fetch:gold-price`, `fetch:us-prices`, `fetch:crypto-prices`, `ingest`, `backfill:history`, then the summary. It shares the refresh lock. It skips the rebalance reconcile, since it ingests no transactions.
+- `--if-market-open` exits at once, before taking the lock, when neither the Korean nor the US session is open (`scripts/market-hours.mjs`, which reads each exchange's own time zone, with a twenty-minute grace after the close so the run after the bell fetches the closing price).
+- Run records carry `kind: 'prices' | 'full'`, and the history keeps the last thirty of each kind (`keepPerKind`), so price runs do not push the full runs out. `/health` shows the latest run of either kind.
+- `deploy/hermes/observatory-price-refresh-cron.sh` is the scheduler entry point: silent on success, silent on one failure, one message when two runs in a row failed, one when a run succeeds again. A run that did nothing (no market open, or the lock held) changes neither the state nor the log.
+
+Not done here: the market-aware freshness limits (a stock price older than about two hours while a market is open) are still the fixed 36 hours.
+
+## Rollout
+
+1. Deploy this change. Nothing runs yet.
+2. On the ops host, run `pnpm refresh:prices` once by hand while a market is open; confirm about 30 seconds, a clean `/health`, and a new price fetch time on `/holdings`.
+3. With the owner's go-ahead, add the Hermes entry in the `trader` profile: `hermes -p trader cron create` with the schedule `*/30 * * * *` and the script `observatory-price-refresh-cron.sh` (the script is installed beside `observatory-refresh-cron.sh` in that profile's `scripts` directory). Pause that entry to roll back; the six-hour and post-close full refreshes are untouched.
