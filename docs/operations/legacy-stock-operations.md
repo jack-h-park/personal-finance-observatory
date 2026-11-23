@@ -584,6 +584,20 @@ system one, which their own updaters replace (workspace-governance
 `$REPO/.venv/bin/python`; set the same path in `.env.local` for `make refresh`,
 the launchd refresh job and anything else that reads it.
 
+**Without `STOCK_PYTHON_BIN`, the checkout's `.venv` comes next.** The extract
+wrappers, the spending workbook reader and the tests resolve the interpreter
+through `scripts/python-bin.mjs`: `STOCK_PYTHON_BIN`, then
+`<checkout>/.venv/bin/python`, then `python3` from `PATH`. Before that the tests
+went straight to `python3`, so on a development machine they ran whatever `PATH`
+put first; on the MacBook that was Anaconda, which happened to carry the
+modules, until a shell without conda on `PATH` made 38 of them fail with
+`ModuleNotFoundError`. Each checkout and worktree needs its own `make python-env`.
+
+The lock also carries `msoffcrypto-tool`, which `scripts/file-downloads.py` needs
+to decrypt 토스뱅크 exports on the laptop. The ops host never sees an encrypted
+file, but a venv without the module refuses one, and the five encrypted-workbook
+tests skip.
+
 **Both extract modules come from the lock**, not just the one that fails
 loudly. A missing `pdfplumber` aborts the step, but a missing `openpyxl` only
 degrades — the Bithumb reason lookup returns nothing, prints one line to
