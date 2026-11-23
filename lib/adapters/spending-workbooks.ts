@@ -6,9 +6,9 @@ import { strictIsoDate } from '../domain/assets/query-coverage'
 import { object } from '../domain/assets/account-inventory/validation'
 import { normalizeSamsungBatch } from '../domain/spending-import'
 import type { WorkbookHold } from './spending-store'
+import { resolvePythonBin } from '../../scripts/python-bin.mjs'
 
 const reader = fileURLToPath(new URL('../../scripts/read-spending-workbooks.py', import.meta.url))
-const projectPython = fileURLToPath(new URL('../../.venv/bin/python', import.meta.url))
 const maxSize = 16 * 1024 * 1024
 const hash = (value: string) => createHash('sha256').update(value).digest('hex')
 
@@ -48,7 +48,7 @@ export function loadSpendingWorkbooks(options: {
   if (!options.accountIds.has(binding.accountId)) throw new Error('unknown_account')
   const samsung = workbookBytes(options.samsung)
   const banksalad = workbookBytes(options.banksalad)
-  const result = spawnSync(process.env.STOCK_PYTHON_BIN || (fs.existsSync(projectPython) ? projectPython : 'python3'), [reader], {
+  const result = spawnSync(resolvePythonBin(), [reader], {
     encoding: 'utf8',
     input: JSON.stringify({ binding, periodStart, periodEnd, samsung: samsung.toString('base64'), banksalad: banksalad.toString('base64') }),
     maxBuffer: 24 * 1024 * 1024,

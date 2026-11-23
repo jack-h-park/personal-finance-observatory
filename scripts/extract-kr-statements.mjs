@@ -1,10 +1,11 @@
 import { financeEnvironment } from './finance-paths.mjs'
 import { spawn } from 'node:child_process'
 import { loadLocalEnv } from './env.mjs'
+import { resolvePythonBin } from './python-bin.mjs'
 
 loadLocalEnv()
 
-const pythonBin = process.env.STOCK_PYTHON_BIN || 'python3'
+const pythonBin = resolvePythonBin()
 
 // Same trap as the US extractor: a bare interpreter name resolves through PATH,
 // and a scheduler's PATH is not a shell's. Say which interpreter was asked for

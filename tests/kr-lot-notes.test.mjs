@@ -4,6 +4,7 @@ import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
+import { PYTHON_BIN } from '../scripts/python-bin.mjs'
 
 // `build_lots` had two different problems sharing one output channel, and that
 // channel ended at stderr. Nothing turned them into a check, so on 2026-08-10 a
@@ -23,7 +24,7 @@ import test from 'node:test'
 // rather than requiring the dependency, because nothing under test reads a PDF.
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '..')
-const PY = process.env.STOCK_PYTHON_BIN || 'python3'
+const PY = PYTHON_BIN
 
 const TRANSACTION_COLUMNS = [
   'Date', 'Account', 'Type', 'Raw Type', 'Ticker', 'Name', 'Quantity',

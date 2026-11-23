@@ -1,6 +1,7 @@
 # Python side of the refresh pipeline: the extract scripts under scripts/*.py.
 # Not a package; this file exists to pin the interpreter and the two third-party
-# modules the extracts import, so every machine builds the same venv with
+# modules the extracts import (and msoffcrypto-tool, which the laptop's
+# file-downloads step needs), so every machine builds the same venv with
 # `make python-env` (uv sync --frozen into .venv). See
 # docs/operations/legacy-stock-operations.md, "Python for the extract steps".
 [project]
@@ -10,6 +11,9 @@ requires-python = ">=3.13"
 dependencies = [
   "pdfplumber>=0.11",
   "openpyxl>=3.1",
+  # Decrypts 토스뱅크 exports in scripts/file-downloads.py. Only the laptop sees
+  # encrypted files, but a venv without it refuses them, so it is pinned here too.
+  "msoffcrypto-tool>=5.4",
 ]
 
 [tool.uv]

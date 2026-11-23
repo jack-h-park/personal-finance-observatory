@@ -11,9 +11,10 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
+import { PYTHON_BIN } from '../scripts/python-bin.mjs'
 
 const ROOT = path.resolve(import.meta.dirname, '..')
-const PY = process.env.STOCK_PYTHON_BIN || 'python3'
+const PY = PYTHON_BIN
 
 const GENERAL_A = '111-000000042'
 const GENERAL_B = '222-000000042' // same last four as GENERAL_A, a different account

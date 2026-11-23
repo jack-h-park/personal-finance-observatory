@@ -9,6 +9,7 @@ import { config } from '@/config'
 import { replayPensionHistory } from '../scripts/pension-replay.mjs'
 import { runIngest } from './ingest-harness'
 import { CHILD_OWNER, CHILD_PENSION, writeScenario } from './pension-fixtures'
+import { PYTHON_BIN } from '../scripts/python-bin.mjs'
 
 // A child's 연금저축 certificate carries its history from the first deposit, and
 // the trend shows it before the snapshot: the trades replayed and valued at each
@@ -150,7 +151,7 @@ test('the replay leaves alone what it cannot value, and prefers the printed cash
 // map's per-account password and typed as pension contributions. No PDF is read;
 // the harness calls the helpers with an invented map.
 const REPO_ROOT = path.resolve(import.meta.dirname, '..')
-const PY = process.env.STOCK_PYTHON_BIN || 'python3'
+const PY = PYTHON_BIN
 const HARNESS = `
 import importlib.util, json, sys, types
 from pathlib import Path

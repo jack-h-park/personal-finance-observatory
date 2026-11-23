@@ -2,12 +2,13 @@ import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import path from 'node:path'
 import test from 'node:test'
+import { PYTHON_BIN } from '../scripts/python-bin.mjs'
 
 // An own account no statement covers, rebuilt from the rows of the statement that fed it
 // (scripts/extract-bank-statements.py, derive_accounts). Every figure below is invented.
 
 const ROOT = path.resolve(import.meta.dirname, '..')
-const PY = process.env.STOCK_PYTHON_BIN || 'python3'
+const PY = PYTHON_BIN
 
 type Row = { date: string; seq: number; amount: number; description: string }
 

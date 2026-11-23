@@ -61,7 +61,7 @@ install: require-tools
 python-env:
 	@test -n "$(UV_BIN)" || { echo "uv not found: not on PATH, and not in $(TOOL_DIRS)."; exit 1; }
 	$(UV_BIN) sync --frozen --managed-python
-	@.venv/bin/python -c 'import sys, pdfplumber, openpyxl; print("extract venv:", sys.version.split()[0], sys.executable)'
+	@.venv/bin/python -c 'import sys, pdfplumber, openpyxl, msoffcrypto; print("extract venv:", sys.version.split()[0], sys.executable)'
 
 ingest: require-tools
 	$(PNPM) ingest

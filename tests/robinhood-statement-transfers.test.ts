@@ -9,9 +9,10 @@ import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 import { anchoredCashSeries } from '../scripts/anchored-cash.mjs'
+import { PYTHON_BIN } from '../scripts/python-bin.mjs'
 
 const ROOT = path.resolve(import.meta.dirname, '..')
-const PY = process.env.STOCK_PYTHON_BIN || 'python3'
+const PY = PYTHON_BIN
 
 function parse(lines: string[]) {
   const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'rh-transfer-'))

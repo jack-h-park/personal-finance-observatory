@@ -6,9 +6,10 @@ import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import path from 'node:path'
 import test from 'node:test'
+import { PYTHON_BIN } from '../scripts/python-bin.mjs'
 
 const ROOT = path.resolve(import.meta.dirname, '..')
-const PY = process.env.STOCK_PYTHON_BIN || 'python3'
+const PY = PYTHON_BIN
 
 type Doc = { name: string; start: string; end: string }
 type Row = { source: string; date: string; id: string }

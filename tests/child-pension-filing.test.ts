@@ -8,9 +8,10 @@ import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
+import { PYTHON_BIN } from '../scripts/python-bin.mjs'
 
 const ROOT = path.resolve(import.meta.dirname, '..')
-const PY = process.env.STOCK_PYTHON_BIN || 'python3'
+const PY = PYTHON_BIN
 
 const CHILD = '900-0000-0000-1'
 const RETIRED = '900-0000-0000-2'

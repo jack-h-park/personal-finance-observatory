@@ -4,6 +4,7 @@ import { existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, writeFil
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
+import { PYTHON_BIN } from '../scripts/python-bin.mjs'
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '..')
 
@@ -14,7 +15,7 @@ function fileDownloads(files: Record<string, string | Buffer>, opts: { dryRun?: 
   // Always point the filer at a map of the test's own, so a real data/accounts.local.json never leaks in.
   const mapPath = path.join(dataDir, opts.map ? 'map.json' : 'no-map.json')
   if (opts.map) writeFileSync(mapPath, JSON.stringify(opts.map))
-  const result = spawnSync(process.env.STOCK_PYTHON_BIN || 'python3', ['scripts/file-downloads.py', ...(opts.dryRun === false ? [] : ['--dry-run'])], {
+  const result = spawnSync(PYTHON_BIN, ['scripts/file-downloads.py', ...(opts.dryRun === false ? [] : ['--dry-run'])], {
     cwd: REPO_ROOT,
     encoding: 'utf8',
     env: { ...process.env, STOCK_DATA_DIR: dataDir, STOCK_TOSSBANK_PASSWORD: opts.password ?? '', STOCK_ACCOUNT_MAP_PATH: mapPath },
@@ -101,7 +102,7 @@ test('an encrypted 토스뱅크 export without a password is refused with the va
 })
 
 // --- real-work path: needs msoffcrypto + openpyxl in the python the filer uses ---
-const PY = process.env.STOCK_PYTHON_BIN || 'python3'
+const PY = PYTHON_BIN
 const HAVE_CRYPTO = spawnSync(PY, ['-c', 'import msoffcrypto, openpyxl']).status === 0
 const PASSWORD = 'dummy-test-password'
 

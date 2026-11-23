@@ -7,6 +7,7 @@ import test from 'node:test'
 import Database from 'better-sqlite3'
 import { runIngest } from './ingest-harness'
 import { writeSheetPayloads } from './sheet-payloads'
+import { PYTHON_BIN } from '../scripts/python-bin.mjs'
 
 // Korean 거래내역증명서 are requested for a period, so downloads overlap. The
 // extractor used to resolve only one period strictly inside another; a partial
@@ -20,7 +21,7 @@ import { writeSheetPayloads } from './sheet-payloads'
 // fixed answers, so these cases pin the decision, not the parsing.
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '..')
-const PY = process.env.STOCK_PYTHON_BIN || 'python3'
+const PY = PYTHON_BIN
 
 const HARNESS = `
 import importlib.util, json, sys, types

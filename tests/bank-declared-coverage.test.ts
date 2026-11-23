@@ -5,6 +5,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
+import { PYTHON_BIN } from '../scripts/python-bin.mjs'
 
 const root = path.resolve(import.meta.dirname, '..')
 function extract(files: Record<string, string>, bankAccounts: object[] = [], setup = '') {
@@ -13,7 +14,7 @@ function extract(files: Record<string, string>, bankAccounts: object[] = [], set
     mkdirSync(path.join(dir, 'bank-statements'))
     for (const [name, body] of Object.entries(files)) writeFileSync(path.join(dir, 'bank-statements', name), body)
     writeFileSync(path.join(dir, 'map.json'), JSON.stringify({ bankAccounts }))
-    execFileSync('python3', ['-c', `
+    execFileSync(PYTHON_BIN, ['-c', `
 import importlib.util
 spec=importlib.util.spec_from_file_location('bank', 'scripts/extract-bank-statements.py')
 m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
@@ -83,7 +84,7 @@ m._xls_rows=source_rows
   assert.match(doc.findings.join(' '), /ambiguous.*time/)
 })
 test('a named Toss transfer matches its opposite KB bank leg', () => {
-  const output = execFileSync('python3', ['-c', `
+  const output = execFileSync(PYTHON_BIN, ['-c', `
 import importlib.util, json
 spec=importlib.util.spec_from_file_location('bank','scripts/extract-bank-statements.py'); m=importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
 a={'date':'2026-10-01','seq':0,'amount':-100,'counterpartyInstitution':'KB국민은행','description':'transfer'}
@@ -94,7 +95,7 @@ print(json.dumps([a.get('ownTransfer',False),b.get('ownTransfer',False)]))
   assert.deepEqual(JSON.parse(output), [true, true])
 })
 test('an unmatched KB transaction never creates an estimated Mirae account', () => {
-  const output = execFileSync('python3', ['-c', `
+  const output = execFileSync(PYTHON_BIN, ['-c', `
 import importlib.util, json
 spec=importlib.util.spec_from_file_location('bank','scripts/extract-bank-statements.py'); m=importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
 m.MIN_ESTIMATE_KRW=1

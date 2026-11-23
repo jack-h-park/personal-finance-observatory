@@ -4,6 +4,7 @@ import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
+import { PYTHON_BIN } from '../scripts/python-bin.mjs'
 
 // The pension and gold documents the filer has to recognise: 미래에셋 IRP and
 // 금현물 거래내역증명서, the 삼성 연금저축 ledger, the hand-made pension holdings
@@ -15,7 +16,7 @@ import test from 'node:test'
 // detectors read and this repository is public.
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '..')
-const PY = process.env.STOCK_PYTHON_BIN || 'python3'
+const PY = PYTHON_BIN
 
 /**
  * A minimal PDF whose pages carry `pages[i]` as lines of text.
