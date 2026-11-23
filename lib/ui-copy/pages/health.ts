@@ -35,7 +35,7 @@ export const health = defineCopy({
     operationalStatusInfo:
       'Shows whether prices, FX rates, and source files are collected normally and agree with each other.',
     stalenessNote:
-      'Korean and US stock prices are marked stale after 36 hours, crypto after 8 hours, and FX after 7 days. Source files are marked changed when their size or modified time differs from ingestion.',
+      'Korean and US stock prices are marked stale after 36 hours, or after 2 hours once that market has been open for 90 minutes; crypto after 8 hours, and FX after 7 days. Source files are marked changed when their size or modified time differs from ingestion.',
 
     priceFxFreshness: 'Price & FX Freshness',
 
@@ -116,7 +116,7 @@ export const health = defineCopy({
     operationalStatus: '운영 상태',
     operationalStatusInfo: '가격·환율·원본 파일이 정상적으로 수집되고 서로 일치하는지 보여줍니다.',
     stalenessNote:
-      '한국·미국 주식 가격은 36시간, 암호화폐는 8시간, 환율은 7일이 지나면 오래된 것으로 표시합니다. 원본 파일은 크기나 수정 시각이 수집 당시와 다르면 변경된 것으로 표시합니다.',
+      '한국·미국 주식 가격은 36시간, 해당 시장이 열린 지 90분이 지난 뒤에는 2시간, 암호화폐는 8시간, 환율은 7일이 지나면 오래된 것으로 표시합니다. 원본 파일은 크기나 수정 시각이 수집 당시와 다르면 변경된 것으로 표시합니다.',
 
     priceFxFreshness: '가격·환율 최신성',
 

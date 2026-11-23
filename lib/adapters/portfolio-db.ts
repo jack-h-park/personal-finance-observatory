@@ -1,3 +1,4 @@
+import { priceStaleAfterMs } from '@/lib/price-staleness'
 import { cryptoStatementCoverageEnd, strictIsoDate } from '@/lib/domain/assets/query-coverage'
 import { readStatementPeriodEvidence, type StatementPeriodEvidence } from '@/lib/domain/assets/statement-periods'
 import { collectAssetCoverage, dateRange } from '@/lib/application/asset-coverage'
@@ -2875,7 +2876,10 @@ export function getOperationalHealth(): OperationalHealth {
     const cryptoPrices = readJson(config.stockCryptoPricesPath)
     const fxRates = readJson(config.stockFxRatesPath)
     const fxRate = fxRates?.rates?.[0]
-    const priceThresholdMs = 36 * 60 * 60 * 1000
+    // A stock price is stale after 36 hours, or after two once its market has been open for a while
+    // and the half-hourly price job should have refreshed it (lib/price-staleness.ts).
+    const krPriceThresholdMs = priceStaleAfterMs('KR')
+    const usPriceThresholdMs = priceStaleAfterMs('US')
     // Crypto trades continuously, so a quote is never "as fresh as the last
     // close" — it is simply old. The 36h equity threshold spans a weekend on
     // purpose and would pass a crypto quote that is a full trading day and a
@@ -2888,7 +2892,7 @@ export function getOperationalHealth(): OperationalHealth {
         category: 'price',
         path: config.stockKrPricesPath,
         observedAt: krPrices?.generatedAt ?? statMtimeIso(config.stockKrPricesPath),
-        thresholdMs: priceThresholdMs,
+        thresholdMs: krPriceThresholdMs,
         detail: {
           code: 'PRICE_SNAPSHOT',
           count: krPrices?.prices?.length ?? 0,
@@ -2902,7 +2906,7 @@ export function getOperationalHealth(): OperationalHealth {
         category: 'price',
         path: config.stockUsPricesPath,
         observedAt: usPrices?.generatedAt ?? statMtimeIso(config.stockUsPricesPath),
-        thresholdMs: priceThresholdMs,
+        thresholdMs: usPriceThresholdMs,
         detail: {
           code: 'PRICE_SNAPSHOT',
           count: usPrices?.prices?.length ?? 0,
@@ -2935,7 +2939,7 @@ export function getOperationalHealth(): OperationalHealth {
           ? { code: 'FX_RATE', rate: fxRate.rate, source: fxRate.source }
           : { code: 'FX_RATE_MISSING' },
       }),
-      ...snapshotPriceFreshness(conn, priceThresholdMs),
+      ...snapshotPriceFreshness(conn, Math.min(krPriceThresholdMs, usPriceThresholdMs)),
     ]
     const sourceDrift = sourceRows.map(sourceFreshness)
     const items = [...snapshots, ...sourceDrift]

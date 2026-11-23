@@ -1,3 +1,4 @@
+import { PRICE_STALE_BASE_MS, anyPriceStaleAfterMs } from '@/lib/price-staleness'
 import type { PortfolioSnapshot } from '@/lib/adapters/portfolio-db'
 
 /**
@@ -129,8 +130,8 @@ export function combinedTrendPoints(snapshots: PortfolioSnapshot[], scope: Trend
   }))
 }
 
-/** Same threshold the freshness card applies to equity prices: refresh runs every six hours. */
-export const SNAPSHOT_STALE_AFTER_MS = 36 * 60 * 60 * 1000
+/** The weekend-proof limit for a snapshot; while a market is open it is tighter (lib/price-staleness.ts). */
+export const SNAPSHOT_STALE_AFTER_MS = PRICE_STALE_BASE_MS
 
 export type SnapshotPriceDate = { market: 'KR' | 'US' | 'CRYPTO'; newest: string; oldest: string | null }
 
@@ -161,5 +162,5 @@ export function snapshotPriceDates(snapshot: PortfolioSnapshot | undefined, scop
 /** True when the snapshot was written longer ago than a working refresh allows. */
 export function isSnapshotStale(capturedAt: string | undefined, now: number = Date.now()): boolean {
   const written = capturedAt ? Date.parse(capturedAt) : NaN
-  return Number.isFinite(written) && now - written > SNAPSHOT_STALE_AFTER_MS
+  return Number.isFinite(written) && now - written > anyPriceStaleAfterMs(new Date(now))
 }

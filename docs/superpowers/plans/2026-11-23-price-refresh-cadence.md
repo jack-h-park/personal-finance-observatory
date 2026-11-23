@@ -83,7 +83,7 @@ Decide after Phase 1: if a twenty-minute Korean delay is acceptable at a 30-minu
 - Run records carry `kind: 'prices' | 'full'`, and the history keeps the last thirty of each kind (`keepPerKind`), so price runs do not push the full runs out. `/health` shows the latest run of either kind.
 - `deploy/hermes/observatory-price-refresh-cron.sh` is the scheduler entry point: silent on success, silent on one failure, one message when two runs in a row failed, one when a run succeeds again. A run that did nothing (no market open, or the lock held) changes neither the state nor the log.
 
-Not done here: the market-aware freshness limits (a stock price older than about two hours while a market is open) are still the fixed 36 hours.
+Freshness limits follow the cadence (`lib/price-staleness.ts`): a Korean or US stock price is stale after 36 hours, as before, or after two hours once that market has been open for 90 minutes, when the half-hourly job should have refreshed it. The 90 minutes keep the previous close from reading as stale before the first run of the day has had its turn. The `/health` freshness rows, the Overview's stale-snapshot warning and the price-date snapshot row use it; crypto stays at 8 hours and FX at 7 days.
 
 ## Rollout
 
