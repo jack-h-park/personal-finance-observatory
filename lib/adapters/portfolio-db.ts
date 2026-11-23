@@ -278,8 +278,8 @@ export type FreshnessStatus = 'fresh' | 'stale' | 'drift' | 'missing'
 
 /** What a freshness row says, as a code and its values; the sentence is copy (`common.freshness.detail`). */
 export type FreshnessDetail =
-  | { code: 'PRICE_SNAPSHOT'; count: number; marketDate: string | null; source?: string | null }
-  | { code: 'CRYPTO_SNAPSHOT'; count: number; quotes: string[]; source?: string | null }
+  | { code: 'PRICE_SNAPSHOT'; count: number; marketDate: string | null; source?: string | null; quotedNewest?: string | null; quotedOldest?: string | null }
+  | { code: 'CRYPTO_SNAPSHOT'; count: number; quotes: string[]; source?: string | null; quotedNewest?: string | null; quotedOldest?: string | null }
   | { code: 'FX_RATE'; rate: number; source: string }
   | { code: 'FX_RATE_MISSING' }
   | { code: 'SOURCE_MISSING' }
@@ -2809,6 +2809,23 @@ function snapshotPriceFreshness(conn: Database.Database, thresholdMs: number): F
   ]
 }
 
+/**
+ * The newest and oldest quote time in a price file, as ISO strings: each price's
+ * `regularMarketTime` (epoch seconds) or, for crypto, its `quotedAt`. Both null
+ * when no price carries one.
+ */
+function quoteWindow(prices: unknown): { quotedNewest: string | null; quotedOldest: string | null } {
+  const times = (Array.isArray(prices) ? prices : [])
+    .map((price: any) => {
+      if (typeof price?.regularMarketTime === 'number') return price.regularMarketTime * 1000
+      const parsed = typeof price?.quotedAt === 'string' ? Date.parse(price.quotedAt) : NaN
+      return Number.isFinite(parsed) ? parsed : null
+    })
+    .filter((ms): ms is number => ms != null)
+  if (!times.length) return { quotedNewest: null, quotedOldest: null }
+  return { quotedNewest: new Date(Math.max(...times)).toISOString(), quotedOldest: new Date(Math.min(...times)).toISOString() }
+}
+
 /** A price file's own `source` field as text, or null when it names none. */
 function sourceText(value: unknown): string | null {
   return typeof value === 'string' && value.trim() ? value.trim() : null
@@ -2854,6 +2871,7 @@ export function getOperationalHealth(): OperationalHealth {
           count: krPrices?.prices?.length ?? 0,
           marketDate: krPrices?.prices?.[0]?.asOfDate ?? null,
           source: sourceText(krPrices?.source),
+          ...quoteWindow(krPrices?.prices),
         },
       }),
       snapshotFreshness({
@@ -2867,6 +2885,7 @@ export function getOperationalHealth(): OperationalHealth {
           count: usPrices?.prices?.length ?? 0,
           marketDate: usPrices?.prices?.[0]?.asOfDate ?? null,
           source: sourceText(usPrices?.source),
+          ...quoteWindow(usPrices?.prices),
         },
       }),
       snapshotFreshness({
@@ -2880,6 +2899,7 @@ export function getOperationalHealth(): OperationalHealth {
           count: cryptoPrices?.prices?.length ?? 0,
           quotes: cryptoPrices?.prices?.map((price: any) => `${price.venue} ${price.symbol}`) ?? [],
           source: sourceText(cryptoPrices?.source),
+          ...quoteWindow(cryptoPrices?.prices),
         },
       }),
       snapshotFreshness({
