@@ -333,38 +333,60 @@ const STACK_ORDER: readonly AssetClass[] = ['stocks', 'crypto', 'cash', 'pension
  */
 type StackedAssetPoint = { date: string; total: number; children?: number | null } & Record<AssetClass, number | null>
 
+/** One stacked band: the point field it reads, its legend and tooltip name, and its colour. */
+export type StackedSeries = { key: string; label: string; color: string }
+type StackedSeriesPoint = { date: string; total: number; children?: number | null } & Record<string, number | null | undefined | string>
+
 /**
- * Every asset class stacked, one area each, values already in the display
- * currency. A class that has not started is null and draws nothing
- * (recharts stacks it as zero), and a dashed line marks where each class after
- * the first date begins. The tooltip lists every class, with a dash for one not
- * yet started, and the total.
+ * Every asset class stacked: StackedSeriesChart with the classes' fixed
+ * colours, in the fixed stack order, limited to `classes`.
  */
 export function StackedAssetChart({
-  points,
-  startsOn,
   labels,
+  classes = STACK_ORDER,
+  ...rest
+}: Omit<Parameters<typeof StackedSeriesChart>[0], 'series' | 'totalLabel' | 'points'> & {
+  points: StackedAssetPoint[]
+  labels: Record<AssetClass | 'total', string>
+  /** The classes drawn, in any order (stack order is fixed); a class left out draws no area, start line or tooltip row. */
+  classes?: readonly AssetClass[]
+}) {
+  const series = STACK_ORDER.filter((key) => classes.includes(key)).map((key) => ({ key, label: labels[key], color: ASSET_CLASS_COLOR[key] }))
+  return <StackedSeriesChart {...rest} series={series} totalLabel={labels.total} />
+}
+
+/**
+ * Series stacked, one area each, values already in the chart's unit. A series
+ * that has not started is null and draws nothing (recharts stacks it as zero),
+ * and a dashed line marks where each series after the first date begins. The
+ * tooltip lists every series, with a dash for one not yet started, and the total.
+ */
+export function StackedSeriesChart({
+  points,
+  startsOn = {},
+  series,
+  totalLabel,
   height = 260,
   axisLabel,
   markers = [],
   childrenBand,
-  classes = STACK_ORDER,
   unit,
   language,
   emptyMessage,
   rangeSelect,
 }: ChartContract & {
-  points: StackedAssetPoint[]
-  startsOn: Partial<Record<AssetClass, string>>
-  labels: Record<AssetClass | 'total', string>
+  points: StackedSeriesPoint[]
+  /** Where each series begins, for the dashed start lines. */
+  startsOn?: Partial<Record<string, string>>
+  /** Bottom of the stack first. */
+  series: readonly StackedSeries[]
+  totalLabel: string
   height?: number
   axisLabel?: string
   /** Numbered event markers (lib/asset-events chartMarkers), one per plotted date. */
   markers?: { date: string; label: string }[]
   /** Labels for the children's band and the combined total, when the page includes the children. Absent: no band. */
   childrenBand?: { label: string; combinedLabel: string }
-  /** The classes drawn, in any order (stack order is fixed); a class left out draws no area, start line or tooltip row. */
-  classes?: readonly AssetClass[]
   /**
    * Turns on drag-to-select: dragging across the plot navigates to `baseHref`
    * with `from`/`to` set. `from`/`to` are the period already in the URL (drawn
@@ -375,9 +397,10 @@ export function StackedAssetChart({
   const router = useRouter()
   const [dragStart, setDragStart] = useState<string | null>(null)
   const [dragEnd, setDragEnd] = useState<string | null>(null)
-  const shown = STACK_ORDER.filter((key) => classes.includes(key))
+  const shown = series.map((s) => s.key)
   const seriesKeys: string[] = childrenBand ? [...shown, 'children'] : [...shown]
-  if (!hasPlottablePoint(points, seriesKeys)) return <EmptyState>{emptyMessage}</EmptyState>
+  const rows: Record<string, unknown>[] = points
+  if (!hasPlottablePoint(rows, seriesKeys)) return <EmptyState>{emptyMessage}</EmptyState>
   const formatValue = (value: number) => tooltipValue(value, unit, language)
   const firstDate = points[0]?.date
   const starts = shown.filter((key) => startsOn[key] && startsOn[key] !== firstDate)
@@ -415,7 +438,11 @@ export function StackedAssetChart({
         <Tooltip
           content={({ active, label, payload }) => {
             if (!active || !payload?.length) return null
-            const point = payload[0].payload as StackedAssetPoint
+            const point = payload[0].payload as StackedSeriesPoint
+            const valueOf = (key: string) => {
+              const v = point[key]
+              return typeof v === 'number' ? v : null
+            }
             return (
               <div style={{ ...TOOLTIP_SURFACE, padding: '6px 8px' }}>
                 <div style={{ marginBottom: 4, color: 'var(--text-tertiary)' }}>{label}</div>
@@ -425,14 +452,14 @@ export function StackedAssetChart({
                     <span style={{ fontVariantNumeric: 'tabular-nums' }}>{point.children == null ? EMPTY_VALUE : formatValue(point.children)}</span>
                   </div>
                 ) : null}
-                {[...shown].reverse().map((key) => (
-                  <div key={key} style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-                    <span style={{ color: ASSET_CLASS_COLOR[key] }}>{labels[key]}</span>
-                    <span style={{ fontVariantNumeric: 'tabular-nums' }}>{point[key] == null ? EMPTY_VALUE : formatValue(point[key]!)}</span>
+                {[...series].reverse().map((s) => (
+                  <div key={s.key} style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                    <span style={{ color: s.color }}>{s.label}</span>
+                    <span style={{ fontVariantNumeric: 'tabular-nums' }}>{valueOf(s.key) == null ? EMPTY_VALUE : formatValue(valueOf(s.key)!)}</span>
                   </div>
                 ))}
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginTop: 4, borderTop: '1px solid var(--border-subtle)', paddingTop: 4, fontWeight: 500 }}>
-                  <span>{labels.total}</span>
+                  <span>{totalLabel}</span>
                   <span style={{ fontVariantNumeric: 'tabular-nums' }}>{formatValue(point.total)}</span>
                 </div>
                 {childrenBand ? (
@@ -447,7 +474,7 @@ export function StackedAssetChart({
         />
         <Legend wrapperStyle={{ fontSize: 11 }} />
         {starts.map((key) => (
-          <ReferenceLine key={key} x={startsOn[key]} stroke={ASSET_CLASS_COLOR[key]} strokeDasharray="3 3" />
+          <ReferenceLine key={key} x={startsOn[key]} stroke={series.find((s) => s.key === key)!.color} strokeDasharray="3 3" />
         ))}
         {markers.map((marker) => (
           <ReferenceLine
@@ -458,15 +485,15 @@ export function StackedAssetChart({
             label={{ value: marker.label, position: 'top', fontSize: 10, fill: 'var(--text-secondary)' }}
           />
         ))}
-        {shown.map((key) => (
+        {series.map((s) => (
           <Area
-            key={key}
+            key={s.key}
             type="linear"
-            dataKey={key}
-            name={labels[key]}
+            dataKey={s.key}
+            name={s.label}
             stackId="assets"
-            stroke={ASSET_CLASS_COLOR[key]}
-            fill={ASSET_CLASS_COLOR[key]}
+            stroke={s.color}
+            fill={s.color}
             fillOpacity={0.35}
             strokeWidth={1.5}
             connectNulls={false}
