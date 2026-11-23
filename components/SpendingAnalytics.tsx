@@ -7,7 +7,9 @@ import type { analyzeSpending, SpendingRank, SpendingViewRow } from '@/lib/domai
 import { EMPTY_VALUE } from '@/lib/format'
 import type { Language } from '@/lib/i18n'
 import { getPageCopy } from '@/lib/ui-copy'
-import { marketColor } from '@/lib/palette'
+import { marketColor, spendingShareColor } from '@/lib/palette'
+import { categoryShareItems, spendingCategoryName } from '@/lib/spending-categories'
+import { ShareSummary } from '@/components/ShareSummary'
 import Link from 'next/link'
 
 const currencies = ['USD', 'KRW'] as const
@@ -29,6 +31,7 @@ export function SpendingAnalytics({ data, language, currentMonth, amount, count,
 }) {
   const copy = getPageCopy('spending', language)
   const months = [...data.combined.months].reverse()
+  const shares = categoryShareItems(data.combined, 6)
   const ranking = (rows: SpendingRank[], kind: 'category' | 'merchant', emptyMessage: string) => (
     rows.length ? <ol className="divide-y divide-line-subtle">
       {rows.slice(0, topCount).map(row => (
@@ -93,11 +96,20 @@ export function SpendingAnalytics({ data, language, currentMonth, amount, count,
 
       <CardRow spacing="none">
         <Card title={copy.categories} id="spending-categories" info={copy.rankingHint}>
-          {ranking(data.combined.categories, 'category', data.combined.largest.length ? copy.noCategories : copy.noPurchases)}
-          {data.combined.uncategorized.count ? <p className="flex flex-wrap justify-between gap-2 py-2 text-caption text-ink-2">
-            <span>{copy.missingCategory(count(data.combined.uncategorized.count))}</span>
-            <span className="font-mono tabular-nums">{amount(data.combined.uncategorized.amountMinor, 'KRW')}</span>
-          </p> : null}
+          {shares.length ? (
+            <ShareSummary
+              title={copy.categoryShareTitle}
+              items={shares.map((item, index) => ({
+                key: item.key,
+                color: spendingShareColor(item.key, index),
+                pct: item.pct,
+                label: item.key === 'rest' ? copy.categoryRest
+                  : item.key === 'uncategorized' ? copy.uncategorized
+                  : <TextLink href={rankingHref('category', item.key)}>{spendingCategoryName(item.key, copy.categoryNames)}</TextLink>,
+                detail: `${amount(item.amountMinor, 'KRW')} · ${count(item.count)}`,
+              }))}
+            />
+          ) : <Note size="caption">{copy.noPurchases}</Note>}
           {data.combined.categories.length ? <details>
             <summary className={disclosureClass}>{copy.source}</summary>
             <Note size="caption">{copy.categoryEvidence(count(data.combined.categorySources.issuer),
@@ -105,8 +117,7 @@ export function SpendingAnalytics({ data, language, currentMonth, amount, count,
           </details> : null}
         </Card>
 
-        <Card title={copy.largeSpending} id="spending-large" info={copy.rankingHint}>
-          <h3 className="text-caption font-medium">{copy.merchantTotals}</h3>
+        <Card title={copy.merchants} id="spending-merchants" info={copy.rankingHint}>
           {ranking(data.combined.merchants, 'merchant', copy.noPurchases)}
           {data.combined.largest.length ? <details>
             <summary className={disclosureClass}>{copy.largestPurchases}</summary>
