@@ -1,7 +1,13 @@
 import { strict as assert } from 'node:assert'
 import { test } from 'node:test'
 
-import { SHAPE_ROUTES, shapeVerdict } from '../scripts/page-shape.mjs'
+import * as React from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
+
+import { Card, MetricHeroCard } from '@/components/ui'
+import { CARD_SELECTOR, SHAPE_ROUTES, shapeVerdict } from '../scripts/page-shape.mjs'
+
+;(globalThis as { React?: typeof React }).React = React
 
 test('a page at both limits passes', () => {
   assert.deepEqual(shapeVerdict({ cards: 10, leadTop: 840 }), [])
@@ -30,4 +36,15 @@ test('the checked routes are the five R5 pages and /spending', () => {
     SHAPE_ROUTES.map((r: { path: string }) => r.path),
     ['/tax-planning', '/rebalance', '/positions/KR/005930', '/cash-inflow', '/review', '/spending']
   )
+})
+
+// The card budget counts what this selector finds; when the card markup changed
+// in #358 (no shadow on data cards) the old selector matched nothing and every
+// page read as 0 cards. The selector and the card component must agree.
+test('the card selector matches what Card and MetricHeroCard render', () => {
+  assert.equal(CARD_SELECTOR, 'main section[data-card]')
+  for (const html of [
+    renderToStaticMarkup(React.createElement(Card, { title: 'T' }, 'x')),
+    renderToStaticMarkup(React.createElement(MetricHeroCard, { title: 'T', value: '1' } as never)),
+  ]) assert.match(html, /^<section[^>]* data-card=""/)
 })
