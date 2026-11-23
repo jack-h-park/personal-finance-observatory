@@ -137,8 +137,10 @@ A cash row sets `kind: "cash"` and `amount`. A holding row sets
 `kind: "holding"`, `ticker` and `quantity`. Quotes and FX use the existing
 valuation sources. Record only explicitly approved observations in this file.
 
-The current asset summary replaces matching keys and preserves unrelated
-observations. A duplicate, conflicting or missing match leaves the approved
+The current asset summary and the Holdings page use the approved current
+quantities. The summary replaces matching keys and preserves unrelated
+observations. A holding with a changed quantity retains its prior cost for
+reference and suppresses the gain and lot-count display. A duplicate, conflicting or missing match leaves the approved
 file unapplied. A later existing observation takes precedence. Account-level
 portfolio value and cash-equivalent holdings must stay outside a cash receipt
 when they would overlap an existing cash or position row. This entry point

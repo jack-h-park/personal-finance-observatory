@@ -56,7 +56,7 @@ export function applyApprovedCurrentAssets(
     // A later issuer observation supersedes a previously approved point-in-time snapshot.
     if (before.asOf && before.asOf > row.asOf) continue
     if (cash) {
-      replacements.set(target, { ...before, asOf: row.asOf, valueKrw: row.amount * rate,
+      replacements.set(target, { ...before, approvedConnector: true, asOf: row.asOf, valueKrw: row.amount * rate,
         nativeAmount: row.amount, method: 'snapshot', derived: false })
     } else {
       if (!before.quantity || before.quantity <= 0) return existing
@@ -65,7 +65,7 @@ export function applyApprovedCurrentAssets(
       const nativeAmount = before.nativeAmount == null ? undefined : before.nativeAmount * factor
       if (!Number.isFinite(valueKrw) || (nativeAmount !== undefined && !Number.isFinite(nativeAmount))) return existing
       // Keep the market quote and its valuation date. The connector supplies quantity only.
-      replacements.set(target, { ...before, quantity: row.quantity, valueKrw, nativeAmount })
+      replacements.set(target, { ...before, approvedConnector: true, quantity: row.quantity, valueKrw, nativeAmount })
     }
   }
   if (!replacements.size) return existing
