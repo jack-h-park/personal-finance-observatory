@@ -92,6 +92,27 @@ horizontal scroll.
 - Optional grouping toggle: flat list / grouped by market with a subtotal row
   per market.
 
+As built (2026-11-23):
+
+- Eight columns from 1280 px (종목, 계좌, 비중, 취득원가, 평가금액, 평가손익,
+  수익률, 12개월 추이), eleven from 2xl (1536 px), four on a phone. No
+  sideways scroll at a 1374 px window.
+- The market badge moved into the instrument cell. Quantity, tax lots and the
+  status column are a new `wide` priority (`hidden 2xl:table-cell`). Below
+  2xl a row whose own figures are incomplete (`missing_cost`, `unpriced`)
+  shows its status badge under the name; `estimated` rows stay quiet, since
+  only their tax-lot coverage is incomplete.
+- Weight bars are drawn against the largest weight (said in the help), in the
+  market's chart colour. The return bar fills its half at ±100% and saturates
+  past it.
+- The trend column reads `position_snapshots` through `getPositionTrendRows`
+  and `lib/holdings-view.ts` (Toss US reclassification, null for an unpriced
+  date, tested). It is left out when the table is missing, as in the local
+  and sample databases; it was checked only against synthetic snapshots.
+- `DataTable` help now opens leftward on any right-aligned column as well as
+  the last one.
+- Not done: the grouping toggle.
+
 ### V3 — Market mix trend (KR / US / crypto)
 
 A chart card above the table, built like the overview's total-assets chart.

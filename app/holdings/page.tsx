@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import type { ReactNode } from 'react'
 import { PageHeader } from '@/components/PageHeader'
 import { DataTable, type DataTableColumn } from '@/components/DataTable'
 import { FilterBar } from '@/components/FilterBar'
@@ -6,7 +7,11 @@ import { Badge, Card, Note, Signed, marketTone } from '@/components/ui'
 import { FreshnessInline } from '@/components/Freshness'
 import { HelpPopover } from '@/components/HelpPopover'
 import { Total, TotalsStrip } from '@/components/layout'
-import { getHoldings, getOperationalHealth, type FreshnessItem } from '@/lib/adapters/portfolio-db'
+import { getHoldings, getOperationalHealth, getPositionTrendRows, type FreshnessItem } from '@/lib/adapters/portfolio-db'
+import { holdingWeight, trendChangePct, trendDates, trendSeries, weightTotal } from '@/lib/holdings-view'
+import { marketColor } from '@/lib/palette'
+import { DivergingBar, InlineBar } from '@/components/bars'
+import { Sparkline } from '@/components/Sparkline'
 import { freshnessLabel } from '@/lib/freshness-text'
 import { getGlossary } from '@/lib/glossary'
 import { createMoneyFormatter } from '@/lib/currency'
@@ -37,6 +42,9 @@ const GROUPS: FilterGroup<any>[] = [
   { key: 'status', label: 'Status', valueFor: (row) => row.cost_status },
 ]
 
+// Statuses under which a row's own cost or value is missing.
+const ROW_FIGURES_INCOMPLETE = new Set(['missing_cost', 'unpriced'])
+
 const DEFAULT_SORT: TableSort = { key: 'base_market_value', direction: 'desc' }
 
 export default async function HoldingsPage({
@@ -59,41 +67,142 @@ export default async function HoldingsPage({
   const selected = readFilters(params, GROUPS)
   const options = filterOptions(rows, GROUPS, selected)
   const query = typeof params.q === 'string' ? params.q : ''
+  // Filtered before the columns are built: the weight column divides by the
+  // displayed total, which the sort does not change.
+  const matched = applySearch(applyFilters(rows, GROUPS, selected), query, (r) => [r.ticker, r.name, r.account, r.brokerage])
+  const displayedValue = weightTotal(matched)
+  // Bars are drawn against the largest weight, so the list reads as a ranking.
+  const maxWeight = Math.max(0, ...matched.map((r) => holdingWeight(r.base_market_value, displayedValue) ?? 0))
+
+  // Month-end values per security, for the trend column. Absent (no
+  // position_snapshots table) or flat-empty, the column is left out.
+  const trendRows = getPositionTrendRows()
+  const trendAxis = trendRows ? trendDates([...new Set(trendRows.map((row) => row.date))]) : []
+  const trends = trendRows && trendAxis.length >= 2 ? trendSeries(trendRows, trendAxis, rows) : null
+
+  // A KRW line under a foreign-currency figure; a KRW row shows one line.
+  const twoCurrencies = (native: number | null, base: number | null, currency: string, render: (value: number | null, currency: string) => ReactNode) => (
+    <>
+      <span className="block">{render(native, currency)}</span>
+      {currency !== 'KRW' && <span className="mt-0.5 block text-label text-ink-3">{render(base, 'KRW')}</span>}
+    </>
+  )
+  const amount = (value: number | null, currency: string) => (value == null ? labels.noValue : money(value, currency))
+  const signedAmount = (value: number | null, currency: string) => <Signed value={value} format={(m) => money(m, currency)} />
+
   const columns: DataTableColumn<(typeof rows)[number]>[] = [
-    { key: 'market', label: copy.market, sortable: true, sortFirst: 'asc', nowrap: true, render: (r) => <Badge tone={marketTone(r.market)}>{r.market}</Badge> },
-    { key: 'account', label: copy.account, sortable: true, sortFirst: 'asc', sortValue: accountSortValue, priority: 'secondary', render: (r) => <AccountCell brokerage={r.brokerage} account={r.account} /> },
     {
       key: 'ticker',
       label: copy.instrument,
       sortable: true,
       sortFirst: 'asc',
       sortValue: (r) => r.name ?? r.ticker,
-      // One link to the position, replacing the badge-plus-panel that
-      // showed the same row twice — once in the table, once in a
-      // summary above it that the detail page already covers.
+      // The market badge sits with the ticker it qualifies, which saves the
+      // column it used to fill; the market filter above still selects by it.
       render: (r) => (
-        <Link href={positionHref(r.market, r.ticker)} className="block min-w-[13rem] hover:underline">
-          <span className="font-mono text-caption text-info">{r.ticker}</span>
-          <span className="mt-1 block max-w-[18rem] truncate text-caption font-medium text-ink">{r.name}</span>
+        <Link href={positionHref(r.market, r.ticker)} className="block min-w-[11rem] hover:underline">
+          <span className="flex items-center gap-1.5">
+            <Badge tone={marketTone(r.market)}>{r.market}</Badge>
+            <span className="font-mono text-caption text-info">{r.ticker}</span>
+          </span>
+          <span className="mt-1 block max-w-[13rem] truncate text-caption font-medium text-ink">{r.name}</span>
+          {/* Below 2xl the status column is hidden, so a row whose own figures
+              are incomplete says so here. The figures of an estimated row are
+              whole (only its tax-lot coverage is not), so it stays quiet. */}
+          {ROW_FIGURES_INCOMPLETE.has(r.cost_status) && (
+            <span className="mt-1 block 2xl:hidden">
+              <Badge tone={COST_BASIS_STATUS_TONE[r.cost_status] ?? 'neutral'}>{copy.costStatus[r.cost_status] ?? r.cost_status}</Badge>
+            </span>
+          )}
         </Link>
       ),
     },
-    { key: 'quantity', label: copy.quantity, priority: 'secondary', align: 'right', sortable: true, nowrap: true, render: (r) => fmtQuantity(r.quantity, 2) },
-    { key: 'native_cost', label: copy.costBasis, description: copy.nativeCostDescription, align: 'right', sortable: true, priority: 'secondary', nowrap: true, render: (r) => money(r.native_cost, r.currency) },
-    { key: 'base_cost', label: copy.baseCost, description: copy.baseCostDescription, align: 'right', sortable: true, priority: 'tertiary', nowrap: true, render: (r) => (r.base_cost == null ? labels.noValue : money(r.base_cost, 'KRW')) },
-    { key: 'native_market_value', label: copy.marketValue, align: 'right', sortable: true, nowrap: true, render: (r) => (r.native_market_value == null ? labels.noValue : money(r.native_market_value, r.currency)) },
-    { key: 'native_unrealized_gl', label: copy.sort.gain, priority: 'secondary', description: copy.gainDescription, align: 'right', sortable: true, nowrap: true, render: (r) => <Signed value={r.native_unrealized_gl} format={(m) => money(m, r.currency)} /> },
-    { key: 'base_unrealized_gl', label: copy.baseGain, description: copy.baseGainDescription, align: 'right', sortable: true, priority: 'tertiary', nowrap: true, render: (r) => <Signed value={r.base_unrealized_gl} format={(m) => money(m, 'KRW')} /> },
-    { key: 'native_unrealized_gl_pct', label: copy.sort.return, align: 'right', sortable: true, nowrap: true, render: (r) => <Signed value={r.native_unrealized_gl_pct} format={(m) => fmtPct(m)} /> },
-    { key: 'long_term_qty', label: copy.longTerm, description: copy.longTermDescription, align: 'right', sortable: true, priority: 'tertiary', nowrap: true, render: (r) => fmtNumber(r.long_term_qty, 2) },
-    { key: 'short_term_qty', label: copy.shortTerm, description: copy.shortTermDescription, align: 'right', sortable: true, priority: 'tertiary', nowrap: true, render: (r) => fmtNumber(r.short_term_qty, 2) },
-    { key: 'lot_count', label: copy.taxLots, description: copy.lotDescription, align: 'right', sortable: true, priority: 'tertiary', nowrap: true },
+    { key: 'account', label: copy.account, sortable: true, sortFirst: 'asc', sortValue: accountSortValue, priority: 'secondary', render: (r) => <AccountCell brokerage={r.brokerage} account={r.account} /> },
+    {
+      key: 'weight',
+      label: copy.weight,
+      description: copy.weightDescription,
+      align: 'right',
+      sortable: true,
+      sortValue: (r) => r.base_market_value,
+      nowrap: true,
+      render: (r) => {
+        const weight = holdingWeight(r.base_market_value, displayedValue)
+        if (weight == null) return <span className="text-ink-3">{labels.noValue}</span>
+        return (
+          <div className="min-w-[4rem]">
+            <span className="tabular-nums">{fmtPct(weight)}</span>
+            <InlineBar pct={maxWeight > 0 ? (weight / maxWeight) * 100 : 0} color={marketColor(r.market)} />
+          </div>
+        )
+      },
+    },
+    { key: 'quantity', label: copy.quantity, priority: 'wide', align: 'right', sortable: true, nowrap: true, render: (r) => fmtQuantity(r.quantity, 2) },
+    {
+      key: 'base_cost',
+      label: copy.costBasis,
+      description: copy.costDescription,
+      align: 'right',
+      sortable: true,
+      sortValue: (r) => r.base_cost ?? r.total_cost_krw,
+      priority: 'secondary',
+      nowrap: true,
+      render: (r) => twoCurrencies(r.native_cost, r.base_cost ?? r.total_cost_krw, r.currency, amount),
+    },
+    {
+      key: 'base_market_value',
+      label: copy.marketValue,
+      description: copy.marketValueDescription,
+      align: 'right',
+      sortable: true,
+      nowrap: true,
+      render: (r) => twoCurrencies(r.native_market_value, r.base_market_value, r.currency, amount),
+    },
+    {
+      key: 'base_unrealized_gl',
+      label: copy.sort.gain,
+      description: copy.gainDescription,
+      align: 'right',
+      sortable: true,
+      priority: 'secondary',
+      nowrap: true,
+      render: (r) => twoCurrencies(r.native_unrealized_gl, r.base_unrealized_gl, r.currency, signedAmount),
+    },
+    {
+      key: 'native_unrealized_gl_pct',
+      label: copy.sort.return,
+      description: copy.returnDescription,
+      align: 'right',
+      sortable: true,
+      nowrap: true,
+      render: (r) => (
+        <div className="min-w-[4rem]">
+          <Signed value={r.native_unrealized_gl_pct} format={(m) => fmtPct(m)} />
+          <DivergingBar value={r.native_unrealized_gl_pct} />
+        </div>
+      ),
+    },
+    {
+      key: 'lot_count',
+      label: copy.taxLots,
+      description: copy.taxLotsDescription,
+      align: 'right',
+      sortable: true,
+      priority: 'wide',
+      nowrap: true,
+      render: (r) => (
+        <>
+          <span className="block tabular-nums">{copy.taxLotSummary(fmtNumber(r.long_term_qty, 2), fmtNumber(r.short_term_qty, 2))}</span>
+          {r.lot_count != null && <span className="mt-0.5 block text-label text-ink-3">{copy.lotCount(Number(r.lot_count), fmtNumber(r.lot_count))}</span>}
+        </>
+      ),
+    },
     {
       key: 'cost_status',
       label: copy.costStatusColumn,
       // What each status means, said once here instead of in a per-row note
       // column: that column repeated the badge as a sentence, and as the
-      // table's last, unwrapped column it collapsed to a few pixels and
+      // last column of the table, unwrapped, it collapsed to a few pixels and
       // stretched every row to hundreds of pixels tall.
       // Spans, not <p>/<dl>: the help panel is itself a span inside the header.
       description: (
@@ -107,19 +216,37 @@ export default async function HoldingsPage({
           ))}
         </>
       ),
-      priority: 'secondary',
+      priority: 'wide',
       sortable: true,
       sortFirst: 'asc',
       nowrap: true,
       render: (r) => <Badge tone={COST_BASIS_STATUS_TONE[r.cost_status] ?? 'neutral'}>{copy.costStatus[r.cost_status] ?? r.cost_status}</Badge>,
     },
   ]
+  // Last, so its help opens inward: the status column before it is hidden
+  // below 2xl. Pushed rather than spread into the array, so the column scan in
+  // tests/table-priority.test.ts still reads the literal.
+  if (trends) {
+    columns.push({
+      key: 'trend',
+      label: copy.trend,
+      description: copy.trendDescription,
+      priority: 'secondary',
+      render: (r) => {
+        const values = trends.get(`${r.market}:${r.ticker}`) ?? []
+        const change = trendChangePct(values)
+        return (
+          <Sparkline
+            values={values}
+            color={marketColor(r.market)}
+            label={copy.trendLabel(r.name ?? r.ticker, change == null ? null : fmtPct(change, { signed: true }))}
+          />
+        )
+      },
+    })
+  }
   const sort = knownSort(parseSort(params.sort, DEFAULT_SORT), sortableKeys(columns), DEFAULT_SORT)
-  const filtered = sortRows(
-    applySearch(applyFilters(rows, GROUPS, selected), query, (r) => [r.ticker, r.name, r.account, r.brokerage]),
-    sort,
-    columnSortValue(columns)
-  )
+  const filtered = sortRows(matched, sort, columnSortValue(columns))
   const totals = holdingsTotals(filtered)
   const incompleteTotals = filtered.length > 0 && Object.values(totals).includes(null)
 

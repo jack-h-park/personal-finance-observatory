@@ -1,5 +1,6 @@
 import { clsx } from 'clsx'
 import type { CSSProperties } from 'react'
+import { signTone, toneBgClass } from '@/lib/tone'
 
 /**
  * The two bar shapes pages drew by hand: a track split into shares, and a track
@@ -79,6 +80,41 @@ export function ProgressBar({
   return (
     <div className={clsx(spacing && PROGRESS_SPACING[spacing], 'overflow-hidden rounded-pill', PROGRESS_HEIGHT[height], TRACK[track])}>
       <div className={clsx('h-full', roundedFill && 'rounded-pill', PROGRESS_TONE[tone])} style={{ width: `${width}%` }} />
+    </div>
+  )
+}
+
+/**
+ * A thin bar under a figure in a table cell, filled to `pct` of its track in
+ * `color` (a chart colour, so a market keeps the colour its badge and charts use).
+ */
+export function InlineBar({ pct, color }: { pct: number; color: string }) {
+  const width = Math.min(Math.max(pct, 0), 100)
+  return (
+    <div className={clsx('mt-1 overflow-hidden rounded-pill', HEIGHT.sm, TRACK.subtle)} aria-hidden="true">
+      <div className="h-full rounded-pill" style={{ width: `${width}%`, backgroundColor: color }} />
+    </div>
+  )
+}
+
+/**
+ * A bar that grows right from the centre for a gain and left for a loss,
+ * full at `scale` (a return of ±100% fills its half by default). A larger
+ * value stays full rather than overflowing the cell.
+ */
+export function DivergingBar({ value, scale = 100 }: { value: number | null | undefined; scale?: number }) {
+  if (value == null || !Number.isFinite(value) || scale <= 0) return null
+  const half = Math.min(Math.abs(value) / scale, 1) * 50
+  const gain = value >= 0
+  // signTone, not a ternary of classes: zero takes the same tone as <Signed>.
+  const fill = toneBgClass(signTone(value))
+  return (
+    <div className={clsx('relative mt-1 overflow-hidden rounded-pill', HEIGHT.sm, TRACK.subtle)} aria-hidden="true">
+      <div className="absolute inset-y-0 left-1/2 w-px bg-line" />
+      <div
+        className={clsx('absolute inset-y-0', fill)}
+        style={gain ? { left: '50%', width: `${half}%` } : { right: '50%', width: `${half}%` }}
+      />
     </div>
   )
 }
