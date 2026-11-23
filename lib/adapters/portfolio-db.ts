@@ -1187,19 +1187,19 @@ export function getPositionSnapshots(dates: string[]): PositionSnapshotRow[] | n
  * Null when the database has no position_snapshots table (the sample has none),
  * so the page can leave the column out rather than draw empty lines.
  */
-export function getPositionTrendRows(days = 400): { date: string; market: string; ticker: string; name: string; marketValueKrw: number | null }[] | null {
+export function getPositionTrendRows(days = 400): { date: string; market: string; ticker: string; name: string; quantity: number; marketValueKrw: number | null }[] | null {
   const conn = db()
   try {
     const table = conn.prepare("select 1 from sqlite_master where type = 'table' and name = 'position_snapshots'").get()
     if (!table) return null
     return conn
       .prepare(
-        `select snapshot_date as date, market, ticker, coalesce(name, ticker) as name, market_value_krw as marketValueKrw
+        `select snapshot_date as date, market, ticker, coalesce(name, ticker) as name, quantity, market_value_krw as marketValueKrw
          from position_snapshots
          where snapshot_date >= date('now', ?)
          order by snapshot_date`
       )
-      .all(`-${Math.max(1, Math.floor(days))} days`) as { date: string; market: string; ticker: string; name: string; marketValueKrw: number | null }[]
+      .all(`-${Math.max(1, Math.floor(days))} days`) as { date: string; market: string; ticker: string; name: string; quantity: number; marketValueKrw: number | null }[]
   } finally {
     conn.close()
   }

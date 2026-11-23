@@ -230,6 +230,23 @@ As built (2026-11-23):
   (quantity change × start price vs the rest). Top movers first.
 - Drag-to-select on the V3/V4 charts sets this range, the way /net-worth does.
 
+As built (2026-11-23):
+
+- A card under the security weights: the period (`?from=&to=`, snapped to the
+  weights chart's dates by `resolveRangeSelection`; the whole plotted window
+  when absent), date selects (`RangeSelectForm`), and a table of the fifteen
+  largest share moves in the weights card's scope: start and end share, the
+  move in %p (neutral ink and a neutral diverging bar), value change, and its
+  trading and price parts.
+- Trading is the quantity change at the start price, (q₁ − q₀) × v₀ / q₀; price
+  is the rest, FX included. A new position is all trading, a sold-out one all
+  trading the other way; a split reads as trading (said in the help).
+  `lib/weight-changes.ts`, tested.
+- Either date with an unpriced in-scope row gives a notice instead of the
+  table, for the same reason as V4.
+- Drag-to-select is on the V4 stacked chart only, whose dates the table uses.
+  The V3 chart plots portfolio snapshot dates and is left without it.
+
 ## Layout after V5
 
 1. Header + freshness (unchanged)
