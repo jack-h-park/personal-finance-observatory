@@ -1,9 +1,12 @@
-import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { DataTable } from '@/components/DataTable'
 import { PageHeader } from '@/components/PageHeader'
+import { FilterBar } from '@/components/FilterBar'
+import { Tabs } from '@/components/Tabs'
+import { ALL } from '@/lib/table-filter'
+import { resolveSpendingView, SPENDING_VIEWS, spendingFilterParams, spendingHref, type SpendingView } from '@/lib/spending-links'
 import { SpendingAnalytics } from '@/components/SpendingAnalytics'
-import { Button, Callout, Card, Label, MetricField, Note, TextLink } from '@/components/ui'
+import { Callout, Card, Label, MetricField, Note, TextLink } from '@/components/ui'
 import { KpiBand } from '@/components/layout'
 import { portfolioToday } from '@/lib/adapters/portfolio-db'
 import { loadSpendingPilot } from '@/lib/adapters/spending-view'
@@ -19,13 +22,8 @@ import { getPageCopy } from '@/lib/ui-copy'
 export const dynamic = 'force-dynamic'
 export const generateMetadata = routeMetadata('/spending')
 
-const base = '/spending'
 const pageSize = 25
 const currencies = ['USD', 'KRW'] as const
-const views = ['summary', 'transactions', 'review'] as const
-type View = (typeof views)[number]
-const filterLink = 'inline-flex min-h-11 items-center rounded-md px-3 text-caption focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info'
-const selectStyle = 'h-11 w-full rounded-md border border-line bg-card px-3 text-body text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info'
 
 export default async function SpendingPage({ searchParams }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>
@@ -53,7 +51,7 @@ export default async function SpendingPage({ searchParams }: {
   const params = await searchParams
   const param = (key: string) => typeof params[key] === 'string' ? params[key] : undefined
   const requestedView = param('view')
-  const { account, month, months, rows: ledgerRows, coverage, holds } =
+  const { account, month, rows: ledgerRows, coverage, holds } =
     projectSpending(snapshot, { account: param('account'), month: requestedView === 'review' ? undefined : param('month') })
   const period = resolveSpendingPeriod(param('period'))
   const today = portfolioToday()
@@ -61,8 +59,7 @@ export default async function SpendingPage({ searchParams }: {
   const rates = readSpendingFxRates()
   const analytics = analyzeSpending(snapshot.rows, { today, period, account, rates })
   const comparison = compareSpendingPeriods(snapshot.rows, { today, period, account, rates })
-  const view: View = requestedView === 'review' ? 'review'
-    : requestedView === 'transactions' || month || param('page') ? 'transactions' : 'summary'
+  const view = resolveSpendingView(requestedView, { month, page: param('page') })
   const currency = currencies.find(unit => unit === param('currency'))
   const category = param('category')
   const merchant = param('merchant')
@@ -74,7 +71,6 @@ export default async function SpendingPage({ searchParams }: {
     (!merchant || spendingMerchantKey(row.merchantLabel ?? row.description) === merchant && row.kind === 'purchase'))
   const selected = transaction ? matches.find(row => row.id === transaction) : undefined
   const rows = selected ? [selected] : matches
-  const unlistedMonth = month && !months.includes(month)
   const locale = localeFor(language)
   const count = new Intl.NumberFormat(locale).format
   const money = {
@@ -89,15 +85,11 @@ export default async function SpendingPage({ searchParams }: {
   const selectedRate = selected && spendingInKrw(selected, rates).quote
   const name = (id: string) => accounts.get(id)?.label ?? id
   const accountIds = [...new Set(snapshot.coverage.map(item => item.accountId))]
-  const href = (target: View, options: Record<string, string | undefined> = {}) => {
-    const query = new URLSearchParams({ view: target, period: String(period) })
-    if (account) query.set('account', account)
-    for (const [key, value] of Object.entries(options)) {
-      if (value) query.set(key, value)
-      else query.delete(key)
-    }
-    return base + '?' + query.toString()
-  }
+  const href = (target: SpendingView, options: Record<string, string | undefined> = {}) => spendingHref(target, { period, account }, options)
+  const filterParams = spendingFilterParams({ view, period, account, month, currency, category, merchant })
+  // Months of the period with spending activity, newest first, plus a month the URL names outside it.
+  const monthChoices = [...(month && !analytics.months.some(item => item.month === month) ? [month] : []),
+    ...analytics.months.filter(item => item.USD !== null || item.KRW !== null).map(item => item.month)]
   const lastPage = Math.max(1, Math.ceil(rows.length / pageSize))
   const requestedPage = param('page')
   const page = requestedPage && /^\d{1,6}$/.test(requestedPage) ? Math.max(1, Math.min(Number(requestedPage), lastPage)) : 1
@@ -127,59 +119,16 @@ export default async function SpendingPage({ searchParams }: {
     <>
       {header(linked.status)}
       <div className="space-y-4">
-        <nav aria-label={copy.title} className="flex flex-wrap gap-1 border-b border-line">
-          {views.map(item => <Link key={item} href={href(item)} aria-current={view === item ? 'page' : undefined}
-            className={filterLink + (view === item ? ' bg-surface font-medium text-ink' : ' text-ink-2 hover:text-ink')}>
-            {copy.views[item]}
-          </Link>)}
-        </nav>
-        <div className="flex flex-wrap items-end gap-3">
-          <nav aria-label={copy.periodChoices} className="flex flex-wrap gap-1 rounded-lg border border-line bg-card p-1">
-            {SPENDING_PERIODS.map(item => <Link key={item} href={href(view, { period: String(item), month, currency, category, merchant })}
-              aria-current={period === item ? 'true' : undefined} aria-label={copy.periods[item]}
-              className={filterLink + (period === item ? ' bg-surface font-medium text-ink' : ' text-ink-2 hover:text-ink')}>
-              {copy.shortPeriods[item]}
-            </Link>)}
-          </nav>
-          {view === 'transactions' ? <form key={JSON.stringify([view, period, month, account, currency, category, merchant])}
-            method="get" action={base}
-            className="flex min-w-36 flex-1 flex-wrap items-end gap-2">
-            <input type="hidden" name="view" value={view} />
-            <input type="hidden" name="period" value={period} />
-            {currency ? <input type="hidden" name="currency" value={currency} /> : null}
-            {category ? <input type="hidden" name="category" value={category} /> : null}
-            {merchant ? <input type="hidden" name="merchant" value={merchant} /> : null}
-            <label className="min-w-28 space-y-1 text-caption text-ink-2">
-              <span>{copy.detailMonth}</span>
-              <select className={selectStyle} name="month" defaultValue={month ?? ''}>
-                <option value="">{copy.periods[period]}</option>
-                {unlistedMonth ? <option value={month}>{month}</option> : null}
-                {months.map(item => <option key={item} value={item}>{item}</option>)}
-              </select>
-            </label>
-            <label className="min-w-0 max-w-60 flex-1 space-y-1 text-caption text-ink-2">
-              <span>{copy.account}</span>
-              <select className={selectStyle} name="account" defaultValue={account ?? ''}>
-                <option value="">{copy.allAccounts}</option>
-                {accountIds.map(id =>
-                  <option key={id} value={id}>{name(id)}</option>)}
-              </select>
-            </label>
-            <Button type="submit" className="min-h-11">{copy.apply}</Button>
-          </form> : <details key={view + ':' + (account ?? '')} className="relative min-w-32 max-w-60 flex-1">
-            <summary className="min-h-11 cursor-pointer rounded-md border border-line bg-card px-3 py-3 text-caption focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info">
-              {account ? name(account) : copy.allAccounts}
-            </summary>
-            <ul className="absolute right-0 z-20 mt-1 max-h-72 w-60 max-w-[80vw] overflow-y-auto rounded-md border border-line bg-card p-1">
-              {['', ...accountIds].map(id => <li key={id}>
-                <Link href={href(view, { account: id })} aria-current={(account ?? '') === id ? 'true' : undefined}
-                  className={filterLink + ' w-full hover:bg-surface'}>
-                  {id ? name(id) : copy.allAccounts}
-                </Link>
-              </li>)}
-            </ul>
-          </details>}
-        </div>
+        <Tabs label={copy.title} current={view}
+          items={SPENDING_VIEWS.map(item => ({ key: item, href: href(item), label: copy.views[item] }))} />
+        <FilterBar basePath="/spending" params={filterParams} groups={[
+          { key: 'period', label: copy.filterPeriod, selected: String(period), defaultValue: '12',
+            options: SPENDING_PERIODS.map(item => ({ value: String(item), label: copy.periods[item] })) },
+          { key: 'account', label: copy.account, selected: account ?? ALL,
+            options: [{ value: ALL, label: copy.allAccounts }, ...accountIds.map(id => ({ value: id, label: name(id) }))] },
+          ...(view === 'transactions' ? [{ key: 'month', label: copy.filterMonth, selected: month ?? ALL,
+            options: [{ value: ALL, label: copy.periods[period] }, ...monthChoices.map(item => ({ value: item, label: fmtMonth(item, language, { year: true }) }))] }] : []),
+        ]} />
 
         {view === 'summary' ? <>
           {/* The lead answers the page's question: how much, against what, over which months. */}

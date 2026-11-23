@@ -44,7 +44,7 @@ test('the checked routes are the five R5 pages and /spending', () => {
 test('the card selector matches what Card and MetricHeroCard render', () => {
   assert.equal(CARD_SELECTOR, 'main section[data-card]')
   for (const html of [
-    renderToStaticMarkup(React.createElement(Card, { title: 'T' }, 'x')),
+    renderToStaticMarkup(React.createElement(Card, { title: 'T', children: 'x' })),
     renderToStaticMarkup(React.createElement(MetricHeroCard, { title: 'T', value: '1' } as never)),
   ]) assert.match(html, /^<section[^>]* data-card=""/)
 })
