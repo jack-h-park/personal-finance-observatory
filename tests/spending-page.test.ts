@@ -105,6 +105,7 @@ test('combined view uses posting-date rates, retains source amounts and distingu
     ['2026-07-31', { date: '2026-07-31', rate: 1301.5, source: 'example' }],
     ['2026-08-01', { date: '2026-08-01', rate: 1450, source: 'example' }],
     ['2026-08-20', { date: '2026-08-20', rate: 1550, source: 'example' }],
+    ['2026-08-31', { date: '2026-08-31', rate: 1404.62, source: 'example' }],
   ])
   const lackingRate = { ...snapshot.rows[0], id: 'missing', postedDate: '2026-08-15', activityDate: '2026-08-15' }
   const analysis = analyzeSpending([...snapshot.rows, lackingRate], { today: '2026-08-20', period: 12, rates })
@@ -118,4 +119,5 @@ test('combined view uses posting-date rates, retains source amounts and distingu
   assert.equal(analysis.combined.largest[0].amountMinor, -2000)
   assert.equal(spendingInKrw(snapshot.rows[1], rates).quote?.date, '2026-08-01')
   assert.equal(spendingInKrw(lackingRate, rates).amount, null)
+  assert.equal(spendingInKrw({ ...lackingRate, postedDate: '2026-08-31', amountMinor: -2500 }, rates).amount, -35116)
 })

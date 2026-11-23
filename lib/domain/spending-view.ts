@@ -33,7 +33,13 @@ export function spendingRateOn(rates: ReadonlyMap<string, SpendingFxRate>, date:
 export function spendingInKrw(row: SpendingViewRow, rates: ReadonlyMap<string, SpendingFxRate>) {
   if (row.currency === 'KRW') return { amount: row.amountMinor, quote: undefined }
   const quote = spendingRateOn(rates, row.postedDate)
-  return { amount: quote ? Math.sign(row.amountMinor) * Math.round(Math.abs(row.amountMinor) * quote.rate / 100) : null, quote }
+  const parts = quote && /^(\d+)(?:\.(\d+))?$/.exec(String(quote.rate))
+  if (!parts) return { amount: null, quote: undefined }
+  const fraction = parts[2] ?? ''
+  const divisor = BigInt(100) * BigInt(10) ** BigInt(fraction.length)
+  const numerator = BigInt(Math.abs(row.amountMinor)) * BigInt(parts[1] + fraction)
+  const rounded = Number((numerator + divisor / BigInt(2)) / divisor)
+  return { amount: Math.sign(row.amountMinor) * rounded, quote }
 }
 
 export function spendingMerchantKey(description: string) {
