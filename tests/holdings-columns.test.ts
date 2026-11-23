@@ -19,8 +19,10 @@ test('every sortable holdings column is a field getHoldings selects', () => {
   const selected = new Set(select[1].split(',').map((s) => s.trim()).filter(Boolean))
   // Computed by getHoldings from the selected columns rather than selected.
   for (const derived of ['cost_status', 'cost_note']) selected.add(derived)
+  // Drawn from other fields: weight sorts on base_market_value, trend is not sortable.
+  for (const drawn of ['weight', 'trend']) selected.add(drawn)
 
-  const columnKeys = [...page.matchAll(/\{ key: '([a-z_]+)',\s*label: copy\./g)].map((m) => m[1])
+  const columnKeys = [...page.matchAll(/key: '([a-z_]+)',\s*label: copy\./g)].map((m) => m[1])
   assert.ok(columnKeys.length > 5, 'holdings columns not found')
   assert.deepEqual(
     columnKeys.filter((key) => !selected.has(key)),

@@ -15,10 +15,11 @@ async function headerPanels() {
   const { DataTable } = await import('../components/DataTable')
   const html = renderToStaticMarkup(
     React.createElement(DataTable, {
-      rows: [{ id: 'a', x: 1, y: 2, z: 3 }],
+      rows: [{ id: 'a', x: 1, y: 2, w: 4, z: 3 }],
       columns: [
         { key: 'x', label: 'X', description: 'first help', nowrap: true },
         { key: 'y', label: 'Y', description: 'middle help', nowrap: true },
+        { key: 'w', label: 'W', description: 'figure help', nowrap: true, align: 'right' as const },
         { key: 'z', label: 'Z', description: 'last help', nowrap: true },
       ],
     })
@@ -26,12 +27,13 @@ async function headerPanels() {
   return [...html.matchAll(/<span[^>]*role="tooltip"[^>]*class="([^"]*)"[^>]*>(\w+) help/g)].map((m) => ({ which: m[2], cls: m[1] }))
 }
 
-test('edge columns open their help inward, middle columns centre it', async () => {
+test('edge columns and right-aligned figures open their help inward; other columns centre it', async () => {
   const panels = await headerPanels()
-  assert.equal(panels.length, 3)
+  assert.equal(panels.length, 4)
   const cls = Object.fromEntries(panels.map((p) => [p.which, p.cls]))
   assert.match(cls.first, /md:left-0/)
   assert.match(cls.middle, /md:left-1\/2/)
+  assert.match(cls.figure, /md:right-0/)
   assert.match(cls.last, /md:right-0/)
 })
 

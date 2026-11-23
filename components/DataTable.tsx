@@ -14,8 +14,9 @@ export type DataTableColumn<Row = any> = {
   render?: (row: Row) => ReactNode
   /** Short, plain-language explanation for a domain term or calculation. */
   description?: ReactNode
-  /** Hide lower-priority columns on smaller screens while preserving them in horizontal layouts. */
-  priority?: 'primary' | 'secondary' | 'tertiary'
+  /** Hide lower-priority columns on smaller screens while preserving them in horizontal layouts.
+   *  `wide` shows only from 2xl, for detail a 1440px screen cannot fit beside the essentials. */
+  priority?: 'primary' | 'secondary' | 'tertiary' | 'wide'
   nowrap?: boolean
   /** Make the header a sort control. Requires the table to be given `sortHref`. */
   sortable?: boolean
@@ -41,6 +42,7 @@ const PRIORITY_CLASS = {
   primary: '',
   secondary: 'hidden md:table-cell',
   tertiary: 'hidden xl:table-cell',
+  wide: 'hidden 2xl:table-cell',
 } as const
 
 export function DataTable<Row = any>({
@@ -137,10 +139,13 @@ export function DataTable<Row = any>({
                   ) : (
                     col.label
                   )}
-                  {/* Edge columns open their help inward: a centred panel on the
-                      last column hangs past the table and widens its scroll. */}
+                  {/* Help opens away from the edge it would hang past: a centred
+                      panel on the last column, or on a right-aligned figure
+                      next to a narrow last column, widens the table's scroll.
+                      A right-aligned header's "i" sits at its right edge, so
+                      its panel opens leftward from there. */}
                   {col.description ? (
-                    <HelpPopover align={colIndex === columns.length - 1 ? 'right' : colIndex === 0 ? 'left' : 'center'}>
+                    <HelpPopover align={colIndex === columns.length - 1 || col.align === 'right' ? 'right' : colIndex === 0 ? 'left' : 'center'}>
                       {col.description}
                     </HelpPopover>
                   ) : null}
