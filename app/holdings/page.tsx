@@ -70,7 +70,7 @@ export default async function HoldingsPage({
   const copy = getPageCopy('holdings', language)
   const labels = getUiCopy(language).common
   const money = createMoneyFormatter(await getCurrencyPreferences())
-  const rows = getHoldings(1000)
+  const rows = getHoldings(1000, true)
   // The price and FX dates behind the value and gain columns, for the markets the list holds.
   const glossary = getGlossary(language)
   const marketsHeld = new Set(rows.map((r) => r.market))

@@ -2376,7 +2376,7 @@ function steppedSum(points: { account: string; date: string; valueKrw: number }[
   return latest.size ? [...latest.values()].reduce((sum, value) => sum + value, 0) : null
 }
 
-export function getHoldings(limit = 200): HoldingWithCostStatus[] {
+export function getHoldings(limit = 200, showApprovedCurrent = false): HoldingWithCostStatus[] {
   const conn = db()
   try {
     const rows = conn
@@ -2390,7 +2390,24 @@ export function getHoldings(limit = 200): HoldingWithCostStatus[] {
          limit ?`
       )
       .all(limit) as (Holding & { source_system: string | null })[]
-    return rows.map(({ source_system, ...row }) => ({ ...row, ...costBasisStatus({ ...row, source_system }) }))
+    const current = new Map(showApprovedCurrent
+      ? getFinanceOverview().included
+        .filter(row => row.approvedConnector && row.assetClass === 'stocks')
+        .map(row => [JSON.stringify([row.institution, row.account, row.ticker]), row])
+      : [])
+    return rows.map(({ source_system, ...row }) => {
+      const observed = current.get(JSON.stringify([row.brokerage, row.account, row.ticker]))
+      if (observed?.quantity == null || observed.quantity === row.quantity) {
+        return { ...row, ...costBasisStatus({ ...row, source_system }) }
+      }
+      // The approved observation provides a quantity and current value. The
+      // existing costs and lot ledger describe the prior position quantity.
+      return { ...row, quantity: observed.quantity, native_market_value: observed.nativeAmount ?? null,
+        base_market_value: observed.valueKrw, native_unrealized_gl: null,
+        native_unrealized_gl_pct: null, base_unrealized_gl: null, long_term_qty: null,
+        short_term_qty: null, lot_count: null, cost_status: 'estimated',
+        cost_note: 'The recorded cost is for the previous quantity. Gains and lot counts need matching evidence.' }
+    })
   } finally {
     conn.close()
   }
