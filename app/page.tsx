@@ -15,6 +15,7 @@ import {
   getNetWorth,
   getOverview,
   getPortfolioSnapshots,
+  getPriceSources,
   getRebalanceReview,
   getRealizedLots,
   getSnapshotDates,
@@ -48,7 +49,7 @@ import {
   singleTrendPoints,
   type TrendMetricKey,
 } from '@/lib/overview-trend'
-import { formatPriceBasis, pricesDifferByDate } from '@/lib/price-basis'
+import { formatPriceBasis, priceSourceNames, pricesDifferByDate } from '@/lib/price-basis'
 import { config } from '@/config'
 import { EMPTY_VALUE, fmtDate, fmtDateTime, fmtMoney, fmtMonth, fmtNumber, fmtPct, fmtSigned } from '@/lib/format'
 import { convertMoney, createMoneyFormatter } from '@/lib/currency'
@@ -301,6 +302,7 @@ export default async function OverviewPage({
   const latestPriceDates = snapshotPriceDates(latestSnapshot, selectedScope)
   // The hero's stock value is the whole portfolio whatever scope the trend chart is on.
   const heroPriceDates = snapshotPriceDates(storedSnapshots[storedSnapshots.length - 1], 'global')
+  const priceSources = priceSourceNames(Object.values(getPriceSources())).join(' · ')
   const latestSnapshotStale = isSnapshotStale(latestSnapshot?.captured_at)
   const trendValueLabel = (value: number) => selectedMetric.key === 'return_pct' ? fmtPct(value, { digits: 1 }) : money(value, currencyPreferences.displayCurrency)
   const trendChangeLabel = selectedMetric.key === 'return_pct'
@@ -441,7 +443,8 @@ export default async function OverviewPage({
                   {' '}
                   {copy.stockPriceNote(
                     formatPriceBasis(heroPriceDates, { market: copy.scopeLabels, oldest: copy.priceOldest }),
-                    pricesDifferByDate(heroPriceDates)
+                    pricesDifferByDate(heroPriceDates),
+                    priceSources
                   )}
                 </>
               ) : null}

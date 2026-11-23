@@ -103,6 +103,27 @@ export function fmtQuantity(value: number | null | undefined, digits = 4) {
   return n.toLocaleString('ko-KR', { maximumFractionDigits: abs >= 0.001 ? 6 : 8, minimumFractionDigits: 0 })
 }
 
+/**
+ * A moment as month-day and clock time with the zone, for a quote or a fetch
+ * ("11-20 13:49 PST"). Prices move by the minute, so a date alone cannot say how
+ * old one is, and a clock without its zone cannot be compared with another market's.
+ */
+export function fmtMomentShort(value: string | null | undefined, language: Language) {
+  if (!value) return EMPTY_VALUE
+  const d = parseTimestamp(value)
+  if (Number.isNaN(d.getTime())) return value
+  const parts = new Intl.DateTimeFormat(localeFor(language), {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+    timeZoneName: 'short',
+  }).formatToParts(d)
+  const pick = (type: string) => parts.find((p) => p.type === type)?.value ?? ''
+  return `${pick('month')}-${pick('day')} ${pick('hour')}:${pick('minute')} ${pick('timeZoneName')}`.trim()
+}
+
 export function fmtDateTime(value: string | null | undefined, language: Language) {
   if (!value) return EMPTY_VALUE
   const d = parseTimestamp(value)

@@ -26,7 +26,33 @@ test('the English freshness detail reads as the adapter sentence did', () => {
     '3 prices · market date unknown',
   )
   assert.equal(freshnessDetailText({ code: 'CRYPTO_SNAPSHOT', count: 0, quotes: [] }, 'en'), '0 prices · none')
+  // The provider a price file names is appended when it has one.
+  assert.equal(
+    freshnessDetailText({ code: 'PRICE_SNAPSHOT', count: 3, marketDate: '2020-01-02', source: 'Example Quotes API' }, 'en'),
+    '3 prices · market date 2020-01-02 · Example Quotes API',
+  )
+  assert.equal(
+    freshnessDetailText({ code: 'CRYPTO_SNAPSHOT', count: 1, quotes: ['Venue BTC'], source: 'Example Quotes API' }, 'ko'),
+    '시세 1건 · Venue BTC · Example Quotes API',
+  )
   assert.equal(freshnessDetailText({ code: 'FX_RATE_MISSING' }, 'en'), 'No FX rate configured.')
+})
+
+test('the quote time is appended, with the oldest quote only when it is over an hour behind', () => {
+  const same = freshnessDetailText(
+    { code: 'PRICE_SNAPSHOT', count: 2, marketDate: '2030-01-02', quotedNewest: '2030-01-02T15:00:00.000Z', quotedOldest: '2030-01-02T14:30:00.000Z' },
+    'en',
+  )
+  assert.match(same, /^2 prices · market date 2030-01-02 · quoted \d{2}-\d{2} \d{2}:\d{2} \S+$/)
+  const behind = freshnessDetailText(
+    { code: 'PRICE_SNAPSHOT', count: 2, marketDate: '2030-01-02', quotedNewest: '2030-01-02T15:00:00.000Z', quotedOldest: '2030-01-02T10:00:00.000Z' },
+    'ko',
+  )
+  assert.match(behind, /시세 시각 \d{2}-\d{2} \d{2}:\d{2} \S+ \(\d{2}-\d{2} \d{2}:\d{2} \S+\)$/)
+  assert.equal(
+    freshnessDetailText({ code: 'PRICE_SNAPSHOT', count: 2, marketDate: '2030-01-02', quotedNewest: null, quotedOldest: null }, 'en'),
+    '2 prices · market date 2030-01-02',
+  )
 })
 
 test('a snapshot label comes from copy; a source-drift label is the file name', () => {

@@ -2,7 +2,7 @@
 // Every date below is invented.
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { formatPriceBasis, pricesDifferByDate } from '../lib/price-basis'
+import { formatPriceBasis, priceSourceNames, pricesDifferByDate } from '../lib/price-basis'
 
 const labels = { market: { KR: 'Korea', US: 'US', CRYPTO: 'Crypto' }, oldest: (d: string) => `oldest ${d}` }
 
@@ -25,4 +25,12 @@ test('markets priced on different dates, or one with an older tail, have no sing
   assert.equal(pricesDifferByDate([{ market: 'KR', newest: '2030-01-08', oldest: null }, { market: 'US', newest: '2030-01-04', oldest: null }]), true)
   assert.equal(pricesDifferByDate([{ market: 'KR', newest: '2030-01-08', oldest: '2030-01-07' }]), true)
   assert.equal(pricesDifferByDate([]), false)
+})
+
+test('provider names are listed once, with venue qualifiers dropped', () => {
+  assert.deepEqual(
+    priceSourceNames(['Yahoo Finance chart API', 'Yahoo Finance chart API', 'Bithumb public ticker API (KRW venues), Yahoo Finance chart API (USD venues)']),
+    ['Yahoo Finance chart API', 'Bithumb public ticker API']
+  )
+  assert.deepEqual(priceSourceNames([null, undefined, '']), [])
 })

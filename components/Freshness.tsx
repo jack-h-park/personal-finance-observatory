@@ -1,5 +1,5 @@
 import { Badge } from '@/components/ui'
-import { fmtDateTime, fmtDuration } from '@/lib/format'
+import { fmtDateTime, fmtDuration, fmtMomentShort } from '@/lib/format'
 import type { FreshnessItem, FreshnessStatus } from '@/lib/adapters/portfolio-db'
 import { freshnessDetailText, freshnessLabel } from '@/lib/freshness-text'
 import type { Language } from '@/lib/i18n'
@@ -44,7 +44,10 @@ export function FreshnessInline({ item, language }: { item: FreshnessItem; langu
   return (
     <span className="inline-flex flex-wrap items-center gap-2 text-label text-ink-3">
       <FreshnessBadge status={item.status} language={language} />
-      <span className="tabular-nums">{fmtDuration(item.ageMs, language)} {copy.elapsed}</span>
+      <span className="tabular-nums">
+        {fmtDuration(item.ageMs, language)} {copy.elapsed}
+        {item.observedAt ? ` · ${copy.fetchedAt} ${fmtMomentShort(item.observedAt, language)}` : ''}
+      </span>
       <span>{freshnessDetailText(item.detail, language)}</span>
     </span>
   )
