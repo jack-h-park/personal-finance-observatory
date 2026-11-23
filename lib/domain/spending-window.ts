@@ -1,25 +1,23 @@
 import type { Currency } from './spending-import'
-import type { SpendingViewRow } from './spending-view'
-
-/** One day of the USD/KRW history; a list of these is sorted by date, oldest first. */
-export type UsdKrwRate = { date: string; rate: number }
+import { spendingInKrw, spendingRateOn, type SpendingFxRate, type SpendingViewRow } from './spending-view'
 
 /**
- * Net spending (purchases minus refunds) inside a month window. `native` uses
- * the same rules as `analyzeSpending` on /spending, so for a 12- or 24-month
- * window the two agree to the minor unit. `converted` puts both currencies in
- * the display currency, each row at the USD/KRW rate of its own date or the
- * closest earlier one; a row older than the history uses the current rate and
- * is counted in `undatedCount`.
+ * Net spending (purchases minus refunds) inside a month window, by the rules
+ * /spending uses, so the two agree to the won. `native` matches
+ * `analyzeSpending(...).totals`; in a KRW view `converted` and `missingFx`
+ * match `analyzeSpending(...).combined` (`spendingInKrw`: the posting-date
+ * USD/KRW rate, or the latest within seven days; a row with none is left out
+ * and counted). In a USD view the same rate divides the KRW rows instead.
  */
 export type SpendingWindow = {
   /** `netMinor` is null when the currency has no purchase or refund in the window. */
   native: Record<Currency, { netMinor: number | null; observedMonths: number }>
   /** Calendar months in the window. */
   months: number
-  /** Display currency, major units; null when the window holds no activity at all. */
+  /** Display currency, major units; null when no row in the window could be converted. */
   converted: number | null
-  undatedCount: number
+  /** Rows left out of `converted` for want of a rate. */
+  missingFx: number
 }
 
 function monthsBetween(start: string, end: string) {
@@ -34,15 +32,12 @@ function monthsBetween(start: string, end: string) {
   return out
 }
 
-function rateOn(rates: UsdKrwRate[], date: string): number | null {
-  let low = 0
-  let high = rates.length - 1
-  let found: number | null = null
-  while (low <= high) {
-    const mid = (low + high) >> 1
-    if (rates[mid].date <= date) { found = rates[mid].rate; low = mid + 1 } else high = mid - 1
-  }
-  return found
+/** A row's amount in the display currency (major units, money out negative), or null without a rate. */
+function inDisplay(row: SpendingViewRow, display: 'KRW' | 'USD', rates: ReadonlyMap<string, SpendingFxRate>): number | null {
+  if (display === 'KRW') return spendingInKrw(row, rates).amount
+  if (row.currency === 'USD') return row.amountMinor / 100
+  const quote = spendingRateOn(rates, row.postedDate)
+  return quote ? row.amountMinor / quote.rate : null
 }
 
 export function sumSpendingWindow(input: {
@@ -50,36 +45,28 @@ export function sumSpendingWindow(input: {
   window: { start: string; end: string }
   today: string
   display: 'KRW' | 'USD'
-  rates: UsdKrwRate[]
-  fallbackRate: number | null
+  rates: ReadonlyMap<string, SpendingFxRate>
 }): SpendingWindow {
   const months = monthsBetween(input.window.start, input.window.end)
   const inWindow = new Set(months)
   const sums: Record<Currency, number> = { USD: 0, KRW: 0 }
   const observed: Record<Currency, Set<string>> = { USD: new Set(), KRW: new Set() }
-  let converted = 0
-  let any = false
-  let undatedCount = 0
+  let converted: number | null = null
+  let missingFx = 0
   for (const row of input.rows) {
     if (row.kind !== 'purchase' && row.kind !== 'refund') continue
     if (row.activityDate > input.today) continue
     const month = row.activityDate.slice(0, 7)
     if (!inWindow.has(month)) continue
-    const net = -row.amountMinor
-    sums[row.currency] += net
+    sums[row.currency] -= row.amountMinor
     observed[row.currency].add(month)
-    any = true
-    const major = row.currency === 'USD' ? net / 100 : net
-    if (row.currency === input.display) { converted += major; continue }
-    const dated = rateOn(input.rates, row.activityDate)
-    const rate = dated ?? input.fallbackRate
-    if (dated == null) undatedCount += 1
-    if (rate == null) continue
-    converted += row.currency === 'USD' ? major * rate : major / rate
+    const amount = inDisplay(row, input.display, input.rates)
+    if (amount === null) missingFx += 1
+    else converted = (converted ?? 0) - amount
   }
   const native = (currency: Currency) => ({
     netMinor: observed[currency].size ? sums[currency] : null,
     observedMonths: observed[currency].size,
   })
-  return { native: { USD: native('USD'), KRW: native('KRW') }, months: months.length, converted: any ? converted : null, undatedCount }
+  return { native: { USD: native('USD'), KRW: native('KRW') }, months: months.length, converted, missingFx }
 }

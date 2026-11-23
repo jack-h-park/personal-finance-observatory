@@ -42,7 +42,7 @@ export function overviewFlow(input: {
   const spendingState =
     spending.status === 'disabled' ? 'notPublished'
     : spending.status === 'unavailable' ? 'unreadable'
-    : spending.window.converted == null ? 'noActivity'
+    : spending.window.native.USD.netMinor == null && spending.window.native.KRW.netMinor == null ? 'noActivity'
     : 'available'
   return {
     range: input.range,

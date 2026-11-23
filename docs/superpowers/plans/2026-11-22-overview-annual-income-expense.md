@@ -174,3 +174,7 @@
 1. **Net figure:** add "income − spending" once payroll, tax and transfer boundaries are defined, or keep the two figures separate?
 2. **`/spending` periods:** it offers 12 and 24 months only, so the `ytd` and `lastYear` links land on a wider window. Adding `ytd` and `lastYear` there too would make every link exact; that is a separate change to `analyzeSpending` and the spending page.
 3. **Monthly chart:** a paired income/spending bar per month under the two figures is a natural follow-up; `CashInflow.periods` and a per-month variant of `sumSpendingWindow` would carry it.
+
+## Revision after #433
+
+#433 ("Unify spending analytics in KRW") landed while this branch was open and gave /spending its own KRW conversion: the posting-date USD/KRW rate from `historical_fx_rates` via `readSpendingFxRates`, or the latest rate within seven days, with a transaction that has none left out of the total and counted (`spendingInKrw`, `analyzeSpending(...).combined`). The card now uses exactly that rule instead of the activity-date rate with a current-rate fallback planned above, so in a KRW view its spending total equals the combined net on /spending to the won. `getUsdKrwHistory` was dropped, `SpendingWindow.undatedCount` became `missingFx`, and a period whose transactions all lack a rate reads as activity with a dash, not as an empty period.

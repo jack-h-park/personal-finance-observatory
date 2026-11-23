@@ -8,7 +8,7 @@ const spent: SpendingWindow = {
   native: { USD: { netMinor: 1000, observedMonths: 3 }, KRW: { netMinor: 5000, observedMonths: 2 } },
   months: 12,
   converted: 19000,
-  undatedCount: 0,
+  missingFx: 0,
 }
 const inflow = { rangeTotal: 42000, hasRecords: true }
 
@@ -77,4 +77,10 @@ test('a local ledger has no publication date', () => {
   const flow = overviewFlow({ range: '12m', window, inflow, spending: { status: 'available', window: spent } })
   assert.equal(flow.spendingAsOf, null)
   assert.equal(flow.spendingReviewIncomplete, false)
+})
+
+test('activity whose rates are all missing is still activity, not an empty period', () => {
+  const unconverted: SpendingWindow = { ...spent, converted: null, missingFx: 4 }
+  const flow = overviewFlow({ range: '12m', window, inflow, spending: { status: 'available', window: unconverted } })
+  assert.equal(flow.spendingState, 'available')
 })

@@ -20,7 +20,6 @@ import {
   getSnapshotDates,
   getTopHoldings,
   getTotalAssetsSeries,
-  getUsdKrwHistory,
   getWashSaleReview,
   portfolioToday,
   portfolioYearMonth,
@@ -30,6 +29,7 @@ import { periodTiles } from '@/lib/overview-period-tiles'
 import { FLOW_RANGES, overviewFlow, overviewHref, resolveFlowRange, spendingHref, type SpendingRead } from '@/lib/overview-flow'
 import { sumSpendingWindow } from '@/lib/domain/spending-window'
 import { loadSpendingPilot } from '@/lib/adapters/spending-view'
+import { readSpendingFxRates } from '@/lib/adapters/spending-fx'
 import { attentionItems } from '@/lib/overview-attention'
 import { flaggedMonths, nonInvestmentMonths } from '@/lib/non-investment-change'
 import { getNetWorthSettings, thresholdsFrom } from '@/lib/net-worth-settings'
@@ -175,7 +175,7 @@ export default async function OverviewPage({
           spending = pilot.status === 'available'
             ? {
                 status: 'available',
-                window: sumSpendingWindow({ rows: pilot.snapshot.rows, window, today, display, ...getUsdKrwHistory() }),
+                window: sumSpendingWindow({ rows: pilot.snapshot.rows, window, today, display, rates: readSpendingFxRates() }),
                 asOf: pilot.publicationDate,
                 reviewIncomplete: pilot.snapshot.reviewIncomplete,
               }
@@ -638,7 +638,7 @@ export default async function OverviewPage({
                   )}
                   {flow.spendingAsOf ? <span>{copy.flowAsOf(fmtDate(flow.spendingAsOf, language))}</span> : null}
                   {flow.spendingReviewIncomplete ? <span className="text-warning">{copy.flowReviewIncomplete}</span> : null}
-                  {flow.spending && flow.spending.undatedCount > 0 ? <span>{copy.flowUndated(flow.spending.undatedCount)}</span> : null}
+                  {flow.spending && flow.spending.missingFx > 0 ? <span className="text-warning">{copy.flowMissingFx(fmtNumber(flow.spending.missingFx))}</span> : null}
                   {flow.spendingState === 'notPublished' ? null : <span><TextLink href={spendingHref(flow.range)}>{copy.openSpending}</TextLink></span>}
                 </span>
               }
