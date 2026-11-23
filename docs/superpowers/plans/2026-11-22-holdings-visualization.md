@@ -165,6 +165,31 @@ The chart that answers "how has each stock's weight changed".
   market badges use), stepped by rank, 기타 in neutral grey. Validate the
   palette with the dataviz checker in light and dark.
 
+As built (2026-11-23), with the maintainer's choices: month-end points, a
+fixed top 8, crypto inside 전체.
+
+- A second card under the market mix, on the same `?trend=` period: scope
+  chips 전체 / 한국 주식 / 미국 주식 / 가상자산 (`?wscope=`), 누적 or 선
+  (`?wview=lines`), a share line per security with its move in %p, and
+  따로 보기 chips (`?pin=KR:005930,…`) for up to twelve held securities that
+  have no band, plus any already pinned.
+- `lib/position-shares.ts` (tested): last snapshot of each past month and
+  every snapshot of the newest month; Toss US rows folded into the US
+  security, and a no-longer-held letters-only KR ticker counted as US; pins
+  first, then the largest on the newest fully priced date, eight bands at
+  most, the rest 기타. A date where any in-scope row is unpriced is blank for
+  every band, never divided by a partial total.
+- Colour changed from the plan: hue families per market would put two
+  near-identical blues side by side. The bands use a validated eight-slot
+  categorical palette instead (`--series-1..8` in `styles/globals.css`;
+  CVD and normal-vision checks pass on the light and dark card surfaces;
+  three light slots sit under 3:1, so the chart always has a legend, a
+  tooltip and the table). Slots follow size on the newest date, so
+  changing the scope or pins can repaint a security.
+- Series keys are `s0…s7`: a ticker such as BRK.B is a nested path to
+  recharts.
+- Not done: dimming the other bands when one legend entry is clicked.
+
 ### V5 — Current composition and concentration
 
 A compact row of three cards between the totals and the table.
