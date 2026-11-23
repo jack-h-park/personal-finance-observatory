@@ -170,7 +170,7 @@ export default async function SpendingPage({ searchParams }: {
               ) : null}
             </div>
           </Card>
-          <SpendingAnalytics data={analytics} language={language} amount={amount} count={count}
+          <SpendingAnalytics data={analytics} language={language} currentMonth={today.slice(0, 7)} amount={amount} count={count}
             monthHref={target => href('transactions', { month: target })}
             rankingHref={(filter, term) => href('transactions', {
               [filter]: filter === 'merchant' ? spendingMerchantKey(term) : term,

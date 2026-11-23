@@ -112,8 +112,8 @@ test('combined view uses posting-date rates, retains source amounts and distingu
   assert.equal(analysis.combined.net, 28550)
   assert.equal(analysis.combined.missingFx, 1)
   assert.deepEqual(analysis.combined.months.slice(0, 2), [
-    { month: '2026-08', amount: -1450, missingFx: 1 },
-    { month: '2026-07', amount: 30000, missingFx: 0 },
+    { month: '2026-08', amount: -1450, fromKrw: null, fromUsd: -1450, missingFx: 1 },
+    { month: '2026-07', amount: 30000, fromKrw: 1000, fromUsd: 29000, missingFx: 0 },
   ])
   assert.equal(analysis.combined.merchants[0].amountMinor, 30000)
   assert.equal(analysis.combined.largest[0].amountMinor, -2000)
@@ -164,4 +164,18 @@ test('last year covers the previous calendar year and nothing from this year', (
   assert.equal(data.lastDay, '2025-12-31')
   assert.deepEqual(data.totals.KRW, { net: 700, observedMonths: 1 })
   assert.equal(data.totals.USD.net, null)
+})
+
+test('each combined month splits its KRW net into KRW-settled and USD-settled spending', () => {
+  const rates = new Map([['2026-07-31', { date: '2026-07-31', rate: 1400, source: 'test' }], ['2026-08-01', { date: '2026-08-01', rate: 1400, source: 'test' }]])
+  const rows = [...snapshot.rows,
+    { id: 'norate', accountId: 'card', postedDate: '2026-06-01', activityDate: '2026-06-01', currency: 'USD' as const, amountMinor: -500, kind: 'purchase' as const, description: 'Store' }]
+  const months = analyzeSpending(rows, { today: '2026-08-10', period: 12, rates }).combined.months
+  const july = months.find(item => item.month === '2026-07')!
+  assert.equal(july.fromKrw, 1000)
+  assert.equal(july.fromUsd, 28000)
+  assert.equal(july.amount, july.fromKrw! + july.fromUsd!)
+  const june = months.find(item => item.month === '2026-06')!
+  assert.deepEqual([june.amount, june.fromKrw, june.fromUsd, june.missingFx], [null, null, null, 1])
+  for (const item of months) assert.equal(item.amount, item.fromKrw === null && item.fromUsd === null ? null : (item.fromKrw ?? 0) + (item.fromUsd ?? 0))
 })

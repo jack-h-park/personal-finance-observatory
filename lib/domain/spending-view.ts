@@ -106,7 +106,8 @@ export function analyzeSpending(rows: SpendingViewRow[], options: {
   }))
   const byMonth = new Map(months.map(item => [item.month, item]))
   const purchases: Record<Currency, SpendingViewRow[]> = { USD: [], KRW: [] }
-  const combined = new Map(months.map(item => [item.month, { month: item.month, amount: null as number | null, missingFx: 0 }]))
+  // `amount` is the month's KRW net; `fromKrw` and `fromUsd` split it by settlement currency (USD converted).
+  const combined = new Map(months.map(item => [item.month, { month: item.month, amount: null as number | null, fromKrw: null as number | null, fromUsd: null as number | null, missingFx: 0 }]))
   const purchaseKrw = new Map<string, number>()
   const convertedPurchases: SpendingViewRow[] = []
   const rates = options.rates ?? new Map()
@@ -124,6 +125,8 @@ export function analyzeSpending(rows: SpendingViewRow[], options: {
       continue
     }
     combinedMonth.amount = (combinedMonth.amount ?? 0) - amount
+    if (row.currency === 'KRW') combinedMonth.fromKrw = (combinedMonth.fromKrw ?? 0) - amount
+    else combinedMonth.fromUsd = (combinedMonth.fromUsd ?? 0) - amount
     if (row.kind === 'purchase') {
       purchaseKrw.set(row.id, amount)
       convertedPurchases.push(row)
