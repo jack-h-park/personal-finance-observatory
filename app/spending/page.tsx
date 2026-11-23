@@ -4,6 +4,7 @@ import { PageHeader } from '@/components/PageHeader'
 import { FilterBar } from '@/components/FilterBar'
 import { Tabs } from '@/components/Tabs'
 import { ALL } from '@/lib/table-filter'
+import { spendingCategoryName, withCanonicalCategories } from '@/lib/spending-categories'
 import { resolveSpendingView, SPENDING_VIEWS, spendingFilterParams, spendingHref, type SpendingView } from '@/lib/spending-links'
 import { SpendingAnalytics } from '@/components/SpendingAnalytics'
 import { Callout, Card, Label, MetricField, Note, TextLink } from '@/components/ui'
@@ -47,18 +48,20 @@ export default async function SpendingPage({ searchParams }: {
   }
 
   const { snapshot } = pilot
+  // One category list: issuer and BankSalad labels read as the same keys everywhere on the page.
+  const categorized = { ...snapshot, rows: withCanonicalCategories(snapshot.rows) }
   const accounts = pilot.accounts[language]
   const params = await searchParams
   const param = (key: string) => typeof params[key] === 'string' ? params[key] : undefined
   const requestedView = param('view')
   const { account, month, rows: ledgerRows, coverage, holds } =
-    projectSpending(snapshot, { account: param('account'), month: requestedView === 'review' ? undefined : param('month') })
+    projectSpending(categorized, { account: param('account'), month: requestedView === 'review' ? undefined : param('month') })
   const period = resolveSpendingPeriod(param('period'))
   const today = portfolioToday()
   // Rates are read on every tab: the header pill counts transactions without one.
   const rates = readSpendingFxRates()
-  const analytics = analyzeSpending(snapshot.rows, { today, period, account, rates })
-  const comparison = compareSpendingPeriods(snapshot.rows, { today, period, account, rates })
+  const analytics = analyzeSpending(categorized.rows, { today, period, account, rates })
+  const comparison = compareSpendingPeriods(categorized.rows, { today, period, account, rates })
   const view = resolveSpendingView(requestedView, { month, page: param('page') })
   const currency = currencies.find(unit => unit === param('currency'))
   const category = param('category')
@@ -241,7 +244,7 @@ export default async function SpendingPage({ searchParams }: {
 
         {view === 'transactions' ? <Card title={selected ? copy.selectedTransaction : copy.transactions} id="spending-transactions">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-caption text-ink-2">
-            <p>{[month ?? copy.periods[period], currency, category, merchantTitle].filter(Boolean).join(' · ')}</p>
+            <p>{[month ?? copy.periods[period], currency, category && spendingCategoryName(category, copy.categoryNames), merchantTitle].filter(Boolean).join(' · ')}</p>
             {selected ? <TextLink href={href('transactions', { month })}>{copy.backToMatches}</TextLink> : null}
             {!selected && (category || merchant || currency) ? <TextLink href={href('transactions', { month })}>{copy.clearDetail}</TextLink> : null}
           </div>
@@ -254,7 +257,7 @@ export default async function SpendingPage({ searchParams }: {
               <div className="min-w-0 break-words">
                 {selected ? <p>{row.description}</p> : <TextLink href={transactionHref(row)}>{row.merchantLabel ?? row.description}</TextLink>}
                 <p className="text-caption text-ink-2">{row.activityDate} · {name(row.accountId)}</p>
-                <p className="text-caption text-ink-2">{[copy.kinds[row.kind], row.category].filter(Boolean).join(' · ')}</p>
+                <p className="text-caption text-ink-2">{[copy.kinds[row.kind], row.category && spendingCategoryName(row.category, copy.categoryNames)].filter(Boolean).join(' · ')}</p>
               </div>
               <div className="shrink-0 text-right font-mono tabular-nums">
                 <div>{transactionAmount(row)}</div>
@@ -271,7 +274,7 @@ export default async function SpendingPage({ searchParams }: {
               { key: 'description', label: copy.description, render: row => selected ? row.description
                 : <TextLink href={transactionHref(row)}>{row.merchantLabel ?? row.description}</TextLink> },
               { key: 'kind', label: copy.type, render: row => copy.kinds[row.kind] },
-              { key: 'category', label: copy.category, render: row => row.category ?? EMPTY_VALUE },
+              { key: 'category', label: copy.category, render: row => row.category ? spendingCategoryName(row.category, copy.categoryNames) : EMPTY_VALUE },
               { key: 'amount', label: copy.originalAmount, nowrap: true, align: 'right',
                 render: row => <span className="font-mono">{amount(row.amountMinor, row.currency)}</span> },
               { key: 'converted', label: copy.convertedKrw, nowrap: true, align: 'right',

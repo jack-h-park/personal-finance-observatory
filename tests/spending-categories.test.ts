@@ -5,6 +5,7 @@ import {
   SPENDING_CATEGORY_KEYS,
   SPENDING_CATEGORY_SOURCES,
   canonicalSpendingCategory,
+  spendingCategoryName,
   categoryShareItems,
   withCanonicalCategories,
 } from '../lib/spending-categories'
@@ -64,4 +65,10 @@ test('category shares put the leading categories first, the rest together, then 
     { key: 'uncategorized', amountMinor: 1000, count: 2, pct: 10 },
   ])
   assert.deepEqual(categoryShareItems({ categories: [], uncategorized: { amountMinor: 0, count: 0 } }, 2), [])
+})
+
+test('a key reads as its name in each language, and an unmapped label as itself', () => {
+  assert.equal(spendingCategoryName('food', getPageCopy('spending', 'ko').categoryNames), '식비')
+  assert.equal(spendingCategoryName('food', getPageCopy('spending', 'en').categoryNames), 'Food & dining')
+  assert.equal(spendingCategoryName('Pets', getPageCopy('spending', 'en').categoryNames), 'Pets')
 })

@@ -78,6 +78,26 @@ export const CHILDREN_COLOR = 'var(--brand-cyan)'
  * Unclassified money waits on a decision, so it is the warning tone (amber
  * counts what waits on a decision; red is for faults).
  */
+/**
+ * /spending category shares, by rank rather than by category, since the
+ * leading categories differ from period to period. The rest of the
+ * categories are grey and uncategorized purchases are amber: a to-do.
+ */
+export const SPENDING_SHARE_COLORS = [
+  'var(--brand-blue)',
+  'var(--brand-cyan)',
+  'var(--brand-purple)',
+  'var(--brand-pink)',
+  'color-mix(in srgb, var(--brand-blue) 50%, var(--bg-card))',
+  'color-mix(in srgb, var(--brand-cyan) 50%, var(--bg-card))',
+] as const
+
+export function spendingShareColor(key: string, index: number): string {
+  if (key === 'uncategorized') return TONE_VAR.warning
+  if (key === 'rest') return 'var(--text-tertiary)'
+  return SPENDING_SHARE_COLORS[index % SPENDING_SHARE_COLORS.length]
+}
+
 export const CASH_INFLOW_CATEGORY_COLOR: Record<
   'salary' | 'bonus' | 'expense' | 'dividend' | 'interest' | 'other' | 'reimbursement' | 'unclassified',
   string

@@ -54,6 +54,11 @@ export function withCanonicalCategories(rows: SpendingViewRow[]): SpendingViewRo
   return rows.map((row) => (row.category === undefined ? row : { ...row, category: canonicalSpendingCategory(row.category) }))
 }
 
+/** What a reader sees for a category: its name for a key, the label itself when it is not mapped. */
+export function spendingCategoryName(value: string, names: Readonly<Record<SpendingCategoryKey, string>>): string {
+  return isSpendingCategoryKey(value) ? names[value] : value
+}
+
 export type CategoryShare = { key: string; amountMinor: number; count: number; pct: number }
 
 /**
