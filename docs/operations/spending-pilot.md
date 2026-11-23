@@ -91,6 +91,29 @@ amounts and are identified as omitted from the KRW equivalent. Development can
 use an explicit rate database via `SPENDING_PILOT_FX_DB`. Sample finance data is
 never used to price the private spending ledger.
 
+### Review bank debits with an unclear purpose
+
+Use the posted bank record to establish the debit and its source account.
+Review the payment detail, a receipt, or the owner's confirmation to
+establish whether the debit represents a purchase, a reimbursement, a
+balance top-up, or a transfer. A wallet name, a generic transfer type, or
+an amount similar to a previous expense is insufficient to establish the
+purpose. A confirmed purchase can enter spending with no category when the
+item details are unavailable. Preserve any explicit owner classification
+with its evidence and date.
+
+Link repeated observations only when they identify the same transaction.
+Use a stable reference where available. For overlapping bank exports, use
+the account, compatible timestamps, amount, description, and adjacent
+running balances. Treat a same-amount observation in another account as a
+candidate until the records identify the same underlying payment.
+
+Keep unresolved cases in the private review record with the posting date,
+signed amount, bank description, and evidence needed to resolve the case.
+Keep personal transaction details and raw source files outside the code
+repository. Verify monthly deltas and exact replay before publishing any
+approved batch.
+
 ### Publish a read-only snapshot
 
 Production enables the route, navigation and panels in private finance mode
