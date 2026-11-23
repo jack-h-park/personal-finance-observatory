@@ -102,12 +102,21 @@ export function InlineBar({ pct, color }: { pct: number; color: string }) {
  * full at `scale` (a return of ±100% fills its half by default). A larger
  * value stays full rather than overflowing the cell.
  */
-export function DivergingBar({ value, scale = 100 }: { value: number | null | undefined; scale?: number }) {
+export function DivergingBar({
+  value,
+  scale = 100,
+  neutral = false,
+}: {
+  value: number | null | undefined
+  scale?: number
+  /** Tertiary ink on both sides, for a move that is neither good nor bad (a share shift). */
+  neutral?: boolean
+}) {
   if (value == null || !Number.isFinite(value) || scale <= 0) return null
   const half = Math.min(Math.abs(value) / scale, 1) * 50
   const gain = value >= 0
   // signTone, not a ternary of classes: zero takes the same tone as <Signed>.
-  const fill = toneBgClass(signTone(value))
+  const fill = toneBgClass(neutral ? 'neutral' : signTone(value))
   return (
     <div className={clsx('relative mt-1 overflow-hidden rounded-pill', HEIGHT.sm, TRACK.subtle)} aria-hidden="true">
       <div className="absolute inset-y-0 left-1/2 w-px bg-line" />

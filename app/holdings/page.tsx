@@ -16,6 +16,9 @@ import { MIX_MARKETS, marketMixSeries, mixShares, mixSummary } from '@/lib/marke
 import { DEFAULT_TREND_RANGE, resolveTrendRange, trendRangeDays } from '@/lib/trend-ranges'
 import { PortfolioMultiTrendChart, StackedSeriesChart } from '@/components/charts'
 import { SHARE_SCOPES, positionShares, shareDates, shareMoves, type ShareScope } from '@/lib/position-shares'
+import { weightChanges, type WeightChange } from '@/lib/weight-changes'
+import { resolveRangeSelection } from '@/lib/range-selection'
+import { RangeSelectForm } from '@/components/RangeSelectForm'
 import { TrendRangeLinks } from '@/components/TrendRangeLinks'
 import { LinkChip } from '@/components/LinkChips'
 import { holdingWeight, trendChangePct, trendDates, trendSeries, weightTotal } from '@/lib/holdings-view'
@@ -26,7 +29,7 @@ import { freshnessLabel } from '@/lib/freshness-text'
 import { getGlossary } from '@/lib/glossary'
 import { convertMoney, createMoneyFormatter } from '@/lib/currency'
 import { getCurrencyPreferences } from '@/lib/currency-server'
-import { fmtNumber, fmtPct, fmtQuantity } from '@/lib/format'
+import { fmtDate, fmtNumber, fmtPct, fmtQuantity } from '@/lib/format'
 import { getLanguage } from '@/lib/i18n-server'
 import { holdingsTotals } from '@/lib/holdings-totals'
 import { positionHref } from '@/lib/position-url'
@@ -285,7 +288,9 @@ export default async function HoldingsPage({
   const weightLines = (Array.isArray(params.wview) ? params.wview[0] : params.wview) === 'lines'
   const pins = (typeof params.pin === 'string' ? params.pin.split(',') : []).filter(Boolean)
   const weightRows = getPositionTrendRows(trendRangeDays(mixRange.days)) ?? []
-  const weights = positionShares({ rows: weightRows, dates: shareDates(weightRows.map((row) => row.date)), held: rows, scope: weightScope, pins })
+  const weightDates = shareDates(weightRows.map((row) => row.date))
+  const weights = positionShares({ rows: weightRows, dates: weightDates, held: rows, scope: weightScope, pins })
+
   const weightColor = (index: number) => SERIES_COLORS[index] ?? OTHER_SERIES_COLOR
   const weightMoves = shareMoves(weights.points, weights.series)
   const otherNow = weights.points.filter((point) => point.other != null).at(-1)?.other ?? null
@@ -318,6 +323,61 @@ export default async function HoldingsPage({
   const contributors = gainContributors(securities)
   const krw = (value: number) => money(value, 'KRW')
   const securityItem = (s: { key: string; market: string; ticker: string; name: string }) => ({ key: s.key, label: s.name, href: positionHref(s.market, s.ticker) })
+
+  // The weight-change table (?from=&to=, snapped to the plotted dates; the
+  // whole plotted window by default), in the weights card's scope.
+  const changeCopy = copy.changes
+  const selection = resolveRangeSelection(params.from, params.to, weightDates)
+  const changeFrom = selection?.from ?? weightDates[0] ?? null
+  const changeTo = selection?.to ?? weightDates.at(-1) ?? null
+  const changes = changeFrom && changeTo && changeFrom !== changeTo ? weightChanges({ rows: weightRows, from: changeFrom, to: changeTo, held: rows, scope: weightScope }) : null
+  const shownChanges = (changes ?? []).slice(0, 15)
+  const maxChangePp = Math.max(0, ...shownChanges.map((c) => Math.abs(c.changePp)))
+  const clearRangeHref = (() => {
+    const next = new URLSearchParams()
+    for (const [key, value] of Object.entries(params)) {
+      const single = Array.isArray(value) ? value[0] : value
+      if (single != null && key !== 'from' && key !== 'to') next.set(key, single)
+    }
+    const query = next.toString()
+    return query ? `${BASE}?${query}` : BASE
+  })()
+  const keepParams = Object.fromEntries(
+    Object.entries(params).flatMap(([key, value]) => {
+      const single = Array.isArray(value) ? value[0] : value
+      return single == null ? [] : [[key, single]]
+    })
+  )
+  const changeColumns: DataTableColumn<WeightChange>[] = [
+    {
+      key: 'name',
+      label: changeCopy.instrument,
+      render: (c) => (
+        <Link href={positionHref(c.market, c.ticker)} className="flex min-w-[10rem] items-center gap-1.5 hover:underline">
+          <Badge tone={marketTone(c.market)}>{c.market}</Badge>
+          <span className="max-w-[14rem] truncate text-caption font-medium text-ink">{c.name}</span>
+        </Link>
+      ),
+    },
+    { key: 'startPct', label: changeCopy.startPct, align: 'right', priority: 'secondary', nowrap: true, render: (c) => fmtPct(c.startPct, { digits: 1 }) },
+    { key: 'endPct', label: changeCopy.endPct, align: 'right', nowrap: true, render: (c) => fmtPct(c.endPct, { digits: 1 }) },
+    {
+      key: 'changePp',
+      label: changeCopy.changePp,
+      description: changeCopy.changeDescription,
+      align: 'right',
+      nowrap: true,
+      render: (c) => (
+        <div className="min-w-[4.5rem]">
+          <span className="tabular-nums text-ink">{fmtPct(c.changePp, { digits: 1, signed: true, unit: 'pp' })}</span>
+          <DivergingBar value={c.changePp} scale={maxChangePp || 1} neutral />
+        </div>
+      ),
+    },
+    { key: 'valueChange', label: changeCopy.valueChange, align: 'right', priority: 'secondary', nowrap: true, render: (c) => <Signed value={c.endValue - c.startValue} format={krw} /> },
+    { key: 'trade', label: changeCopy.trade, description: changeCopy.tradeDescription, align: 'right', priority: 'tertiary', nowrap: true, render: (c) => <Signed value={c.tradeKrw} format={krw} /> },
+    { key: 'price', label: changeCopy.price, description: changeCopy.priceDescription, align: 'right', priority: 'tertiary', nowrap: true, render: (c) => <Signed value={c.priceKrw} format={krw} /> },
+  ]
 
   const groupLabels: Record<string, string> = {
     market: copy.market,
@@ -430,6 +490,7 @@ export default async function HoldingsPage({
             />
           ) : (
             <StackedSeriesChart
+              rangeSelect={{ from: selection?.from ?? null, to: selection?.to ?? null, baseHref: clearRangeHref, clearHref: clearRangeHref, clearLabel: changeCopy.clear }}
               points={weights.points}
               series={[
                 ...weights.series.map((s, i) => ({ key: s.id, label: s.name, color: weightColor(i) })),
@@ -476,6 +537,37 @@ export default async function HoldingsPage({
                 </LinkChip>
               ))}
             </div>
+          )}
+        </div>
+      </Card>
+      <Card id="weight-changes" title={changeCopy.title} info={changeCopy.info} className="mb-5">
+        <div className="space-y-3">
+          {changeFrom && changeTo && changeFrom !== changeTo ? (
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div className="space-y-1">
+                <div className="text-caption font-medium tabular-nums text-ink">
+                  {changeCopy.period(fmtDate(changeFrom, language), fmtDate(changeTo, language), weightCopy.scopes[weightScope])}
+                </div>
+                <Note size="label">{changeCopy.selectHint}</Note>
+              </div>
+              <RangeSelectForm
+                dates={weightDates}
+                from={changeFrom}
+                to={changeTo}
+                keep={keepParams}
+                action={BASE}
+                labels={{ from: changeCopy.fromLabel, to: changeCopy.toLabel, submit: changeCopy.apply }}
+                formatDate={(date) => fmtDate(date, language)}
+              />
+            </div>
+          ) : null}
+          {changes == null ? (
+            <Note size="caption">{weightDates.length >= 2 ? changeCopy.unavailable : changeCopy.empty}</Note>
+          ) : (
+            <>
+              <DataTable rows={shownChanges} getRowKey={(c) => c.key} caption={changeCopy.title} columns={changeColumns} emptyMessage={changeCopy.empty} />
+              {changes.length > shownChanges.length && <Note size="label">{changeCopy.shown(fmtNumber(shownChanges.length), fmtNumber(changes.length))}</Note>}
+            </>
           )}
         </div>
       </Card>
