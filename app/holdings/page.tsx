@@ -2,9 +2,13 @@ import Link from 'next/link'
 import { PageHeader } from '@/components/PageHeader'
 import { DataTable, type DataTableColumn } from '@/components/DataTable'
 import { FilterBar } from '@/components/FilterBar'
-import { Badge, Card, Signed, marketTone } from '@/components/ui'
+import { Badge, Card, Note, Signed, marketTone } from '@/components/ui'
+import { FreshnessInline } from '@/components/Freshness'
+import { HelpPopover } from '@/components/HelpPopover'
 import { Total, TotalsStrip } from '@/components/layout'
-import { getHoldings } from '@/lib/adapters/portfolio-db'
+import { getHoldings, getOperationalHealth, type FreshnessItem } from '@/lib/adapters/portfolio-db'
+import { freshnessLabel } from '@/lib/freshness-text'
+import { getGlossary } from '@/lib/glossary'
 import { createMoneyFormatter } from '@/lib/currency'
 import { getCurrencyPreferences } from '@/lib/currency-server'
 import { fmtNumber, fmtPct, fmtQuantity } from '@/lib/format'
@@ -46,6 +50,11 @@ export default async function HoldingsPage({
   const labels = getUiCopy(language).common
   const money = createMoneyFormatter(await getCurrencyPreferences())
   const rows = getHoldings(1000)
+  // The price and FX dates behind the value and gain columns, for the markets the list holds.
+  const glossary = getGlossary(language)
+  const marketsHeld = new Set(rows.map((r) => r.market))
+  const priceKeys = [marketsHeld.has('KR') && 'kr_prices', marketsHeld.has('US') && 'us_prices', marketsHeld.has('CRYPTO') && 'crypto_prices', 'fx_rates']
+  const basisItems = getOperationalHealth().snapshots.filter((item): item is FreshnessItem => priceKeys.includes(item.key))
 
   const selected = readFilters(params, GROUPS)
   const options = filterOptions(rows, GROUPS, selected)
@@ -139,6 +148,18 @@ export default async function HoldingsPage({
             <Total label={copy.sort.gain} value={<Signed value={totals.unrealized} format={(m) => money(m, 'KRW')} />} />
           </TotalsStrip>
           {incompleteTotals && <p className="text-caption text-ink-2">{copy.incompleteTotals}</p>}
+          {/* How old the prices and FX behind the value and gain columns are, under the totals they qualify. */}
+          {basisItems.length > 0 && (
+            <Note row>
+              {basisItems.map((item) => (
+                <span key={item.key} className="inline-flex flex-wrap items-center gap-2">
+                  <span className="font-medium text-ink-2">{freshnessLabel(item, language)}</span>
+                  <FreshnessInline item={item} language={language} />
+                </span>
+              ))}
+              <HelpPopover>{glossary.freshness.description}</HelpPopover>
+            </Note>
+          )}
           <DataTable
             rows={filtered}
             caption={copy.caption}
