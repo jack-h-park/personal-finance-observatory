@@ -125,3 +125,22 @@ as of this audit and the changes needed in the private scope.
 The private account inventory remains the source for exact dates, evidence
 paths, and file requests. Card and crypto rows have their own scope and should
 not be counted as completed bank or brokerage connections.
+
+## Owner-approved current asset snapshots
+
+An explicit balance or holding approval can be represented by
+`approved-current-assets.json` in the private finance state directory. This is
+a mode-0600 file with schema version 1 and an `observations` array. Each row
+matches one existing self-owned USD account by its exact institution and
+account labels and records its ISO business date and source snapshot SHA-256.
+A cash row sets `kind: "cash"` and `amount`. A holding row sets
+`kind: "holding"`, `ticker` and `quantity`. Quotes and FX use the existing
+valuation sources. Record only explicitly approved observations in this file.
+
+The current asset summary replaces matching keys and preserves unrelated
+observations. A duplicate, conflicting or missing match leaves the approved
+file unapplied. A later existing observation takes precedence. Account-level
+portfolio value and cash-equivalent holdings must stay outside a cash receipt
+when they would overlap an existing cash or position row. This entry point
+leaves the activity, income and tax ledgers intact. Verify the applied row
+count and the resulting current asset summary after publishing a private file.

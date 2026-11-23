@@ -101,3 +101,43 @@ test('the DB query scopes owners, classifies pension gold once, and reconciles c
   assert.equal(result.omissions.length, 1)
   assert.equal(result.liabilitiesSupported, false)
 })
+
+test('approved connector observations replace existing current assets without affecting unrelated cash or the database', (t) => {
+  const dir = fs.mkdtempSync(path.join(tmpdir(), 'approved-current-assets-'))
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }))
+  const file = path.join(dir, 'portfolio.db')
+  const db = new Database(file)
+  db.exec(`
+    create table holdings_all(brokerage text,account text,owner text,market text,ticker text,currency text,quantity real,native_market_value real,base_market_value real,as_of_date text);
+    insert into holdings_all values('Broker','Taxable','self','US','ETF','USD',2,20,26000,'2026-10-01');
+    create table cash_balances(id integer,institution text,account text,owner text,currency text,as_of_date text,balance real);
+    insert into cash_balances values(1,'Bank','Checking','self','USD','2026-10-01',100),(2,'Broker','Taxable','self','USD','2026-10-01',31.2);
+    create table fx_rates(from_currency text,to_currency text,rate real,as_of_date text);
+    insert into fx_rates values('USD','KRW',1300,'2026-10-02');`)
+  db.close()
+  const original = fs.readFileSync(file)
+  const approved = [
+    { institution: 'Bank', account: 'Checking', kind: 'cash', amount: 125, asOf: '2026-10-02', sourceSha256: 'a'.repeat(64) },
+    { institution: 'Broker', account: 'Taxable', kind: 'holding', ticker: 'ETF', quantity: 3, asOf: '2026-10-02', sourceSha256: 'b'.repeat(64) },
+  ]
+  const sidecar = path.join(dir, 'approved-current-assets.json')
+  fs.writeFileSync(sidecar, JSON.stringify({ schemaVersion: 1, observations: approved }), { mode: 0o600 })
+  const s = getFinanceOverview(file, dir)
+  assert.equal(s.approvedConnectorRows, 2)
+  assert.equal(s.included.length, 3)
+  assert.ok(Math.abs(s.byClass.cash - (125 + 31.2) * 1300) < 1e-7)
+  assert.equal(s.byClass.stocks, 39000)
+  assert.deepEqual(getFinanceOverview(file, dir), s)
+  assert.deepEqual(fs.readFileSync(file), original)
+
+  fs.writeFileSync(sidecar, JSON.stringify({ schemaVersion: 1, observations: approved.map(row => ({ ...row, asOf: '2026-09-30' })) }))
+  const old = getFinanceOverview(file, dir)
+  assert.equal(old.approvedConnectorRows, 0)
+  assert.equal(old.byClass.stocks, 26000)
+
+  fs.writeFileSync(sidecar, JSON.stringify({ schemaVersion: 1, observations: [...approved, approved[0]] }))
+  const invalid = getFinanceOverview(file, dir)
+  assert.equal(invalid.approvedConnectorRows, 0)
+  assert.equal(invalid.byClass.stocks, 26000)
+  assert.ok(Math.abs(invalid.byClass.cash - (100 + 31.2) * 1300) < 1e-7)
+})

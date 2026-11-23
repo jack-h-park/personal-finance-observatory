@@ -1,11 +1,14 @@
 import Database from 'better-sqlite3'
 import { config } from '@/config'
+import { applyApprovedCurrentAssets } from '@/lib/application/approved-current-assets'
 import { summarizeFinanceAssets, type AssetObservation } from '@/lib/domain/assets/overview'
 
 type Raw = Record<string, unknown>
 // These core sweep identifiers are already explicitly recognized by ingestion.
 const SWEEPS = new Set(['SPAXX', 'QACDS', 'FDRXX', 'SPRXX', 'FZFXX', 'FGXXX'])
-export function getFinanceOverview(filePath = config.stockDbPath) {
+export function getFinanceOverview(filePath = config.stockDbPath, stateDir =
+  filePath === config.stockDbPath && config.finance.mode === 'private' ? config.finance.stateDir : undefined,
+) {
   const db = new Database(filePath, { readonly: true })
   try {
     const has = (name: string) =>
@@ -78,6 +81,7 @@ export function getFinanceOverview(filePath = config.stockDbPath) {
               ? value
               : undefined
             : Number(row.native_market_value),
+        quantity: Number(row.quantity),
         wrapper,
         market: String(row.market ?? ''),
         ticker: String(row.ticker ?? ''),
@@ -173,9 +177,11 @@ export function getFinanceOverview(filePath = config.stockDbPath) {
     }
     for (const row of latest(rows('fx_account_balances'), (row) => JSON.stringify([row.institution, row.account])))
       cash(row, Number(row.balance_usd), 'USD')
-    const summary = summarizeFinanceAssets(observations)
+    const approved = applyApprovedCurrentAssets(observations, rate, stateDir)
+    const summary = summarizeFinanceAssets(approved.observations)
     return {
       ...summary,
+      approvedConnectorRows: approved.approvedConnectorRows,
       complete: false,
       sourceCoverageConfirmed: false,
       fxAsOf: rates[0]?.as_of_date ? String(rates[0].as_of_date) : null,

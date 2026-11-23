@@ -12,6 +12,7 @@ export type AssetObservation = {
   account?: string
   currency?: string
   nativeAmount?: number
+  quantity?: number
   cashKind?: string
   derived?: boolean
   wrapper?: string
