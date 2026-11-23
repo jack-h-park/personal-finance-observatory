@@ -69,6 +69,8 @@ export const holdings = defineCopy({
       empty: 'No per-security snapshot history yet.',
       pinFilter: 'Show separately',
       pinAria: (name: string, pinned: boolean) => (pinned ? `Fold ${name} back into Other` : `Show ${name} as its own band`),
+      excludedNote: (dates: string, count: string, costPct: string) =>
+        `Positions with no price on a date are left out of that date's shares: ${dates} of the plotted dates, up to ${count} positions and at most ${costPct} of cost.`,
     },
     composition: {
       topTitle: 'Largest positions',
@@ -110,7 +112,8 @@ export const holdings = defineCopy({
       price: 'Price',
       priceDescription: 'The rest of the value change: the price move on the shares held at the end, FX included.',
       shown: (shown: string, total: string) => `The ${shown} largest moves of ${total} positions.`,
-      unavailable: 'A position on one of the two dates has no price, so the shares cannot be compared.',
+      unavailable: 'Nothing in this scope has a price on one of the two dates, so the shares cannot be compared.',
+      excludedNote: (count: string, costPct: string) => `${count} with no price on one of the two dates (${costPct} of cost) left out of both dates.`,
       empty: 'No per-security snapshot history yet.',
     },
     costStatusFilter: 'Status',
@@ -199,6 +202,8 @@ export const holdings = defineCopy({
       empty: '아직 종목별 스냅샷 이력이 없습니다.',
       pinFilter: '따로 보기',
       pinAria: (name: string, pinned: boolean) => (pinned ? `${name}을(를) 다시 기타로 묶기` : `${name}을(를) 따로 표시하기`),
+      excludedNote: (dates: string, count: string, costPct: string) =>
+        `가격이 없는 종목은 그 날짜의 비중 계산에서 뺐습니다: 표시된 날짜 중 ${dates}개, 최대 ${count}개 종목, 취득원가 기준 최대 ${costPct}.`,
     },
     composition: {
       topTitle: '상위 종목',
@@ -240,7 +245,8 @@ export const holdings = defineCopy({
       price: '가격 효과',
       priceDescription: '평가금액 변화의 나머지로, 끝 시점 보유 수량에 대한 가격 변동입니다(환율 포함).',
       shown: (shown: string, total: string) => `전체 ${total}개 종목 중 변화가 큰 ${shown}개입니다.`,
-      unavailable: '두 날짜 중 한쪽에 가격이 빠진 종목이 있어 비중을 비교할 수 없습니다.',
+      unavailable: '두 날짜 중 한쪽에 평가금액이 있는 종목이 없어 비중을 비교할 수 없습니다.',
+      excludedNote: (count: string, costPct: string) => `두 날짜 중 한쪽에 가격이 없는 종목 ${count}개(취득원가 기준 ${costPct})는 두 날짜 모두에서 빼고 비교했습니다.`,
       empty: '아직 종목별 스냅샷 이력이 없습니다.',
     },
     costStatusFilter: '상태',

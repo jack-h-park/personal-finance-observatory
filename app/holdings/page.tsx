@@ -293,6 +293,14 @@ export default async function HoldingsPage({
 
   const weightColor = (index: number) => SERIES_COLORS[index] ?? OTHER_SERIES_COLOR
   const weightMoves = shareMoves(weights.points, weights.series)
+  // The worst date's exclusion, for the note under the chart: how many
+  // positions and how much cost were ever left out.
+  const weightExcluded = weights.excluded.length
+    ? {
+        count: Math.max(...weights.excluded.map((e) => e.count)),
+        costPct: weights.excluded.some((e) => e.costPct != null) ? Math.max(...weights.excluded.map((e) => e.costPct ?? 0)) : null,
+      }
+    : null
   const otherNow = weights.points.filter((point) => point.other != null).at(-1)?.other ?? null
   // Pin candidates: the largest securities held now in this scope that have no
   // band of their own, plus any already pinned (to unpin).
@@ -331,7 +339,7 @@ export default async function HoldingsPage({
   const changeFrom = selection?.from ?? weightDates[0] ?? null
   const changeTo = selection?.to ?? weightDates.at(-1) ?? null
   const changes = changeFrom && changeTo && changeFrom !== changeTo ? weightChanges({ rows: weightRows, from: changeFrom, to: changeTo, held: rows, scope: weightScope }) : null
-  const shownChanges = (changes ?? []).slice(0, 15)
+  const shownChanges = (changes?.changes ?? []).slice(0, 15)
   const maxChangePp = Math.max(0, ...shownChanges.map((c) => Math.abs(c.changePp)))
   const clearRangeHref = (() => {
     const next = new URLSearchParams()
@@ -528,6 +536,15 @@ export default async function HoldingsPage({
               )}
             </ul>
           )}
+          {weightExcluded && (
+            <Note size="label">
+              {weightCopy.excludedNote(
+                fmtNumber(weights.excluded.length),
+                fmtNumber(weightExcluded.count),
+                weightExcluded.costPct == null ? labels.noValue : fmtPct(weightExcluded.costPct, { digits: 2 })
+              )}
+            </Note>
+          )}
           {pinCandidates.length > 0 && (
             <div className="flex flex-wrap items-center gap-1">
               <span className="mr-1 text-label text-ink-3">{weightCopy.pinFilter}</span>
@@ -566,7 +583,10 @@ export default async function HoldingsPage({
           ) : (
             <>
               <DataTable rows={shownChanges} getRowKey={(c) => c.key} caption={changeCopy.title} columns={changeColumns} emptyMessage={changeCopy.empty} />
-              {changes.length > shownChanges.length && <Note size="label">{changeCopy.shown(fmtNumber(shownChanges.length), fmtNumber(changes.length))}</Note>}
+              {changes.changes.length > shownChanges.length && <Note size="label">{changeCopy.shown(fmtNumber(shownChanges.length), fmtNumber(changes.changes.length))}</Note>}
+              {changes.excluded && (
+                <Note size="label">{changeCopy.excludedNote(fmtNumber(changes.excluded.count), changes.excluded.costPct == null ? labels.noValue : fmtPct(changes.excluded.costPct, { digits: 2 }))}</Note>
+              )}
             </>
           )}
         </div>

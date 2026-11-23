@@ -68,15 +68,42 @@ test('past the top eight the rest folds into Other, and a pin keeps a small secu
   assert.equal(pinned.series.at(-1)!.key, 'KR:000009')
 })
 
-test('an unpriced date is unknown for every series, and ranking uses the newest priced date', () => {
-  const { series, points } = positionShares({
-    rows: [row('a', 'KR', 'X1', 100), row('a', 'KR', 'X2', 300), row('b', 'KR', 'X1', 500), row('b', 'KR', 'X2', null)],
+test('an unpriced security is left out of that date only, and the date is listed with its cost share', () => {
+  const { series, points, excluded } = positionShares({
+    rows: [
+      { ...row('a', 'KR', 'X1', 100), costKrw: 100 },
+      { ...row('a', 'KR', 'X2', 300), costKrw: 300 },
+      { ...row('b', 'KR', 'X1', 300), costKrw: 100 },
+      { ...row('b', 'KR', 'X2', 100), costKrw: 300 },
+      { ...row('b', 'KR', 'BOND', null), costKrw: 100 },
+    ],
     dates: ['a', 'b'],
     held: [],
     scope: 'all',
   })
-  assert.deepEqual(series.map((s) => s.key), ['KR:X2', 'KR:X1'])
-  assert.deepEqual([points[1].s0, points[1].s1, points[1].other], [null, null, null])
+  assert.deepEqual(series.map((s) => s.key), ['KR:X1', 'KR:X2'])
+  // Date b: shares of the priced 400, the bond out.
+  assert.deepEqual([points[1].s0, points[1].s1, points[1].other], [75, 25, 0])
+  assert.deepEqual(excluded, [{ date: 'b', count: 1, costPct: 20 }])
+})
+
+test('a drawn security with no price that day is a gap, not zero', () => {
+  const { series, points } = positionShares({
+    rows: [row('a', 'KR', 'A1', 100), row('a', 'KR', 'B1', 100), row('b', 'KR', 'A1', null), row('b', 'KR', 'B1', 100)],
+    dates: ['a', 'b'],
+    held: [],
+    scope: 'all',
+    pins: ['KR:A1'],
+  })
+  const a = series.find((s) => s.key === 'KR:A1')!
+  const b = series.find((s) => s.key === 'KR:B1')!
+  assert.equal(points[1][a.id], null)
+  assert.equal(points[1][b.id], 100)
+})
+
+test('a date with nothing priced is unknown for every band', () => {
+  const { points } = positionShares({ rows: [row('a', 'KR', 'A1', 100), row('b', 'KR', 'A1', null)], dates: ['a', 'b'], held: [], scope: 'all' })
+  assert.equal(points[1].s0, null)
 })
 
 test('moves read the first and last known shares', () => {

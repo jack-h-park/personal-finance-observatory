@@ -247,6 +247,22 @@ As built (2026-11-23):
 - Drag-to-select is on the V4 stacked chart only, whose dates the table uses.
   The V3 chart plots portfolio snapshot dates and is left without it.
 
+## Follow-up after deploy: unpriced positions (2026-11-23)
+
+On the production data the V4 chart had two plotted dates and the V6 table
+never showed: three bonds held through a Korean broker carry no month-end
+price from 2024-03 to 2026-09 (at most 2.2% of cost, about 0.05% since
+2026-03), and the "blank the whole date" rule above turned that into an empty
+chart. The rule is replaced:
+
+- V4: a security with no price on a date is left out of that date only; its
+  band is a gap there, the other shares are of the priced total, and a note
+  under the chart gives how many dates, up to how many positions and at most
+  what share of cost were left out. A date with nothing priced stays blank.
+- V6: a security unpriced on either date is left out of both dates, so the
+  two shares compare the same set, with a note giving the count and cost share.
+- Valuing those bonds at month ends (a pipeline change) is left for later.
+
 ## Layout after V5
 
 1. Header + freshness (unchanged)
