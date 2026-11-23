@@ -386,6 +386,29 @@ def iso(month, day, year):
     return f"{year}-{month}-{day}"
 
 
+# A transfer between Robinhood checking or savings and a brokerage account, as the
+# account's own activity prints it: `Transfer from Checking to Brokerage Cash XENT_CM
+# 10/06/2026 $3,000.00`. The CSV export leaves these out and the bank export does not
+# name the receiving account, so this line is the only place that does. Transfers
+# between two brokerage accounts (`ITRF`) are in the CSV already and are not read.
+RH_BANK_TRANSFER = re.compile(r"^Transfer from (\w+)(?: (?:Cash|Margin))? to (\w+)(?: (?:Cash|Margin))? XENT_CM (\d{2})/(\d{2})/(\d{4}) (\(?-?\$[\d,.]+\)?)$")
+RH_BANK_SIDES = {"Checking", "Savings"}
+
+
+def robinhood_bank_transfer(line):
+    """(date, signed USD, source) for a bank transfer line: money in positive, out negative; else None."""
+    match = RH_BANK_TRANSFER.match(line.strip())
+    if not match:
+        return None
+    origin, target, month, day, year, amount = match.groups()
+    value = abs(money(amount) or 0.0)
+    if origin in RH_BANK_SIDES and target not in RH_BANK_SIDES:
+        return iso(month, day, year), value, origin.lower()
+    if target in RH_BANK_SIDES and origin not in RH_BANK_SIDES:
+        return iso(month, day, year), -value, target.lower()
+    return None
+
+
 def summarize_robinhood_statement(path):
     period_start = period_end = ""
     sections = {}
@@ -405,6 +428,10 @@ def summarize_robinhood_statement(path):
                     continue
                 if current is None:
                     continue
+                transfer = robinhood_bank_transfer(line)
+                if transfer:
+                    current.setdefault("transfers", []).append(transfer)
+                    continue
                 for key, pattern in RH_SUMMARY_ROWS.items():
                     match = pattern.match(line)
                     # The first two-figure line of each kind is the summary; a
@@ -416,6 +443,7 @@ def summarize_robinhood_statement(path):
     for account, rows in sorted(sections.items()):
         # A section with no sweep prints no sweep row; the tie-out below still has to hold.
         rows.setdefault("sweep", (0.0, 0.0))
+        transfers = [{"date": d, "amount_usd": a, "source": src} for d, a, src in rows.get("transfers", [])]
         if not {"cash", "sweep", "securities", "portfolio"} <= rows.keys():
             mismatches.append(f"{account}: account summary incomplete ({', '.join(sorted(rows))})")
             continue
@@ -436,7 +464,7 @@ def summarize_robinhood_statement(path):
             ends.append(round(cash + sweep, 2))
         # Only the account that failed is left out; the others in the file still anchor.
         if ok:
-            accounts.append({"account": account, "opening_cash_usd": ends[0], "closing_cash_usd": ends[1]})
+            accounts.append({"account": account, "opening_cash_usd": ends[0], "closing_cash_usd": ends[1], "bank_transfers": transfers})
 
     return {
         "category": "robinhood_statement_pdf",
