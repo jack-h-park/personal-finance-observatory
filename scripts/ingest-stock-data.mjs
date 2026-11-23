@@ -14,6 +14,7 @@ import { portfolioDate, priceDatesByMarket, valuePortfolio } from './portfolio-s
 import { repriceFromQuote } from './broker-quote-reprice.mjs'
 import { resolveCryptoFiles, resolveUsHoldingFiles, resolveUsTransactionFiles, robinhoodStrategyLabel } from './source-files.mjs'
 import { anchoredCashSeries, nextBusinessDay, openingAnchorFromFlows } from './anchored-cash.mjs'
+import { manualBankTransferFlows } from './robinhood-transfer-attribution.mjs'
 import { householdTransitSeries } from './household-transit.mjs'
 import { DECIDABLE_WRAPPERS, resolveWrapperTreatment } from './wrapper-treatment.mjs'
 import { pensionProductId } from './pension-ids.mjs'
@@ -5538,6 +5539,13 @@ for (const report of usPdfEvidence.reports ?? []) {
     }
   }
 }
+// Transfers the owner attributed by hand (manual-mappings `robinhoodBankTransfers`),
+// for the weeks before a statement prints them. A statement's own line replaces an entry.
+const manualTransfers = manualBankTransferFlows(
+  manualMappings.robinhoodBankTransfers,
+  new Map([...robinhoodStatementTransfers].map(([account, list]) => [account, list.map((t) => ({ date: t.date, amount: t.amount }))]))
+)
+for (const message of manualTransfers.invalid) console.warn(`[robinhood] ${message}`)
 const robinhoodStatementEnds = [...robinhoodStatementCash.values()].flat().map((s) => s.date).sort()
 // Rows from an extract older than the funding-account field carry none, so
 // their purchases reach no account's cash; robinhood_cash_anchored names them.
@@ -5566,6 +5574,7 @@ for (const account of robinhoodSnapshot?.accounts ?? []) {
       .map((r) => ({ date: text(r.date), settle: text(r.date), amount: (r.type === 'BUY' ? -1 : 1) * (number(r.amount) ?? 0) })),
     // Transfers to and from Robinhood checking or savings, where a statement names the account.
     ...(hint ? (robinhoodStatementTransfers.get(hint) ?? []) : []),
+    ...(hint ? (manualTransfers.flows.get(hint) ?? []) : []),
   ]
   const series = anchoredCashSeries({
     statements: robinhoodStatementCash.get(hint) ?? [],
