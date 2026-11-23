@@ -46,8 +46,7 @@ Open `http://127.0.0.1:3391/spending`, or use Spending in Assets & Cash Flow.
 For the accompanying `/accounts` and `/data-ops` views, seed the sample
 portfolio database in the same checkout with `pnpm seed:sample` if needed.
 The spending coverage and review panels link to the selected account.
-The route, navigation item, and spending panels are gated to development. The database opens
-read-only. If available, set `SPENDING_PILOT_BANKSALAD_OBSERVATIONS` to the
+The development database opens read-only. If available, set `SPENDING_PILOT_BANKSALAD_OBSERVATIONS` to the
 absolute path to the normalized BankSalad `observation.json` beside its
 manifest. The page verifies the observation hash and matches the workbook
 hash to the ledger before using observation dates and amounts. Held rows
@@ -61,6 +60,43 @@ dates. Payments and transfers appear as transactions and are excluded from
 spending. Account coverage shows the first and last available posted dates
 without assuming continuity. A held observation may be a source row pending
 an issuer match, so it does not increase ledger spending.
+
+Choose 12 or 24 calendar months, including the current partial month. The
+summary shows the selected date range, observed months, native-currency totals,
+and separate signed monthly trends. Blank bars mark months with no recorded
+purchase or refund. Exact figures remain available in a table. Category and
+merchant rankings open a filtered transaction list. Individual purchases open
+the exact transaction while retaining the selected account and analysis period.
+Data review contains account coverage, held observations, and evidence guidance.
+
+The optional private `category-hints.json` beside `state/` accepts version 1.
+Its `usdIssuer` object maps canonical transaction IDs to category labels
+previously matched to issuer CSV rows. Its `usdNotion` object maps normalized
+merchant descriptions to reviewed category labels. Keys use Unicode NFKC, lower
+case, and collapsed whitespace. Optional `merchantAliases` uses the same keys
+for reviewed display labels and merchant grouping. Issuer labels take precedence. For the pilot,
+issuer transaction matches used reviewed account identity, both dates, signed
+cents, and description. Notion references used consistent labels with a
+confirmed observation or repeated dates, excluding duplicate-marked rows.
+The local page reads this file only for labels. The BankSalad observation file
+supplies Korean labels through ledger links whose date and amount agree.
+Keep the source exports and category mappings private.
+
+### Publish a read-only snapshot
+
+Production enables the route, navigation and panels in private finance mode
+when `FINANCE_STATE_DIR/spending-readonly/snapshot.json` is present. Use the
+existing owner-only HTTPS gateway and keep the app listener on loopback. A
+development ledger flag cannot enable a production route.
+
+Build a projection from the reviewed isolated ledger using
+`pnpm exec tsx scripts/export-spending-view.ts` with the absolute ledger path,
+publication date and optional absolute BankSalad observation path. Redirect
+stdout to a private file. Compare transaction counts, totals and hold counts
+with the source ledger before publishing it. Stage the file with owner-only
+permissions and rename it atomically into the resolved state path. The app
+serves only the projected fields and displays the publication date. Raw
+evidence, SQLite and ingestion configuration stay at their existing locations.
 
 ## Import saved SnapTrade Chase card activity
 

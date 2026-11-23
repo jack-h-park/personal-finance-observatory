@@ -1,12 +1,27 @@
 import assert from 'node:assert/strict'
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
 import test from 'node:test'
-import { projectSpending, summarizeSpendingAccounts, type SpendingSnapshot } from '../lib/domain/spending-view'
-import { spendingPilotEnabled } from '../lib/adapters/spending-view'
+import { analyzeSpending, projectSpending, summarizeSpendingAccounts, type SpendingSnapshot } from '../lib/domain/spending-view'
+import { spendingPilotEnabled, spendingPublicationPath } from '../lib/adapters/spending-view'
 
-test('the spending pilot is opt-in and disabled in production', () => {
+test('the spending route requires a local ledger or explicit private snapshot', () => {
   assert.equal(spendingPilotEnabled({ NODE_ENV: 'development', SPENDING_PILOT_DB: '/tmp/spending.sqlite' }), true)
   assert.equal(spendingPilotEnabled({ NODE_ENV: 'development' }), false)
   assert.equal(spendingPilotEnabled({ NODE_ENV: 'production', SPENDING_PILOT_DB: '/tmp/spending.sqlite' }), false)
+  const state = mkdtempSync(path.join(tmpdir(), 'spending-publication-'))
+  try {
+    const env = { NODE_ENV: 'production', FINANCE_MODE: 'private', FINANCE_STATE_DIR: state } as const
+    const publication = path.join(state, 'spending-readonly', 'snapshot.json')
+    assert.equal(spendingPublicationPath(env), publication)
+    assert.equal(spendingPilotEnabled(env), false)
+    mkdirSync(path.dirname(publication))
+    writeFileSync(publication, '{}', { mode: 0o600 })
+    assert.equal(spendingPilotEnabled(env), true)
+  } finally {
+    rmSync(state, { recursive: true, force: true })
+  }
 })
 
 const snapshot: SpendingSnapshot = {
@@ -49,4 +64,38 @@ test('account summaries retain coverage and count held observations without chan
     ['korea', '2026-07-05', 1, 1],
   ])
   assert.deepEqual(summarizeSpendingAccounts({ ...snapshot, holds: [] }).map(row => row.heldCount), [0, 0])
+})
+
+test('analytics spans calendar months, leaves gaps blank and excludes future rows and payments', () => {
+  const data = analyzeSpending(snapshot.rows, { today: '2026-08-01', period: 12 })
+  assert.equal(data.months.length, 12)
+  assert.equal(data.months.at(-1)?.month, '2025-09')
+  assert.deepEqual(data.months[0], { month: '2026-08', USD: null, KRW: null })
+  assert.deepEqual(data.months[1], { month: '2026-07', USD: 2000, KRW: 1000 })
+  assert.equal(data.firstDay, '2025-09-01')
+  assert.deepEqual(data.totals.USD, { net: 2000, observedMonths: 1 })
+  assert.equal(analyzeSpending(snapshot.rows, { today: '2026-08-04', period: 24 }).months[0].USD, -100)
+})
+
+test('analytics ranks purchases by category, merchant and individual amount, preserving native currencies', () => {
+  const buy = { ...snapshot.rows[0], category: 'Shopping', categorySource: 'issuer' as const }
+  const data = analyzeSpending([...snapshot.rows.slice(1), buy, { ...buy, id: 'repeat', description: 'store', amountMinor: -700 }],
+    { today: '2026-08-10', period: 12 })
+  assert.deepEqual(data.USD.categories, [{ name: 'Shopping', amountMinor: 2700, count: 2 }])
+  assert.deepEqual(data.USD.merchants, [{ name: 'Store', amountMinor: 2700, count: 2 }])
+  assert.deepEqual(data.USD.largest.map(row => row.id), ['buy', 'repeat'])
+  assert.equal(data.USD.categorySources.issuer, 2)
+  assert.deepEqual(data.KRW.uncategorized, { amountMinor: 1000, count: 1 })
+  assert.equal(analyzeSpending(snapshot.rows, { today: '2026-08-10', period: 12, account: 'card' }).KRW.largest.length, 0)
+})
+
+test('reviewed merchant aliases group purchases while retaining issuer descriptions for drill-down', () => {
+  const purchases = [
+    { ...snapshot.rows[0], description: 'Store Downtown', merchantLabel: 'Store' },
+    { ...snapshot.rows[0], id: 'second', description: 'Store Mall', merchantLabel: 'Store', amountMinor: -500 },
+  ]
+  const data = analyzeSpending(purchases, { today: '2026-08-10', period: 12 })
+  assert.deepEqual(data.USD.merchants, [{ name: 'Store', amountMinor: 2500, count: 2 }])
+  assert.deepEqual(data.USD.largest.map(row => row.description), ['Store Downtown', 'Store Mall'])
+  assert.deepEqual(data.totals.KRW, { net: null, observedMonths: 0 })
 })
