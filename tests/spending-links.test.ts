@@ -37,3 +37,8 @@ test('the tab follows the request, and a month or page opens transactions', () =
   assert.equal(resolveSpendingView('summary', { page: '2' }), 'transactions')
   assert.equal(resolveSpendingView('bogus', {}), 'summary')
 })
+
+test('filter params carry the transaction kind and sort only when they are not the defaults', () => {
+  assert.deepEqual(spendingFilterParams({ view: 'transactions', period: 12, kinds: 'all', sort: 'largest' }), { view: 'transactions', kinds: 'all', sort: 'largest' })
+  assert.deepEqual(spendingFilterParams({ view: 'transactions', period: 12, kinds: 'spending', sort: 'recent' }), { view: 'transactions' })
+})

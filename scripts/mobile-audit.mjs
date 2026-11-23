@@ -19,6 +19,8 @@ const ROUTES = [
   '/reconciliation', '/data-map', '/positions/KR/005930', '/tax-planning/plans/none',
   // The surfaces R2's primitives touch that the net never checked.
   '/cash-inflow', '/rebalance/settings', '/taxes', '/taxes/history', '/taxes/records/us-2025',
+  // A 404 where no spending ledger or snapshot is configured; audited as that page then.
+  '/spending',
 ]
 const MIN_TARGET = 24
 // The overview is audited twice: once in the default all-assets view (no

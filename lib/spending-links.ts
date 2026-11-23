@@ -44,6 +44,8 @@ export function spendingFilterParams(state: {
   currency?: string
   category?: string
   merchant?: string
+  kinds?: 'spending' | 'all'
+  sort?: 'recent' | 'largest'
 }): Record<string, string> {
   const params: Record<string, string> = { view: state.view }
   if (state.period !== 12) params.period = String(state.period)
@@ -51,5 +53,7 @@ export function spendingFilterParams(state: {
     const value = state[key]
     if (value) params[key] = value
   }
+  if (state.kinds === 'all') params.kinds = 'all'
+  if (state.sort === 'largest') params.sort = 'largest'
   return params
 }
