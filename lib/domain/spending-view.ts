@@ -204,3 +204,55 @@ export function projectSpending(snapshot: SpendingSnapshot, filters: { month?: s
     holds: snapshot.holds.filter(row => matches(row.accountId, row.date)),
   }
 }
+
+/** Combined KRW net over a set of months, by the rules of `analyzeSpending`; null when no row converted. */
+function combinedNetOver(rows: SpendingViewRow[], months: ReadonlySet<string>, options: {
+  today: string; account?: string; rates: ReadonlyMap<string, SpendingFxRate>
+}) {
+  let net: number | null = null
+  for (const row of rows) {
+    if ((options.account && options.account !== row.accountId) || row.activityDate > options.today) continue
+    if (row.kind !== 'purchase' && row.kind !== 'refund') continue
+    if (!months.has(row.activityDate.slice(0, 7))) continue
+    const { amount } = spendingInKrw(row, options.rates)
+    if (amount !== null) net = (net ?? 0) - amount
+  }
+  return net
+}
+
+const shiftMonth = (key: string, back: number) => {
+  const [year, month] = key.split('-').map(Number)
+  return new Date(Date.UTC(year, month - 1 - back, 1)).toISOString().slice(0, 7)
+}
+
+/**
+ * The lead card's supporting figures for a period: the monthly average over its
+ * calendar months, and the change against the window before it. Like
+ * /cash-inflow, the comparison counts completed months only: when the period
+ * ends in the month in progress, that month and its counterpart drop out, so a
+ * half month never reads as a fall. The window before is 24 months back for
+ * the 24-month period and a year back otherwise. Nothing (or a net refund)
+ * before is no change, never a division by zero.
+ */
+export function compareSpendingPeriods(rows: SpendingViewRow[], options: {
+  today: string; period: SpendingPeriod; account?: string; rates?: ReadonlyMap<string, SpendingFxRate>
+}) {
+  const rates = options.rates ?? new Map()
+  const { months } = periodMonths(options.today, options.period)
+  const scope = { today: options.today, account: options.account, rates }
+  const net = combinedNetOver(rows, new Set(months), scope)
+  const inProgress = options.today.slice(0, 7)
+  const compared = months.filter(month => month !== inProgress)
+  const back = options.period === 24 ? 24 : 12
+  const current = compared.length ? combinedNetOver(rows, new Set(compared), scope) : null
+  const previousRaw = compared.length ? combinedNetOver(rows, new Set(compared.map(month => shiftMonth(month, back))), scope) : null
+  const previous = compared.length ? previousRaw : null
+  const change = current !== null && previousRaw !== null && previousRaw > 0 ? (current - previousRaw) / previousRaw : null
+  return {
+    monthlyAverage: net === null ? null : net / months.length,
+    current,
+    previous,
+    change,
+    comparedThrough: compared[0] ?? null,
+  }
+}
