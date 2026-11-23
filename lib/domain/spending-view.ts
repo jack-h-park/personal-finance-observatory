@@ -18,6 +18,29 @@ export type SpendingViewRow = {
 
 export type SpendingPeriod = 12 | 24
 export type SpendingRank = { name: string; amountMinor: number; count: number }
+export type SpendingFxRate = { date: string; rate: number; source: string }
+
+export function spendingRateOn(rates: ReadonlyMap<string, SpendingFxRate>, date: string) {
+  const day = new Date(date + 'T00:00:00Z')
+  if (!Number.isFinite(day.valueOf())) return undefined
+  for (let elapsed = 0; elapsed <= 7; elapsed++) {
+    const quote = rates.get(day.toISOString().slice(0, 10))
+    if (quote && Number.isFinite(quote.rate) && quote.rate > 0) return quote
+    day.setUTCDate(day.getUTCDate() - 1)
+  }
+}
+
+export function spendingInKrw(row: SpendingViewRow, rates: ReadonlyMap<string, SpendingFxRate>) {
+  if (row.currency === 'KRW') return { amount: row.amountMinor, quote: undefined }
+  const quote = spendingRateOn(rates, row.postedDate)
+  const parts = quote && /^(\d+)(?:\.(\d+))?$/.exec(String(quote.rate))
+  if (!parts) return { amount: null, quote: undefined }
+  const fraction = parts[2] ?? ''
+  const divisor = BigInt(100) * BigInt(10) ** BigInt(fraction.length)
+  const numerator = BigInt(Math.abs(row.amountMinor)) * BigInt(parts[1] + fraction)
+  const rounded = Number((numerator + divisor / BigInt(2)) / divisor)
+  return { amount: Math.sign(row.amountMinor) * rounded, quote }
+}
 
 export function spendingMerchantKey(description: string) {
   return description.normalize('NFKC').trim().replace(/\s+/g, ' ').toLowerCase()
@@ -27,7 +50,7 @@ function rank(groups: Map<string, SpendingRank>) {
   return [...groups.values()].sort((a, b) => b.amountMinor - a.amountMinor || a.name.localeCompare(b.name))
 }
 
-function summarizePurchases(purchases: SpendingViewRow[]) {
+function summarizePurchases(purchases: SpendingViewRow[], value = (row: SpendingViewRow) => row.amountMinor) {
   const categories = new Map<string, SpendingRank>()
   const merchants = new Map<string, SpendingRank>()
   const uncategorized = { amountMinor: 0, count: 0 }
@@ -39,7 +62,7 @@ function summarizePurchases(purchases: SpendingViewRow[]) {
     groups.set(key, summary)
   }
   for (const row of purchases) {
-    const amount = -row.amountMinor
+    const amount = -value(row)
     const merchant = row.merchantLabel ?? row.description
     add(merchants, spendingMerchantKey(merchant), merchant, amount)
     if (row.category && row.categorySource) {
@@ -50,12 +73,14 @@ function summarizePurchases(purchases: SpendingViewRow[]) {
       uncategorized.count++
     }
   }
-  const largest = purchases.sort((a, b) => a.amountMinor - b.amountMinor ||
+  const largest = purchases.sort((a, b) => value(a) - value(b) ||
     b.activityDate.localeCompare(a.activityDate) || a.id.localeCompare(b.id))
   return { categories: rank(categories), merchants: rank(merchants), largest, uncategorized, categorySources }
 }
 
-export function analyzeSpending(rows: SpendingViewRow[], options: { today: string; period: SpendingPeriod; account?: string }) {
+export function analyzeSpending(rows: SpendingViewRow[], options: {
+  today: string; period: SpendingPeriod; account?: string; rates?: ReadonlyMap<string, SpendingFxRate>
+}) {
   const [year, month] = options.today.split('-').map(Number)
   const months = Array.from({ length: options.period }, (_, index) => ({
     month: new Date(Date.UTC(year, month - 1 - index, 1)).toISOString().slice(0, 7),
@@ -64,6 +89,10 @@ export function analyzeSpending(rows: SpendingViewRow[], options: { today: strin
   }))
   const byMonth = new Map(months.map(item => [item.month, item]))
   const purchases: Record<Currency, SpendingViewRow[]> = { USD: [], KRW: [] }
+  const combined = new Map(months.map(item => [item.month, { month: item.month, amount: null as number | null, missingFx: 0 }]))
+  const purchaseKrw = new Map<string, number>()
+  const convertedPurchases: SpendingViewRow[] = []
+  const rates = options.rates ?? new Map()
   for (const row of rows) {
     if ((options.account && options.account !== row.accountId) || row.activityDate > options.today) continue
     if (row.kind !== 'purchase' && row.kind !== 'refund') continue
@@ -71,15 +100,36 @@ export function analyzeSpending(rows: SpendingViewRow[], options: { today: strin
     if (!bucket) continue
     bucket[row.currency] = (bucket[row.currency] ?? 0) - row.amountMinor
     if (row.kind === 'purchase') purchases[row.currency].push(row)
+    const combinedMonth = combined.get(bucket.month)!
+    const { amount } = spendingInKrw(row, rates)
+    if (amount === null) {
+      combinedMonth.missingFx++
+      continue
+    }
+    combinedMonth.amount = (combinedMonth.amount ?? 0) - amount
+    if (row.kind === 'purchase') {
+      purchaseKrw.set(row.id, amount)
+      convertedPurchases.push(row)
+    }
   }
   const totals = (currency: Currency) => {
     const values = months.flatMap(row => row[currency] ?? [])
     return { net: values.length ? values.reduce((total, value) => total + value, 0) : null, observedMonths: values.length }
   }
+  const combinedMonths = [...combined.values()]
+  const coveredMonths = combinedMonths.flatMap(item => item.amount ?? [])
   return {
     months, firstDay: months[months.length - 1].month + '-01',
     totals: { USD: totals('USD'), KRW: totals('KRW') },
     USD: summarizePurchases(purchases.USD), KRW: summarizePurchases(purchases.KRW),
+    combined: {
+      months: combinedMonths,
+      net: coveredMonths.length ? coveredMonths.reduce((total, amount) => total + amount, 0) : null,
+      observedMonths: combinedMonths.filter(item => item.amount !== null || item.missingFx).length,
+      missingFx: combinedMonths.reduce((count, item) => count + item.missingFx, 0),
+      purchaseKrw,
+      ...summarizePurchases(convertedPurchases, row => purchaseKrw.get(row.id)!),
+    },
   }
 }
 

@@ -6,8 +6,8 @@ import { SpendingAnalytics } from '@/components/SpendingAnalytics'
 import { Button, Callout, Card, MetricField, Note, TextLink } from '@/components/ui'
 import { portfolioToday } from '@/lib/adapters/portfolio-db'
 import { loadSpendingPilot } from '@/lib/adapters/spending-view'
-import type { Currency } from '@/lib/domain/spending-import'
-import { analyzeSpending, projectSpending, spendingMerchantKey, type SpendingHold } from '@/lib/domain/spending-view'
+import { readSpendingFxRates } from '@/lib/adapters/spending-fx'
+import { analyzeSpending, projectSpending, spendingInKrw, spendingMerchantKey, type SpendingHold } from '@/lib/domain/spending-view'
 import { EMPTY_VALUE, localeFor } from '@/lib/format'
 import { getLanguage } from '@/lib/i18n-server'
 import { routeMetadata, routeName, routeSection } from '@/lib/page-names'
@@ -53,7 +53,8 @@ export default async function SpendingPage({ searchParams }: {
     projectSpending(snapshot, { account: param('account'), month: requestedView === 'review' ? undefined : param('month') })
   const period = param('period') === '24' ? 24 : 12
   const today = portfolioToday()
-  const analytics = analyzeSpending(snapshot.rows, { today, period, account })
+  const rates = requestedView === 'review' ? new Map() : readSpendingFxRates()
+  const analytics = analyzeSpending(snapshot.rows, { today, period, account, rates })
   const view: View = requestedView === 'review' ? 'review'
     : requestedView === 'transactions' || month || param('page') ? 'transactions' : 'summary'
   const currency = currencies.find(unit => unit === param('currency'))
@@ -75,6 +76,11 @@ export default async function SpendingPage({ searchParams }: {
     KRW: new Intl.NumberFormat(locale, { style: 'currency', currency: 'KRW' }),
   }
   const amount = (minor: number, currency: keyof typeof money) => money[currency].format(minor / (currency === 'USD' ? 100 : 1))
+  const transactionAmount = (row: typeof ledgerRows[number]) => {
+    const converted = spendingInKrw(row, rates).amount
+    return converted === null ? EMPTY_VALUE : amount(converted, 'KRW')
+  }
+  const selectedRate = selected && spendingInKrw(selected, rates).quote
   const name = (id: string) => accounts.get(id)?.label ?? id
   const accountIds = [...new Set(snapshot.coverage.map(item => item.accountId))]
   const href = (target: View, options: Record<string, string | undefined> = {}) => {
@@ -163,24 +169,29 @@ export default async function SpendingPage({ searchParams }: {
         </div>
 
         {view === 'summary' ? <>
-          <Card title={copy.net} id="spending-period">
+          <Card title={copy.combinedNet} id="spending-period">
             <p className="mb-3 text-caption text-ink-2">{copy.window(analytics.firstDay, today)}</p>
-            <div className="flex flex-wrap gap-x-4 gap-y-3">
+            <MetricField label={copy.convertedKrw} size="metric"
+              value={<span className="break-words font-mono">{analytics.combined.net === null ? EMPTY_VALUE : amount(analytics.combined.net, 'KRW')}</span>} />
+            <p className="mt-1 text-caption text-ink-2">{copy.observedMonths(count(analytics.combined.observedMonths), count(period))}</p>
+            <dl className="mt-4 flex flex-wrap gap-x-5 gap-y-2 border-t border-line pt-3 text-caption">
               {currencies.map(unit => {
                 const total = analytics.totals[unit]
-                return <section key={unit} className="min-w-32 flex-1">
-                  <MetricField label={unit} value={<span className="break-words font-mono sm:text-metric">
-                    {total.net === null ? EMPTY_VALUE : amount(total.net, unit)}
-                  </span>} />
-                  <p className="mt-1 text-caption text-ink-2">{copy.observedMonths(count(total.observedMonths), count(period))}</p>
-                </section>
+                return <div key={unit} className="flex flex-wrap items-baseline gap-2">
+                  <dt className="text-ink-2">{copy.nativeNet[unit]}</dt>
+                  <dd className="font-mono tabular-nums">{total.net === null ? EMPTY_VALUE : amount(total.net, unit)}</dd>
+                </div>
               })}
-            </div>
+            </dl>
+            <Note size="caption" spacing="above-3">{copy.exchangePolicy}</Note>
+            {analytics.combined.missingFx ? <p role="status" className="mt-2 text-caption text-warning">
+              {copy.exchangeMissing(count(analytics.combined.missingFx))}
+            </p> : null}
           </Card>
           <SpendingAnalytics data={analytics} language={language} amount={amount} count={count}
             monthHref={target => href('transactions', { month: target })}
-            rankingHref={(unit: Currency, filter, term) => href('transactions', {
-              currency: unit, [filter]: filter === 'merchant' ? spendingMerchantKey(term) : term,
+            rankingHref={(filter, term) => href('transactions', {
+              [filter]: filter === 'merchant' ? spendingMerchantKey(term) : term,
             })}
             transactionHref={transactionHref} />
         </> : null}
@@ -253,6 +264,9 @@ export default async function SpendingPage({ searchParams }: {
             {!selected && (category || merchant || currency) ? <TextLink href={href('transactions', { month })}>{copy.clearDetail}</TextLink> : null}
           </div>
           <p className="mb-3 text-caption text-ink-2">{copy.pageSummary(count(shown.length), count(rows.length))}</p>
+          {selectedRate ? <p className="mb-3 text-caption text-ink-2">
+            {copy.rateDetail(selectedRate.date, new Intl.NumberFormat(locale, { maximumFractionDigits: 4 }).format(selectedRate.rate), selectedRate.source)}
+          </p> : null}
           {shown.length ? <ol className="divide-y divide-line-subtle md:hidden">
             {shown.map(row => <li key={row.id} className="flex items-start justify-between gap-3 py-3 text-body">
               <div className="min-w-0 break-words">
@@ -260,7 +274,10 @@ export default async function SpendingPage({ searchParams }: {
                 <p className="text-caption text-ink-2">{row.activityDate} · {name(row.accountId)}</p>
                 <p className="text-caption text-ink-2">{[copy.kinds[row.kind], row.category].filter(Boolean).join(' · ')}</p>
               </div>
-              <span className="shrink-0 font-mono tabular-nums">{amount(row.amountMinor, row.currency)}</span>
+              <div className="shrink-0 text-right font-mono tabular-nums">
+                <div>{transactionAmount(row)}</div>
+                {row.currency === 'USD' ? <div className="text-caption text-ink-2">{amount(row.amountMinor, row.currency)}</div> : null}
+              </div>
             </li>)}
           </ol> : <p className="text-body text-ink-2 md:hidden">{copy.noRows}</p>}
           <div className="hidden md:block">
@@ -273,8 +290,10 @@ export default async function SpendingPage({ searchParams }: {
                 : <TextLink href={transactionHref(row)}>{row.merchantLabel ?? row.description}</TextLink> },
               { key: 'kind', label: copy.type, render: row => copy.kinds[row.kind] },
               { key: 'category', label: copy.category, render: row => row.category ?? EMPTY_VALUE },
-              { key: 'amount', label: copy.amount, nowrap: true, align: 'right',
+              { key: 'amount', label: copy.originalAmount, nowrap: true, align: 'right',
                 render: row => <span className="font-mono">{amount(row.amountMinor, row.currency)}</span> },
+              { key: 'converted', label: copy.convertedKrw, nowrap: true, align: 'right',
+                render: row => <span className="font-mono">{transactionAmount(row)}</span> },
             ]}
           />
           </div>
