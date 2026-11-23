@@ -3394,7 +3394,7 @@ const monthsBetween = (start: string, end: string) =>
   (Number(end.slice(0, 4)) - Number(start.slice(0, 4))) * 12 + Number(end.slice(5, 7)) - Number(start.slice(5, 7)) + 1
 
 /** The range's first and last month ('YYYY-MM'), and the window just before it of the same length (null under All time). */
-function cashInflowWindow(range: CashInflowRange, nowYear: number, nowMonth: number, firstMonth: string | null) {
+export function cashInflowWindow(range: CashInflowRange, nowYear: number, nowMonth: number, firstMonth: string | null) {
   const current = monthKey(nowYear, nowMonth)
   const span =
     range === '12m' ? { start: monthKey(nowYear, nowMonth - 11), end: current, back: 12 }

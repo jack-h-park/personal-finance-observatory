@@ -5,6 +5,7 @@ import { Badge, Card, EmptyState, HeroAside, MetricField, MetricHeroCard, Note, 
 import { PortfolioMultiTrendChart, PortfolioTrendChart, StackedAssetChart } from '@/components/charts'
 import type { ChartUnit } from '@/lib/chart-format'
 import {
+  cashInflowWindow,
   dbAvailable,
   getAssetCoverageReview,
   getCashInflow,
@@ -25,6 +26,10 @@ import {
   withGoldScope,
 } from '@/lib/adapters/portfolio-db'
 import { periodTiles } from '@/lib/overview-period-tiles'
+import { FLOW_RANGES, overviewFlow, overviewHref, resolveFlowRange, spendingHref, type SpendingRead } from '@/lib/overview-flow'
+import { sumSpendingWindow } from '@/lib/domain/spending-window'
+import { loadSpendingPilot } from '@/lib/adapters/spending-view'
+import { readSpendingFxRates } from '@/lib/adapters/spending-fx'
 import { attentionItems } from '@/lib/overview-attention'
 import { flaggedMonths, nonInvestmentMonths } from '@/lib/non-investment-change'
 import { getNetWorthSettings, thresholdsFrom } from '@/lib/net-worth-settings'
@@ -44,7 +49,7 @@ import {
   type TrendMetricKey,
 } from '@/lib/overview-trend'
 import { config } from '@/config'
-import { EMPTY_VALUE, fmtDate, fmtDateTime, fmtNumber, fmtPct, fmtSigned } from '@/lib/format'
+import { EMPTY_VALUE, fmtDate, fmtDateTime, fmtMoney, fmtMonth, fmtNumber, fmtPct, fmtSigned } from '@/lib/format'
 import { convertMoney, createMoneyFormatter } from '@/lib/currency'
 import { getAssetView } from '@/lib/asset-view-server'
 import { getCurrencyPreferences } from '@/lib/currency-server'
@@ -74,7 +79,7 @@ type TrendViewKey = 'single' | 'combined'
 export default async function OverviewPage({
   searchParams,
 }: {
-  searchParams: Promise<{ trend?: string; metric?: string; scope?: string; view?: string }>
+  searchParams: Promise<{ trend?: string; metric?: string; scope?: string; view?: string; flow?: string }>
 }) {
   const language = await getLanguage()
   const currencyPreferences = await getCurrencyPreferences()
@@ -140,10 +145,12 @@ export default async function OverviewPage({
   const investmentFor = (change: TotalAssetsChange | null) => (change ? investmentResult(investmentPoints, change.baseDate) : null)
   // This month / this year, all view only: each figure is a summary of its own page.
   const display = currencyPreferences.displayCurrency
-  const tiles = netWorth
+  // The 12-month inflow read feeds the tiles, and the income figure when that is the period chosen.
+  const inflow12m = netWorth ? getCashInflow('month', display) : null
+  const tiles = netWorth && inflow12m
     ? (() => {
         const { year, month } = portfolioYearMonth()
-        const inflow = getCashInflow('month', display)
+        const inflow = inflow12m
         const income = getIncomeReview(display)
         return periodTiles({
           currentMonth: `${year}-${String(month).padStart(2, '0')}`,
@@ -151,6 +158,36 @@ export default async function OverviewPage({
           inflow: { periods: inflow.periods, monthlyAverage: inflow.totals.monthlyAverage, hasRecords: inflow.periods.length > 0 || inflow.hasBankData },
           income: { rowCount: income.totals.row_count, ytd: income.totals.ytd_base_income, trailing12m: income.totals.trailing_12m_base_income },
           realized: getRealizedLots(),
+        })
+      })()
+    : null
+  // Income and spending over the chosen period, all view only: /cash-inflow and /spending summarized.
+  const flowRange = resolveFlowRange(params.flow)
+  const overviewState = { trend: selectedRange.key, scope: selectedScope, metric: selectedMetric.key, view: selectedView, flow: flowRange }
+  const flow = netWorth && inflow12m
+    ? (() => {
+        const { year, month } = portfolioYearMonth()
+        const window = cashInflowWindow(flowRange, year, month, null)
+        const inflow = flowRange === '12m' ? inflow12m : getCashInflow('month', display, undefined, 'All', { range: flowRange })
+        let spending: SpendingRead
+        try {
+          const pilot = loadSpendingPilot()
+          spending = pilot.status === 'available'
+            ? {
+                status: 'available',
+                window: sumSpendingWindow({ rows: pilot.snapshot.rows, window, today, display, rates: readSpendingFxRates() }),
+                asOf: pilot.publicationDate,
+                reviewIncomplete: pilot.snapshot.reviewIncomplete,
+              }
+            : { status: pilot.status }
+        } catch {
+          spending = { status: 'unavailable' }
+        }
+        return overviewFlow({
+          range: flowRange,
+          window,
+          inflow: { rangeTotal: inflow.totals.rangeTotal, hasRecords: inflow.periods.length > 0 || inflow.hasBankData },
+          spending,
         })
       })()
     : null
@@ -423,7 +460,7 @@ export default async function OverviewPage({
         className="mb-5"
         action={
           <div className="flex flex-wrap items-center justify-end gap-1">
-            <TrendRangeLinks selected={selectedRange} hrefFor={(key) => `/?trend=${key}&scope=${selectedScope}&metric=${selectedMetric.key}&view=${selectedView}`} />
+            <TrendRangeLinks selected={selectedRange} hrefFor={(key) => overviewHref({ ...overviewState, trend: key })} />
           </div>
         }
       >
@@ -466,18 +503,18 @@ export default async function OverviewPage({
         ) : null}
         <div className="mb-3 flex flex-wrap items-center gap-1">
           <LinkChip
-            href={`/?trend=${selectedRange.key}&scope=${selectedScope}&metric=${selectedMetric.key}&view=single`}
+            href={overviewHref({ ...overviewState, view: 'single' })}
             active={selectedView === 'single'}
           >{copy.individual}</LinkChip>
           <LinkChip
-            href={`/?trend=${selectedRange.key}&scope=${selectedScope}&metric=${selectedMetric.key}&view=combined`}
+            href={overviewHref({ ...overviewState, view: 'combined' })}
             active={selectedView === 'combined'}
           >{copy.combined}</LinkChip>
           <span className="mx-1 h-4 w-px bg-line-subtle" />
           <LinkChips
             items={TREND_SCOPES.map((scope) => ({
               key: scope.key,
-              href: `/?trend=${selectedRange.key}&scope=${scope.key}&metric=${selectedMetric.key}&view=${selectedView}`,
+              href: overviewHref({ ...overviewState, scope: scope.key }),
               label: copy.scopeLabels[scope.key],
               title: scope.key === 'GOLD' ? copy.scopeHints.GOLD : undefined,
             }))}
@@ -491,7 +528,7 @@ export default async function OverviewPage({
                 variant="subtle"
                 items={TREND_METRICS.map((metric) => ({
                   key: metric.key,
-                  href: `/?trend=${selectedRange.key}&scope=${selectedScope}&metric=${metric.key}&view=single`,
+                  href: overviewHref({ ...overviewState, metric: metric.key, view: 'single' }),
                   label: copy.metricLabels[metric.key],
                 }))}
                 current={selectedMetric.key}
@@ -553,6 +590,58 @@ export default async function OverviewPage({
               value={tiles.realizedYtdKrw == null ? EMPTY_VALUE : fmtSigned(tiles.realizedYtdKrw, (v) => money(v, 'KRW'))}
               tone={deltaTone(tiles.realizedYtdKrw)}
               sub={<>{tiles.realizedYtdKrw == null ? copy.noRecordsYet : copy.realizedYtdHint(tiles.realizedYtdCount)} · <TextLink href="/realized">{copy.openRealized}</TextLink></>}
+            />
+          </StatStrip>
+        </Card>
+      ) : null}
+
+      {flow ? (
+        <Card
+          title={copy.flowTitle}
+          info={copy.flowInfo}
+          className="mb-5"
+        >
+          <div className="mb-3">
+            <LinkChips
+              as="nav"
+              label={copy.flowRangesLabel}
+              items={FLOW_RANGES.map((key) => ({
+                key,
+                href: overviewHref({ ...overviewState, flow: key }),
+                label: copy.flowRanges[key],
+              }))}
+              current={flow.range}
+            />
+          </div>
+          <StatStrip columns="2">
+            <Stat
+              label={copy.flowIncome}
+              value={flow.income == null ? EMPTY_VALUE : money(flow.income, display)}
+              sub={<>{flow.income == null ? `${copy.noRecordsYet} · ` : null}{fmtMonth(flow.window.start, language, { year: true })} – {fmtMonth(flow.window.end, language, { year: true })} · <TextLink href={`/cash-inflow?range=${flow.range}`}>{copy.openCashInflow}</TextLink></>}
+            />
+            <Stat
+              label={copy.flowSpending}
+              value={flow.spending?.converted == null ? EMPTY_VALUE : money(flow.spending.converted, display)}
+              sub={
+                <span className="flex flex-col">
+                  {flow.spending && flow.spendingState === 'available' ? (
+                    (['USD', 'KRW'] as const).map((currency) => {
+                      const native = flow.spending!.native[currency]
+                      return native.netMinor == null ? null : (
+                        <span key={currency} className="tabular-nums">
+                          {fmtMoney(currency === 'USD' ? native.netMinor / 100 : native.netMinor, currency)} · {copy.flowObserved(fmtNumber(native.observedMonths), fmtNumber(flow.window.months))}
+                        </span>
+                      )
+                    })
+                  ) : (
+                    <span>{flow.spendingState === 'noActivity' ? copy.flowNoActivity : flow.spendingState === 'unreadable' ? copy.flowUnreadable : copy.flowNotPublished}</span>
+                  )}
+                  {flow.spendingAsOf ? <span>{copy.flowAsOf(fmtDate(flow.spendingAsOf, language))}</span> : null}
+                  {flow.spendingReviewIncomplete ? <span className="text-warning">{copy.flowReviewIncomplete}</span> : null}
+                  {flow.spending && flow.spending.missingFx > 0 ? <span className="text-warning">{copy.flowMissingFx(fmtNumber(flow.spending.missingFx))}</span> : null}
+                  {flow.spendingState === 'notPublished' ? null : <span><TextLink href={spendingHref(flow.range)}>{copy.openSpending}</TextLink></span>}
+                </span>
+              }
             />
           </StatStrip>
         </Card>
