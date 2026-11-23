@@ -27,7 +27,7 @@ export type OverviewFlow = {
 
 export function overviewFlow(input: {
   range: FlowRange
-  window: { start: string; end: string; months: string[] }
+  window: { start: string; end: string; months: number }
   inflow: { rangeTotal: number; hasRecords: boolean }
   spending: SpendingRead
 }): OverviewFlow {
@@ -39,7 +39,7 @@ export function overviewFlow(input: {
     : 'available'
   return {
     range: input.range,
-    window: { start: input.window.start, end: input.window.end, months: input.window.months.length },
+    window: { start: input.window.start, end: input.window.end, months: input.window.months },
     income: input.inflow.hasRecords ? input.inflow.rangeTotal : null,
     spending: spending.status === 'available' ? spending.window : null,
     spendingState,
@@ -49,4 +49,12 @@ export function overviewFlow(input: {
 /** /spending offers 12 and 24 months; link the smallest one that holds the window. */
 export function spendingHref(range: FlowRange): string {
   return range === '12m' || range === 'ytd' ? '/spending?period=12' : '/spending?period=24'
+}
+
+/**
+ * An Overview link with every control in its query, so changing one (a trend
+ * range, a flow period) keeps the others where they were.
+ */
+export function overviewHref(state: { trend: string; scope: string; metric: string; view: string; flow: FlowRange }): string {
+  return `/?trend=${state.trend}&scope=${state.scope}&metric=${state.metric}&view=${state.view}&flow=${state.flow}`
 }

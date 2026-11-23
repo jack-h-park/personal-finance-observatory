@@ -115,6 +115,7 @@ const VALUE_TONE: Record<Tone, string> = {
 }
 
 const STAT_STRIP_COLUMNS = {
+  '2': '',
   'sm-3': 'sm:grid-cols-3',
   'md-4': 'md:grid-cols-4',
   'lg-4': 'lg:grid-cols-4',

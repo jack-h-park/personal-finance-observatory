@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { overviewFlow, resolveFlowRange, spendingHref } from '../lib/overview-flow'
+import { overviewFlow, overviewHref, resolveFlowRange, spendingHref } from '../lib/overview-flow'
 import type { SpendingWindow } from '../lib/domain/spending-window'
 
-const window = { start: '2025-12', end: '2026-11', months: Array.from({ length: 12 }, (_, i) => `m${i}`) }
+const window = { start: '2025-12', end: '2026-11', months: 12 }
 const spent: SpendingWindow = {
   native: { USD: { netMinor: 1000, observedMonths: 3 }, KRW: { netMinor: 5000, observedMonths: 2 } },
   months: 12,
@@ -58,4 +58,11 @@ test('spendingHref picks the smallest spending period that holds the window', ()
   assert.equal(spendingHref('ytd'), '/spending?period=12')
   assert.equal(spendingHref('24m'), '/spending?period=24')
   assert.equal(spendingHref('lastYear'), '/spending?period=24')
+})
+
+test('overviewHref carries every control, so a trend chip keeps the flow period and a flow chip keeps the trend', () => {
+  const state = { trend: '1y', scope: 'global', metric: 'market_value', view: 'combined', flow: 'ytd' as const }
+  assert.equal(overviewHref(state), '/?trend=1y&scope=global&metric=market_value&view=combined&flow=ytd')
+  assert.equal(overviewHref({ ...state, trend: '3m' }), '/?trend=3m&scope=global&metric=market_value&view=combined&flow=ytd')
+  assert.equal(overviewHref({ ...state, flow: 'lastYear' }), '/?trend=1y&scope=global&metric=market_value&view=combined&flow=lastYear')
 })
