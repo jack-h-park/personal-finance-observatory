@@ -2,9 +2,10 @@ import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import path from 'node:path'
 import test from 'node:test'
+import { PYTHON_BIN } from '../scripts/python-bin.mjs'
 
 const extractor = path.resolve(import.meta.dirname, '../scripts/extract-kr-statements.py')
-const python = process.env.STOCK_PYTHON_BIN || 'python3'
+const python = PYTHON_BIN
 function amount(rawType, wonAmount, foreignAmount, currency) {
   const script = `
 import importlib.util,json,sys,types

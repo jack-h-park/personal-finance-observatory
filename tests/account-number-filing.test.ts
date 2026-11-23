@@ -6,6 +6,7 @@ import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
+import { PYTHON_BIN } from '../scripts/python-bin.mjs'
 
 const ROOT = path.resolve(import.meta.dirname, '..')
 
@@ -47,7 +48,7 @@ else:
     print(json.dumps({'reason': out.reason, 'remedy': out.remedy}))
 `
   return JSON.parse(
-    execFileSync('python3', ['-c', program, JSON.stringify(pages), detector], {
+    execFileSync(PYTHON_BIN, ['-c', program, JSON.stringify(pages), detector], {
       cwd: ROOT,
       env: { ...process.env, STOCK_ACCOUNT_MAP_PATH: mapPath },
       encoding: 'utf8',

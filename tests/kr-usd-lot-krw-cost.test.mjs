@@ -4,6 +4,7 @@ import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
+import { PYTHON_BIN } from '../scripts/python-bin.mjs'
 
 // A dollar trade in a Korean account carries its won amount on the certificate:
 // the foreign-currency amount times the exchange rate the broker applied that
@@ -16,7 +17,7 @@ import test from 'node:test'
 // nothing here reads a PDF.
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '..')
-const PY = process.env.STOCK_PYTHON_BIN || 'python3'
+const PY = PYTHON_BIN
 const ACCOUNT = '미래에셋증권(종합)'
 
 const TRANSACTION_COLUMNS = [

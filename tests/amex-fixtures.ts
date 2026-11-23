@@ -5,9 +5,10 @@ import { spawnSync } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import assert from 'node:assert/strict'
+import { PYTHON_BIN } from '../scripts/python-bin.mjs'
 
 export const ROOT = path.resolve(import.meta.dirname, '..')
-export const PY = process.env.STOCK_PYTHON_BIN || 'python3'
+export const PY = PYTHON_BIN
 export const HOLDER = 'Example Holder'
 
 export const MAP = {

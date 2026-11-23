@@ -3,12 +3,13 @@ import { spawn } from 'node:child_process'
 import path from 'node:path'
 import { loadLocalEnv } from './env.mjs'
 import { resolveCryptoFiles } from './source-files.mjs'
+import { resolvePythonBin } from './python-bin.mjs'
 
 loadLocalEnv()
 
 const dataDir = financeFile('STOCK_DATA_DIR')
 const outPath = financeFile('STOCK_CRYPTO_ACTIVITY_PATH')
-const pythonBin = process.env.STOCK_PYTHON_BIN || 'python3'
+const pythonBin = resolvePythonBin()
 
 // Same warning as the US PDF extractor: a bare interpreter name resolves through
 // PATH, and a scheduler's PATH is not a shell's. That difference silently broke

@@ -4,12 +4,13 @@ import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
+import { PYTHON_BIN } from '../scripts/python-bin.mjs'
 
 const ROOT = path.resolve(import.meta.dirname, '..')
 
 function runPython(program: string, env: Record<string, string> = {}) {
   return JSON.parse(
-    execFileSync('python3', ['-c', program], {
+    execFileSync(PYTHON_BIN, ['-c', program], {
       cwd: ROOT,
       env: { ...process.env, ...env },
       encoding: 'utf8',

@@ -5,6 +5,7 @@ import os from 'node:os'
 import path from 'node:path'
 import test, { type TestContext } from 'node:test'
 import Database from 'better-sqlite3'
+import { PYTHON_BIN } from '../scripts/python-bin.mjs'
 
 type Item = [string, string, number, string, string?]
 const card = '0000-****-****-1234'
@@ -30,7 +31,7 @@ function testWorkspace(t: TestContext) {
   function files(name: string, issuer: Item[], salad: [string, string, number][], from='2026-06-01', to='2026-07-31') {
     const samsung = path.join(root, name + '-samsung.xlsx')
     const bankSalad = path.join(root, name + '-banksalad.xlsx')
-    const generated = spawnSync(process.env.STOCK_PYTHON_BIN || 'python3', ['-c', String.raw`
+    const generated = spawnSync(PYTHON_BIN, ['-c', String.raw`
 import json, sys
 from datetime import datetime, time
 from openpyxl import Workbook

@@ -4,6 +4,7 @@ import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
+import { PYTHON_BIN } from '../scripts/python-bin.mjs'
 
 // Mirae Asset (미래에셋) prints a Korean short code with an `A` in front of it
 // and a foreign listing as its bare symbol. `clean_ticker` used to strip every
@@ -13,7 +14,7 @@ import test from 'node:test'
 // pdfplumber at load time, and nothing here reads a PDF.
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '..')
-const PY = process.env.STOCK_PYTHON_BIN || 'python3'
+const PY = PYTHON_BIN
 
 const HARNESS = `
 import importlib.util, json, sys, types

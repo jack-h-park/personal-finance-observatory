@@ -7,6 +7,7 @@ import test from 'node:test'
 import Database from 'better-sqlite3'
 import { runIngest } from './ingest-harness'
 import { writeSheetPayloads } from './sheet-payloads'
+import { PYTHON_BIN } from '../scripts/python-bin.mjs'
 
 // The uninvested cash in a Korean brokerage account, as the statements print
 // it: 미래에셋 예수금잔액 and 외화예수금, Toss 잔액 per section, 삼성 현금잔액.
@@ -14,7 +15,7 @@ import { writeSheetPayloads } from './sheet-payloads'
 // reads a PDF: the harness calls the extractor's pure helpers directly.
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '..')
-const PY = process.env.STOCK_PYTHON_BIN || 'python3'
+const PY = PYTHON_BIN
 
 const HARNESS = `
 import importlib.util, json, sys, types

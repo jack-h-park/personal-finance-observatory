@@ -4,19 +4,20 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
+import { PYTHON_BIN } from '../scripts/python-bin.mjs'
 
 const ROOT = path.resolve(import.meta.dirname, '..')
 
 // The 토스뱅크 cases build their fixture workbooks with openpyxl. CI and the hosts
 // get it from the pinned extract venv (`make python-env`); a python3 without it
 // skips these cases, the same way the encrypted-workbook filing tests do.
-const HAVE_OPENPYXL = spawnSync('python3', ['-c', 'import openpyxl']).status === 0
+const HAVE_OPENPYXL = spawnSync(PYTHON_BIN, ['-c', 'import openpyxl']).status === 0
 const LOAD = `
 import importlib.util, json
 spec=importlib.util.spec_from_file_location('bank', 'scripts/extract-bank-statements.py')
 m=importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
 `
-const py = (body: string) => JSON.parse(execFileSync('python3', ['-c', LOAD + body], { cwd: ROOT, encoding: 'utf8' }))
+const py = (body: string) => JSON.parse(execFileSync(PYTHON_BIN, ['-c', LOAD + body], { cwd: ROOT, encoding: 'utf8' }))
 
 test('newest-first Chase rows give the end-of-day balance of the chronologically last transaction', () => {
   const r = py(`
@@ -108,7 +109,7 @@ test('a malformed file becomes a finding and the other accounts are still writte
     'Details,Posting Date,Description,Amount,Type,Balance,Check or Slip #\nDEBIT,10/01/2026,"L",-5.00,ACH,945.00,,\n')
   writeFileSync(path.join(dir, 'bank-statements', 'boa-checking-a-b.csv'), 'not,a,statement\n1,2,3\n')
   const out = path.join(dir, 'out.json')
-  execFileSync('python3', ['scripts/extract-bank-statements.py'], {
+  execFileSync(PYTHON_BIN, ['scripts/extract-bank-statements.py'], {
     cwd: ROOT,
     env: { ...process.env, STOCK_DATA_DIR: dir, STOCK_BANK_BALANCES_PATH: out, STOCK_ACCOUNT_MAP_PATH: path.join(dir, 'none.json') },
     encoding: 'utf8',
@@ -129,7 +130,7 @@ test('a bad anchor is a finding and the account gets no derived balances', () =>
     anchors: [{ alias: 'RH save', date: '2026-09-01', balance: 'lots' }],
   }))
   const out = path.join(dir, 'out.json')
-  execFileSync('python3', ['scripts/extract-bank-statements.py'], {
+  execFileSync(PYTHON_BIN, ['scripts/extract-bank-statements.py'], {
     cwd: ROOT,
     env: { ...process.env, STOCK_DATA_DIR: dir, STOCK_BANK_BALANCES_PATH: out, STOCK_ACCOUNT_MAP_PATH: path.join(dir, 'map.json') },
     encoding: 'utf8',
@@ -179,14 +180,14 @@ function writeTossWorkbook(file: string, last4: string, rows: Array<[string, str
     'for r in rows: ws.append([None, r[0], r[1], "입금", "", "", r[2], r[3], ""])',
     'wb.save(file)',
   ].join('\n')
-  execFileSync('python3', ['-c', script, file, last4, JSON.stringify(rows), JSON.stringify(TOSS_HEADER)])
+  execFileSync(PYTHON_BIN, ['-c', script, file, last4, JSON.stringify(rows), JSON.stringify(TOSS_HEADER)])
 }
 
 function extract(dir: string, map: object | null = null) {
   const out = path.join(dir, 'out.json')
   const mapPath = path.join(dir, 'map.json')
   if (map) writeFileSync(mapPath, JSON.stringify(map))
-  execFileSync('python3', ['scripts/extract-bank-statements.py'], {
+  execFileSync(PYTHON_BIN, ['scripts/extract-bank-statements.py'], {
     cwd: ROOT,
     env: { ...process.env, STOCK_DATA_DIR: dir, STOCK_BANK_BALANCES_PATH: out, STOCK_ACCOUNT_MAP_PATH: map ? mapPath : path.join(dir, 'none.json') },
     encoding: 'utf8',
@@ -309,7 +310,7 @@ print(json.dumps({"amounts": [x["amount"] for x in t], "breaks": m.continuity_br
 test('a 토스뱅크 workbook with no header row is a finding that says so, and the other accounts are kept', { skip: !HAVE_OPENPYXL }, () => {
   const dir = mkdtempSync(path.join(tmpdir(), 'toss-nohdr-'))
   mkdirSync(path.join(dir, 'bank-statements'))
-  execFileSync('python3', ['-c', 'import sys, openpyxl; wb = openpyxl.Workbook(); wb.active.append([None, "nothing here"]); wb.save(sys.argv[1])', path.join(dir, 'bank-statements', 'tossbank-0000-a-b.xlsx')])
+  execFileSync(PYTHON_BIN, ['-c', 'import sys, openpyxl; wb = openpyxl.Workbook(); wb.active.append([None, "nothing here"]); wb.save(sys.argv[1])', path.join(dir, 'bank-statements', 'tossbank-0000-a-b.xlsx')])
   const doc = extract(dir)
   assert.equal(doc.findings.length, 1)
   assert.match(doc.findings[0], /tossbank-0000-a-b\.xlsx: could not be parsed \(ValueError: no header row with 거래 일시/)

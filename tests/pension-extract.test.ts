@@ -4,6 +4,7 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
+import { PYTHON_BIN } from '../scripts/python-bin.mjs'
 
 // Extraction of the pension and gold sources: the 미래에셋 IRP and 금현물
 // 거래내역증명서 through the 미래에셋 parser, the 삼성 연금저축 ledger through the
@@ -17,7 +18,7 @@ import test from 'node:test'
 // by hand, not here: this repository is public.
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '..')
-const PY = process.env.STOCK_PYTHON_BIN || 'python3'
+const PY = PYTHON_BIN
 
 const PDFPLUMBER_STUB = `
 import builtins, json

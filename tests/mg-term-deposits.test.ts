@@ -4,6 +4,7 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
+import { PYTHON_BIN } from '../scripts/python-bin.mjs'
 
 // Closed 새마을금고 term deposits (정기예탁금): the filer names a 해지계좌
 // 거래내역조회 by its full 계좌번호 in the account map, and the extractor turns
@@ -11,7 +12,7 @@ import test from 'node:test'
 // 인터넷신규 outflow on the 개설일. Every number, name and amount here is invented.
 
 const ROOT = path.resolve(import.meta.dirname, '..')
-const PY = process.env.STOCK_PYTHON_BIN || 'python3'
+const PY = PYTHON_BIN
 
 const SALARY = '9999-0000-0000-1'
 const TERM_A = '9999-0000-1234-5' // 7,000,000 opened 2023-05-09

@@ -1,10 +1,11 @@
 import { financeEnvironment } from './finance-paths.mjs'
 import { spawn } from 'node:child_process'
 import { loadLocalEnv } from './env.mjs'
+import { resolvePythonBin } from './python-bin.mjs'
 
 loadLocalEnv()
 
-const pythonBin = process.env.STOCK_PYTHON_BIN || 'python3'
+const pythonBin = resolvePythonBin()
 
 // A bare interpreter name resolves through PATH, and a scheduler's PATH is not
 // a shell's: Hermes cron puts its own virtualenv first, so `python3` became that

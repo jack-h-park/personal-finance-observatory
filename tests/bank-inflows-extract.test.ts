@@ -4,13 +4,14 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
+import { PYTHON_BIN } from '../scripts/python-bin.mjs'
 
 // The bank extractor keeps incoming transactions in `inflows`, marking the ones that
 // are only money moving between the holder's own accounts. Every name, number and
 // amount here is invented.
 
 const ROOT = path.resolve(import.meta.dirname, '..')
-const PY = process.env.STOCK_PYTHON_BIN || 'python3'
+const PY = PYTHON_BIN
 const HAVE_OPENPYXL = spawnSync(PY, ['-c', 'import openpyxl']).status === 0
 
 const SALARY = '9999-0000-0000-1'

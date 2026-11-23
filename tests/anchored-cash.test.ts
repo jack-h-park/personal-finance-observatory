@@ -8,6 +8,7 @@ import Database from 'better-sqlite3'
 import { anchoredCashSeries, nextBusinessDay, openingAnchorFromFlows } from '../scripts/anchored-cash.mjs'
 import { REPO_ROOT, runIngest } from './ingest-harness'
 import { writeSheetPayloads } from './sheet-payloads'
+import { PYTHON_BIN } from '../scripts/python-bin.mjs'
 
 // Robinhood's uninvested cash in total assets (scripts/anchored-cash.mjs).
 //
@@ -148,7 +149,7 @@ function extractStatements(pages: string[]) {
     'utf8'
   )
   const out = path.join(dir, 'us-pdf-evidence.json')
-  const result = spawnSync(process.env.STOCK_PYTHON_BIN || 'python3', ['scripts/extract-us-pdf-evidence.py'], {
+  const result = spawnSync(PYTHON_BIN, ['scripts/extract-us-pdf-evidence.py'], {
     cwd: REPO_ROOT,
     encoding: 'utf8',
     env: { ...process.env, PYTHONPATH: stub, STOCK_DATA_DIR: dir, STOCK_US_PDF_EVIDENCE_PATH: out },
@@ -235,7 +236,7 @@ for label, detect in m.DETECTORS:
 print(json.dumps(out))
 `
   return JSON.parse(
-    execFileSync(process.env.STOCK_PYTHON_BIN || 'python3', ['-c', program, JSON.stringify(pages)], { cwd: REPO_ROOT, encoding: 'utf8' })
+    execFileSync(PYTHON_BIN, ['-c', program, JSON.stringify(pages)], { cwd: REPO_ROOT, encoding: 'utf8' })
   )
 }
 

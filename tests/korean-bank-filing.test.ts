@@ -4,6 +4,7 @@ import { copyFileSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
+import { PYTHON_BIN } from '../scripts/python-bin.mjs'
 
 const root = path.resolve(import.meta.dirname, '..')
 const hana = [['거래내역조회'], [], ['계좌번호', '123-456', '', '예금종류', '수신', '', '조회기간', '2026-01-01 ~ 2026-11-14'], ['잔액', '20'], ['거래일시', '적요', '출금액', '입금액', '잔액'], ['2026-10-01 12:00:00', 'sample', '0', '10', '20']]
@@ -35,7 +36,7 @@ else: print('null')
 `
   const input = path.join(dir, 'unknown.xls')
   writeFileSync(input, Buffer.concat([Buffer.from('d0cf11e0a1b11ae1','hex'), Buffer.from(['거래내역조회', ...rows.flat()].join(' '),'utf16le')]))
-  return JSON.parse(execFileSync('python3',['-c',script,JSON.stringify(rows),input,conversionFails?'fail':'ok'],{cwd:root,env:{...process.env,STOCK_ACCOUNT_MAP_PATH:path.join(dir,'map.json')},encoding:'utf8'}))
+  return JSON.parse(execFileSync(PYTHON_BIN,['-c',script,JSON.stringify(rows),input,conversionFails?'fail':'ok'],{cwd:root,env:{...process.env,STOCK_ACCOUNT_MAP_PATH:path.join(dir,'map.json')},encoding:'utf8'}))
 }
 
 test('content identifies Hana and KB accounts and declared query periods, independent of incoming name', () => {
@@ -58,14 +59,14 @@ test('conversion failure leaves the document unidentified instead of aborting th
 })
 
 test('synthetic Hana and KB BIFF workbooks are identified and filed by the actual converter', t => {
-  const check = spawnSync('python3',['-c',"import importlib.util; s=importlib.util.spec_from_file_location('fx','scripts/extract-fx-ledger.py');m=importlib.util.module_from_spec(s);s.loader.exec_module(m);raise SystemExit(0 if m.soffice_binary() else 1)"],{cwd:root})
+  const check = spawnSync(PYTHON_BIN,['-c',"import importlib.util; s=importlib.util.spec_from_file_location('fx','scripts/extract-fx-ledger.py');m=importlib.util.module_from_spec(s);s.loader.exec_module(m);raise SystemExit(0 if m.soffice_binary() else 1)"],{cwd:root})
   if (check.status !== 0) return t.skip('soffice unavailable')
   const dir=mkdtempSync(path.join(tmpdir(),'biff-filer-'))
   mkdirSync(path.join(dir,'inbox'))
   writeFileSync(path.join(dir,'map.json'),JSON.stringify(map))
   copyFileSync(path.join(root,'tests/fixtures/korean-bank/hana-synthetic.xls'),path.join(dir,'inbox','hana.xls'))
   copyFileSync(path.join(root,'tests/fixtures/korean-bank/kb-synthetic.xls'),path.join(dir,'inbox','kb.xls'))
-  const output=execFileSync('python3',['scripts/file-downloads.py'],{cwd:root,env:{...process.env,STOCK_DATA_DIR:dir,STOCK_ACCOUNT_MAP_PATH:path.join(dir,'map.json')},encoding:'utf8',timeout:120000})
+  const output=execFileSync(PYTHON_BIN,['scripts/file-downloads.py'],{cwd:root,env:{...process.env,STOCK_DATA_DIR:dir,STOCK_ACCOUNT_MAP_PATH:path.join(dir,'map.json')},encoding:'utf8',timeout:120000})
   assert.match(output,/bank-statements\/hana-deposit-3456-20260101-20261114\.xls/)
   assert.match(output,/bank-statements\/kb-deposit-9111-20260101-20261114\.xls/)
 })

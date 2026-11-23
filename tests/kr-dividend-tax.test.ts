@@ -7,6 +7,7 @@ import test from 'node:test'
 import Database from 'better-sqlite3'
 import { runIngest } from './ingest-harness'
 import { writeSheetPayloads } from './sheet-payloads'
+import { PYTHON_BIN } from '../scripts/python-bin.mjs'
 
 const DIVIDEND_COLUMNS = [
   'Date', 'Account', 'Symbol', 'Name', 'Currency', 'Native Amount', 'FX Rate',
@@ -77,7 +78,7 @@ test('a dividends.tsv written before the Tax column still ingests, with null wit
 
 test('the extractor declares Tax on the dividend rows, after Amount (KRW), and fills it on all three appends', () => {
   const py = spawnSync(
-    process.env.STOCK_PYTHON_BIN || 'python3',
+    PYTHON_BIN,
     ['-c', `import ast,sys
 t=ast.parse(open(sys.argv[1],encoding='utf8').read())
 cols=None; n=0

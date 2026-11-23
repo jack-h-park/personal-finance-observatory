@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 import { readUsHoldingTickers, resolveUsHoldingFiles, resolveUsTransactionFiles } from '../scripts/source-files.mjs'
+import { PYTHON_BIN } from '../scripts/python-bin.mjs'
 
 // Two US holdings sources arrived that the filer would not claim, and both
 // failures were silent in the way this project keeps rediscovering: the Merrill
@@ -76,7 +77,7 @@ function fileDownloads(files: Record<string, string>, map: object = {}) {
   }
   const mapPath = path.join(dataDir, 'map.json')
   writeFileSync(mapPath, JSON.stringify(map))
-  const result = spawnSync(process.env.STOCK_PYTHON_BIN || 'python3', ['scripts/file-downloads.py', '--dry-run'], {
+  const result = spawnSync(PYTHON_BIN, ['scripts/file-downloads.py', '--dry-run'], {
     cwd: REPO_ROOT,
     encoding: 'utf8',
     env: { ...process.env, STOCK_DATA_DIR: dataDir, STOCK_ACCOUNT_MAP_PATH: mapPath },

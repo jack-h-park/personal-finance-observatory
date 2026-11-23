@@ -3,6 +3,7 @@ import test from 'node:test'
 import { execFileSync } from 'node:child_process'
 import path from 'node:path'
 import { readStatementPeriodEvidence } from '../lib/domain/assets/statement-periods'
+import { PYTHON_BIN } from '../scripts/python-bin.mjs'
 
 const minimalPdf = String.raw`
 def pdf_bytes(text):
@@ -78,7 +79,7 @@ with tempfile.TemporaryDirectory() as folder:
  assert missing['accounts']['Lost']['state']=='unconfirmed'
  print('ok')
 `
-  assert.equal(execFileSync('python3', ['-c', code], { encoding: 'utf8' }).trim(), 'ok')
+  assert.equal(execFileSync(PYTHON_BIN, ['-c', code], { encoding: 'utf8' }).trim(), 'ok')
 })
 
 test('duplicate conflicts are permutation-independent and transcription locators cannot claim PDF page evidence', () => {
@@ -113,5 +114,5 @@ with tempfile.TemporaryDirectory() as folder:
  assert transcript['accounts']['Example']['state']=='unconfirmed'
  print('ok')
 `
-  assert.equal(execFileSync('python3', ['-c', code], { encoding: 'utf8' }).trim(), 'ok')
+  assert.equal(execFileSync(PYTHON_BIN, ['-c', code], { encoding: 'utf8' }).trim(), 'ok')
 })
