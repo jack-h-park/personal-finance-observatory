@@ -3,7 +3,7 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
-import { analyzeSpending, projectSpending, summarizeSpendingAccounts, type SpendingSnapshot } from '../lib/domain/spending-view'
+import { analyzeSpending, projectSpending, spendingInKrw, summarizeSpendingAccounts, type SpendingFxRate, type SpendingSnapshot } from '../lib/domain/spending-view'
 import { spendingPilotEnabled, spendingPublicationPath } from '../lib/adapters/spending-view'
 
 test('the spending route requires a local ledger or explicit private snapshot', () => {
@@ -98,4 +98,24 @@ test('reviewed merchant aliases group purchases while retaining issuer descripti
   assert.deepEqual(data.USD.merchants, [{ name: 'Store', amountMinor: 2500, count: 2 }])
   assert.deepEqual(data.USD.largest.map(row => row.description), ['Store Downtown', 'Store Mall'])
   assert.deepEqual(data.totals.KRW, { net: null, observedMonths: 0 })
+})
+
+test('combined view uses posting-date rates, retains source amounts and distinguishes missing FX', () => {
+  const rates = new Map<string, SpendingFxRate>([
+    ['2026-07-31', { date: '2026-07-31', rate: 1301.5, source: 'example' }],
+    ['2026-08-01', { date: '2026-08-01', rate: 1450, source: 'example' }],
+    ['2026-08-20', { date: '2026-08-20', rate: 1550, source: 'example' }],
+  ])
+  const lackingRate = { ...snapshot.rows[0], id: 'missing', postedDate: '2026-08-15', activityDate: '2026-08-15' }
+  const analysis = analyzeSpending([...snapshot.rows, lackingRate], { today: '2026-08-20', period: 12, rates })
+  assert.equal(analysis.combined.net, 28550)
+  assert.equal(analysis.combined.missingFx, 1)
+  assert.deepEqual(analysis.combined.months.slice(0, 2), [
+    { month: '2026-08', amount: -1450, missingFx: 1 },
+    { month: '2026-07', amount: 30000, missingFx: 0 },
+  ])
+  assert.equal(analysis.combined.merchants[0].amountMinor, 30000)
+  assert.equal(analysis.combined.largest[0].amountMinor, -2000)
+  assert.equal(spendingInKrw(snapshot.rows[1], rates).quote?.date, '2026-08-01')
+  assert.equal(spendingInKrw(lackingRate, rates).amount, null)
 })

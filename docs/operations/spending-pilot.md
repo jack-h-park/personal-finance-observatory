@@ -62,9 +62,10 @@ without assuming continuity. A held observation may be a source row pending
 an issuer match, so it does not increase ledger spending.
 
 Choose 12 or 24 calendar months, including the current partial month. The
-summary shows the selected date range, observed months, native-currency totals,
-and separate signed monthly trends. Blank bars mark months with no recorded
-purchase or refund. Exact figures remain available in a table. Category and
+summary leads with the combined KRW equivalent and shows USD and KRW native
+totals as a breakdown. A single signed monthly trend and the category, merchant
+and purchase rankings use the same KRW basis. The monthly table and transaction
+details retain original settlement amounts. Category and
 merchant rankings open a filtered transaction list. Individual purchases open
 the exact transaction while retaining the selected account and analysis period.
 Data review contains account coverage, held observations, and evidence guidance.
@@ -81,6 +82,14 @@ confirmed observation or repeated dates, excluding duplicate-marked rows.
 The local page reads this file only for labels. The BankSalad observation file
 supplies Korean labels through ledger links whose date and amount agree.
 Keep the source exports and category mappings private.
+
+The combined view looks up the transaction posting day's USD-to-KRW exchange
+rate in the existing `historical_fx_rates` table. When the day has no quote, it
+uses the most recent quote within the preceding seven calendar days. It rounds
+each signed conversion to won before summing. Unpriced rows retain their native
+amounts and are identified as omitted from the KRW equivalent. Development can
+use an explicit rate database via `SPENDING_PILOT_FX_DB`. Sample finance data is
+never used to price the private spending ledger.
 
 ### Publish a read-only snapshot
 
