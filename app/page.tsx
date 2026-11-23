@@ -595,7 +595,8 @@ export default async function OverviewPage({
           title={copy.flowTitle}
           info={copy.flowInfo}
           className="mb-5"
-          action={
+        >
+          <div className="mb-3">
             <LinkChips
               as="nav"
               label={copy.flowRangesLabel}
@@ -606,8 +607,7 @@ export default async function OverviewPage({
               }))}
               current={flow.range}
             />
-          }
-        >
+          </div>
           <StatStrip columns="2">
             <Stat
               label={copy.flowIncome}
