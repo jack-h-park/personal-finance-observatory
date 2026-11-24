@@ -16,8 +16,8 @@ test('short ranges keep every date', () => {
   assert.deepEqual(holdingsChartDates(dates, 365), dates)
 })
 
-test('long ranges keep month-ends and the whole current month', () => {
-  assert.deepEqual(holdingsChartDates(dates, 730), ['2025-10-31', '2025-11-30', '2026-11-19', '2026-11-20', '2026-11-23'])
+test('long ranges keep the last date of each month, today included', () => {
+  assert.deepEqual(holdingsChartDates(dates, 730), ['2025-10-31', '2025-11-30', '2026-11-23'])
 })
 
 test('no dates gives no dates', () => {

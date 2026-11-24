@@ -17,14 +17,11 @@ export function lastPerMonth(dates: readonly string[]): string[] {
 
 /**
  * The dates a /holdings chart plots: every stored date for a range of
- * DAILY_RANGE_DAYS or fewer, otherwise each month's last date plus every date in
- * the newest month.
+ * DAILY_RANGE_DAYS or fewer, otherwise each month's last stored date (today is
+ * the newest month's last date). Daily points in the current month are left out
+ * of a long range: on a categorical axis they would crowd out the earlier months.
  */
 export function holdingsChartDates(dates: readonly string[], rangeDays: number): string[] {
   const all = sortedUnique(dates)
-  if (rangeDays <= DAILY_RANGE_DAYS || all.length === 0) return all
-  const newestMonth = all[all.length - 1].slice(0, 7)
-  const keep = new Set(lastPerMonth(all))
-  for (const date of all) if (date.startsWith(newestMonth)) keep.add(date)
-  return all.filter((date) => keep.has(date))
+  return rangeDays <= DAILY_RANGE_DAYS ? all : lastPerMonth(all)
 }

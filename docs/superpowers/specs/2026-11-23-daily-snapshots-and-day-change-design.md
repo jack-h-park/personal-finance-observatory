@@ -60,7 +60,9 @@ The current date's row is still the ingest's live snapshot and is left alone, as
 
 **Chart density rule on /holdings.** One shared helper decides which snapshot dates the two /holdings charts plot *(builder's call, made in design)*:
 - range of 1Y or shorter (1M, 3M, 6M, YTD, 1Y): every stored date;
-- range longer than 1Y: month-ends, plus every date in the current month, plus today.
+- range longer than 1Y: the last stored date of each month (today is the current month's last date).
+
+Showing every date of the current month on a long range was dropped after a visual check: on a categorical axis the dense current month crowded out the earlier months.
 
 It replaces the month-end filter in `shareDates` (`lib/position-shares.ts`). Long-range charts then look as they do today, and a 2Y chart does not mix a dense last year with a sparse earlier one.
 
