@@ -3,7 +3,9 @@ import Link from 'next/link'
 
 // The tab bar is the page-level switch, so it reads above the filters under
 // it: panel-size semibold labels, a 3px indicator, readable unselected labels.
-const ITEM_BASE = 'inline-flex min-h-11 shrink-0 items-center whitespace-nowrap border-b-[3px] px-4 text-role-panel font-semibold'
+// The bar scrolls sideways, which clips anything drawn outside it, so the
+// keyboard focus ring is inset instead of the global outer ring.
+const ITEM_BASE = 'inline-flex min-h-11 shrink-0 items-center whitespace-nowrap border-b-[3px] px-4 text-role-panel font-semibold focus-visible:shadow-[inset_0_0_0_2px_var(--brand-blue)]'
 const ITEM_ACTIVE = 'border-info text-ink'
 const ITEM_INACTIVE = 'border-transparent text-ink-2 hover:text-ink'
 
