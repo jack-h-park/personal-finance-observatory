@@ -5,6 +5,7 @@ import path from 'node:path'
 import test from 'node:test'
 import { analyzeSpending, projectSpending, resolveSpendingPeriod, spendingInKrw, summarizeSpendingAccounts, type SpendingFxRate, type SpendingSnapshot } from '../lib/domain/spending-view'
 import { spendingPilotEnabled, spendingPublicationPath } from '../lib/adapters/spending-view'
+import { getPageCopy } from '../lib/ui-copy'
 
 test('the spending route requires a local ledger or explicit private snapshot', () => {
   assert.equal(spendingPilotEnabled({ NODE_ENV: 'development', SPENDING_PILOT_DB: '/tmp/spending.sqlite' }), true)
@@ -178,4 +179,12 @@ test('each combined month splits its KRW net into KRW-settled and USD-settled sp
   const june = months.find(item => item.month === '2026-06')!
   assert.deepEqual([june.amount, june.fromKrw, june.fromUsd, june.missingFx], [null, null, null, 1])
   for (const item of months) assert.equal(item.amount, item.fromKrw === null && item.fromUsd === null ? null : (item.fromKrw ?? 0) + (item.fromUsd ?? 0))
+})
+
+test('every spending view has a description in both languages', () => {
+  for (const language of ['en', 'ko'] as const) {
+    const copy = getPageCopy('spending', language)
+    assert.deepEqual(Object.keys(copy.viewDescriptions), Object.keys(copy.views))
+    for (const value of Object.values(copy.viewDescriptions)) assert.ok(value.length > 0)
+  }
 })
