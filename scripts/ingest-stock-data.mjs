@@ -6241,7 +6241,16 @@ if (droppedHoldingRows.length) {
   )
 }
 const holdingsForTaxLotValidation = holdingRows
-if (approvedMirae) holdingRows = approvedMirae.holdings(holdingRows)
+// The ISA certificate fixes quantities and costs; its value is a snapshot of one
+// day, so a Korean quote reprices it like every other Korean holding.
+if (approvedMirae) {
+  holdingRows = approvedMirae.holdings(holdingRows, (ticker) => {
+    const quote = krPricesByTicker.get(normalizeTicker(ticker))
+    const price = number(quote?.price)
+    if (!quote || (quote.currency && quote.currency !== 'KRW') || price == null || price <= 0) return null
+    return { price, asOfDate: quote.asOfDate || null }
+  })
+}
 insertMany(db, 'holdings', holdingRows, approvedMirae ? [...HOLDING_COLUMNS, 'valuation_source'] : HOLDING_COLUMNS)
 insertMany(db, 'holdings', pensionHoldingRows, [...HOLDING_COLUMNS, 'valuation_source'])
 insertMany(db, 'holdings', goldHoldingRows, [...HOLDING_COLUMNS, 'valuation_source'])
@@ -6393,6 +6402,24 @@ check('source_confirmations_valid', !sourceConfirmationResult.problems.length,
 
 function check(name, ok, detail, severity = 'error', scope = 'stock') {
   checks.push({ name, status: ok ? 'pass' : 'fail', detail, severity, scope })
+}
+
+if (approvedMirae) {
+  // The certificate is newer than the last ISA transaction statement and holds a
+  // different quantity: something was sold or moved in between. Holdings follow
+  // the certificate, but the lots and every daily snapshot rebuilt from them keep
+  // the old quantity until a statement covering the gap is filed.
+  const { statementDate, certificateDate, mismatches } = approvedMirae.lotDisagreements(taxLotRows)
+  check(
+    'mirae_isa_certificate_lots_agree',
+    mismatches.length === 0,
+    mismatches.length
+      ? `${mismatches.length} ISA position(s) differ between the lots (statements through ${statementDate ?? 'none'}) and the certificate of ${certificateDate}: ` +
+          mismatches.map(({ ticker, lots, certificate }) => `${ticker} lots ${lots}, certificate ${certificate}`).join('; ') +
+          ' — file a Mirae ISA transaction statement that covers the gap'
+      : `ISA lots agree with the certificate of ${certificateDate}`,
+    'warning'
+  )
 }
 
 // Opt-in shadow observations never enter economic rows or tax state.

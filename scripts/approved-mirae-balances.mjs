@@ -39,20 +39,30 @@ export function approvedMiraeBalances(input) {
   if (total !== isa.totalWon) throw new Error('Approved Mirae ISA certificate total does not balance')
 
   return {
-    holdings(rows) {
+    /**
+     * The ISA rows: the certificate's quantities and costs, valued at the market's
+     * current price when `quoteFor(ticker)` has one ({ price, asOfDate }), the same
+     * basis as every other Korean holding. Without a quote the certificate's own
+     * value stays, which on a weekend certificate is the previous Friday's close.
+     */
+    holdings(rows, quoteFor = () => null) {
       const existing = new Map(rows.filter(row => row.account === isaAccount).map(row => [row.ticker, row]))
-      const positions = isa.positions.map(({ ticker, name, quantity, valueWon, unitCostWon }) => {
+      const positions = isa.positions.map(({ ticker, name, quantity, valueWon: certificateValue, unitCostWon }) => {
         const previous = existing.get(ticker)
         const sameQuantity = previous?.quantity === quantity
         const cost = sameQuantity ? previous.native_cost : Math.round(unitCostWon * quantity)
-        const price = valueWon / quantity
+        const quote = quoteFor(ticker)
+        const priced = Number.isFinite(quote?.price) && quote.price > 0
+        const price = priced ? quote.price : certificateValue / quantity
+        const valueWon = priced ? quote.price * quantity : certificateValue
         const gain = valueWon - cost
         const gainPct = cost ? gain / cost * 100 : null
         return {
           ...(sameQuantity ? previous : {}),
           market: 'KR', currency: 'KRW', base_currency: 'KRW', fx_rate_to_base: 1,
           brokerage: '미래에셋증권', account_type: 'ISA', account_wrapper: 'isa', owner: 'self',
-          asset_class: 'security', source_system: source, valuation_source: 'snapshot', as_of_date: isa.date,
+          asset_class: 'security', source_system: source,
+          valuation_source: priced ? 'price' : 'snapshot', as_of_date: priced && quote.asOfDate ? quote.asOfDate : isa.date,
           account: isaAccount, ticker, name, quantity,
           native_average_unit_cost: cost / quantity, average_unit_cost: cost / quantity,
           native_cost: cost, base_cost: cost, total_cost_krw: cost,
@@ -62,6 +72,28 @@ export function approvedMiraeBalances(input) {
         }
       })
       return [...rows.filter(row => row.account !== isaAccount), ...positions]
+    },
+    /**
+     * Positions the ISA tax lots still hold that the certificate disagrees with,
+     * when the certificate is newer than the lots' statement: a sale or transfer
+     * after the last transaction statement. The lots, and every snapshot rebuilt
+     * from them, keep the old quantity until a newer statement is filed.
+     */
+    lotDisagreements(lotRows) {
+      const lots = new Map()
+      let statementDate = null
+      for (const row of lotRows) {
+        if (row.account !== isaAccount) continue
+        lots.set(row.ticker, (lots.get(row.ticker) ?? 0) + Number(row.open_quantity || 0))
+        if (row.as_of_date && (statementDate == null || row.as_of_date > statementDate)) statementDate = row.as_of_date
+      }
+      if (statementDate != null && statementDate >= isa.date) return { statementDate, certificateDate: isa.date, mismatches: [] }
+      const certificate = new Map(isa.positions.map(({ ticker, quantity }) => [ticker, quantity]))
+      const mismatches = [...new Set([...lots.keys(), ...certificate.keys()])]
+        .map(ticker => ({ ticker, lots: lots.get(ticker) ?? 0, certificate: certificate.get(ticker) ?? 0 }))
+        .filter(({ lots: held, certificate: stated }) => Math.abs(held - stated) > 1e-6)
+        .sort((a, b) => a.ticker.localeCompare(b.ticker))
+      return { statementDate, certificateDate: isa.date, mismatches }
     },
     isaCash(rows) {
       const samePool = row => row.account === isaAccount && row.institution === '미래에셋증권'
