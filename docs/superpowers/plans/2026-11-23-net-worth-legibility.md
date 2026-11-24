@@ -1,6 +1,6 @@
 # Total assets page (`/net-worth`) — legibility plan
 
-**Status:** 2026-11-23. Follows `2026-11-22-net-worth-redesign.md` (implemented). The owner took the recommended option on all five decisions below. N1 and N2 are implemented; N3–N5 are not started.
+**Status:** 2026-11-23. Follows `2026-11-22-net-worth-redesign.md` (implemented). The owner took the recommended option on all five decisions below. N1–N3 are implemented; N4 and N5 are not started.
 
 ## Why
 
@@ -100,6 +100,8 @@ type ValuationBasisItem = {
   | statement evidence list, period hint, freshness hint, history note | `/health` (or `/accounts`), next to the counts they explain |
 - `AssetCoverageNote` also renders on the Overview (`app/page.tsx`); it gets the same one-line treatment there in this phase, so the component can be deleted rather than left half-used.
 - Cost-basis valuation date currently reads `조회 불가 / 미확인`; if no position is valued at cost, the strip leaves it out rather than showing an unknown.
+
+*As built:* `components/CoverageLine.tsx` is one line under the total: `본인 자산 · 제외 N건 · 부채 미반영` with the full boundary sentence behind an info popover, then `자료 상태 · <worst status>` linking to `/health#health-asset-coverage`. It sits beside the boundary under the total rather than at the end of the valuation strip, so the Overview, which has no strip yet, can carry the same line. `dataStatus()` in `lib/application/asset-coverage.ts` picks the worst signal and counts its items: action needed or missing sources, failed checks, missing files and conflicting statement periods need action; sources due soon and stale or changed files are to check; unconfirmed periods count as neither; nothing readable is unknown, never a green zero. Because it sums items, the count is large where many sources are missing (137 in a worktree with no source files; the deployed page's panel adds up to about 13). The panel moved to `/health` whole and opened, rather than split, so nothing it showed is lost while N5 is pending; the valuation dates in it duplicate the strip until then. `AssetCoverageNote` stays as the `/health` card's body (`open` prop).
 
 ### N4. Trend card header and toolbar
 

@@ -1,4 +1,4 @@
-import { AssetCoverageNote } from '@/components/AssetCoverageNote'
+import { CoverageLine } from '@/components/CoverageLine'
 import { DataTable } from '@/components/DataTable'
 import { PageHeader } from '@/components/PageHeader'
 import { Badge, Card, Label, Note } from '@/components/ui'
@@ -232,7 +232,6 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
         emphasis={copy.emphasis}
         subtitle={copy.subtitle(fmtDateTime(meta.ingested_at, language))}
       />
-      <AssetCoverageNote summary={netWorth} language={language} review={coverageReview} />
 
       <Card
         id="net-worth-trend"
@@ -252,6 +251,9 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
             <div>
               <Label variant="eyebrow">{copy.total}</Label>
               <div className="mt-2 text-hero-sm font-medium leading-none tracking-normal text-ink sm:text-hero">{money(netWorth.totalKrw)}</div>
+              <div className="mt-3">
+                <CoverageLine summary={netWorth} language={language} review={coverageReview} />
+              </div>
             </div>
             <div className="min-w-0 sm:max-w-[60%] sm:text-right">
               <TotalAssetsChangeField label={rangeLabel} change={rangeChange} investment={investmentFor(rangeChange)} labels={overviewCopy} money={(krw) => money(krw)} language={language} />

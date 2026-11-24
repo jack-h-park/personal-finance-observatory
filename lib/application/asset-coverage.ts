@@ -48,3 +48,27 @@ export function collectAssetCoverage(summary: NetWorth, readers: CoverageReaders
   }
 }
 export type AssetCoverageReview = ReturnType<typeof collectAssetCoverage>
+
+export type DataStatus = { state: 'problem' | 'attention' | 'ok' | 'unknown'; count: number }
+
+/**
+ * The review as one status for a one-line link: the worst signal and how many items carry it.
+ *
+ * Needs action: an account or supplementary source marked action needed or missing, a failed
+ * validation check, a missing file, a conflicting statement period. To check: a source due
+ * soon, a stale or changed file. An unconfirmed statement period counts as neither; most
+ * statements declare no period, and the coverage panel says so. With no signal readable the
+ * status is unknown rather than a green zero, the same rule `collectAssetCoverage` keeps.
+ */
+export function dataStatus(review: AssetCoverageReview): DataStatus {
+  const { accounts, supplementary, files, failedChecks, statementPeriodCounts } = review
+  if (!accounts && !supplementary && !files && failedChecks == null) return { state: 'unknown', count: 0 }
+  const problem =
+    (accounts?.actionNeeded ?? 0) + (accounts?.missing ?? 0) +
+    (supplementary?.actionNeeded ?? 0) + (supplementary?.missing ?? 0) +
+    (failedChecks ?? 0) + (files?.missing ?? 0) + (statementPeriodCounts?.conflicting ?? 0)
+  if (problem) return { state: 'problem', count: problem }
+  const attention = (accounts?.dueSoon ?? 0) + (supplementary?.dueSoon ?? 0) + (files?.stale ?? 0) + (files?.drift ?? 0)
+  if (attention) return { state: 'attention', count: attention }
+  return { state: 'ok', count: 0 }
+}
