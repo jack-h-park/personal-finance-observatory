@@ -70,4 +70,4 @@ Each line says what was decided, and what it costs if it turns out wrong.
 - The same-currency fallback could match a same-ticker series stored under another market in the same currency. This has not been observed, because ticker namespaces do not overlap.
 - The session time is not shown, only the date.
 - /holdings reads `position_snapshots` twice per render: once for the table's 12-month trend column and once for the charts.
-- The backfill now writes about 280 dates instead of about 24. Its runtime on production data has not been measured yet. Measure it in a throwaway copy of the production database before relying on it in the half-hourly run. The budget is about 10 seconds added.
+- The backfill writes about 350 dates instead of about 100 on production data (month-ends since the first lot plus the weekday window). Measured on 2026-11-23 against a throwaway copy of the production database, it took 0.54 s against 0.42 s before (0.49 s on a second run), well inside the 10-second budget for the half-hourly run. The month-end values it rebuilt matched the previous code's exactly.
