@@ -1,6 +1,6 @@
 # Daily snapshots and the day's change
 
-**Status:** 2026-11-23. Approach chosen by the owner (A1 + B2). Calls marked *(builder's call, made in design)* were made while writing this and can be corrected in review.
+**Status:** 2026-11-23. Approach chosen by the owner (A1 + B2). Calls marked *(builder's call, made in design)* were made while writing this and can be corrected in review. Implemented; the rules as built, and the decisions taken during implementation, are in `docs/architecture/daily-snapshots-and-day-change.md`.
 
 ## Why
 

@@ -20,6 +20,8 @@ export type DayChangeCopy = {
   excludedNote: (count: string) => string
   none: string
   empty: string
+  rulesTitle: string
+  rules: readonly string[]
 }
 
 /**
@@ -86,7 +88,26 @@ export function DayChangeCard({
           {change.excluded > 0 && <Note>{copy.excludedNote(fmtNumber(change.excluded))}</Note>}
         </div>
       )}
+      <CalculationRules title={copy.rulesTitle} rules={copy.rules} />
     </Card>
+  )
+}
+
+/**
+ * The rules behind the figures, closed by default: which date each market is
+ * compared on, which prices and closes are used, and what is left out. The
+ * same rules are recorded in docs/architecture/daily-snapshots-and-day-change.md.
+ */
+function CalculationRules({ title, rules }: { title: string; rules: readonly string[] }) {
+  return (
+    <details className="mx-4 mb-3 rounded-md border border-line-subtle p-3 text-label text-ink-2">
+      <summary className="min-h-6 cursor-pointer font-medium leading-6 text-ink-2">{title}</summary>
+      <ul className="mt-2 list-disc space-y-1 pl-5">
+        {rules.map((rule) => (
+          <li key={rule}>{rule}</li>
+        ))}
+      </ul>
+    </details>
   )
 }
 
