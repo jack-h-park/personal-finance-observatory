@@ -1,6 +1,6 @@
 # Total assets page (`/net-worth`) — legibility plan
 
-**Status:** 2026-11-23. Follows `2026-11-22-net-worth-redesign.md` (implemented). The owner took the recommended option on all five decisions below. N1–N3 are implemented; N4 and N5 are not started.
+**Status:** 2026-11-23. Follows `2026-11-22-net-worth-redesign.md` (implemented). The owner took the recommended option on all five decisions below. N1–N4 are implemented; N5 is not started.
 
 ## Why
 
@@ -113,6 +113,8 @@ type ValuationBasisItem = {
   - custom range: hidden until `직접 지정` is picked or the chart is dragged; then the from/to selects and 적용 appear inline on the same row. The hint sentence moves to the control's tooltip.
 - Labels (`기간`, `자산군`, `보기`) stay as visually hidden text for screen readers; the controls' shape says what they are.
 - Phone (390px): the toolbar wraps into two rows at most; no horizontal scroll.
+
+*As built:* `LinkSegmentedControl` in `components/LinkChips.tsx` gives the segmented control's look as links, on one line: on a narrow screen it tightens its padding and, failing that, scrolls inside its own track, so neither an option wraps nor the page widens (at 375px all nine periods fit). `LinkChip` gained `swatch` (the class colour, filled when on and a ring when off) and `checkbox` (a ticked box for a toggle). The chart's legend is hidden (`legend` prop on `StackedSeriesChart`) unless the children's band is drawn, which has no chip of its own colour. `직접 지정` is a checkbox chip beside the period control rather than a tenth segment, because a selected period keeps the preset window it widened from, and a segment would show two current options. It sets `?custom=1`; the month selects also open whenever a period is selected, and unticking clears the period. Each toggle chip names its state for a screen reader (`customRangeAria`, `toggleAria`). The header aligns to the top. `TrendRangeLinks` stays for `/` and `/holdings`.
 
 ### N5. Shape check and reuse
 

@@ -18,15 +18,14 @@ import { ASSET_CLASSES, type NetWorth, type TotalAssetsPoint } from '@/lib/net-w
 import { chartMarkers, snapEventDates } from '@/lib/asset-events'
 import { AssetEventList } from '@/components/AssetEventList'
 import { AllocationShares } from '@/components/AllocationShares'
-import { TrendRangeLinks } from '@/components/TrendRangeLinks'
 import { RangeBreakdownPanel } from '@/components/RangeBreakdownPanel'
 import { RangeSelectForm } from '@/components/RangeSelectForm'
 import { TextLink } from '@/components/controls'
-import { LinkChip } from '@/components/LinkChips'
+import { LinkChip, LinkSegmentedControl } from '@/components/LinkChips'
 import { DEFAULT_TREND_RANGE, TREND_RANGES, resolveTrendRange, trendRangeDays, type TrendRange } from '@/lib/trend-ranges'
 import type { AllocationClass } from '@/lib/asset-allocation'
 import { ASSET_CLASS_COLOR, WRAPPER_COLOR } from '@/lib/palette'
-import { getPageCopy } from '@/lib/ui-copy'
+import { getPageCopy, getUiCopy } from '@/lib/ui-copy'
 import { maskAccountLabel } from '@/lib/account-label'
 import { nonInvestmentMonths, type NonInvestmentMonth } from '@/lib/non-investment-change'
 import { getNetWorthSettings, thresholdsFrom } from '@/lib/net-worth-settings'
@@ -131,6 +130,9 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
   const shareView = (Array.isArray(params.view) ? params.view[0] : params.view) === 'share'
   const classesParam = allClasses ? null : selectedClasses.join(',')
   const historyParam = (Array.isArray(params.history) ? params.history[0] : params.history) ?? null
+  // The month selects show under "Custom" (?custom=1) or while a period is selected; otherwise
+  // the preset window control is the only date control in view.
+  const customOpen = (Array.isArray(params.custom) ? params.custom[0] : params.custom) === '1'
   const hrefWith = (next: {
     children?: boolean
     trend?: TrendRange['key']
@@ -138,6 +140,7 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
     share?: boolean
     history?: string | null
     range?: { from: string; to: string } | null
+    custom?: boolean
   }) => {
     const query = new URLSearchParams()
     // The trend the URL asked for, not the one widened for a selection: clearing
@@ -150,6 +153,7 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
     if (next.children ?? includeChildren) query.set('children', '1')
     const historyValue = next.history === undefined ? historyParam : next.history
     if (historyValue) query.set('history', historyValue)
+    if (next.custom ?? customOpen) query.set('custom', '1')
     const rangeValue = next.range === undefined ? selection : next.range
     if (rangeValue) {
       query.set('from', rangeValue.from)
@@ -219,7 +223,8 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
       })
     : null
   // The page without a period: what the chart adds from/to to, and the clear link.
-  const clearHref = hrefWith({ range: null })
+  const clearHref = hrefWith({ range: null, custom: false })
+  const rangeFormOpen = customOpen || selection != null
   const rangeFormKeep = Object.fromEntries(new URLSearchParams(clearHref.split('?')[1] ?? ''))
   // Month ends and today, plus a dragged selection's own dates so the selects can show it.
   const rangeFormDates = [...new Set([...history.map((row) => row.date), ...(selection ? [selection.from, selection.to] : [])])].sort()
@@ -247,7 +252,7 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
         className="mb-5"
       >
         <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <Label variant="eyebrow">{copy.total}</Label>
               <div className="mt-2 text-hero-sm font-medium leading-none tracking-normal text-ink sm:text-hero">{money(netWorth.totalKrw)}</div>
@@ -260,60 +265,82 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
             </div>
           </div>
           <ValuationBasisStrip items={valuationBasis} language={language} />
-          <div className="flex flex-col gap-2 border-t border-line-subtle pt-4">
-            <div className="flex flex-wrap items-center gap-1">
-              <span className="mr-1 text-label text-ink-3">{copy.rangeFilter}</span>
-              <TrendRangeLinks
-                selected={selectedRange}
-                hrefFor={(trend) => {
-                  const target = TREND_RANGES.find((range) => range.key === trend)!
-                  return hrefWith({ trend, ...(selection && !keepsSelection(target, selection.from, today) ? { range: null } : {}) })
-                }}
-              />
-            </div>
-            <div className="flex flex-wrap items-center gap-1">
-              <span className="mr-1 text-label text-ink-3">{copy.classFilter}</span>
-              {ASSET_CLASS_KEYS.map((key) => (
+          {/* One toolbar: window, classes (which double as the chart legend), view, children. Group
+              labels are for screen readers; each control's shape says what it is. */}
+          <div className="flex flex-col gap-3 border-t border-line-subtle pt-4">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+              <div className="flex flex-wrap items-center gap-1">
+                <LinkSegmentedControl
+                  label={copy.rangeFilter}
+                  current={selectedRange.key}
+                  items={TREND_RANGES.map((range) => ({
+                    key: range.key,
+                    label: range.key === 'all' ? getUiCopy(language).common.all : range.label,
+                    href: hrefWith({ trend: range.key, ...(selection && !keepsSelection(range, selection.from, today) ? { range: null } : {}) }),
+                  }))}
+                />
                 <LinkChip
-                  key={key}
-                  href={hrefWith({ classes: toggleClass(selectedClasses, key) })}
-                  active={selectedClasses.includes(key)}
+                  href={selection ? clearHref : hrefWith({ custom: !customOpen })}
+                  active={rangeFormOpen}
                   ariaCurrent="none"
-                  aria-label={copy.classToggleAria(copy.classes[key], selectedClasses.includes(key))}
+                  variant="subtle"
+                  checkbox
+                  aria-label={copy.customRangeAria(rangeFormOpen)}
+                  title={breakdownCopy.selectHint}
                 >
-                  {copy.classes[key]}
+                  {copy.customRange}
                 </LinkChip>
-              ))}
+              </div>
+              <div role="group" aria-label={copy.classFilter} className="flex flex-wrap items-center gap-1">
+                {ASSET_CLASS_KEYS.map((key) => (
+                  <LinkChip
+                    key={key}
+                    href={hrefWith({ classes: toggleClass(selectedClasses, key) })}
+                    active={selectedClasses.includes(key)}
+                    ariaCurrent="none"
+                    variant="subtle"
+                    swatch={ASSET_CLASS_COLOR[key]}
+                    aria-label={copy.classToggleAria(copy.classes[key], selectedClasses.includes(key))}
+                  >
+                    {copy.classes[key]}
+                  </LinkChip>
+                ))}
+              </div>
+              <div className="flex flex-wrap items-center gap-1">
+                <LinkSegmentedControl
+                  label={copy.viewFilter}
+                  current={shareView ? 'share' : 'amount'}
+                  items={[
+                    { key: 'amount', label: copy.viewAmount, href: hrefWith({ share: false }) },
+                    { key: 'share', label: copy.viewShare, href: hrefWith({ share: true }) },
+                  ]}
+                />
+                <LinkChip
+                  href={hrefWith({ children: !includeChildren })}
+                  active={includeChildren}
+                  ariaCurrent="none"
+                  variant="subtle"
+                  checkbox
+                  aria-label={childCopy.toggleAria(includeChildren)}
+                  title={childCopy.toggleHint}
+                >
+                  {childCopy.toggle}
+                </LinkChip>
+              </div>
             </div>
-            <div className="flex flex-wrap items-center gap-1">
-              <span className="mr-1 text-label text-ink-3">{copy.viewFilter}</span>
-              <LinkChip href={hrefWith({ share: false })} active={!shareView}>
-                {copy.viewAmount}
-              </LinkChip>
-              <LinkChip href={hrefWith({ share: true })} active={shareView}>
-                {copy.viewShare}
-              </LinkChip>
-              <LinkChip
-                href={hrefWith({ children: !includeChildren })}
-                active={includeChildren}
-                ariaCurrent="none"
-                aria-label={childCopy.toggleAria(includeChildren)}
-                title={childCopy.toggleHint}
-              >
-                {childCopy.toggle}
-              </LinkChip>
-            </div>
-            <div className="flex flex-col gap-2 pt-1">
-              <span className="text-label text-ink-3">{breakdownCopy.selectHint}</span>
-              <RangeSelectForm
-                dates={rangeFormDates}
-                from={selection?.from ?? null}
-                to={selection?.to ?? null}
-                keep={rangeFormKeep}
-                labels={{ from: breakdownCopy.fromLabel, to: breakdownCopy.toLabel, submit: breakdownCopy.apply }}
-                formatDate={(date) => fmtDate(date, language)}
-              />
-            </div>
+            {rangeFormOpen ? (
+              <div className="flex flex-col gap-2">
+                <span className="text-label text-ink-3">{breakdownCopy.selectHint}</span>
+                <RangeSelectForm
+                  dates={rangeFormDates}
+                  from={selection?.from ?? null}
+                  to={selection?.to ?? null}
+                  keep={rangeFormKeep}
+                  labels={{ from: breakdownCopy.fromLabel, to: breakdownCopy.toLabel, submit: breakdownCopy.apply }}
+                  formatDate={(date) => fmtDate(date, language)}
+                />
+              </div>
+            ) : null}
           </div>
           {shareView && includeChildren ? <Note>{copy.shareChildrenNote}</Note> : null}
           <StackedAssetChart
@@ -342,6 +369,8 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
             height={320}
             markers={chartMarkers(eventMarkers, trendAssets.points[0]?.date)}
             rangeSelect={{ from: selection?.from ?? null, to: selection?.to ?? null, baseHref: clearHref, clearHref, clearLabel: breakdownCopy.clear }}
+            // The class chips above carry the colours; the legend stays only for the children's band.
+            legend={childrenBandShown}
           />
           <KpiBand columns={6}>
             {changes.map(({ label, change }) => (

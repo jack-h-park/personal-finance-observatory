@@ -43,6 +43,8 @@ export function LinkChip({
   title,
   'aria-label': ariaLabel,
   scroll = false,
+  swatch,
+  checkbox = false,
   children,
 }: {
   href: string
@@ -52,9 +54,27 @@ export function LinkChip({
   title?: string
   'aria-label'?: string
   scroll?: boolean
+  /**
+   * A colour the chip stands for, drawn before its label: filled when active, a ring when
+   * not. Lets a set of filter chips double as a chart's legend.
+   */
+  swatch?: string
+  /** Draw a checkbox before the label, ticked when active: for a toggle that is not a choice in a set. */
+  checkbox?: boolean
   children: ReactNode
 }) {
   const classes = CHIP_CLASSES[variant]
+  const marker = swatch ? (
+    <span
+      aria-hidden="true"
+      className="h-2.5 w-2.5 shrink-0 rounded-full border-2"
+      style={active ? { backgroundColor: swatch, borderColor: swatch } : { borderColor: swatch }}
+    />
+  ) : checkbox ? (
+    <span aria-hidden="true" className="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-[3px] border border-current text-[10px] leading-none">
+      {active ? '✓' : null}
+    </span>
+  ) : null
   return (
     <Link
       href={href}
@@ -62,8 +82,9 @@ export function LinkChip({
       title={title}
       aria-label={ariaLabel}
       aria-current={active && ariaCurrent !== 'none' ? ariaCurrent : undefined}
-      className={`${classes.base} ${active ? classes.active : classes.inactive}`}
+      className={`${classes.base} ${active ? classes.active : classes.inactive}${marker ? ' inline-flex items-center gap-1.5' : ''}`}
     >
+      {marker}
       {children}
     </Link>
   )
@@ -123,6 +144,52 @@ export function ChipGroup({ label, children, className }: { label: string; child
         {label}
       </span>
       <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">{children}</div>
+    </div>
+  )
+}
+
+/**
+ * The segmented control's look (components/controls.tsx) as links, for a choice that lives in
+ * the URL: one current option in a bordered track. The button form takes an onChange and so
+ * needs a client component; a filter is a URL, so this one renders on the server. From `sm` up
+ * the track stays on one line. Below it, beside a ChipGroup's label column, nine periods do not
+ * fit, so the options wrap inside the track: a sideways scroll would hide the last ones with
+ * no sign they are there.
+ */
+export function LinkSegmentedControl<K extends string>({
+  items,
+  current,
+  label,
+}: {
+  items: LinkChipItem<K>[]
+  /** The key of the current option; none is current when it matches no item. */
+  current: K | null
+  /** The group's accessible name. Leave it out inside a ChipGroup, which already names the group. */
+  label?: string
+}) {
+  return (
+    <div
+      role={label ? 'group' : undefined}
+      aria-label={label}
+      className="inline-flex max-w-full flex-wrap rounded-md border border-line-control bg-surface p-0.5 sm:flex-nowrap"
+    >
+      {items.map((item) => {
+        const active = item.key === current
+        return (
+          <Link
+            key={item.key}
+            href={item.href}
+            scroll={false}
+            title={item.title}
+            aria-current={active ? 'true' : undefined}
+            className={`inline-flex min-h-8 shrink-0 items-center rounded-[4px] px-2 text-caption font-medium sm:px-2.5 leading-none transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-info/40 ${
+              active ? 'bg-card text-ink shadow-card' : 'text-ink-2 hover:bg-card hover:text-ink'
+            }`}
+          >
+            {item.label}
+          </Link>
+        )
+      })}
     </div>
   )
 }
