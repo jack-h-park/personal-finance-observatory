@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import Link from 'next/link'
 
-export type ChipVariant = 'info' | 'subtle' | 'ink'
+export type ChipVariant = 'info' | 'ink'
 
 /**
  * Static class tables, so Tailwind sees every literal. An unselected chip with a
@@ -14,11 +14,9 @@ const CHIP_CLASSES: Record<ChipVariant, { base: string; active: string; inactive
     active: 'border-info bg-info/10 text-info',
     inactive: 'border-line-control text-ink-2 hover:border-info hover:text-info',
   },
-  subtle: {
-    base: 'rounded-sm border px-2 py-1 text-label',
-    active: 'border-line bg-surface font-medium text-ink',
-    inactive: 'border-transparent text-ink-3 hover:border-line hover:text-ink',
-  },
+  // There was a 'subtle' variant: borderless, ink-3 text, regular weight. That is
+  // exactly a group label's look, so it is gone; the overview metrics it styled
+  // are a LinkSegmentedControl now.
   // FilterBar's chips.
   ink: {
     base: 'inline-flex min-h-8 items-center rounded-sm border px-2.5 text-label font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-info/40',
