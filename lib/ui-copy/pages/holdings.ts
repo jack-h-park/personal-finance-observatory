@@ -6,6 +6,12 @@ export const holdings = defineCopy({
     emphasis: 'Holdings',
     subtitle: (count: string) => `Search ${count} open positions by market, broker, or account.`,
     searchPlaceholder: 'Ticker, name, account, or broker',
+    views: { holdings: 'Holdings', mix: 'Market mix', weights: 'Weights' },
+    viewDescriptions: {
+      holdings: 'What you hold now, with gains. The filters below apply to this tab.',
+      mix: 'How the split between Korea, US and crypto has moved.',
+      weights: "Which securities' weights moved over a period, and why.",
+    },
     sort: {
       value: 'Market value',
       gain: 'Unrealized G/L',
@@ -139,6 +145,12 @@ export const holdings = defineCopy({
     emphasis: '보유종목',
     subtitle: (count: string) => `${count}개 보유 포지션을 시장·증권사·계좌로 검색합니다.`,
     searchPlaceholder: '종목코드, 종목명, 계좌 또는 증권사',
+    views: { holdings: '보유 현황', mix: '시장 구성', weights: '종목 비중' },
+    viewDescriptions: {
+      holdings: '지금 보유한 종목과 손익입니다. 아래 필터는 이 탭에만 적용됩니다.',
+      mix: '한국·미국·암호화폐 비중이 어떻게 바뀌었는지 봅니다.',
+      weights: '어떤 종목의 비중이 기간 동안 왜 움직였는지 봅니다.',
+    },
     sort: {
       value: '평가금액',
       gain: '평가손익',
