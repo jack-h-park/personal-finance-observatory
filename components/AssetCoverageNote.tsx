@@ -7,7 +7,12 @@ import type { Language } from '@/lib/i18n'
 import type { AssetCoverageReview } from '@/lib/application/asset-coverage'
 import { getPageCopy } from '@/lib/ui-copy'
 
-export function AssetCoverageNote({ summary, language, review }: { summary: NetWorth; language: Language; review?: AssetCoverageReview }) {
+/**
+ * The full coverage review: valuation dates, source coverage counts, statement period evidence
+ * and the caveats that go with them. It lives on /health (`#health-asset-coverage`), opened;
+ * the pages that show a total carry `CoverageLine`, one line that links here.
+ */
+export function AssetCoverageNote({ summary, language, review, open = false }: { summary: NetWorth; language: Language; review?: AssetCoverageReview; open?: boolean }) {
   const copy = getPageCopy('assetCoverage', language)
   const range = (dates: { oldest: string | null; newest: string | null; undated: number } | null | undefined) => {
     if (!dates) return copy.unknown
@@ -24,7 +29,7 @@ export function AssetCoverageNote({ summary, language, review }: { summary: NetW
   return (
     <section aria-label={copy.title} className="mt-3 space-y-3 text-body text-ink-2">
       <p>{copy.boundary(summary.coverage?.omittedAssetCount ?? 0)}</p>
-      <details className="rounded-md border border-line-subtle p-3">
+      <details open={open} className="rounded-md border border-line-subtle p-3">
         <summary className="min-h-6 cursor-pointer font-medium leading-6 text-ink">{copy.title}</summary>
         <CardRow columns={2} spacing="none" className="mt-3">
           <div className="space-y-2">

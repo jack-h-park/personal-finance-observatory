@@ -1,5 +1,5 @@
 import { FinanceTaxSummary } from '@/components/FinanceTaxSummary'
-import { AssetCoverageNote } from '@/components/AssetCoverageNote'
+import { CoverageLine } from '@/components/CoverageLine'
 import { PageHeader } from '@/components/PageHeader'
 import { Badge, Card, EmptyState, HeroAside, MetricField, MetricHeroCard, Note, Panel, TextLink, marketTone } from '@/components/ui'
 import { PortfolioMultiTrendChart, PortfolioTrendChart, StackedAssetChart } from '@/components/charts'
@@ -671,7 +671,11 @@ export default async function OverviewPage({
 
       {/* One allocation card: how the whole is split, each split linking to the page with the full breakdown. */}
       <Card title={copy.allocation} info={copy.allocationInfo} className="mb-5">
-        {netWorth ? <AssetCoverageNote summary={netWorth} language={language} review={getAssetCoverageReview(netWorth)} /> : null}
+        {netWorth ? (
+          <div className="mb-3">
+            <CoverageLine summary={netWorth} language={language} review={getAssetCoverageReview(netWorth)} />
+          </div>
+        ) : null}
         <CardRow columns={netWorth ? 3 : 2} spacing="none">
           {netWorth ? (
             <ShareSummary
