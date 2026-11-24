@@ -52,7 +52,7 @@ export const holdings = defineCopy({
       fxNote: (now: string, prev: string, prevDate: string) => `USD/KRW ${now}, from ${prev} on ${prevDate}`,
       up: 'Biggest gains',
       down: 'Biggest losses',
-      excludedNote: (count: string) => `${count} without a previous close are left out of these figures.`,
+      excludedNote: (count: string) => `${count} holdings left out: no matching price or previous close.`,
       empty: 'No holding has a previous close to compare with yet.',
     },
     mix: {
@@ -202,7 +202,7 @@ export const holdings = defineCopy({
       fxNote: (now: string, prev: string, prevDate: string) => `달러 환율 ${now}원, ${prevDate} ${prev}원`,
       up: '많이 오른 종목',
       down: '많이 내린 종목',
-      excludedNote: (count: string) => `직전 종가가 없는 ${count}개 종목은 계산에서 제외했습니다.`,
+      excludedNote: (count: string) => `시세나 직전 종가를 맞출 수 없는 보유 항목 ${count}개는 계산에서 뺐습니다.`,
       empty: '비교할 직전 종가가 있는 종목이 아직 없습니다.',
     },
     mix: {
