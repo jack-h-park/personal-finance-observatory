@@ -4,6 +4,7 @@ import path from 'node:path'
 import { loadAccountMap } from './account-map.mjs'
 import { loadLocalEnv } from './env.mjs'
 import { krPriceTickers } from './kr-price-tickers.mjs'
+import { previousSessionClose, withSettledLastClose } from './settled-bars.mjs'
 
 loadLocalEnv()
 
@@ -38,6 +39,16 @@ function readTsv(filePath) {
   })
 }
 
+function previousCloseFields(result, asOfDate) {
+  const closes = result?.indicators?.quote?.[0]?.close ?? []
+  const bars = (result?.timestamp ?? []).map((seconds, index) => ({
+    price_date: isoDateFromSeconds(seconds),
+    close: closes[index] == null ? null : Number(closes[index]),
+  }))
+  const previous = previousSessionClose(withSettledLastClose(bars, result?.meta), asOfDate)
+  return { previousClose: previous?.close ?? null, previousCloseDate: previous?.date ?? null }
+}
+
 function isoDateFromSeconds(seconds) {
   if (!seconds) return ''
   return new Date(seconds * 1000).toISOString().slice(0, 10)
@@ -60,6 +71,10 @@ async function fetchCandidate(ticker, suffix) {
     exchangeName: meta.exchangeName ?? '',
     instrumentType: meta.instrumentType ?? '',
     asOfDate: isoDateFromSeconds(meta.regularMarketTime),
+    // The close of the session before asOfDate, for the day's change on /holdings.
+    // From the same five daily bars, so it moves with the price instead of waiting
+    // for the six-hourly history fetch.
+    ...previousCloseFields(json.chart?.result?.[0], isoDateFromSeconds(meta.regularMarketTime)),
     regularMarketTime: meta.regularMarketTime ?? null,
     shortName: meta.shortName ?? '',
     longName: meta.longName ?? '',
