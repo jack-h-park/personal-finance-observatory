@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useId, type ReactNode } from 'react'
 import Link from 'next/link'
 
 // The tab bar is the page-level switch, so it reads above the filters under
@@ -15,8 +15,9 @@ const ITEM_INACTIVE = 'border-transparent text-ink-2 hover:text-ink'
  * `scroll` defaults to true (a tab switch scrolls to the top).
  *
  * An item's optional `description` says what the tab holds; the current
- * item's shows as one line under the bar. Narrow screens scroll the bar
- * sideways instead of wrapping it.
+ * item's shows as one line under the bar, tied to that tab with
+ * aria-describedby. Narrow screens scroll the bar sideways instead of
+ * wrapping it, with an edge shadow where more tabs lie beyond.
  */
 export function Tabs<K extends string>({
   label,
@@ -30,22 +31,25 @@ export function Tabs<K extends string>({
   scroll?: boolean
 }) {
   const description = items.find((item) => item.key === current)?.description
+  const descriptionId = useId()
+  const describedBy = description != null ? descriptionId : undefined
   return (
     <div className="mb-6">
-      <nav aria-label={label} className="flex gap-1 overflow-x-auto overflow-y-hidden border-b border-line-subtle">
+      <nav aria-label={label} className="tab-scroll-hint flex gap-1 overflow-x-auto overflow-y-hidden border-b border-line-subtle">
         {items.map((item) => (
           <Link
             key={item.key}
             href={item.href}
             scroll={scroll}
             aria-current={item.key === current ? 'page' : undefined}
+            aria-describedby={item.key === current ? describedBy : undefined}
             className={`${ITEM_BASE} ${item.key === current ? ITEM_ACTIVE : ITEM_INACTIVE}`}
           >
             {item.label}
           </Link>
         ))}
       </nav>
-      {description != null && <p className="mt-2 text-role-ui text-ink-2">{description}</p>}
+      {description != null && <p id={descriptionId} className="mt-2 text-role-ui text-ink-2">{description}</p>}
     </div>
   )
 }

@@ -328,7 +328,7 @@ const TAB_BASE = 'inline-flex min-h-11 shrink-0 items-center whitespace-nowrap b
 
 test('Tabs nav and items', () => {
   const html = renderToStaticMarkup(h(Tabs, { label: 'P', items: [{ key: 's', href: '/p?tab=s', label: 'S' }, { key: 't', href: '/p?tab=t', label: 'T' }], current: 's' }))
-  assert.ok(html.startsWith('<div class="mb-6"><nav aria-label="P" class="flex gap-1 overflow-x-auto overflow-y-hidden border-b border-line-subtle">'), html)
+  assert.ok(html.startsWith('<div class="mb-6"><nav aria-label="P" class="tab-scroll-hint flex gap-1 overflow-x-auto overflow-y-hidden border-b border-line-subtle">'), html)
   assert.ok(html.endsWith('</nav></div>'), html)
   const tags = html.match(/<a [^>]*>/g) ?? []
   assert.equal(tags.length, 2)
@@ -349,8 +349,23 @@ test("Tabs shows the selected item's description", () => {
       current: 't',
     })
   )
-  assert.ok(html.includes('<p class="mt-2 text-role-ui text-ink-2">About T</p>'), html)
+  const p = html.match(/<p id="([^"]+)" class="mt-2 text-role-ui text-ink-2">About T<\/p>/)
+  assert.ok(p, html)
   assert.ok(!html.includes('About S'), html)
+  // The current tab names the line that says what it holds; the others do not.
+  const tags = html.match(/<a [^>]*>/g) ?? []
+  assert.equal(attr(tags[1], 'aria-describedby'), p[1])
+  assert.equal(attr(tags[0] ?? '', 'aria-describedby'), undefined)
+})
+
+test('Tabs without descriptions set no aria-describedby', () => {
+  const html = renderToStaticMarkup(h(Tabs, { label: 'P', items: [{ key: 's', href: '/p', label: 'S' }], current: 's' }))
+  assert.ok(!html.includes('aria-describedby'), html)
+})
+
+test('the tab scroll hint is defined in the global stylesheet', () => {
+  const css = readFileSync(new URL('../styles/globals.css', import.meta.url), 'utf8')
+  assert.ok(css.includes('.tab-scroll-hint'), 'missing .tab-scroll-hint')
 })
 
 /** The outer element's tag and attributes, as rendered. */
