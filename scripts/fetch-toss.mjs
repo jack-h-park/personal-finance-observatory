@@ -19,6 +19,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { loadLocalEnv } from './env.mjs'
 import { summarizeFills } from './toss-orders.mjs'
+import { createTossClient } from './toss-client.mjs'
 import { runShadowHandoff, claimShadowRequest, recordShadowResult } from './toss-shadow-handoff.mjs'
 
 loadLocalEnv()
@@ -52,18 +53,14 @@ async function api(url, options = {}) {
 }
 
 async function main() {
-const token = (await api(`${BASE}/oauth2/token`, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-  body: new URLSearchParams({
-    grant_type: 'client_credentials',
-    client_id: CLIENT_ID,
-    client_secret: CLIENT_SECRET,
-  }),
-})).access_token
-
+// The cached token the price fetches share (toss-client.mjs): issuing a fresh
+// one here would revoke theirs, since Toss keeps one valid token per client.
+// The first call goes through the client, which reissues the token once on a
+// 401 (a cached token that was revoked), so the calls below get a live one.
+const tossClient = createTossClient()
+const accountsRaw = await tossClient.get('/api/v1/accounts')
+const token = await tossClient.accessToken()
 const auth = { Authorization: `Bearer ${token}` }
-const accountsRaw = await api(`${BASE}/api/v1/accounts`, { headers: auth })
 const accounts = accountsRaw.result ?? accountsRaw
 const list = Array.isArray(accounts) ? accounts : [accounts]
 if (!list.length) {

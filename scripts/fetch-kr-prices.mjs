@@ -4,7 +4,8 @@ import path from 'node:path'
 import { loadAccountMap } from './account-map.mjs'
 import { loadLocalEnv } from './env.mjs'
 import { krPriceTickers } from './kr-price-tickers.mjs'
-import { previousSessionClose, withSettledLastClose } from './settled-bars.mjs'
+import { mergeQuotes } from './quote-sources.mjs'
+import { tossPricesOrEmpty } from './toss-client.mjs'
 
 loadLocalEnv()
 
@@ -39,16 +40,6 @@ function readTsv(filePath) {
   })
 }
 
-function previousCloseFields(result, asOfDate) {
-  const closes = result?.indicators?.quote?.[0]?.close ?? []
-  const bars = (result?.timestamp ?? []).map((seconds, index) => ({
-    price_date: isoDateFromSeconds(seconds),
-    close: closes[index] == null ? null : Number(closes[index]),
-  }))
-  const previous = previousSessionClose(withSettledLastClose(bars, result?.meta), asOfDate)
-  return { previousClose: previous?.close ?? null, previousCloseDate: previous?.date ?? null }
-}
-
 function isoDateFromSeconds(seconds) {
   if (!seconds) return ''
   return new Date(seconds * 1000).toISOString().slice(0, 10)
@@ -63,7 +54,7 @@ async function fetchCandidate(ticker, suffix) {
   const meta = json.chart?.result?.[0]?.meta
   const price = Number(meta?.regularMarketPrice)
   if (!meta || meta.currency !== 'KRW' || !Number.isFinite(price) || price <= 0) return null
-  return {
+  const entry = {
     ticker,
     symbol,
     price,
@@ -71,14 +62,14 @@ async function fetchCandidate(ticker, suffix) {
     exchangeName: meta.exchangeName ?? '',
     instrumentType: meta.instrumentType ?? '',
     asOfDate: isoDateFromSeconds(meta.regularMarketTime),
-    // The close of the session before asOfDate, for the day's change on /holdings.
-    // From the same five daily bars, so it moves with the price instead of waiting
-    // for the six-hourly history fetch.
-    ...previousCloseFields(json.chart?.result?.[0], isoDateFromSeconds(meta.regularMarketTime)),
     regularMarketTime: meta.regularMarketTime ?? null,
     shortName: meta.shortName ?? '',
     longName: meta.longName ?? '',
   }
+  // The chart result rides along, not written to the file: mergeQuotes measures the
+  // previous close against the session of the quote it keeps.
+  Object.defineProperty(entry, 'chart', { value: json.chart?.result?.[0], enumerable: false })
+  return entry
 }
 
 async function fetchPrice(ticker) {
@@ -111,19 +102,30 @@ for (const ticker of tickers) {
   }
 }
 
+// Toss quotes win inside the regular session; Yahoo fills every other case
+// (quote-sources.mjs). Without Toss credentials or access, this is Yahoo alone.
+const tossPrices = await tossPricesOrEmpty(tickers)
+const merged = mergeQuotes({ market: 'KR', yahooEntries: prices, tossPrices, tickers, currency: 'KRW' })
+const kept = new Set(merged.prices.map((p) => p.ticker))
+const stillMissing = tickers.filter((ticker) => !kept.has(ticker))
+const tossUsed = merged.prices.filter((p) => p.source === 'toss').length
+console.log(`KR quotes: ${tossUsed} from Toss, ${merged.prices.length - tossUsed} from Yahoo, ${stillMissing.length} missing`)
+for (const row of merged.divergent) console.warn(`KR quote divergence over 2%: ${JSON.stringify(row)}`)
+
 const output = {
   generatedAt: new Date().toISOString(),
-  source: 'Yahoo Finance chart API',
+  source: 'Toss Securities Open API (regular session), Yahoo Finance chart API (otherwise)',
   sourceUrl: 'https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?range=5d&interval=1d',
   note: 'Read-only market price snapshot for KR holdings. Prices are external snapshots and may be delayed.',
-  prices,
-  missing,
+  prices: merged.prices,
+  missing: stillMissing,
+  divergent: merged.divergent,
 }
 
 fs.mkdirSync(path.dirname(outPath), { recursive: true })
 fs.writeFileSync(outPath, `${JSON.stringify(output, null, 2)}\n`)
-console.log(`Wrote ${outPath}: ${prices.length}/${tickers.length} prices`)
+console.log(`Wrote ${outPath}: ${merged.prices.length}/${tickers.length} prices`)
 
-if (missing.length > 0) {
+if (stillMissing.length > 0) {
   process.exitCode = 1
 }
