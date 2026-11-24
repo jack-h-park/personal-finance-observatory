@@ -374,6 +374,7 @@ export function StackedSeriesChart({
   language,
   emptyMessage,
   rangeSelect,
+  legend = true,
 }: ChartContract & {
   points: StackedSeriesPoint[]
   /** Where each series begins, for the dashed start lines. */
@@ -393,6 +394,8 @@ export function StackedSeriesChart({
    * as a persistent band, with a clear link); `baseHref` must carry no #fragment.
    */
   rangeSelect?: { from: string | null; to: string | null; baseHref: string; clearHref: string; clearLabel: string }
+  /** False when the page draws its own legend, such as filter chips with the series' colours. */
+  legend?: boolean
 }) {
   const router = useRouter()
   const [dragStart, setDragStart] = useState<string | null>(null)
@@ -472,7 +475,7 @@ export function StackedSeriesChart({
             )
           }}
         />
-        <Legend wrapperStyle={{ fontSize: 11 }} />
+        {legend ? <Legend wrapperStyle={{ fontSize: 11 }} /> : null}
         {starts.map((key) => (
           <ReferenceLine key={key} x={startsOn[key]} stroke={series.find((s) => s.key === key)!.color} strokeDasharray="3 3" />
         ))}
