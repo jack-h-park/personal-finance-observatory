@@ -4,9 +4,9 @@ Updated November 20, 2026 (America/Los_Angeles). This file preserves dated relea
 
 | Layer | Verified state | Interpretation |
 | --- | --- | --- |
-| Security source release | [#311](https://github.com/jack-h-park/stock-portfolio-observatory/pull/311) merged as `c1c4ffb739f62effb88b8f6791a8989bec754870` on November 13 local time | Both exact-head CI checks succeeded; package/lockfile and security assessment only |
+| Security source release | [#311](https://github.com/jack-h-park/personal-finance-observatory/pull/311) merged as `c1c4ffb739f62effb88b8f6791a8989bec754870` on November 13 local time | Both exact-head CI checks succeeded; package/lockfile and security assessment only |
 | Security deployment | Next.js `15.5.28`, serving process `next-server (v15.5.28)`, build `4O1RLDxGA_mTDDkAc9AzY` | Installed build-manifest bytes matched through loopback and owner HTTPS; this is historical proof of that release |
-| Repository main at preceding audit | [#320](https://github.com/jack-h-park/stock-portfolio-observatory/pull/320), `79435667e53823cf720b024c80cbf5f8326f140f` | Account inventory adapter/display #318 and Robinhood/pension compatibility #320 are merged; they are not in the observed operating checkout |
+| Repository main at preceding audit | [#320](https://github.com/jack-h-park/personal-finance-observatory/pull/320), `79435667e53823cf720b024c80cbf5f8326f140f` | Account inventory adapter/display #318 and Robinhood/pension compatibility #320 are merged; they are not in the observed operating checkout |
 | Operating checkout at preceding audit | `e8d649ff8ac031442956f9b6305e50d57d53bd6d`, purchase-reimbursement source | This differs from both current main and the #319 GitHub merge `7854b1308bd94ab57d792475c2cabe6761a75f35`; do not equate a matching change title with exact merged-source parity. No source update occurred in this task |
 | Build identity at preceding audit | Build `fhfJVvomExPZOp4P3kWqR` read from the operating installation | This task did not restart the listener or perform a new web acceptance; the earlier #311 checks retain their original release scope |
 | Security-release web acceptance | Overview, total assets, tax history and a historical record verified in the browser; evidence downloads hash-matched with private/no-store caching | Overview monetary display and independently read page amounts matched the pre-release baseline; bounded verification, not every workflow or physical-device acceptance |
@@ -58,7 +58,7 @@ Automatic briefing publication remained disabled/paused. Actual generation/archi
 
 ## Coverage summary release acceptance: November 17, 2026
 
-[#347](https://github.com/jack-h-park/stock-portfolio-observatory/pull/347) is merged as `97c41df7bfd192f2e628348eebbf76a494056594` and its coverage summary/navigation change was separately authorized, deployed and verified on the owner HTTPS service. This status PR records that completed release; it performs no deployment, data change or new browser acceptance.
+[#347](https://github.com/jack-h-park/personal-finance-observatory/pull/347) is merged as `97c41df7bfd192f2e628348eebbf76a494056594` and its coverage summary/navigation change was separately authorized, deployed and verified on the owner HTTPS service. This status PR records that completed release; it performs no deployment, data change or new browser acceptance.
 
 | Layer | Verified identity / outcome | Boundary |
 | --- | --- | --- |
@@ -80,7 +80,7 @@ The previous build and baseline source/receipts remain privately retained for co
 
 ## Supplementary freshness release acceptance: November 18, 2026
 
-[#350](https://github.com/jack-h-park/stock-portfolio-observatory/pull/350) supplies the additive capture/reader contract. [#353](https://github.com/jack-h-park/stock-portfolio-observatory/pull/353) supplies its read-only summary/detail consumer and is merged as `01c583d250f0224e4919918a5684b319c886394a`. The owner separately authorized their bounded deployment. This documentation PR records that completed release; it performs no new deployment or private adoption.
+[#350](https://github.com/jack-h-park/personal-finance-observatory/pull/350) supplies the additive capture/reader contract. [#353](https://github.com/jack-h-park/personal-finance-observatory/pull/353) supplies its read-only summary/detail consumer and is merged as `01c583d250f0224e4919918a5684b319c886394a`. The owner separately authorized their bounded deployment. This documentation PR records that completed release; it performs no new deployment or private adoption.
 
 | Layer | Verified identity / outcome | Boundary |
 | --- | --- | --- |
@@ -109,7 +109,7 @@ Actual 2025 comparison, generation, briefing web publication, automatic resumpti
 
 ## Annual review and hypothetical planning release acceptance: November 20, 2026
 
-The owner authorized merging [#371](https://github.com/jack-h-park/stock-portfolio-observatory/pull/371) and deploying it together with merged [#369](https://github.com/jack-h-park/stock-portfolio-observatory/pull/369). #369 merged at `8fe123380e296eec34cfe4c2b8f8861be47cb27b`; #371 merged at `836bc26911e86c574b754835fd943b4bd39744fe`. Both workflow implementations now have bounded operating acceptance, rather than source-only status. This documentation update records that completed authorization and performs no further rollout.
+The owner authorized merging [#371](https://github.com/jack-h-park/personal-finance-observatory/pull/371) and deploying it together with merged [#369](https://github.com/jack-h-park/personal-finance-observatory/pull/369). #369 merged at `8fe123380e296eec34cfe4c2b8f8861be47cb27b`; #371 merged at `836bc26911e86c574b754835fd943b4bd39744fe`. Both workflow implementations now have bounded operating acceptance, rather than source-only status. This documentation update records that completed authorization and performs no further rollout.
 
 | Layer | Verified identity / result | Boundary |
 | --- | --- | --- |
