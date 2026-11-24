@@ -1215,7 +1215,7 @@ export function getPositionTrendRows(days = 400): { date: string; market: string
   }
 }
 
-type FileQuote = { price: number; asOfDate: string; currency: string | null }
+type FileQuote = { price: number; asOfDate: string; currency: string | null; previousClose: number | null; previousCloseDate: string | null }
 
 /**
  * Each ticker's price and quote date from one market's price file. KR and US
@@ -1236,7 +1236,17 @@ function quotesFromPriceFile(filePath: string, byCurrency: boolean): Map<string,
     const currency = typeof entry?.currency === 'string' && entry.currency ? entry.currency.toUpperCase() : null
     if (!ticker || !/^\d{4}-\d{2}-\d{2}$/.test(asOf) || !Number.isFinite(price) || price <= 0) continue
     if (byCurrency && !currency) continue
-    quotes.set(byCurrency ? `${ticker}\t${currency}` : ticker, { price, asOfDate: asOf, currency })
+    // The previous session's close, written by the price fetch from the same daily bars.
+    const previousClose = Number(entry?.previousClose)
+    const previousCloseDate = typeof entry?.previousCloseDate === 'string' ? entry.previousCloseDate.slice(0, 10) : ''
+    const hasPrevious = Number.isFinite(previousClose) && previousClose > 0 && /^\d{4}-\d{2}-\d{2}$/.test(previousCloseDate) && previousCloseDate < asOf
+    quotes.set(byCurrency ? `${ticker}\t${currency}` : ticker, {
+      price,
+      asOfDate: asOf,
+      currency,
+      previousClose: hasPrevious ? previousClose : null,
+      previousCloseDate: hasPrevious ? previousCloseDate : null,
+    })
   }
   return quotes
 }
@@ -1262,7 +1272,9 @@ function exchangeDate(instant: unknown, market: string): string | null {
  * as its date, because its as_of_date is the UTC date of the fetch and runs a day ahead after the
  * US close; any other row takes as_of_date.
  *
- * The close must be in the holding's currency. It is looked up under the holding's own market
+ * The previous close comes from the same price-file entry when the entry carries one (the
+ * close of the session before its asOfDate). Otherwise it is looked up in historical_prices,
+ * where it must be in the holding's currency. It is looked up under the holding's own market
  * first, then under any market quoting that currency, because a US stock held through a Korean
  * broker can have its closes stored under KR. Crypto closes are stored in USD, so a KRW crypto
  * row finds none and is left out. A historical_prices table without a currency column (the
@@ -1314,8 +1326,12 @@ export function getDayChangeRows(): DayChangeRow[] {
       const ownDate = row.sourceSystem === 'toss_open_api' ? (exchangeDate(tossFetchedAt, row.market) ?? row.asOfDate) : row.asOfDate
       const price = usable ? usable.price : row.price
       const quoteDate = usable ? usable.asOfDate : ownDate ? ownDate.slice(0, 10) : null
-      let prev: { date: string; close: number } | undefined
-      if (quoteDate) {
+      // The quote file's own previous close is fresher than the daily history, which
+      // the six-hourly refresh fetches and which lagged a whole session for Korean
+      // stocks on 2026-11-23. Its currency is the entry's, already matched above.
+      let prev: { date: string; close: number } | undefined =
+        usable?.previousClose != null && usable.previousCloseDate ? { date: usable.previousCloseDate, close: usable.previousClose } : undefined
+      if (!prev && quoteDate) {
         prev = (hasCurrency ? sameMarket.get(row.market, row.ticker, row.currency, quoteDate) : sameMarket.get(row.market, row.ticker, quoteDate)) as typeof prev
         if (!prev && sameCurrency) prev = sameCurrency.get(row.ticker, row.currency, quoteDate) as typeof prev
       }

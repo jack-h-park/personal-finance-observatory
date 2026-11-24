@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import Database from 'better-sqlite3'
 import { loadLocalEnv } from './env.mjs'
-import { withoutUnsettledBar, newestSettledSession, coveredSession } from './settled-bars.mjs'
+import { withoutUnsettledBar, newestSettledSession, coveredSession, withSettledLastClose, newestSettledKrSession, coveredKrSession } from './settled-bars.mjs'
 import { fxWindowStart, fxCoversIncome } from './fx-window.mjs'
 
 loadLocalEnv()
@@ -81,11 +81,17 @@ if (!process.env.FORCE_HISTORICAL_PRICES && fs.existsSync(pricesPath)) {
   // carry a date the equity session has not reached. See coveredSession().
   const covered = coveredSession(existing.prices)
   const newestPossible = newestSettledSession()
+  // The US check alone let Korean closes go stale for a whole day: on 2026-11-23
+  // the US session was covered, so every run skipped while most Korean stocks
+  // still lacked the day's close.
+  const krCovered = coveredKrSession(existing.prices)
+  const krNewestPossible = newestSettledKrSession()
+  const krCurrent = krCovered === '' || krCovered >= krNewestPossible
   // A table written before an earlier income row existed starts too late for it.
   const existingFx = fs.existsSync(fxPath) ? JSON.parse(fs.readFileSync(fxPath, 'utf8')) : null
   const fxReachesIncome = fxCoversIncome(existingFx?.startDate, earliestIncomeDate())
-  if (covered >= newestPossible && Number(existing.valuationVersion || 0) >= 2 && newPensionTickers.length === 0 && fxReachesIncome) {
-    console.log(`Historical prices already cover ${covered} (newest settled ${newestPossible}); skipping full refetch.`)
+  if (covered >= newestPossible && krCurrent && Number(existing.valuationVersion || 0) >= 2 && newPensionTickers.length === 0 && fxReachesIncome) {
+    console.log(`Historical prices already cover ${covered} (newest settled ${newestPossible}; Korea ${krCovered || 'none'} of ${krNewestPossible}); skipping full refetch.`)
     process.exit(0)
   }
 }
@@ -127,12 +133,17 @@ function rowsFromYahoo(result, market, ticker, symbol) {
       symbol,
       currency,
       price_date: isoDate(timestamp),
-      close: Number(quote[index]),
+      close: quote[index] == null ? null : Number(quote[index]),
       adj_close: Number(adjusted[index]),
       source: 'Yahoo Finance chart API',
     }))
-    .filter((row) => Number.isFinite(row.close) && row.close > 0)
-  return withoutUnsettledBar(rows, result?.meta)
+  // A settled session whose close Yahoo has not filled in yet takes the settled
+  // market price, before the empty-close filter would drop it (settled-bars.mjs).
+  const filled = withSettledLastClose(rows, result?.meta)
+  return withoutUnsettledBar(
+    filled.filter((row) => row.close != null && Number.isFinite(row.close) && row.close > 0),
+    result?.meta
+  )
 }
 
 async function fetchTicker(ticker, market, quoteMarket, quoteTicker, startDate, endDate) {

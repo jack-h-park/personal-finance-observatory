@@ -236,3 +236,42 @@ test('a price-file entry in another currency is not used for the holding', async
   assert.equal(row.quoteDate, '2030-03-12')
   assert.equal(row.prevClose, 4)
 })
+
+test("the price file's previous close wins over a stale daily history", async () => {
+  // The history stops two sessions back, as it did for Korean stocks on 2026-11-23.
+  const file = makeDb('file-prev.db', [{ market: 'KR', ticker: '333333', currency: 'KRW', asOf: '2030-03-12', price: 1000 }], [
+    { market: 'KR', ticker: '333333', currency: 'KRW', date: '2030-03-08', close: 900 },
+  ])
+  const kr = path.join(dir, 'file-prev-prices.json')
+  writeFileSync(kr, JSON.stringify({ prices: [{ ticker: '333333', price: 1200, currency: 'KRW', asOfDate: '2030-03-12', previousClose: 1150, previousCloseDate: '2030-03-11' }] }))
+  const { getDayChangeRows } = await import('../lib/adapters/portfolio-db')
+  const [row] = await withPaths({ db: file, kr }, () => getDayChangeRows())
+  assert.equal(row.price, 1200)
+  assert.equal(row.prevClose, 1150)
+  assert.equal(row.prevCloseDate, '2030-03-11')
+})
+
+test('a USD row takes the rate on the file previous-close date', async () => {
+  const file = makeDb('file-prev-fx.db', [{ market: 'US', ticker: 'FXQ', currency: 'USD', asOf: '2030-03-12', price: 20 }], [], [
+    ['2030-03-10', 1300],
+    ['2030-03-11', 1350],
+  ])
+  const us = path.join(dir, 'file-prev-fx-prices.json')
+  writeFileSync(us, JSON.stringify({ prices: [{ ticker: 'FXQ', price: 22, currency: 'USD', asOfDate: '2030-03-12', previousClose: 21, previousCloseDate: '2030-03-11' }] }))
+  const { getDayChangeRows } = await import('../lib/adapters/portfolio-db')
+  const [row] = await withPaths({ db: file, us }, () => getDayChangeRows())
+  assert.equal(row.prevClose, 21)
+  assert.equal(row.prevFx, 1350)
+})
+
+test('a file previous close dated on or after the quote date is ignored', async () => {
+  const file = makeDb('file-prev-bad.db', [{ market: 'KR', ticker: '444444', currency: 'KRW', asOf: '2030-03-12' }], [
+    { market: 'KR', ticker: '444444', currency: 'KRW', date: '2030-03-11', close: 95 },
+  ])
+  const kr = path.join(dir, 'file-prev-bad-prices.json')
+  writeFileSync(kr, JSON.stringify({ prices: [{ ticker: '444444', price: 100, currency: 'KRW', asOfDate: '2030-03-12', previousClose: 99, previousCloseDate: '2030-03-12' }] }))
+  const { getDayChangeRows } = await import('../lib/adapters/portfolio-db')
+  const [row] = await withPaths({ db: file, kr }, () => getDayChangeRows())
+  assert.equal(row.prevClose, 95)
+  assert.equal(row.prevCloseDate, '2030-03-11')
+})
