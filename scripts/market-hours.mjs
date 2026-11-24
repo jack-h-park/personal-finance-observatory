@@ -61,3 +61,16 @@ export function marketsOpen(now = new Date()) {
 export function anyMarketOpen(now = new Date()) {
   return Object.values(marketsOpen(now)).some(Boolean)
 }
+
+/**
+ * Whether a quote struck at this instant was struck inside the regular session ('open') or
+ * not ('closed'). Unlike minutesSinceOpen there is no grace period: a quote stamped at or
+ * after the bell is the closing price, which is what a reader needs to tell apart from an
+ * intraday one.
+ */
+export function quoteSessionAt(market, instant) {
+  const session = SESSIONS[market]
+  if (!session) return 'closed'
+  const { weekday, minutes } = localClock(instant, session.timeZone)
+  return WEEKDAYS.has(weekday) && minutes >= session.opens && minutes < session.closes ? 'open' : 'closed'
+}
