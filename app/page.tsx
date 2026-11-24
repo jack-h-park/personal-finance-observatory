@@ -1,5 +1,6 @@
 import { FinanceTaxSummary } from '@/components/FinanceTaxSummary'
 import { CoverageLine } from '@/components/CoverageLine'
+import { ValuationBasisStrip } from '@/components/ValuationBasisStrip'
 import { PageHeader } from '@/components/PageHeader'
 import { Badge, Card, EmptyState, HeroAside, MetricField, MetricHeroCard, Note, Panel, TextLink, marketTone } from '@/components/ui'
 import { PortfolioMultiTrendChart, PortfolioTrendChart, StackedAssetChart } from '@/components/charts'
@@ -15,12 +16,13 @@ import {
   getNetWorth,
   getOverview,
   getPortfolioSnapshots,
-  getPriceSources,
   getRebalanceReview,
   getRealizedLots,
   getSnapshotDates,
   getTopHoldings,
   getTotalAssetsSeries,
+  getTotalValuationBasis,
+  getValuationBasis,
   getWashSaleReview,
   portfolioToday,
   portfolioYearMonth,
@@ -49,7 +51,6 @@ import {
   singleTrendPoints,
   type TrendMetricKey,
 } from '@/lib/overview-trend'
-import { formatPriceBasis, priceSourceNames, pricesDifferByDate } from '@/lib/price-basis'
 import { config } from '@/config'
 import { EMPTY_VALUE, fmtDate, fmtDateTime, fmtMoney, fmtMonth, fmtNumber, fmtPct, fmtSigned } from '@/lib/format'
 import { convertMoney, createMoneyFormatter } from '@/lib/currency'
@@ -301,8 +302,9 @@ export default async function OverviewPage({
   // wrote it is recent: a failed refresh leaves the last good snapshot in place.
   const latestPriceDates = snapshotPriceDates(latestSnapshot, selectedScope)
   // The hero's stock value is the whole portfolio whatever scope the trend chart is on.
-  const heroPriceDates = snapshotPriceDates(storedSnapshots[storedSnapshots.length - 1], 'global')
-  const priceSources = priceSourceNames(Object.values(getPriceSources())).join(' · ')
+  // What the totals are valued as of: the same chips as /net-worth, compact in the aside.
+  const coverageReview = netWorth ? getAssetCoverageReview(netWorth) : null
+  const valuationBasis = netWorth ? getTotalValuationBasis(netWorth, coverageReview) : getValuationBasis({ withGold: false })
   const latestSnapshotStale = isSnapshotStale(latestSnapshot?.captured_at)
   const trendValueLabel = (value: number) => selectedMetric.key === 'return_pct' ? fmtPct(value, { digits: 1 }) : money(value, currencyPreferences.displayCurrency)
   const trendChangeLabel = selectedMetric.key === 'return_pct'
@@ -436,19 +438,7 @@ export default async function OverviewPage({
         <HeroAside
           title={copy.supportingMetrics}
           note={
-            <>
-              {copy.fxNote(fxLabel)}
-              {heroPriceDates.length ? (
-                <>
-                  {' '}
-                  {copy.stockPriceNote(
-                    formatPriceBasis(heroPriceDates, { market: copy.scopeLabels, oldest: copy.priceOldest }),
-                    pricesDifferByDate(heroPriceDates),
-                    priceSources
-                  )}
-                </>
-              ) : null}
-            </>
+            <ValuationBasisStrip items={valuationBasis} language={language} compact />
           }
         >
           {netWorth ? (
@@ -673,7 +663,7 @@ export default async function OverviewPage({
       <Card title={copy.allocation} info={copy.allocationInfo} className="mb-5">
         {netWorth ? (
           <div className="mb-3">
-            <CoverageLine summary={netWorth} language={language} review={getAssetCoverageReview(netWorth)} />
+            <CoverageLine summary={netWorth} language={language} review={coverageReview} />
           </div>
         ) : null}
         <CardRow columns={netWorth ? 3 : 2} spacing="none">

@@ -1,5 +1,5 @@
 import { CRYPTO_PRICE_STALE_MS, FX_RATE_STALE_MS, priceStaleAfterMs } from '@/lib/price-staleness'
-import { buildValuationBasis, quoteWindow, sourceText, type CashRange, type ValuationBasisItem } from '@/lib/valuation-basis'
+import { buildValuationBasis, quoteWindow, securityValuationBasis, sourceText, type CashRange, type ValuationBasisItem } from '@/lib/valuation-basis'
 import { cryptoStatementCoverageEnd, strictIsoDate } from '@/lib/domain/assets/query-coverage'
 import { readStatementPeriodEvidence, type StatementPeriodEvidence } from '@/lib/domain/assets/statement-periods'
 import { collectAssetCoverage, dateRange } from '@/lib/application/asset-coverage'
@@ -2852,18 +2852,6 @@ function snapshotPriceFreshness(conn: Database.Database, thresholdMs: number): F
 }
 
 /**
- * Where the stock and crypto prices come from, as each snapshot file names it
- * ("Yahoo Finance chart API"). A missing or unreadable file contributes nothing.
- */
-export function getPriceSources(): { KR: string | null; US: string | null; CRYPTO: string | null } {
-  return {
-    KR: sourceText(readJson(config.stockKrPricesPath)?.source),
-    US: sourceText(readJson(config.stockUsPricesPath)?.source),
-    CRYPTO: sourceText(readJson(config.stockCryptoPricesPath)?.source),
-  }
-}
-
-/**
  * What each input to the total is valued as of, and from where (lib/valuation-basis.ts),
  * read from the same price, FX and gold files as getOperationalHealth. Gold is described
  * only when `withGold` is set, so a portfolio without gold does not show a missing gold
@@ -2879,6 +2867,26 @@ export function getValuationBasis({ cash, withGold }: { cash?: CashRange | null;
     ...(cash !== undefined ? { cash } : {}),
     now: new Date(),
   })
+}
+
+/**
+ * The valuation basis of total assets as /net-worth and the Overview show it: every price file,
+ * the rate and the cash balance dates, with crypto and gold only when the total holds them so
+ * an absent class shows no missing price.
+ */
+export function getTotalValuationBasis(netWorth: NetWorth, review: { cash: CashRange } | null): ValuationBasisItem[] {
+  return getValuationBasis({ cash: review?.cash ?? null, withGold: netWorth.byClass.gold !== 0 }).filter(
+    (item) => item.key !== 'CRYPTO' || netWorth.byClass.crypto !== 0
+  )
+}
+
+/** One security's own quote and the rate, for its position page (lib/valuation-basis securityValuationBasis). */
+export function getSecurityValuationBasis(market: string, ticker: string): ValuationBasisItem[] {
+  const now = new Date()
+  const key = market === 'KR' || market === 'US' || market === 'CRYPTO' ? market : null
+  const path = key === 'KR' ? config.stockKrPricesPath : key === 'US' ? config.stockUsPricesPath : config.stockCryptoPricesPath
+  const security = key ? securityValuationBasis(key, readJson(path), ticker, now) : []
+  return [...security, ...(key === 'US' ? buildValuationBasis({ fx: readJson(config.stockFxRatesPath), now }) : [])]
 }
 
 export function getOperationalHealth(): OperationalHealth {

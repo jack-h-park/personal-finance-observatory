@@ -31,10 +31,10 @@ test('both failures are reported separately', () => {
   assert.equal(shapeVerdict({ cards: 12, leadTop: null }).length, 2)
 })
 
-test('the checked routes are the five R5 pages and /spending', () => {
+test('the checked routes are the five R5 pages, /net-worth and /spending', () => {
   assert.deepEqual(
     SHAPE_ROUTES.map((r: { path: string }) => r.path),
-    ['/tax-planning', '/rebalance', '/positions/KR/005930', '/cash-inflow', '/review', '/spending']
+    ['/tax-planning', '/rebalance', '/positions/KR/005930', '/cash-inflow', '/review', '/net-worth', '/spending']
   )
 })
 

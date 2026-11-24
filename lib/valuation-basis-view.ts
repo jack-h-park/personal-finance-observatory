@@ -1,4 +1,4 @@
-import { fmtDate, fmtMomentIn, fmtMomentShort, fmtNumber } from '@/lib/format'
+import { fmtDate, fmtMoney, fmtMomentIn, fmtMomentShort, fmtNumber } from '@/lib/format'
 import type { Language } from '@/lib/i18n'
 import { CRYPTO_PRICE_STALE_MS, FX_RATE_STALE_MS, GOLD_PRICE_STALE_MS, PRICE_STALE_BASE_MS, PRICE_STALE_SESSION_MS, SESSION_SETTLE_MINUTES } from '@/lib/price-staleness'
 import { FRESHNESS_SEVERITY, statusTone, type Tone } from '@/lib/tone'
@@ -56,7 +56,18 @@ function rule(key: ValuationBasisKey, copy: Copy): string {
 
 export function valuationChip(
   item: ValuationBasisItem,
-  { copy, statusLabels, language }: { copy: Copy; statusLabels: Record<string, string>; language: Language }
+  {
+    copy,
+    statusLabels,
+    language,
+    security = false,
+  }: {
+    copy: Copy
+    statusLabels: Record<string, string>
+    language: Language
+    /** The item describes one security (its position page), not a whole price file. */
+    security?: boolean
+  }
 ): ValuationChip {
   const label = copy.items[item.key]
   const clock = MARKET_CLOCK[item.key]
@@ -66,8 +77,13 @@ export function valuationChip(
     if (value) rows.push({ label: rowLabel, value })
   }
   let summary: string
+  const stock = item.key === 'KR' || item.key === 'US' || item.key === 'CRYPTO'
+  // One security the price file does not list: no quote, but not a missing price either.
+  const notInFile = security && stock && item.status !== 'missing' && item.priced === 0 && item.missing === 0
 
-  if (item.key === 'CASH') {
+  if (notInFile) {
+    summary = copy.notInFile
+  } else if (item.key === 'CASH') {
     const range = item.cashRange
     const dates = range?.oldest && range.newest ? (range.oldest === range.newest ? fmtDate(range.newest, language) : `${fmtDate(range.oldest, language)} – ${fmtDate(range.newest, language)}`) : null
     summary = dates ?? copy.noBalance
@@ -96,16 +112,20 @@ export function valuationChip(
     add(copy.rows.fetched, item.fetchedAt ? fmtMomentShort(item.fetchedAt, language) : null)
     add(copy.rows.source, item.source)
     add(copy.rows.exchanges, item.exchanges.join(' · '))
-    if (item.key === 'KR' || item.key === 'US' || item.key === 'CRYPTO') add(copy.rows.coverage, item.priced || item.missing ? copy.coverage(item.priced, item.missing) : null)
+    if (stock && item.value != null && item.currency) add(copy.rows.securityPrice, fmtMoney(item.value, item.currency))
+    if (stock && !security) add(copy.rows.coverage, item.priced || item.missing ? copy.coverage(item.priced, item.missing) : null)
   }
 
+  // A security the file lists as missing has no price even though the file itself is current.
+  const securityMissing = security && stock && item.status !== 'missing' && item.missing > 0 && item.priced === 0
+  if (securityMissing) summary = copy.noPrice
   return {
     key: item.key,
-    tone: item.status ? statusTone(FRESHNESS_SEVERITY, item.status) : 'neutral',
+    tone: notInFile || !item.status ? 'neutral' : securityMissing ? 'warning' : statusTone(FRESHNESS_SEVERITY, item.status),
     label,
     summary,
-    statusLabel: item.status ? statusLabels[item.status] ?? null : null,
-    rule: rule(item.key, copy),
+    statusLabel: notInFile || !item.status ? null : statusLabels[item.status] ?? null,
+    rule: notInFile ? copy.notInFileNote : rule(item.key, copy),
     rows,
   }
 }

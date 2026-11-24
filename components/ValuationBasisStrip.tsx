@@ -15,13 +15,25 @@ import { valuationChip } from '@/lib/valuation-basis-view'
  * This replaces one sentence under the composition table that gave a date per
  * market and a provider name, three cards below the total.
  */
-export function ValuationBasisStrip({ items, language }: { items: ValuationBasisItem[]; language: Language }) {
+export function ValuationBasisStrip({
+  items,
+  language,
+  compact = false,
+  security = false,
+}: {
+  items: ValuationBasisItem[]
+  language: Language
+  /** Chips show the dot and the name only; the date moves into the popover. For a narrow aside. */
+  compact?: boolean
+  /** The items describe one security (its position page). */
+  security?: boolean
+}) {
   if (!items.length) return null
   const copy = getPageCopy('netWorth', language).valuationBasis
   const statusLabels = getUiCopy(language).freshness.labels
-  const chips = items.map((item) => valuationChip(item, { copy, statusLabels, language }))
+  const chips = items.map((item) => valuationChip(item, { copy, statusLabels, language, security }))
   return (
-    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
+    <div className={compact ? 'flex flex-col gap-2' : 'flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-3'}>
       <span className="shrink-0 pt-1.5 text-label text-ink-3">{copy.label}</span>
       <ul className="flex min-w-0 flex-wrap gap-1.5" aria-label={copy.label}>
         {chips.map((chip, index) => (
@@ -34,7 +46,7 @@ export function ValuationBasisStrip({ items, language }: { items: ValuationBasis
                 <>
                   <span aria-hidden className={`h-2 w-2 shrink-0 rounded-full ${toneBgClass(chip.tone)}`} />
                   <span className="font-medium text-ink">{chip.label}</span>
-                  <span className="tabular-nums">{chip.summary}</span>
+                  <span className={compact ? 'sr-only' : 'tabular-nums'}>{chip.summary}</span>
                   {/* The dot's colour is the status; say it in words for a screen reader. */}
                   {chip.statusLabel ? <span className="sr-only">{chip.statusLabel}</span> : null}
                 </>
@@ -44,6 +56,7 @@ export function ValuationBasisStrip({ items, language }: { items: ValuationBasis
                 {chip.label}
                 {chip.statusLabel ? <span className="font-normal text-ink-3"> · {chip.statusLabel}</span> : null}
               </span>
+              {compact ? <span className="mt-1 block tabular-nums text-ink-2">{chip.summary}</span> : null}
               {chip.rows.length ? (
                 <span className="mt-2 flex flex-col gap-1">
                   {chip.rows.map((row) => (

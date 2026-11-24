@@ -122,6 +122,7 @@ export const netWorth = defineCopy({
         rate: 'Rate',
         price: 'Price per gram',
         range: 'Balance dates',
+        securityPrice: 'Price',
       },
       quotedRange: (newest: string, oldest: string) => `${newest} (oldest ${oldest})`,
       coverage: (priced: number, missing: number) => (missing ? `${priced} priced · ${missing} without a price` : `${priced} priced`),
@@ -134,6 +135,8 @@ export const netWorth = defineCopy({
         cash: 'Each balance is as of its own statement or snapshot; the range runs from the oldest to the newest.',
       },
       healthLink: 'Review freshness',
+      notInFile: 'not in the price file',
+      notInFileNote: 'This security is not in the price file, so its value may come from a broker export or a snapshot instead.',
     },
     children: {
       toggle: 'Include children',
@@ -266,6 +269,7 @@ export const netWorth = defineCopy({
         rate: '환율',
         price: '그램당 가격',
         range: '잔액 기준일',
+        securityPrice: '가격',
       },
       quotedRange: (newest: string, oldest: string) => `${newest} (가장 오래된 시세 ${oldest})`,
       coverage: (priced: number, missing: number) => (missing ? `시세 있음 ${priced} · 시세 없음 ${missing}` : `시세 있음 ${priced}`),
@@ -278,6 +282,8 @@ export const netWorth = defineCopy({
         cash: '잔액마다 해당 명세서나 스냅샷의 날짜를 따릅니다. 범위는 가장 오래된 날짜부터 가장 최근 날짜까지입니다.',
       },
       healthLink: '최신성 확인',
+      notInFile: '시세 파일에 없음',
+      notInFileNote: '이 종목은 시세 파일에 없어 증권사 내보내기나 스냅샷의 가격으로 평가됐을 수 있습니다.',
     },
     children: {
       toggle: '자녀 포함',
