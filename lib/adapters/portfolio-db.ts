@@ -1,4 +1,5 @@
-import { priceStaleAfterMs } from '@/lib/price-staleness'
+import { CRYPTO_PRICE_STALE_MS, FX_RATE_STALE_MS, priceStaleAfterMs } from '@/lib/price-staleness'
+import { buildValuationBasis, quoteWindow, securityValuationBasis, sourceText, type CashRange, type ValuationBasisItem } from '@/lib/valuation-basis'
 import { cryptoStatementCoverageEnd, strictIsoDate } from '@/lib/domain/assets/query-coverage'
 import { readStatementPeriodEvidence, type StatementPeriodEvidence } from '@/lib/domain/assets/statement-periods'
 import { collectAssetCoverage, dateRange } from '@/lib/application/asset-coverage'
@@ -2988,37 +2989,41 @@ function snapshotPriceFreshness(conn: Database.Database, thresholdMs: number): F
 }
 
 /**
- * The newest and oldest quote time in a price file, as ISO strings: each price's
- * `regularMarketTime` (epoch seconds) or, for crypto, its `quotedAt`. Both null
- * when no price carries one.
+ * What each input to the total is valued as of, and from where (lib/valuation-basis.ts),
+ * read from the same price, FX and gold files as getOperationalHealth. Gold is described
+ * only when `withGold` is set, so a portfolio without gold does not show a missing gold
+ * price; cash is described when its balance range is passed.
  */
-function quoteWindow(prices: unknown): { quotedNewest: string | null; quotedOldest: string | null } {
-  const times = (Array.isArray(prices) ? prices : [])
-    .map((price: any) => {
-      if (typeof price?.regularMarketTime === 'number') return price.regularMarketTime * 1000
-      const parsed = typeof price?.quotedAt === 'string' ? Date.parse(price.quotedAt) : NaN
-      return Number.isFinite(parsed) ? parsed : null
-    })
-    .filter((ms): ms is number => ms != null)
-  if (!times.length) return { quotedNewest: null, quotedOldest: null }
-  return { quotedNewest: new Date(Math.max(...times)).toISOString(), quotedOldest: new Date(Math.min(...times)).toISOString() }
-}
-
-/** A price file's own `source` field as text, or null when it names none. */
-function sourceText(value: unknown): string | null {
-  return typeof value === 'string' && value.trim() ? value.trim() : null
+export function getValuationBasis({ cash, withGold }: { cash?: CashRange | null; withGold: boolean }): ValuationBasisItem[] {
+  return buildValuationBasis({
+    kr: readJson(config.stockKrPricesPath),
+    us: readJson(config.stockUsPricesPath),
+    crypto: readJson(config.stockCryptoPricesPath),
+    ...(withGold ? { gold: readJson(config.stockGoldPricesPath) } : {}),
+    fx: readJson(config.stockFxRatesPath),
+    ...(cash !== undefined ? { cash } : {}),
+    now: new Date(),
+  })
 }
 
 /**
- * Where the stock and crypto prices come from, as each snapshot file names it
- * ("Yahoo Finance chart API"). A missing or unreadable file contributes nothing.
+ * The valuation basis of total assets as /net-worth and the Overview show it: every price file,
+ * the rate and the cash balance dates, with crypto and gold only when the total holds them so
+ * an absent class shows no missing price.
  */
-export function getPriceSources(): { KR: string | null; US: string | null; CRYPTO: string | null } {
-  return {
-    KR: sourceText(readJson(config.stockKrPricesPath)?.source),
-    US: sourceText(readJson(config.stockUsPricesPath)?.source),
-    CRYPTO: sourceText(readJson(config.stockCryptoPricesPath)?.source),
-  }
+export function getTotalValuationBasis(netWorth: NetWorth, review: { cash: CashRange } | null): ValuationBasisItem[] {
+  return getValuationBasis({ cash: review?.cash ?? null, withGold: netWorth.byClass.gold !== 0 }).filter(
+    (item) => item.key !== 'CRYPTO' || netWorth.byClass.crypto !== 0
+  )
+}
+
+/** One security's own quote and the rate, for its position page (lib/valuation-basis securityValuationBasis). */
+export function getSecurityValuationBasis(market: string, ticker: string): ValuationBasisItem[] {
+  const now = new Date()
+  const key = market === 'KR' || market === 'US' || market === 'CRYPTO' ? market : null
+  const path = key === 'KR' ? config.stockKrPricesPath : key === 'US' ? config.stockUsPricesPath : config.stockCryptoPricesPath
+  const security = key ? securityValuationBasis(key, readJson(path), ticker, now) : []
+  return [...security, ...(key === 'US' ? buildValuationBasis({ fx: readJson(config.stockFxRatesPath), now }) : [])]
 }
 
 export function getOperationalHealth(): OperationalHealth {
@@ -3034,12 +3039,8 @@ export function getOperationalHealth(): OperationalHealth {
     // and the half-hourly price job should have refreshed it (lib/price-staleness.ts).
     const krPriceThresholdMs = priceStaleAfterMs('KR')
     const usPriceThresholdMs = priceStaleAfterMs('US')
-    // Crypto trades continuously, so a quote is never "as fresh as the last
-    // close" — it is simply old. The 36h equity threshold spans a weekend on
-    // purpose and would pass a crypto quote that is a full trading day and a
-    // half stale, which for this asset class is a different number entirely.
-    const cryptoPriceThresholdMs = 8 * 60 * 60 * 1000
-    const fxThresholdMs = 7 * 24 * 60 * 60 * 1000
+    const cryptoPriceThresholdMs = CRYPTO_PRICE_STALE_MS
+    const fxThresholdMs = FX_RATE_STALE_MS
     const snapshots: FreshnessItem[] = [
       snapshotFreshness({
         key: 'kr_prices',

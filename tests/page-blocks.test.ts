@@ -27,7 +27,8 @@ const BLOCKS: { path: string; absent: string[]; present: string[] }[] = [
   {
     path: 'app/positions/[market]/[ticker]/page.tsx',
     absent: [],
-    present: ['<HelpPopover>{glossary.freshness.description}</HelpPopover>'],
+    // The security's own quote, time and provider sit under the lead figures they qualify.
+    present: ['<ValuationBasisStrip items={valuationBasis} language={language} security />'],
   },
   {
     path: 'app/page.tsx',

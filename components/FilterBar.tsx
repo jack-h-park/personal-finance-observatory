@@ -1,9 +1,7 @@
-import Link from 'next/link'
-import { clsx } from 'clsx'
 import { CommonLabel } from '@/components/LanguageProvider'
-import { Label } from '@/components/ui'
+import { ChipGroup, LinkChip } from '@/components/LinkChips'
 import { TableSearch } from '@/components/TableSearch'
-import { FilterBar as StudioFilterBar, filterControlClassName } from '@/components/studio-ui/console'
+import { FilterBar as StudioFilterBar } from '@/components/studio-ui/console'
 import { ALL, withParam } from '@/lib/table-filter'
 
 /**
@@ -30,8 +28,10 @@ export function FilterBar({
   /** `defaultValue` is the value the page uses when the param is absent ("All"
    *  when omitted). Choosing it drops the param, and it does not count as an
    *  active filter. `countsAsFilter: false` marks a group that switches the view
-   *  rather than narrowing the data, so it never counts as active either. */
-  groups: { key: string; label: string; options: { value: string; label: string }[]; selected: string; defaultValue?: string; countsAsFilter?: false }[]
+   *  rather than narrowing the data, so it never counts as active either.
+   *  `separated` draws a rule above the group, for a view switch placed after
+   *  the filters it is not one of. */
+  groups: { key: string; label: string; options: { value: string; label: string }[]; selected: string; defaultValue?: string; countsAsFilter?: false; separated?: true }[]
   /** Adds a debounced text box. Omit for tables with nothing worth searching. */
   search?: { key: string; label: string; placeholder: string; value: string }
   /** e.g. "139 of 139" — rendered beside the chips, not inside the fold. */
@@ -41,33 +41,19 @@ export function FilterBar({
   const chips = (
     <div className="flex flex-col gap-2">
       {groups.map((group) => (
-        <div key={group.key} className="flex flex-wrap items-center gap-1.5" role="group" aria-label={group.label}>
-          <Label as="span" size="micro" className="mr-1 w-16 shrink-0">
-            {group.label}
-          </Label>
-          {group.options.map((option) => {
-            const current = option.value === group.selected
-            return (
-              <Link
-                key={option.value}
-                href={withParam(basePath, params, group.key, option.value === group.defaultValue ? null : option.value)}
-                scroll={false}
-                aria-current={current ? 'true' : undefined}
-                className={clsx(
-                  filterControlClassName,
-                  'inline-flex items-center rounded-sm border px-2.5 text-label font-medium transition-colors',
-                  'focus:outline-none focus-visible:ring-2 focus-visible:ring-info/40',
-                  current
-                    ? 'border-ink bg-ink text-card'
-                    : 'border-line bg-card text-ink-2 hover:border-ink-3 hover:bg-surface hover:text-ink'
-                )}
-              >
-                {/* The URL value stays `All`; a page that passes its own label for it keeps that label. */}
-                {option.value === ALL && option.label === ALL ? <CommonLabel label="all" /> : option.label}
-              </Link>
-            )
-          })}
-        </div>
+        <ChipGroup key={group.key} label={group.label} className={group.separated ? 'border-t border-line-subtle pt-2' : undefined}>
+          {group.options.map((option) => (
+            <LinkChip
+              key={option.value}
+              href={withParam(basePath, params, group.key, option.value === group.defaultValue ? null : option.value)}
+              active={option.value === group.selected}
+              variant="ink"
+            >
+              {/* The URL value stays `All`; a page that passes its own label for it keeps that label. */}
+              {option.value === ALL && option.label === ALL ? <CommonLabel label="all" /> : option.label}
+            </LinkChip>
+          ))}
+        </ChipGroup>
       ))}
     </div>
   )

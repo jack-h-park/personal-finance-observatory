@@ -16,7 +16,8 @@ The card's own "how this is calculated" disclosure (`dayChange.rules` in `lib/ui
 | Market-mix series | `lib/market-mix.ts` (`marketMixSeries`) |
 | Day's change computation | `lib/day-change.ts` (`dayChange`) |
 | Day's change inputs | `lib/adapters/portfolio-db.ts` (`getDayChangeRows`) |
-| Card | `components/DayChangeCard.tsx` |
+| Card, on the holdings tab above the table | `components/DayChangeCard.tsx`, rendered by `app/holdings/page.tsx` |
+| Market-mix and weights tabs | `app/holdings/MarketMixView.tsx`, `app/holdings/WeightsView.tsx` |
 
 ## Snapshot history
 
@@ -27,7 +28,7 @@ The card's own "how this is calculated" disclosure (`dayChange.rules` in `lib/ui
 
 ## Which charts plot which dates
 
-- On /holdings, the market-mix and security-weight charts plot every stored date for periods of 366 days or less (1M, 3M, 6M, YTD, 1Y). Longer periods plot the last stored date of each month, and today is the current month's last date.
+- On /holdings, the market-mix and weights tabs plot every stored date for periods of 366 days or less (1M, 3M, 6M, YTD, 1Y). Longer periods plot the last stored date of each month, and today is the current month's last date.
 - Showing every date of the current month on long periods was dropped. On a categorical axis the dense current month crowded out the earlier months.
 - Every other reader (Overview, /net-worth, briefing summaries) gets one date per month plus today, as before. `getPortfolioSnapshots` and `getSnapshotDates` filter by default. Only an explicit `{ daily: true }` returns daily rows, and no caller outside /holdings passes it.
 - The total-assets series stays monthly on purpose. Cash and pension values are stated on statement dates, so on a mid-month date a stock purchase and the cash that paid for it can fall on different days and read as a false swing.

@@ -7,18 +7,31 @@ import { usePageLanguage } from '@/components/LanguageProvider'
 import { normalizeLanguage, type Language } from '@/lib/i18n'
 import { getUiCopy } from '@/lib/ui-copy'
 
+/** The round "i". */
+const ICON_BUTTON_CLASS =
+  "relative ml-1 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-line text-label font-semibold leading-none text-ink-2 transition-colors after:absolute after:-inset-[10px] after:content-[''] hover:border-info hover:text-info focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-2"
+/** A chip that carries its own summary text. */
+const TRIGGER_BUTTON_CLASS =
+  'inline-flex min-h-8 items-center gap-1.5 rounded-md border border-line-subtle bg-surface px-2.5 py-1 text-left text-caption text-ink-2 transition-colors hover:border-info hover:text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-2'
+
 export function HelpPopover({
   children,
   label,
   align = 'center',
   className,
   language,
+  trigger,
 }: {
   children: ReactNode
   label?: string
   align?: 'center' | 'left' | 'right'
   className?: string
   language?: Language
+  /**
+   * What the button shows instead of the "i": a chip whose own text is the
+   * summary and whose popover holds the detail (the valuation basis strip).
+   */
+  trigger?: ReactNode
 }) {
   const [open, setOpen] = useState(false)
   const contextLanguage = usePageLanguage()
@@ -60,13 +73,14 @@ export function HelpPopover({
     <span ref={rootRef} className={clsx('group relative inline-flex items-center align-middle', className)}>
       <button
         type="button"
-        aria-label={label ?? copy.help}
+        // A trigger's own text names the button; an aria-label would hide it from a screen reader.
+        aria-label={trigger ? undefined : label ?? copy.help}
         aria-expanded={open}
         aria-describedby={open ? tooltipId : undefined}
         onClick={() => setOpen((current) => !current)}
-        className="relative ml-1 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-line text-label font-semibold leading-none text-ink-2 transition-colors after:absolute after:-inset-[10px] after:content-[''] hover:border-info hover:text-info focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-2"
+        className={trigger ? TRIGGER_BUTTON_CLASS : ICON_BUTTON_CLASS}
       >
-        i
+        {trigger ?? 'i'}
       </button>
       <span
         id={tooltipId}

@@ -250,16 +250,13 @@ function attr(tag: string, name: string): string | undefined {
 }
 
 const CHIP_INFO = 'rounded-sm border px-2 py-1 text-label font-medium'
-const CHIP_SUBTLE = 'rounded-sm border px-2 py-1 text-label'
 const CHIP_INK = 'inline-flex min-h-8 items-center rounded-sm border px-2.5 text-label font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-info/40'
 
-const chipCases: [string, 'info' | 'subtle' | 'ink' | undefined, boolean, string][] = [
+const chipCases: [string, 'info' | 'ink' | undefined, boolean, string][] = [
   ['info (default) active', undefined, true, `${CHIP_INFO} border-info bg-info/10 text-info`],
-  ['info inactive', 'info', false, `${CHIP_INFO} border-line text-ink-3 hover:border-info hover:text-info`],
-  ['subtle active', 'subtle', true, `${CHIP_SUBTLE} border-line bg-surface font-medium text-ink`],
-  ['subtle inactive', 'subtle', false, `${CHIP_SUBTLE} border-transparent text-ink-3 hover:border-line hover:text-ink`],
+  ['info inactive', 'info', false, `${CHIP_INFO} border-line-control text-ink-2 hover:border-info hover:text-info`],
   ['ink active', 'ink', true, `${CHIP_INK} border-ink bg-ink text-card`],
-  ['ink inactive', 'ink', false, `${CHIP_INK} border-line bg-card text-ink-2 hover:border-ink-3 hover:bg-surface hover:text-ink`],
+  ['ink inactive', 'ink', false, `${CHIP_INK} border-line-control bg-card text-ink-2 hover:border-ink-3 hover:bg-surface hover:text-ink`],
 ]
 for (const [name, variant, active, expected] of chipCases) {
   test(`LinkChip ${name}`, () => {
@@ -304,14 +301,14 @@ test('LinkChips as="fragment" (default) renders bare chips, keyed by the caller'
   assert.ok(html.includes('title="Bee"'))
 })
 
-test('LinkChips ariaCurrent="page" variant="subtle" marks the active chip with page and the subtle classes', () => {
-  const html = renderToStaticMarkup(h(LinkChips, { items: [...ITEMS], current: 'b', ariaCurrent: 'page', variant: 'subtle' }))
+test('LinkChips ariaCurrent="page" variant="ink" marks the active chip with page and the ink classes', () => {
+  const html = renderToStaticMarkup(h(LinkChips, { items: [...ITEMS], current: 'b', ariaCurrent: 'page', variant: 'ink' }))
   const tags = html.match(/<a [^>]*>/g) ?? []
   assert.equal(tags.length, 2)
   assert.equal(attr(tags[0], 'aria-current'), undefined)
-  assert.equal(attr(tags[0], 'class'), `${CHIP_SUBTLE} border-transparent text-ink-3 hover:border-line hover:text-ink`)
+  assert.equal(attr(tags[0], 'class'), `${CHIP_INK} border-line-control bg-card text-ink-2 hover:border-ink-3 hover:bg-surface hover:text-ink`)
   assert.equal(attr(tags[1], 'aria-current'), 'page')
-  assert.equal(attr(tags[1], 'class'), `${CHIP_SUBTLE} border-line bg-surface font-medium text-ink`)
+  assert.equal(attr(tags[1], 'class'), `${CHIP_INK} border-ink bg-ink text-card`)
 })
 
 test('LinkChips as="nav" wraps in a labelled nav', () => {
@@ -324,17 +321,48 @@ test('LinkChips as="group" wraps in a labelled role=group div', () => {
   assert.ok(html.startsWith('<div role="group" aria-label="G" class="flex flex-wrap items-center justify-end gap-1">'), html)
 })
 
-const TAB_BASE = '-mb-px inline-flex min-h-8 items-center border-b-2 px-3 text-caption font-medium'
+const TAB_BASE = 'inline-flex min-h-11 shrink-0 items-center whitespace-nowrap border-b-[3px] px-4 text-role-panel font-semibold focus-visible:shadow-[inset_0_0_0_2px_var(--brand-blue)]'
 
 test('Tabs nav and items', () => {
   const html = renderToStaticMarkup(h(Tabs, { label: 'P', items: [{ key: 's', href: '/p?tab=s', label: 'S' }, { key: 't', href: '/p?tab=t', label: 'T' }], current: 's' }))
-  assert.ok(html.startsWith('<nav aria-label="P" class="mb-5 flex flex-wrap gap-1 border-b border-line-subtle">'), html)
+  assert.ok(html.startsWith('<div class="mb-6"><nav aria-label="P" class="tab-scroll-hint flex gap-1 overflow-x-auto overflow-y-hidden border-b border-line-subtle">'), html)
+  assert.ok(html.endsWith('</nav></div>'), html)
   const tags = html.match(/<a [^>]*>/g) ?? []
   assert.equal(tags.length, 2)
   assert.equal(attr(tags[0], 'class'), `${TAB_BASE} border-info text-ink`)
   assert.equal(attr(tags[0], 'aria-current'), 'page')
-  assert.equal(attr(tags[1], 'class'), `${TAB_BASE} border-transparent text-ink-3 hover:text-ink`)
+  assert.equal(attr(tags[1], 'class'), `${TAB_BASE} border-transparent text-ink-2 hover:text-ink`)
   assert.equal(attr(tags[1], 'aria-current'), undefined)
+})
+
+test("Tabs shows the selected item's description", () => {
+  const html = renderToStaticMarkup(
+    h(Tabs, {
+      label: 'P',
+      items: [
+        { key: 's', href: '/p?tab=s', label: 'S', description: 'About S' },
+        { key: 't', href: '/p?tab=t', label: 'T', description: 'About T' },
+      ],
+      current: 't',
+    })
+  )
+  const p = html.match(/<p id="([^"]+)" class="mt-2 text-role-ui text-ink-2">About T<\/p>/)
+  assert.ok(p, html)
+  assert.ok(!html.includes('About S'), html)
+  // The current tab names the line that says what it holds; the others do not.
+  const tags = html.match(/<a [^>]*>/g) ?? []
+  assert.equal(attr(tags[1], 'aria-describedby'), p[1])
+  assert.equal(attr(tags[0] ?? '', 'aria-describedby'), undefined)
+})
+
+test('Tabs without descriptions set no aria-describedby', () => {
+  const html = renderToStaticMarkup(h(Tabs, { label: 'P', items: [{ key: 's', href: '/p', label: 'S' }], current: 's' }))
+  assert.ok(!html.includes('aria-describedby'), html)
+})
+
+test('the tab scroll hint is defined in the global stylesheet', () => {
+  const css = readFileSync(new URL('../styles/globals.css', import.meta.url), 'utf8')
+  assert.ok(css.includes('.tab-scroll-hint'), 'missing .tab-scroll-hint')
 })
 
 /** The outer element's tag and attributes, as rendered. */
@@ -715,9 +743,18 @@ test('Card issues badge sits before the action', () => {
   assert.ok(header.indexOf('1 to review') < header.indexOf('act'))
 })
 
-test('Card with an action and no issues keeps its header unchanged', () => {
+test('Card with an action and no issues puts the action in one wrapping box', () => {
   const html = renderToStaticMarkup(h(Card, { title: 'T', action: h('a', { href: '/x' }, 'act'), children: 'x' }))
-  assert.match(cardHeader(html), /<\/div><a href="\/x">act<\/a>$/)
+  assert.match(cardHeader(html), /<\/div><div class="flex flex-wrap items-center justify-end gap-1"><a href="\/x">act<\/a><\/div>$/)
+})
+
+test('Card header wraps, and a fragment action stays one header item', () => {
+  // TrendRangeLinks passes its chips as a fragment. Unboxed, each chip became a header
+  // item, and on a phone the title shrank to one Hangul character per line.
+  const chips = h(React.Fragment, null, h('a', { href: '/1' }, '1M'), h('a', { href: '/2' }, '3M'))
+  const html = renderToStaticMarkup(h(Card, { title: 'T', action: chips, children: 'x' }))
+  assert.match(html, /<header class="flex flex-wrap items-center justify-between /)
+  assert.match(cardHeader(html), /^<div class="flex items-center">.*?<\/div><div class="[^"]*"><a href="\/1">1M<\/a><a href="\/2">3M<\/a><\/div>$/)
 })
 
 test('Card issues needs a title', () => {

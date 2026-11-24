@@ -1,13 +1,12 @@
-import { AssetCoverageNote } from '@/components/AssetCoverageNote'
+import { CoverageLine } from '@/components/CoverageLine'
 import { DataTable } from '@/components/DataTable'
 import { PageHeader } from '@/components/PageHeader'
 import { Badge, Card, Label, Note } from '@/components/ui'
 import { CardRow, Columns, KpiBand } from '@/components/layout'
 import { TotalAssetsChangeField } from '@/components/TotalAssetsChangeField'
 import { StackedAssetChart } from '@/components/charts'
-import { getAssetCoverageReview, getAssetAllocation, getAssetEvents, getChildAssets, getHoldings, getMeta, getNetWorth, getPortfolioSnapshots, getPriceSources, getPositionSnapshots, getRealizedGains, getSnapshotDates, getTotalAssetsSeries, portfolioToday } from '@/lib/adapters/portfolio-db'
-import { snapshotPriceDates } from '@/lib/overview-trend'
-import { formatPriceBasis, priceSourceNames, pricesDifferByDate } from '@/lib/price-basis'
+import { getAssetCoverageReview, getAssetAllocation, getAssetEvents, getChildAssets, getHoldings, getMeta, getNetWorth, getPortfolioSnapshots, getPositionSnapshots, getRealizedGains, getSnapshotDates, getTotalAssetsSeries, getTotalValuationBasis, portfolioToday } from '@/lib/adapters/portfolio-db'
+import { ValuationBasisStrip } from '@/components/ValuationBasisStrip'
 import { convertMoney, createMoneyFormatter, formatKrw, formatUsd } from '@/lib/currency'
 import { getCurrencyPreferences } from '@/lib/currency-server'
 import { fmtDate, fmtDateTime, fmtSigned } from '@/lib/format'
@@ -19,15 +18,14 @@ import { ASSET_CLASSES, type NetWorth, type TotalAssetsPoint } from '@/lib/net-w
 import { chartMarkers, snapEventDates } from '@/lib/asset-events'
 import { AssetEventList } from '@/components/AssetEventList'
 import { AllocationShares } from '@/components/AllocationShares'
-import { TrendRangeLinks } from '@/components/TrendRangeLinks'
 import { RangeBreakdownPanel } from '@/components/RangeBreakdownPanel'
 import { RangeSelectForm } from '@/components/RangeSelectForm'
 import { TextLink } from '@/components/controls'
-import { LinkChip } from '@/components/LinkChips'
+import { ChipGroup, LinkChip, LinkSegmentedControl } from '@/components/LinkChips'
 import { DEFAULT_TREND_RANGE, TREND_RANGES, resolveTrendRange, trendRangeDays, type TrendRange } from '@/lib/trend-ranges'
 import type { AllocationClass } from '@/lib/asset-allocation'
 import { ASSET_CLASS_COLOR, WRAPPER_COLOR } from '@/lib/palette'
-import { getPageCopy } from '@/lib/ui-copy'
+import { getPageCopy, getUiCopy } from '@/lib/ui-copy'
 import { maskAccountLabel } from '@/lib/account-label'
 import { nonInvestmentMonths, type NonInvestmentMonth } from '@/lib/non-investment-change'
 import { getNetWorthSettings, thresholdsFrom } from '@/lib/net-worth-settings'
@@ -87,9 +85,10 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
   const changeSince = (since: string) => totalAssetsChange(totalAssets.points, since)
   // What stocks and crypto earned over each change's period, from the same base snapshot.
   const portfolioSnapshots = getPortfolioSnapshots(100 * 365)
-  // The prices behind the stock and crypto amounts, by market, from the newest snapshot.
-  const priceDates = snapshotPriceDates(portfolioSnapshots[portfolioSnapshots.length - 1], 'global')
-  const priceSources = priceSourceNames(Object.values(getPriceSources())).join(' · ')
+  // What the total is valued as of: each price file, the rate and the cash balance dates.
+  // Crypto and gold only when the portfolio holds them, so an absent class shows no missing price.
+  const coverageReview = getAssetCoverageReview(netWorth)
+  const valuationBasis = getTotalValuationBasis(netWorth, coverageReview)
   const investmentPoints: InvestmentPoint[] = portfolioSnapshots.map((row) => ({
     date: row.snapshot_date,
     unrealized: row.global_base_unrealized_gl,
@@ -129,6 +128,9 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
   const shareView = (Array.isArray(params.view) ? params.view[0] : params.view) === 'share'
   const classesParam = allClasses ? null : selectedClasses.join(',')
   const historyParam = (Array.isArray(params.history) ? params.history[0] : params.history) ?? null
+  // The month selects show under "Custom" (?custom=1) or while a period is selected; otherwise
+  // the preset window control is the only date control in view.
+  const customOpen = (Array.isArray(params.custom) ? params.custom[0] : params.custom) === '1'
   const hrefWith = (next: {
     children?: boolean
     trend?: TrendRange['key']
@@ -136,6 +138,7 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
     share?: boolean
     history?: string | null
     range?: { from: string; to: string } | null
+    custom?: boolean
   }) => {
     const query = new URLSearchParams()
     // The trend the URL asked for, not the one widened for a selection: clearing
@@ -148,6 +151,7 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
     if (next.children ?? includeChildren) query.set('children', '1')
     const historyValue = next.history === undefined ? historyParam : next.history
     if (historyValue) query.set('history', historyValue)
+    if (next.custom ?? customOpen) query.set('custom', '1')
     const rangeValue = next.range === undefined ? selection : next.range
     if (rangeValue) {
       query.set('from', rangeValue.from)
@@ -217,7 +221,8 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
       })
     : null
   // The page without a period: what the chart adds from/to to, and the clear link.
-  const clearHref = hrefWith({ range: null })
+  const clearHref = hrefWith({ range: null, custom: false })
+  const rangeFormOpen = customOpen || selection != null
   const rangeFormKeep = Object.fromEntries(new URLSearchParams(clearHref.split('?')[1] ?? ''))
   // Month ends and today, plus a dragged selection's own dates so the selects can show it.
   const rangeFormDates = [...new Set([...history.map((row) => row.date), ...(selection ? [selection.from, selection.to] : [])])].sort()
@@ -230,7 +235,6 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
         emphasis={copy.emphasis}
         subtitle={copy.subtitle(fmtDateTime(meta.ingested_at, language))}
       />
-      <AssetCoverageNote summary={netWorth} language={language} review={getAssetCoverageReview(netWorth)} />
 
       <Card
         id="net-worth-trend"
@@ -246,69 +250,95 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
         className="mb-5"
       >
         <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <Label variant="eyebrow">{copy.total}</Label>
               <div className="mt-2 text-hero-sm font-medium leading-none tracking-normal text-ink sm:text-hero">{money(netWorth.totalKrw)}</div>
+              <div className="mt-3">
+                <CoverageLine summary={netWorth} language={language} review={coverageReview} />
+              </div>
             </div>
             <div className="min-w-0 sm:max-w-[60%] sm:text-right">
               <TotalAssetsChangeField label={rangeLabel} change={rangeChange} investment={investmentFor(rangeChange)} labels={overviewCopy} money={(krw) => money(krw)} language={language} />
             </div>
           </div>
+          <ValuationBasisStrip items={valuationBasis} language={language} />
+          {/* The trend controls, one named group per line (docs/ui-guide.md, Chip groups): period,
+              classes (whose colours stand in for the chart legend), view, and the two toggles,
+              which share no group with a single choice. */}
           <div className="flex flex-col gap-2 border-t border-line-subtle pt-4">
-            <div className="flex flex-wrap items-center gap-1">
-              <span className="mr-1 text-label text-ink-3">{copy.rangeFilter}</span>
-              <TrendRangeLinks
-                selected={selectedRange}
-                hrefFor={(trend) => {
-                  const target = TREND_RANGES.find((range) => range.key === trend)!
-                  return hrefWith({ trend, ...(selection && !keepsSelection(target, selection.from, today) ? { range: null } : {}) })
-                }}
+            <ChipGroup label={copy.rangeFilter}>
+              <LinkSegmentedControl
+                current={selectedRange.key}
+                items={TREND_RANGES.map((range) => ({
+                  key: range.key,
+                  label: range.key === 'all' ? getUiCopy(language).common.all : range.label,
+                  href: hrefWith({ trend: range.key, ...(selection && !keepsSelection(range, selection.from, today) ? { range: null } : {}) }),
+                }))}
               />
-            </div>
-            <div className="flex flex-wrap items-center gap-1">
-              <span className="mr-1 text-label text-ink-3">{copy.classFilter}</span>
+            </ChipGroup>
+            <ChipGroup label={copy.classFilter}>
               {ASSET_CLASS_KEYS.map((key) => (
                 <LinkChip
                   key={key}
                   href={hrefWith({ classes: toggleClass(selectedClasses, key) })}
                   active={selectedClasses.includes(key)}
                   ariaCurrent="none"
+                  swatch={ASSET_CLASS_COLOR[key]}
                   aria-label={copy.classToggleAria(copy.classes[key], selectedClasses.includes(key))}
                 >
                   {copy.classes[key]}
                 </LinkChip>
               ))}
-            </div>
-            <div className="flex flex-wrap items-center gap-1">
-              <span className="mr-1 text-label text-ink-3">{copy.viewFilter}</span>
-              <LinkChip href={hrefWith({ share: false })} active={!shareView}>
-                {copy.viewAmount}
-              </LinkChip>
-              <LinkChip href={hrefWith({ share: true })} active={shareView}>
-                {copy.viewShare}
+            </ChipGroup>
+            <ChipGroup label={copy.viewFilter}>
+              <LinkSegmentedControl
+                current={shareView ? 'share' : 'amount'}
+                items={[
+                  { key: 'amount', label: copy.viewAmount, href: hrefWith({ share: false }) },
+                  { key: 'share', label: copy.viewShare, href: hrefWith({ share: true }) },
+                ]}
+              />
+            </ChipGroup>
+            <ChipGroup label={copy.optionsFilter}>
+              <LinkChip
+                href={selection ? clearHref : hrefWith({ custom: !customOpen })}
+                active={rangeFormOpen}
+                ariaCurrent="none"
+                checkbox
+                aria-label={copy.customRangeAria(rangeFormOpen)}
+                title={breakdownCopy.selectHint}
+              >
+                {copy.customRange}
               </LinkChip>
               <LinkChip
                 href={hrefWith({ children: !includeChildren })}
                 active={includeChildren}
                 ariaCurrent="none"
+                checkbox
                 aria-label={childCopy.toggleAria(includeChildren)}
                 title={childCopy.toggleHint}
               >
                 {childCopy.toggle}
               </LinkChip>
-            </div>
-            <div className="flex flex-col gap-2 pt-1">
-              <span className="text-label text-ink-3">{breakdownCopy.selectHint}</span>
-              <RangeSelectForm
-                dates={rangeFormDates}
-                from={selection?.from ?? null}
-                to={selection?.to ?? null}
-                keep={rangeFormKeep}
-                labels={{ from: breakdownCopy.fromLabel, to: breakdownCopy.toLabel, submit: breakdownCopy.apply }}
-                formatDate={(date) => fmtDate(date, language)}
-              />
-            </div>
+            </ChipGroup>
+            {rangeFormOpen ? (
+              // Under the chips, aligned with them (the label column is w-16 plus the group's gap).
+              <div className="flex flex-col gap-1.5 pt-1 sm:pl-[4.375rem]">
+                <RangeSelectForm
+                  dates={rangeFormDates}
+                  from={selection?.from ?? null}
+                  to={selection?.to ?? null}
+                  keep={rangeFormKeep}
+                  labels={{ from: breakdownCopy.fromLabel, to: breakdownCopy.toLabel, submit: breakdownCopy.apply }}
+                  formatDate={(date) => fmtDate(date, language)}
+                  hintId="net-worth-range-hint"
+                />
+                <span id="net-worth-range-hint" className="text-caption text-ink-3">
+                  {breakdownCopy.selectHint}
+                </span>
+              </div>
+            ) : null}
           </div>
           {shareView && includeChildren ? <Note>{copy.shareChildrenNote}</Note> : null}
           <StackedAssetChart
@@ -337,6 +367,8 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
             height={320}
             markers={chartMarkers(eventMarkers, trendAssets.points[0]?.date)}
             rangeSelect={{ from: selection?.from ?? null, to: selection?.to ?? null, baseHref: clearHref, clearHref, clearLabel: breakdownCopy.clear }}
+            // The class chips above carry the colours; the legend stays only for the children's band.
+            legend={childrenBandShown}
           />
           <KpiBand columns={6}>
             {changes.map(({ label, change }) => (
@@ -378,22 +410,11 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
               columns={allocationCopy.columns}
               extra={{ label: overviewCopy.changeMtd, values: classMonthChange }}
             />
-            {priceDates.length || netWorth.asOfNotes.length ? (
-              <div className="space-y-2 px-4 pb-4">
-                {priceDates.length ? (
-                  <Note relaxed>
-                    {overviewCopy.stockPriceNote(
-                      formatPriceBasis(priceDates, { market: overviewCopy.scopeLabels, oldest: overviewCopy.priceOldest }),
-                      pricesDifferByDate(priceDates),
-                      priceSources
-                    )}
-                  </Note>
-                ) : null}
-                {netWorth.asOfNotes.length ? (
-                  <Note relaxed>
-                    {classes.map((key) => notesFor(key) && `${copy.classes[key]}: ${notesFor(key)}`).filter(Boolean).join(' · ')} {copy.asOfNotesHint}
-                  </Note>
-                ) : null}
+            {netWorth.asOfNotes.length ? (
+              <div className="px-4 pb-4">
+                <Note relaxed>
+                  {classes.map((key) => notesFor(key) && `${copy.classes[key]}: ${notesFor(key)}`).filter(Boolean).join(' · ')} {copy.asOfNotesHint}
+                </Note>
               </div>
             ) : null}
           </div>

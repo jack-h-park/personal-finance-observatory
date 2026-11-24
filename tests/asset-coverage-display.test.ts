@@ -3,8 +3,13 @@ import test from 'node:test'
 import React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { summarizeNetWorth } from '../lib/net-worth'
-import { collectAssetCoverage } from '../lib/application/asset-coverage'
+import { collectAssetCoverage, dataStatus } from '../lib/application/asset-coverage'
 import { AssetCoverageNote } from '../components/AssetCoverageNote'
+import { CoverageLine } from '../components/CoverageLine'
+
+// The client components inside (HelpPopover) are compiled with the classic JSX runtime and read a
+// global React; Next supplies it in the app, so the test does here.
+;(globalThis as { React?: typeof React }).React = React
 
 const summary = () => summarizeNetWorth({ stocksKrw: 100, cryptoKrw: 0, usdKrw: null, cash: [
   { institution: 'Example', account: 'Open', kind: 'bank', currency: 'KRW', asOfDate: '2026-07-10', balance: 50, derived: false },
@@ -193,4 +198,45 @@ test('declared, conflicting and unconfirmed period counts stay distinct in both 
     const html = renderToStaticMarkup(React.createElement(AssetCoverageNote, { summary: summary(), language, review }))
     assert.match(html, language === 'en' ? /1 declared · 1 conflicting · 1 unconfirmed/ : /확인 1 · 충돌 1 · 미확인 1/)
   }
+})
+
+test('data status is the worst signal, counting each item that needs action before those to check', () => {
+  // action_needed + missing account, one failed check: three need action; the supplementary due date is only to check.
+  assert.deepEqual(dataStatus(collectAssetCoverage(summary(), readers())), { state: 'problem', count: 3 })
+  const attention = readers()
+  attention.accounts = () => ({ rows: [{ status: 'current' }, { status: 'due_soon' }] }) as never
+  attention.checks = () => [{ status: 'pass' }]
+  attention.files = () => ({ summary: { fresh: 1, stale: 2, drift: 1, missing: 0 } })
+  assert.deepEqual(dataStatus(collectAssetCoverage(summary(), attention)), { state: 'attention', count: 5 })
+})
+
+test('a conflicting statement period or a missing file needs action; unconfirmed periods alone do not', () => {
+  const r = readers()
+  r.accounts = () => ({ rows: [{ status: 'current', statementPeriodEvidence: { state: 'conflicting' as const, periodEnd: null, sources: [] } }, { status: 'current' }] }) as never
+  r.supplementary = () => ({ rows: [{ status: 'current' }] })
+  r.checks = () => [{ status: 'pass' }]
+  assert.deepEqual(dataStatus(collectAssetCoverage(summary(), r)), { state: 'problem', count: 1 })
+  r.accounts = () => ({ rows: [{ status: 'current' }] }) as never
+  assert.deepEqual(dataStatus(collectAssetCoverage(summary(), r)), { state: 'ok', count: 0 })
+  r.files = () => ({ summary: { fresh: 1, stale: 0, drift: 0, missing: 1 } })
+  assert.deepEqual(dataStatus(collectAssetCoverage(summary(), r)), { state: 'problem', count: 1 })
+})
+
+test('with no signal readable the data status is unknown, never a green zero', () => {
+  const fail = () => { throw new Error('unreadable') }
+  const review = collectAssetCoverage(summary(), { accounts: fail, supplementary: fail, checks: fail, files: fail })
+  assert.deepEqual(dataStatus(review), { state: 'unknown', count: 0 })
+})
+
+test('the coverage line names the boundary and links to the data status in both languages', () => {
+  const s = summary()
+  s.coverage = { omittedAssetCount: 2, sourceCoverageConfirmed: false, liabilitiesSupported: false }
+  const review = collectAssetCoverage(s, readers())
+  const en = renderToStaticMarkup(React.createElement(CoverageLine, { summary: s, language: 'en', review }))
+  assert.match(en, /2 excluded/)
+  assert.match(en, /3 need action/)
+  assert.ok(en.includes('href="/health#health-asset-coverage"'))
+  const ko = renderToStaticMarkup(React.createElement(CoverageLine, { summary: s, language: 'ko', review }))
+  assert.match(ko, /제외 2건/)
+  assert.match(ko, /조치 필요 3/)
 })

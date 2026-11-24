@@ -1,16 +1,14 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { DataTable } from '@/components/DataTable'
-import { FreshnessInline } from '@/components/Freshness'
-import { HelpPopover } from '@/components/HelpPopover'
 import { OperatorDetails } from '@/components/OperatorDetails'
 import { PageHeader } from '@/components/PageHeader'
 import { Badge, Card, EmptyState, HeroAside, MetricField, MetricHeroCard, Note, Panel, TextLink } from '@/components/ui'
 import { WashSaleBanner } from '@/components/WashSaleBanner'
-import { getOperationalHealth, getPositionDetail, getWashSaleReview, type FreshnessItem, type PositionSourceRef } from '@/lib/adapters/portfolio-db'
+import { getPositionDetail, getSecurityValuationBasis, getWashSaleReview, type PositionSourceRef } from '@/lib/adapters/portfolio-db'
+import { ValuationBasisStrip } from '@/components/ValuationBasisStrip'
 import { accountRows, washSaleForTicker, type AccountRow } from '@/lib/position-detail'
 import { EMPTY_VALUE, fmtDateTime, fmtNumber, fmtPct, fmtQuantity, shortHash } from '@/lib/format'
-import { freshnessLabel } from '@/lib/freshness-text'
 import { createMoneyFormatter } from '@/lib/currency'
 import { getCurrencyPreferences } from '@/lib/currency-server'
 import { buildTaxPlan } from '@/lib/tax-planning'
@@ -57,10 +55,6 @@ function translated<T extends string | null | undefined>(raw: T, ...maps: CopyMa
   if (raw == null) return raw
   for (const map of maps) if (Object.hasOwn(map, raw)) return map[raw]
   return raw
-}
-
-function isFreshnessItem(item: FreshnessItem | undefined): item is FreshnessItem {
-  return item != null
 }
 
 function ReconciliationStrip({
@@ -117,10 +111,8 @@ export default async function PositionPage({ params }: { params: Promise<{ marke
   const ticker = decodeURIComponent(rawTicker)
   const detail = getPositionDetail(market, ticker)
   if (!detail) notFound()
-  const operational = getOperationalHealth()
-  const marketFreshness = operational.snapshots.find((item) => item.key === (detail.market === 'KR' ? 'kr_prices' : 'us_prices'))
-  const fxFreshness = operational.snapshots.find((item) => item.key === 'fx_rates')
-  const freshnessItems = [marketFreshness, fxFreshness].filter(isFreshnessItem)
+  // This security's own quote (time, exchange, price, provider), and the rate for a US one.
+  const valuationBasis = getSecurityValuationBasis(detail.market, detail.ticker)
   const taxPolicy = getTaxPolicyState()
   const taxPlan = buildTaxPlan({ lots: detail.lots, policy: taxPolicy.policy, objective: 'minimize-tax' })
 
@@ -226,17 +218,9 @@ export default async function PositionPage({ params }: { params: Promise<{ marke
               />
             </KpiBand>
             {/* How old the price and FX behind these figures are, under the figures they qualify. */}
-            {freshnessItems.length > 0 && (
-              <Note row spacing="above-3">
-                {freshnessItems.map((item) => (
-                  <span key={item.key} className="inline-flex flex-wrap items-center gap-2">
-                    <span className="font-medium text-ink-2">{freshnessLabel(item, language)}</span>
-                    <FreshnessInline item={item} language={language} />
-                  </span>
-                ))}
-                <HelpPopover>{glossary.freshness.description}</HelpPopover>
-              </Note>
-            )}
+            <div className="mt-3">
+              <ValuationBasisStrip items={valuationBasis} language={language} security />
+            </div>
           </div>
         </MetricHeroCard>
 

@@ -1,8 +1,9 @@
+import { AssetCoverageNote } from '@/components/AssetCoverageNote'
 import { OperatorDetails } from '@/components/OperatorDetails'
 import { PageHeader } from '@/components/PageHeader'
 import { FreshnessRows } from '@/components/Freshness'
 import { Badge, Callout, Card, EmptyState, Label, Panel, TextLink, marketTone, type Tone } from '@/components/ui'
-import { getAccountCoverage, getEvidenceReports, getMeta, getOperationalHealth, getOverview, getReconciliationReview, getRefreshRuns, getValidationChecks, type ReconciliationReview } from '@/lib/adapters/portfolio-db'
+import { getAccountCoverage, getAssetCoverageReview, getEvidenceReports, getMeta, getNetWorth, getOperationalHealth, getOverview, getReconciliationReview, getRefreshRuns, getValidationChecks, type ReconciliationReview } from '@/lib/adapters/portfolio-db'
 import { fmtDateTime, fmtDuration, fmtNumber } from '@/lib/format'
 import { getLanguage } from '@/lib/i18n-server'
 import { getPageCopy, getUiCopy } from '@/lib/ui-copy'
@@ -77,6 +78,8 @@ export default async function HealthPage() {
   const freshnessLabels = uiCopy.freshness.labels
   const runStatusLabels = uiCopy.runStatus
   const meta = getMeta()
+  const netWorth = getNetWorth()
+  const coverageCopy = getPageCopy('assetCoverage', language)
   const overview = getOverview()
   const checks = getValidationChecks()
   const evidence = getEvidenceReports()
@@ -152,6 +155,11 @@ export default async function HealthPage() {
           )}
         </Card>
       </CardRow>
+
+      {/* The full coverage review the total-asset pages link to from their one-line data status. */}
+      <Card id="health-asset-coverage" title={coverageCopy.title} className="mb-5">
+        <AssetCoverageNote summary={netWorth} language={language} review={getAssetCoverageReview(netWorth)} open />
+      </Card>
 
       <Card
         title={copy.refreshHistory}

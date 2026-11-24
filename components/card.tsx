@@ -43,6 +43,9 @@ export function Card({ children, id, className, title, info, action, fill, accen
         <IssueCountLabel count={issues.count} capped={issues.capped} />
       </Badge>
     ) : null
+  // One box for the action, so a fragment of chips (TrendRangeLinks) stays one
+  // group instead of becoming nine header items spread by justify-between.
+  const actionBox = action ? <div className="flex flex-wrap items-center justify-end gap-1">{action}</div> : null
   return (
     <section
       id={id}
@@ -65,18 +68,22 @@ export function Card({ children, id, className, title, info, action, fill, accen
         />
       )}
       {(title || action || badge) && (
-        <header className="flex items-center justify-between border-b border-line-subtle px-4 py-2.5">
+        // Wraps instead of squeezing: when the title and the action do not fit on one
+        // line (a phone with the 1M…All range chips), the action moves below the title.
+        // Without the wrap, the title shrank to its min-content width, which for Hangul
+        // is one character per line.
+        <header className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-line-subtle px-4 py-2.5">
           <div className="flex items-center">
             <h2 className="text-body-lg font-medium tracking-tight text-ink">{title}</h2>
             {info ? <HelpPopover>{info}</HelpPopover> : null}
           </div>
-          {badge && action ? (
-            <div className="flex items-center gap-2">
+          {badge && actionBox ? (
+            <div className="flex flex-wrap items-center justify-end gap-2">
               {badge}
-              {action}
+              {actionBox}
             </div>
           ) : (
-            badge ?? action
+            badge ?? actionBox
           )}
         </header>
       )}

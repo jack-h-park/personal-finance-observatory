@@ -24,6 +24,10 @@ export const assetCoverage = defineCopy({
     freshnessHint: 'Fresh files do not confirm current balances, complete statements or resolved reconciliation. Review failed checks separately; they do not by themselves prove that the current total is wrong.',
     unknown: 'Unavailable / unconfirmed', undated: (count: number) => `${count} date(s) unconfirmed`,
     history: 'Historical cash coverage can differ from current balances. Asset-class and account-wrapper totals describe holdings; economic exposure can regroup the same holdings, including gold ETFs and pension investments.',
+    boundaryShort: (count: number) => (count ? `Own assets · ${count} excluded · liabilities not deducted` : 'Own assets · liabilities not deducted'),
+    boundaryHelp: 'What this total covers',
+    dataStatus: 'Data status',
+    dataStates: { problem: (count: number) => `${count} need action`, attention: (count: number) => `${count} to check`, ok: 'No issues', unknown: 'Unavailable' },
     healthLink: 'Review freshness', accountsLink: 'Review account coverage', dataLink: 'Review data issues', reconciliationLink: 'Review reconciliation',
   },
   ko: {
@@ -47,6 +51,10 @@ export const assetCoverage = defineCopy({
     freshnessHint: '파일이 최신이어도 잔액·명세서가 최신이거나 대사가 완료된 것은 아닙니다. 실패한 검증은 별도로 확인하세요. 검증 실패만으로 현재 합계가 잘못되었다고 단정할 수는 없습니다.',
     unknown: '조회 불가 / 미확인', undated: (count: number) => `날짜 미확인 ${count}건`,
     history: '과거 현금 커버리지는 현재 잔액과 다를 수 있습니다. 자산군·계좌 유형별 합계는 보유 형태를 나타내며, 경제적 노출 분류는 금 ETF·연금 투자 등을 같은 보유 자산에서 다시 묶을 수 있습니다.',
+    boundaryShort: (count: number) => (count ? `본인 자산 · 제외 ${count}건 · 부채 미반영` : '본인 자산 · 부채 미반영'),
+    boundaryHelp: '이 합계의 범위',
+    dataStatus: '자료 상태',
+    dataStates: { problem: (count: number) => `조치 필요 ${count}`, attention: (count: number) => `확인 필요 ${count}`, ok: '문제 없음', unknown: '확인 불가' },
     healthLink: '최신성 확인', accountsLink: '계좌 커버리지 확인', dataLink: '자료 문제 확인', reconciliationLink: '대사 내역 확인',
   },
 })

@@ -90,6 +90,7 @@ a leading substring instead.
 | a table | `Table` with `size`, or `DataTable` |
 | a boxed strip of figures | `<StatStrip>` of `<Stat>`; `<MiniStatGrid>` of `<MiniStat>` for small tiles; `<TotalsStrip>` of `<Total>` above a list table |
 | a row of link chips (filters, scopes) | `<LinkChips>` or one `<LinkChip>` — a selection carries `aria-current`, a toggle does not |
+| a named group of chips ("Scope: All / KR / US") | `<ChipGroup label>` around the chips — never a bare `text-label` span in front of them; see [Chip groups](#chip-groups) |
 | tabs that change the page | `<Tabs>` — the current tab carries `aria-current="page"` |
 | an inset box inside a card | `<Panel>` — `pad`, `text`, `bordered`, `as="a"` for a link tile |
 | a toned message box | `<Callout>` — `tone`, `emphasis` strong / soft / rule |
@@ -253,6 +254,25 @@ then what they can change, then the evidence.
   `SHORT_TERM_WATCH_PCT` from `lib/rebalance-policy.ts` and the position cap from
   the policy, so changing the number changes the page.
 
+### Chip groups
+
+A row of chips with a group name ("범위", "보기") must let the reader tell the name
+from the options at a glance. The rules, from
+`docs/superpowers/plans/2026-11-23-filter-label-distinction.md` Phase 0:
+
+- An unselected chip carries a visible boundary: `border-line-control`
+  (`--border-control`, 3:1 against card, surface and page in both themes) and
+  `text-ink-2`. The kit's `--border-default` is 1.07:1 in dark and does not count
+  as a boundary. `tests/chip-group.test.ts` checks the ratio.
+- The group name goes through `<ChipGroup>`: 10px, regular weight, ink-3, in a
+  fixed-width column, with the group's `role="group"` and accessible name. Label
+  and option then differ in size, colour, weight and boundary at once.
+- Two or more named groups in one card body stack one per line. The chips of a
+  group wrap under each other, never under the label.
+- A single choice and an on/off toggle never share one group name.
+- `FilterBar` renders its rows through `ChipGroup`, so the table filters and the
+  chart controls look the same.
+
 ### Card budget
 
 A page has at most ten cards (`section[data-card]`, which every `Card` renders) inside `<main>` at 1440×1000, not
@@ -263,7 +283,7 @@ so its title and figure are on the first screen.
 are `SHAPE_ROUTES` in `scripts/page-shape.mjs`: `/tax-planning`
 (`#tax-plan-overview`), `/rebalance` (`#rebalance-lead`), `/positions/KR/005930`
 (`#position-lead`), `/cash-inflow` (`#cash-inflow-lead`), `/review`
-(`#review-summary`) and `/spending` (`#spending-lead`; skipped where no
+(`#review-summary`), `/net-worth` (`#net-worth-trend`) and `/spending` (`#spending-lead`; skipped where no
 spending ledger or snapshot is configured, since the route is a 404 there).
 A new page joins the budget by adding a row there.
 

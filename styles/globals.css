@@ -11,6 +11,25 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* The boundary of an unselected chip or other control whose border is the only
+   thing that marks it as clickable. The kit's --border-default sits at 1.07:1
+   (dark) and 1.16:1 (light) against the card, so an unselected chip read as plain
+   text beside its group label. These pass 3:1 (WCAG 1.4.11): light 3.50 on the
+   card and 3.24 on the surface, dark 3.27 on the card and 3.75 on the page.
+   tests/chip-group.test.ts checks the numbers. */
+:root {
+  --border-control: #8A8984;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --border-control: #75746F;
+  }
+}
+:root[data-theme="dark"],
+:root.dark {
+  --border-control: #75746F;
+}
+
 /* Eight categorical series colours, for charts that tell individual securities
    apart (the /holdings weight trend). Assigned in this order, never cycled: a
    ninth security folds into "Other". Each mode is its own validated set (CVD
@@ -74,4 +93,20 @@ html { scroll-padding-block-start: calc(var(--finance-studio-offset) + var(--spa
     top: var(--finance-studio-offset);
     height: calc(100dvh - var(--finance-studio-offset));
   }
+}
+
+/* A scrolling tab bar shows an inner shadow at whichever edge has more tabs
+   beyond it. A scroll-driven animation picks the edges from the scroll
+   position; a bar that does not overflow has no scroll timeline, so it shows
+   none. Browsers without scroll timelines show no hint. (Inset shadows, not
+   gradients: inline linear gradients are reserved for the brand tokens.) */
+.tab-scroll-hint {
+  --tab-edge: color-mix(in srgb, var(--text-primary) 35%, transparent);
+  animation: tab-scroll-edges linear both;
+  animation-timeline: scroll(self inline);
+}
+@keyframes tab-scroll-edges {
+  0% { box-shadow: inset -14px 0 10px -10px var(--tab-edge); }
+  4%, 96% { box-shadow: inset -14px 0 10px -10px var(--tab-edge), inset 14px 0 10px -10px var(--tab-edge); }
+  100% { box-shadow: inset 14px 0 10px -10px var(--tab-edge); }
 }

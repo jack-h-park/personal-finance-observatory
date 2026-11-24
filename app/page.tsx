@@ -1,5 +1,6 @@
 import { FinanceTaxSummary } from '@/components/FinanceTaxSummary'
-import { AssetCoverageNote } from '@/components/AssetCoverageNote'
+import { CoverageLine } from '@/components/CoverageLine'
+import { ValuationBasisStrip } from '@/components/ValuationBasisStrip'
 import { PageHeader } from '@/components/PageHeader'
 import { Badge, Card, EmptyState, HeroAside, MetricField, MetricHeroCard, Note, Panel, TextLink, marketTone } from '@/components/ui'
 import { PortfolioMultiTrendChart, PortfolioTrendChart, StackedAssetChart } from '@/components/charts'
@@ -15,12 +16,13 @@ import {
   getNetWorth,
   getOverview,
   getPortfolioSnapshots,
-  getPriceSources,
   getRebalanceReview,
   getRealizedLots,
   getSnapshotDates,
   getTopHoldings,
   getTotalAssetsSeries,
+  getTotalValuationBasis,
+  getValuationBasis,
   getWashSaleReview,
   portfolioToday,
   portfolioYearMonth,
@@ -49,7 +51,6 @@ import {
   singleTrendPoints,
   type TrendMetricKey,
 } from '@/lib/overview-trend'
-import { formatPriceBasis, priceSourceNames, pricesDifferByDate } from '@/lib/price-basis'
 import { config } from '@/config'
 import { EMPTY_VALUE, fmtDate, fmtDateTime, fmtMoney, fmtMonth, fmtNumber, fmtPct, fmtSigned } from '@/lib/format'
 import { convertMoney, createMoneyFormatter } from '@/lib/currency'
@@ -66,7 +67,7 @@ import { ShareBar } from '@/components/bars'
 import { AssetViewLink } from '@/components/LanguageSwitcher'
 import { WashSaleBanner } from '@/components/WashSaleBanner'
 import { TrendRangeLinks } from '@/components/TrendRangeLinks'
-import { LinkChip, LinkChips } from '@/components/LinkChips'
+import { ChipGroup, LinkChips, LinkSegmentedControl } from '@/components/LinkChips'
 import { resolveTrendRange, trendRangeDays } from '@/lib/trend-ranges'
 import { maskAccountLabel } from '@/lib/account-label'
 import { ASSET_CLASS_COLOR, marketColor } from '@/lib/palette'
@@ -301,8 +302,9 @@ export default async function OverviewPage({
   // wrote it is recent: a failed refresh leaves the last good snapshot in place.
   const latestPriceDates = snapshotPriceDates(latestSnapshot, selectedScope)
   // The hero's stock value is the whole portfolio whatever scope the trend chart is on.
-  const heroPriceDates = snapshotPriceDates(storedSnapshots[storedSnapshots.length - 1], 'global')
-  const priceSources = priceSourceNames(Object.values(getPriceSources())).join(' · ')
+  // What the totals are valued as of: the same chips as /net-worth, compact in the aside.
+  const coverageReview = netWorth ? getAssetCoverageReview(netWorth) : null
+  const valuationBasis = netWorth ? getTotalValuationBasis(netWorth, coverageReview) : getValuationBasis({ withGold: false })
   const latestSnapshotStale = isSnapshotStale(latestSnapshot?.captured_at)
   const trendValueLabel = (value: number) => selectedMetric.key === 'return_pct' ? fmtPct(value, { digits: 1 }) : money(value, currencyPreferences.displayCurrency)
   const trendChangeLabel = selectedMetric.key === 'return_pct'
@@ -436,19 +438,7 @@ export default async function OverviewPage({
         <HeroAside
           title={copy.supportingMetrics}
           note={
-            <>
-              {copy.fxNote(fxLabel)}
-              {heroPriceDates.length ? (
-                <>
-                  {' '}
-                  {copy.stockPriceNote(
-                    formatPriceBasis(heroPriceDates, { market: copy.scopeLabels, oldest: copy.priceOldest }),
-                    pricesDifferByDate(heroPriceDates),
-                    priceSources
-                  )}
-                </>
-              ) : null}
-            </>
+            <ValuationBasisStrip items={valuationBasis} language={language} compact />
           }
         >
           {netWorth ? (
@@ -523,31 +513,32 @@ export default async function OverviewPage({
         {latestSnapshot && latestSnapshotStale ? (
           <div className="-mt-1 mb-3 text-label text-warning">{copy.snapshotStale}</div>
         ) : null}
-        <div className="mb-3 flex flex-wrap items-center gap-1">
-          <LinkChip
-            href={overviewHref({ ...overviewState, view: 'single' })}
-            active={selectedView === 'single'}
-          >{copy.individual}</LinkChip>
-          <LinkChip
-            href={overviewHref({ ...overviewState, view: 'combined' })}
-            active={selectedView === 'combined'}
-          >{copy.combined}</LinkChip>
-          <span className="mx-1 h-4 w-px bg-line-subtle" />
-          <LinkChips
-            items={TREND_SCOPES.map((scope) => ({
-              key: scope.key,
-              href: overviewHref({ ...overviewState, scope: scope.key }),
-              label: copy.scopeLabels[scope.key],
-              title: scope.key === 'GOLD' ? copy.scopeHints.GOLD : undefined,
-            }))}
-            current={selectedScope}
-          />
-          {/* Metric chips pick the single-metric chart; the combined view already draws every metric. */}
+        {/* Three named single-choice groups, one per line, as on /net-worth: dividers alone did not say where a group began. */}
+        <div className="mb-3 flex flex-col gap-2">
+          <ChipGroup label={copy.trendViewFilter}>
+            <LinkSegmentedControl
+              items={[
+                { key: 'single', href: overviewHref({ ...overviewState, view: 'single' }), label: copy.individual },
+                { key: 'combined', href: overviewHref({ ...overviewState, view: 'combined' }), label: copy.combined },
+              ]}
+              current={selectedView}
+            />
+          </ChipGroup>
+          <ChipGroup label={copy.trendScopeFilter}>
+            <LinkSegmentedControl
+              items={TREND_SCOPES.map((scope) => ({
+                key: scope.key,
+                href: overviewHref({ ...overviewState, scope: scope.key }),
+                label: copy.scopeLabels[scope.key],
+                title: scope.key === 'GOLD' ? copy.scopeHints.GOLD : undefined,
+              }))}
+              current={selectedScope}
+            />
+          </ChipGroup>
+          {/* The metric picks the single-metric chart; the combined view already draws every metric, so the whole group goes. */}
           {selectedView === 'single' ? (
-            <>
-              <span className="mx-1 h-4 w-px bg-line-subtle" />
-              <LinkChips
-                variant="subtle"
+            <ChipGroup label={copy.trendMetricFilter}>
+              <LinkSegmentedControl
                 items={TREND_METRICS.map((metric) => ({
                   key: metric.key,
                   href: overviewHref({ ...overviewState, metric: metric.key, view: 'single' }),
@@ -555,7 +546,7 @@ export default async function OverviewPage({
                 }))}
                 current={selectedMetric.key}
               />
-            </>
+            </ChipGroup>
           ) : null}
         </div>
         {selectedScope === 'GOLD' ? (
@@ -671,7 +662,11 @@ export default async function OverviewPage({
 
       {/* One allocation card: how the whole is split, each split linking to the page with the full breakdown. */}
       <Card title={copy.allocation} info={copy.allocationInfo} className="mb-5">
-        {netWorth ? <AssetCoverageNote summary={netWorth} language={language} review={getAssetCoverageReview(netWorth)} /> : null}
+        {netWorth ? (
+          <div className="mb-3">
+            <CoverageLine summary={netWorth} language={language} review={coverageReview} />
+          </div>
+        ) : null}
         <CardRow columns={netWorth ? 3 : 2} spacing="none">
           {netWorth ? (
             <ShareSummary

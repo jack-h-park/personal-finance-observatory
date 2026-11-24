@@ -128,7 +128,7 @@ export default async function SpendingPage({ searchParams }: {
       {header(linked.status)}
       <div className="space-y-4">
         <Tabs label={copy.title} current={view}
-          items={SPENDING_VIEWS.map(item => ({ key: item, href: href(item), label: copy.views[item] }))} />
+          items={SPENDING_VIEWS.map(item => ({ key: item, href: href(item), label: copy.views[item], description: copy.viewDescriptions[item] }))} />
         <FilterBar basePath="/spending" params={filterParams} groups={[
           { key: 'period', label: copy.filterPeriod, selected: String(period), defaultValue: '12',
             options: SPENDING_PERIODS.map(item => ({ value: String(item), label: copy.periods[item] })) },
