@@ -27,7 +27,7 @@ import { DivergingBar, InlineBar, ShareBar } from '@/components/bars'
 import { Sparkline } from '@/components/Sparkline'
 import { freshnessLabel } from '@/lib/freshness-text'
 import { getGlossary } from '@/lib/glossary'
-import { convertMoney, createMoneyFormatter } from '@/lib/currency'
+import { convertMoney, createMoneyFormatter, formatMoneyIn, needsDisplayLine } from '@/lib/currency'
 import { getCurrencyPreferences } from '@/lib/currency-server'
 import { fmtDate, fmtNumber, fmtPct, fmtQuantity } from '@/lib/format'
 import { getLanguage } from '@/lib/i18n-server'
@@ -69,7 +69,8 @@ export default async function HoldingsPage({
   const language = await getLanguage()
   const copy = getPageCopy('holdings', language)
   const labels = getUiCopy(language).common
-  const money = createMoneyFormatter(await getCurrencyPreferences())
+  const currencyPreferences = await getCurrencyPreferences()
+  const money = createMoneyFormatter(currencyPreferences)
   const rows = getHoldings(1000, true)
   // The price and FX dates behind the value and gain columns, for the markets the list holds.
   const glossary = getGlossary(language)
@@ -93,15 +94,18 @@ export default async function HoldingsPage({
   const trendAxis = trendRows ? trendDates([...new Set(trendRows.map((row) => row.date))]) : []
   const trends = trendRows && trendAxis.length >= 2 ? trendSeries(trendRows, trendAxis, rows) : null
 
-  // A KRW line under a foreign-currency figure; a KRW row shows one line.
-  const twoCurrencies = (native: number | null, base: number | null, currency: string, render: (value: number | null, currency: string) => ReactNode) => (
+  // The native figure in its own currency, never converted; under it, the KRW
+  // base figure in the display currency, left out when it would repeat the
+  // first line's currency.
+  type Format = (value: number) => string
+  const twoCurrencies = (native: number | null, base: number | null, currency: string, render: (value: number | null, format: Format) => ReactNode) => (
     <>
-      <span className="block">{render(native, currency)}</span>
-      {currency !== 'KRW' && <span className="mt-0.5 block text-label text-ink-3">{render(base, 'KRW')}</span>}
+      <span className="block">{render(native, (n) => formatMoneyIn(n, currency))}</span>
+      {needsDisplayLine(currency, currencyPreferences) && <span className="mt-0.5 block text-label text-ink-3">{render(base, (n) => money(n, 'KRW'))}</span>}
     </>
   )
-  const amount = (value: number | null, currency: string) => (value == null ? labels.noValue : money(value, currency))
-  const signedAmount = (value: number | null, currency: string) => <Signed value={value} format={(m) => money(m, currency)} />
+  const amount = (value: number | null, format: Format) => (value == null ? labels.noValue : format(value))
+  const signedAmount = (value: number | null, format: Format) => <Signed value={value} format={format} />
 
   const columns: DataTableColumn<(typeof rows)[number]>[] = [
     {
@@ -266,7 +270,6 @@ export default async function HoldingsPage({
   // The market-mix trend (?trend= period, ?mix=share for shares). It reads the
   // portfolio snapshots and today's holdings, so it ignores the table filters.
   const mixCopy = copy.mix
-  const currencyPreferences = await getCurrencyPreferences()
   const mixRange = resolveTrendRange(params.trend)
   const mixShareView = (Array.isArray(params.mix) ? params.mix[0] : params.mix) === 'share'
   const mixPoints = marketMixSeries(getPortfolioSnapshots(trendRangeDays(mixRange.days)), rows, portfolioToday())

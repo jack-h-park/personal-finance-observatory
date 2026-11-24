@@ -18,7 +18,7 @@ import {
   type ValuationReason,
 } from '@/lib/adapters/portfolio-db'
 import { EMPTY_VALUE, fmtDate, fmtNumber } from '@/lib/format'
-import { createMoneyFormatter } from '@/lib/currency'
+import { createMoneyFormatter, formatMoneyIn } from '@/lib/currency'
 import { getCurrencyPreferences } from '@/lib/currency-server'
 import { getGlossary } from '@/lib/glossary'
 import { getLanguage } from '@/lib/i18n-server'
@@ -324,7 +324,7 @@ export default async function DataOpsPage() {
               { key: 'name', label: copy.columns.name },
               { key: 'type', label: copy.columns.type, render: (r) => labelFor(transactionTypes, r.type) },
               { key: 'row_count', label: copy.columns.rows, align: 'right', render: (r) => fmtNumber(r.row_count) },
-              { key: 'native_income', label: copy.columns.native, align: 'right', render: (r) => money(r.native_income, r.currency) },
+              { key: 'native_income', label: copy.columns.native, align: 'right', render: (r) => formatMoneyIn(r.native_income, r.currency) },
               { key: 'base_income', label: copy.columns.base, align: 'right', render: (r) => money(r.base_income) },
               { key: 'suggestion', label: copy.columns.suggestion, render: (r: { suggestion: TickerlessSuggestion }) => copy.tickerlessSuggestion[r.suggestion] ?? r.suggestion },
               { key: 'suggestedRule', label: copy.columns.rule, render: (r) => <code className="block max-w-[18rem] whitespace-pre-wrap font-mono text-label text-ink-3">{r.suggestedRule}</code> },
@@ -349,7 +349,7 @@ export default async function DataOpsPage() {
                 },
                 { key: 'name', label: copy.columns.name },
                 { key: 'account', label: copy.columns.account, render: (r) => maskAccountLabel(r.account) },
-                { key: 'native_cost', label: copy.columns.nativeCost, align: 'right', render: (r) => money(r.native_cost, r.currency) },
+                { key: 'native_cost', label: copy.columns.nativeCost, align: 'right', render: (r) => formatMoneyIn(r.native_cost, r.currency) },
                 { key: 'base_cost', label: copy.columns.baseCost, align: 'right', render: (r) => (r.base_cost == null ? EMPTY_VALUE : money(r.base_cost)) },
                 { key: 'reason', label: copy.columns.reason, render: (r: { reason: ValuationReason }) => copy.valuationReason[r.reason] ?? r.reason },
                 { key: 'suggestion', label: copy.columns.suggestion, render: (r: { reason: ValuationReason }) => copy.valuationSuggestion[r.reason] ?? r.reason },
