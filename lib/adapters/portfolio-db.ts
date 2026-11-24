@@ -27,6 +27,7 @@ import { isActivePensionEntry, loadAccountMap } from '@/scripts/account-map.mjs'
 import { bankAccountGroup, bankAccountName, brokerageAccountLabel, retiredBankAccounts, retiredBrokerageAccounts, type BankAccountEntry } from '@/lib/bank-accounts'
 import { createLotValuer } from '@/scripts/lot-valuation.mjs'
 import { buildWashSaleWindows, type WashSaleBuy, type WashSaleLot, type WashSaleWindow } from '@/lib/wash-sale'
+import { lastPerMonth } from '@/lib/snapshot-density'
 import {
   GOLD_ETF_TICKERS,
   addGoldBooks,
@@ -1096,7 +1097,11 @@ const PRICE_DATE_COLUMNS = [
   'crypto_price_date_oldest',
 ] as const
 
-export function getPortfolioSnapshots(days = 3650): PortfolioSnapshot[] {
+/**
+ * Stored snapshots within the last `days`, oldest first. Daily rows exist for the
+ * /holdings charts; without `daily: true` only the last row of each month is kept.
+ */
+export function getPortfolioSnapshots(days = 3650, options: { daily?: boolean } = {}): PortfolioSnapshot[] {
   const conn = db()
   try {
     const table = conn
@@ -1127,7 +1132,10 @@ export function getPortfolioSnapshots(days = 3650): PortfolioSnapshot[] {
          order by snapshot_date`
       )
       .all(`-${Math.max(1, Math.floor(days))} days`) as PortfolioSnapshot[]
-    return withCumulativeRealized(conn, snapshots)
+    const withRealized = withCumulativeRealized(conn, snapshots)
+    if (options.daily) return withRealized
+    const kept = new Set(lastPerMonth(withRealized.map((row) => row.snapshot_date)))
+    return withRealized.filter((row) => kept.has(row.snapshot_date))
   } finally {
     conn.close()
   }
@@ -1589,17 +1597,21 @@ export function portfolioYearMonth(at: Date = new Date()) {
   return { year, month }
 }
 
-/** Snapshot dates within the last `days`, oldest first: the dates the total-assets chart plots. */
-export function getSnapshotDates(days = 3650): string[] {
+/**
+ * Snapshot dates within the last `days`, oldest first: the dates the total-assets chart plots.
+ * Without `daily: true` only the last date of each month is returned.
+ */
+export function getSnapshotDates(days = 3650, options: { daily?: boolean } = {}): string[] {
   const conn = db()
   try {
     const table = conn.prepare("select 1 from sqlite_master where type = 'table' and name = 'portfolio_snapshots'").get()
     if (!table) return []
-    return (
+    const dates = (
       conn
         .prepare("select snapshot_date from portfolio_snapshots where snapshot_date >= date('now', ?) order by snapshot_date")
         .all(`-${Math.max(1, Math.floor(days))} days`) as { snapshot_date: string }[]
     ).map((row) => row.snapshot_date)
+    return options.daily ? dates : lastPerMonth(dates)
   } finally {
     conn.close()
   }
