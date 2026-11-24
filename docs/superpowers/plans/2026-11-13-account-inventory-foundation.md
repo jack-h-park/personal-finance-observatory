@@ -41,4 +41,4 @@ This single task owns the tightly coupled contract; adapter/UI wiring and real m
 
 ## Verified implementation checkpoint
 
-The independent review findings were reproduced and fixed with synthetic regressions. Final isolated verification: 1,389 tests, 1,374 passed, 15 skipped, zero failed; typecheck, lint, UI guardrails and sample production build passed. This is source verification only; the implementation was pushed and [PR #317](https://github.com/jack-h-park/stock-portfolio-observatory/pull/317) opened. That PR is not merged or deployed; its CI is separate from the recorded local validation.
+The independent review findings were reproduced and fixed with synthetic regressions. Final isolated verification: 1,389 tests, 1,374 passed, 15 skipped, zero failed; typecheck, lint, UI guardrails and sample production build passed. This is source verification only; the implementation was pushed and [PR #317](https://github.com/jack-h-park/personal-finance-observatory/pull/317) opened. That PR is not merged or deployed; its CI is separate from the recorded local validation.

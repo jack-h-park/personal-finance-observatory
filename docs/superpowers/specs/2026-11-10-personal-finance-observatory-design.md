@@ -48,7 +48,7 @@ Key source references:
 
 The repository is public. Runtime defaults still include ignored files inside the checkout. The source-root naming transition to `financial-records` has already begun; the older `stock-management` path was a temporary compatibility alias in the inspected environment and is being retired, and the code no longer references it. Do not create another copy of the archive.
 
-Tax-treatment questions are being collected in [PR #271](https://github.com/jack-h-park/stock-portfolio-observatory/pull/271). GitHub reports that PR merged at `2026-11-11T01:18:23Z`, which is November 10 in Los Angeles. Its contents must be integrated into the implementation baseline; the inspected local checkout predates it.
+Tax-treatment questions are being collected in [PR #271](https://github.com/jack-h-park/personal-finance-observatory/pull/271). GitHub reports that PR merged at `2026-11-11T01:18:23Z`, which is November 10 in Los Angeles. Its contents must be integrated into the implementation baseline; the inspected local checkout predates it.
 
 ## 4. Outcomes and scope
 

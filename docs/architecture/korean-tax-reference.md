@@ -1,6 +1,6 @@
 # Korean calculated-tax reference and unresolved reporting policy
 
-The US worksheet #298 and Korean exact-reference core [#299](https://github.com/jack-h-park/stock-portfolio-observatory/pull/299) are merged without deployment. The owner subsequently put Hometax verification on hold. The core implements exact Korean rate-schedule reference arithmetic; it does not release reported Korean tax calculations. The serving application remains the previously verified #290 release.
+The US worksheet #298 and Korean exact-reference core [#299](https://github.com/jack-h-park/personal-finance-observatory/pull/299) are merged without deployment. The owner subsequently put Hometax verification on hold. The core implements exact Korean rate-schedule reference arithmetic; it does not release reported Korean tax calculations. The serving application remains the previously verified #290 release.
 
 ## Verified versus unresolved
 

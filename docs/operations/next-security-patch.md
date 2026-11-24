@@ -33,7 +33,7 @@ An additional Python profile with optional openpyxl enabled produced 1,332 passe
 
 ## Authorized release outcome
 
-[#311](https://github.com/jack-h-park/stock-portfolio-observatory/pull/311) merged as `c1c4ffb739f62effb88b8f6791a8989bec754870` after both CI checks passed. The operating dependency and listening process were verified at Next.js 15.5.28. The release build's manifest bytes matched installed, loopback and owner HTTPS responses. Browser overview/assets/tax-history/record checks and hash-matched private/no-store evidence downloads passed within their tested scope.
+[#311](https://github.com/jack-h-park/personal-finance-observatory/pull/311) merged as `c1c4ffb739f62effb88b8f6791a8989bec754870` after both CI checks passed. The operating dependency and listening process were verified at Next.js 15.5.28. The release build's manifest bytes matched installed, loopback and owner HTTPS responses. Browser overview/assets/tax-history/record checks and hash-matched private/no-store evidence downloads passed within their tested scope.
 
 Operating financial/data contents, selected original evidence hashes/mtimes, environment, service file and persisted/live gateway were preserved; a transient SQLite SHM mtime-only difference had unchanged bytes. Approved-device access and disabled private web writes remained in place. Normal and spoofed-header non-allowed LAN-source requests returned 403; no physical other-device or exploit test was performed.
 

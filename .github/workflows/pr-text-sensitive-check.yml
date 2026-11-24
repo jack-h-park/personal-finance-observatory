@@ -20,7 +20,7 @@ name: PR text sensitive-term check
 # warrant code classes from the original purge request need to be added to
 # the secret separately (they were not recoverable from this machine's
 # current local state). Add them with:
-#   gh secret set PR_SENSITIVE_TERMS --repo jack-h-park/stock-portfolio-observatory
+#   gh secret set PR_SENSITIVE_TERMS --repo jack-h-park/personal-finance-observatory
 # (paste the full updated list, one value per line, replacing the old one.)
 
 on:
