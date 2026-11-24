@@ -16,7 +16,8 @@ import { Label } from '@/components/metric'
 import { DivergingBarList, RankedBarList } from '@/components/RankedBars'
 import { aggregateSecurities, concentration, gainContributors, securityWeights } from '@/lib/holdings-composition'
 import { getHoldings, getOperationalHealth, getPositionTrendRows, type FreshnessItem } from '@/lib/adapters/portfolio-db'
-import { holdingWeight, trendChangePct, trendDates, trendSeries, weightTotal } from '@/lib/holdings-view'
+import { LinkChip } from '@/components/LinkChips'
+import { groupBySecurity, holdingWeight, trendChangePct, trendDates, trendSeries, weightTotal, type GroupAccount } from '@/lib/holdings-view'
 import { marketColor } from '@/lib/palette'
 import { DivergingBar, InlineBar, ShareBar } from '@/components/bars'
 import { Sparkline } from '@/components/Sparkline'
@@ -33,7 +34,7 @@ import { applyFilters, applySearch, filterOptions, readFilters, withParam, type 
 import { columnSortValue, formatSort, knownSort, parseSort, sortRows, sortableKeys, type TableSort } from '@/lib/table-sort'
 import { COST_BASIS_STATUS_TONE } from '@/lib/tone'
 import { routeMetadata, routeSection } from '@/lib/page-names'
-import { AccountCell } from '@/components/PositionCell'
+import { AccountCell, AccountGroupCell } from '@/components/PositionCell'
 import { accountSortValue } from '@/lib/account-label'
 
 export const dynamic = 'force-dynamic'
@@ -52,6 +53,9 @@ const GROUPS: FilterGroup<any>[] = [
 
 // Statuses under which a row's own cost or value is missing.
 const ROW_FIGURES_INCOMPLETE = new Set(['missing_cost', 'unpriced'])
+
+/** A table row: one holding, or with ?group=security one security across the accounts listed in `accounts`. */
+type TableRow = Omit<ReturnType<typeof getHoldings>[number], 'id'> & { id: number | string; accounts?: GroupAccount[] }
 
 const DEFAULT_SORT: TableSort = { key: 'base_market_value', direction: 'desc' }
 
@@ -112,9 +116,13 @@ export default async function HoldingsPage({
   // Filtered before the columns are built: the weight column divides by the
   // displayed total, which the sort does not change.
   const matched = applySearch(applyFilters(rows, GROUPS, selected), query, (r) => [r.ticker, r.name, r.account, r.brokerage])
-  const displayedValue = weightTotal(matched)
+  // ?group=security folds the accounts that hold one security into one row,
+  // after the filters, so an account filter still narrows what is summed.
+  const perSecurity = (Array.isArray(params.group) ? params.group[0] : params.group) === 'security'
+  const shownRows: TableRow[] = perSecurity ? groupBySecurity(matched) : matched
+  const displayedValue = weightTotal(shownRows)
   // Bars are drawn against the largest weight, so the list reads as a ranking.
-  const maxWeight = Math.max(0, ...matched.map((r) => holdingWeight(r.base_market_value, displayedValue) ?? 0))
+  const maxWeight = Math.max(0, ...shownRows.map((r) => holdingWeight(r.base_market_value, displayedValue) ?? 0))
 
   // Month-end values per security, for the trend column. Absent (no
   // position_snapshots table) or flat-empty, the column is left out.
@@ -132,7 +140,7 @@ export default async function HoldingsPage({
   const amount = (value: number | null, currency: string) => (value == null ? labels.noValue : money(value, currency))
   const signedAmount = (value: number | null, currency: string) => <Signed value={value} format={(m) => money(m, currency)} />
 
-  const columns: DataTableColumn<(typeof rows)[number]>[] = [
+  const columns: DataTableColumn<TableRow>[] = [
     {
       key: 'ticker',
       label: copy.instrument,
@@ -159,7 +167,18 @@ export default async function HoldingsPage({
         </Link>
       ),
     },
-    { key: 'account', label: copy.account, sortable: true, sortFirst: 'asc', sortValue: accountSortValue, priority: 'secondary', render: (r) => <AccountCell brokerage={r.brokerage} account={r.account} /> },
+    { key: 'account', label: copy.account, sortable: true, sortFirst: 'asc', sortValue: accountSortValue, priority: 'secondary',
+      render: (r) =>
+        r.accounts && r.accounts.length > 1 ? (
+          <AccountGroupCell
+            accounts={r.accounts}
+            countLabel={copy.accountCount(fmtNumber(r.accounts.length))}
+            shareText={(share) => (share == null ? labels.noValue : fmtPct(share, { digits: 0 }))}
+          />
+        ) : (
+          <AccountCell brokerage={r.brokerage} account={r.account} />
+        ),
+    },
     {
       key: 'weight',
       label: copy.weight,
@@ -288,7 +307,7 @@ export default async function HoldingsPage({
     })
   }
   const sort = knownSort(parseSort(params.sort, DEFAULT_SORT), sortableKeys(columns), DEFAULT_SORT)
-  const filtered = sortRows(matched, sort, columnSortValue(columns))
+  const filtered = sortRows(shownRows, sort, columnSortValue(columns))
   const totals = holdingsTotals(filtered)
   const incompleteTotals = filtered.length > 0 && Object.values(totals).includes(null)
 
@@ -331,8 +350,17 @@ export default async function HoldingsPage({
               selected: selected[group.key],
             }))}
           />
+          <div className="flex flex-wrap items-center gap-1">
+            <span className="mr-1 text-label text-ink-3">{copy.rowsFilter}</span>
+            <LinkChip href={withParam(BASE, params, 'group', null)} active={!perSecurity}>
+              {copy.perAccount}
+            </LinkChip>
+            <LinkChip href={withParam(BASE, params, 'group', 'security')} active={perSecurity}>
+              {copy.perSecurity}
+            </LinkChip>
+          </div>
           <TotalsStrip columns="sm-4">
-            <Total label={copy.filtered} value={<>{fmtNumber(filtered.length)} / {fmtNumber(rows.length)}</>} />
+            <Total label={copy.filtered} value={<>{fmtNumber(filtered.length)} / {fmtNumber(perSecurity ? new Set(rows.map((r) => `${r.market}:${r.ticker}`)).size : rows.length)}</>} />
             <Total label={copy.costBasis} value={totals.cost == null ? labels.noValue : money(totals.cost, 'KRW')} />
             <Total label={copy.marketValue} value={totals.marketValue == null ? labels.noValue : money(totals.marketValue, 'KRW')} />
             <Total label={copy.sort.gain} value={<Signed value={totals.unrealized} format={(m) => money(m, 'KRW')} />} />
