@@ -67,7 +67,7 @@ import { ShareBar } from '@/components/bars'
 import { AssetViewLink } from '@/components/LanguageSwitcher'
 import { WashSaleBanner } from '@/components/WashSaleBanner'
 import { TrendRangeLinks } from '@/components/TrendRangeLinks'
-import { LinkChip, LinkChips } from '@/components/LinkChips'
+import { ChipGroup, LinkChips, LinkSegmentedControl } from '@/components/LinkChips'
 import { resolveTrendRange, trendRangeDays } from '@/lib/trend-ranges'
 import { maskAccountLabel } from '@/lib/account-label'
 import { ASSET_CLASS_COLOR, marketColor } from '@/lib/palette'
@@ -513,31 +513,32 @@ export default async function OverviewPage({
         {latestSnapshot && latestSnapshotStale ? (
           <div className="-mt-1 mb-3 text-label text-warning">{copy.snapshotStale}</div>
         ) : null}
-        <div className="mb-3 flex flex-wrap items-center gap-1">
-          <LinkChip
-            href={overviewHref({ ...overviewState, view: 'single' })}
-            active={selectedView === 'single'}
-          >{copy.individual}</LinkChip>
-          <LinkChip
-            href={overviewHref({ ...overviewState, view: 'combined' })}
-            active={selectedView === 'combined'}
-          >{copy.combined}</LinkChip>
-          <span className="mx-1 h-4 w-px bg-line-subtle" />
-          <LinkChips
-            items={TREND_SCOPES.map((scope) => ({
-              key: scope.key,
-              href: overviewHref({ ...overviewState, scope: scope.key }),
-              label: copy.scopeLabels[scope.key],
-              title: scope.key === 'GOLD' ? copy.scopeHints.GOLD : undefined,
-            }))}
-            current={selectedScope}
-          />
-          {/* Metric chips pick the single-metric chart; the combined view already draws every metric. */}
+        {/* Three named single-choice groups, one per line, as on /net-worth: dividers alone did not say where a group began. */}
+        <div className="mb-3 flex flex-col gap-2">
+          <ChipGroup label={copy.trendViewFilter}>
+            <LinkSegmentedControl
+              items={[
+                { key: 'single', href: overviewHref({ ...overviewState, view: 'single' }), label: copy.individual },
+                { key: 'combined', href: overviewHref({ ...overviewState, view: 'combined' }), label: copy.combined },
+              ]}
+              current={selectedView}
+            />
+          </ChipGroup>
+          <ChipGroup label={copy.trendScopeFilter}>
+            <LinkSegmentedControl
+              items={TREND_SCOPES.map((scope) => ({
+                key: scope.key,
+                href: overviewHref({ ...overviewState, scope: scope.key }),
+                label: copy.scopeLabels[scope.key],
+                title: scope.key === 'GOLD' ? copy.scopeHints.GOLD : undefined,
+              }))}
+              current={selectedScope}
+            />
+          </ChipGroup>
+          {/* The metric picks the single-metric chart; the combined view already draws every metric, so the whole group goes. */}
           {selectedView === 'single' ? (
-            <>
-              <span className="mx-1 h-4 w-px bg-line-subtle" />
-              <LinkChips
-                variant="subtle"
+            <ChipGroup label={copy.trendMetricFilter}>
+              <LinkSegmentedControl
                 items={TREND_METRICS.map((metric) => ({
                   key: metric.key,
                   href: overviewHref({ ...overviewState, metric: metric.key, view: 'single' }),
@@ -545,7 +546,7 @@ export default async function OverviewPage({
                 }))}
                 current={selectedMetric.key}
               />
-            </>
+            </ChipGroup>
           ) : null}
         </div>
         {selectedScope === 'GOLD' ? (

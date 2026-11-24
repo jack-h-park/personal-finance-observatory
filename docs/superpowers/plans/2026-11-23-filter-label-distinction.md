@@ -1,6 +1,6 @@
 # Filter group labels vs. options: audit and plan
 
-Status: Phase 1 merged (#465); Phase 2 in review. Date: 2026-11-23.
+Status: Phases 1–3 merged (#465, #467, #464); Phase 4 in review; Phase 5 not started. Date: 2026-11-23.
 
 Since this audit, #458 split /holdings into tabs: A1 now lives in
 `app/holdings/MarketMixView.tsx`, A2–A4 in `app/holdings/WeightsView.tsx`; the
@@ -159,6 +159,11 @@ legend. The two toggles, 직접 지정 (shows the month selects) and 자녀 포�
 the form as `text-caption`, and both selects point at it with `aria-describedby`.
 
 ### Phase 4 — overview trend toolbar (B1)
+
+Done, following what #464 set on /net-worth: each single choice is a
+`LinkSegmentedControl` inside a named `ChipGroup` (보기 / 범위 / 지표, "Show" /
+"Scope" / "Metric"). The `subtle` chip variant is removed (R5): borderless ink-3
+text was exactly a group label's look.
 
 - Give the three groups visible labels (보기 / 범위 / 지표 — confirm wording in Phase 0)
   and render them through `ChipGroup`; drop the 1px divider rules.

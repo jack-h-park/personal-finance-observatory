@@ -250,14 +250,11 @@ function attr(tag: string, name: string): string | undefined {
 }
 
 const CHIP_INFO = 'rounded-sm border px-2 py-1 text-label font-medium'
-const CHIP_SUBTLE = 'rounded-sm border px-2 py-1 text-label'
 const CHIP_INK = 'inline-flex min-h-8 items-center rounded-sm border px-2.5 text-label font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-info/40'
 
-const chipCases: [string, 'info' | 'subtle' | 'ink' | undefined, boolean, string][] = [
+const chipCases: [string, 'info' | 'ink' | undefined, boolean, string][] = [
   ['info (default) active', undefined, true, `${CHIP_INFO} border-info bg-info/10 text-info`],
   ['info inactive', 'info', false, `${CHIP_INFO} border-line-control text-ink-2 hover:border-info hover:text-info`],
-  ['subtle active', 'subtle', true, `${CHIP_SUBTLE} border-line bg-surface font-medium text-ink`],
-  ['subtle inactive', 'subtle', false, `${CHIP_SUBTLE} border-transparent text-ink-3 hover:border-line hover:text-ink`],
   ['ink active', 'ink', true, `${CHIP_INK} border-ink bg-ink text-card`],
   ['ink inactive', 'ink', false, `${CHIP_INK} border-line-control bg-card text-ink-2 hover:border-ink-3 hover:bg-surface hover:text-ink`],
 ]
@@ -304,14 +301,14 @@ test('LinkChips as="fragment" (default) renders bare chips, keyed by the caller'
   assert.ok(html.includes('title="Bee"'))
 })
 
-test('LinkChips ariaCurrent="page" variant="subtle" marks the active chip with page and the subtle classes', () => {
-  const html = renderToStaticMarkup(h(LinkChips, { items: [...ITEMS], current: 'b', ariaCurrent: 'page', variant: 'subtle' }))
+test('LinkChips ariaCurrent="page" variant="ink" marks the active chip with page and the ink classes', () => {
+  const html = renderToStaticMarkup(h(LinkChips, { items: [...ITEMS], current: 'b', ariaCurrent: 'page', variant: 'ink' }))
   const tags = html.match(/<a [^>]*>/g) ?? []
   assert.equal(tags.length, 2)
   assert.equal(attr(tags[0], 'aria-current'), undefined)
-  assert.equal(attr(tags[0], 'class'), `${CHIP_SUBTLE} border-transparent text-ink-3 hover:border-line hover:text-ink`)
+  assert.equal(attr(tags[0], 'class'), `${CHIP_INK} border-line-control bg-card text-ink-2 hover:border-ink-3 hover:bg-surface hover:text-ink`)
   assert.equal(attr(tags[1], 'aria-current'), 'page')
-  assert.equal(attr(tags[1], 'class'), `${CHIP_SUBTLE} border-line bg-surface font-medium text-ink`)
+  assert.equal(attr(tags[1], 'class'), `${CHIP_INK} border-ink bg-ink text-card`)
 })
 
 test('LinkChips as="nav" wraps in a labelled nav', () => {
