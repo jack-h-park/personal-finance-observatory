@@ -3,6 +3,7 @@ import Database from 'better-sqlite3'
 import path from 'node:path'
 import { loadLocalEnv } from './env.mjs'
 import { createLotValuer, dateOnly } from './lot-valuation.mjs'
+import { snapshotDates } from './snapshot-dates.mjs'
 import { valuePortfolio } from './portfolio-snapshot.mjs'
 import { POSITION_SNAPSHOTS_DDL, aggregatePositions, writePositionSnapshots } from './position-snapshots.mjs'
 
@@ -10,19 +11,6 @@ loadLocalEnv()
 
 const dbPath = financeFile('STOCK_DB_PATH')
 const db = new Database(dbPath)
-
-function monthEnds(firstDate, lastDate) {
-  const first = new Date(`${firstDate}T00:00:00Z`)
-  const last = new Date(`${lastDate}T00:00:00Z`)
-  const dates = []
-  let cursor = new Date(Date.UTC(first.getUTCFullYear(), first.getUTCMonth(), 1))
-  while (cursor <= last) {
-    const monthEnd = new Date(Date.UTC(cursor.getUTCFullYear(), cursor.getUTCMonth() + 1, 0))
-    if (monthEnd >= first && monthEnd < last) dates.push(monthEnd.toISOString().slice(0, 10))
-    cursor = new Date(Date.UTC(cursor.getUTCFullYear(), cursor.getUTCMonth() + 1, 1))
-  }
-  return dates
-}
 
 try {
   // An older DB predates the table; the ingest creates it on a fresh build.
@@ -72,7 +60,7 @@ try {
   const dividends = db.prepare('select date, currency, native_amount from dividends').all()
   const historicalPrices = db.prepare('select market, ticker, currency, price_date, close from historical_prices order by market, ticker, price_date').all()
   const historicalFxRates = db.prepare('select price_date, rate from historical_fx_rates order by price_date').all()
-  const dates = monthEnds(firstDate, currentDate)
+  const dates = snapshotDates(firstDate, currentDate)
   const currentPositions = db
     .prepare('select market, base_cost as cost, base_market_value as marketValue from holdings where quantity != 0')
     .all()
@@ -162,7 +150,7 @@ try {
     )
   })
   rebuild()
-  console.log(`Backfilled ${dates.length} monthly portfolio snapshot(s) from ${firstDate} to ${currentDate}.`)
+  console.log(`Backfilled ${dates.length} portfolio snapshot(s) (month-ends and the last year's weekdays) from ${firstDate} to ${currentDate}.`)
 } finally {
   db.close()
 }

@@ -83,3 +83,48 @@ test('a superseded realized lot is held once', () => {
   check.close()
   assert.deepEqual(rows, [{ quantity: 10, cost_krw: 1000, market_value_krw: 20 }])
 })
+
+test('weekday snapshots are written for the last year, one per day with that day\'s price and rate', () => {
+  const root = mkdtempSync(path.join(tmpdir(), 'position-snapshots-daily-'))
+  const dbPath = path.join(root, 'old.db')
+  const db = new Database(dbPath)
+  db.exec(`
+    create table portfolio_snapshots (id integer primary key, snapshot_date text not null unique, captured_at text not null,
+      global_base_cost real not null, krw_cost real not null default 0, usd_cost real not null default 0,
+      dividends_krw real not null default 0, dividends_usd real not null default 0, holding_count integer not null default 0,
+      share_count real not null default 0, global_base_market_value real, global_base_unrealized_gl real, global_base_return_pct real, market_value_coverage real, priced_base_cost real, position_coverage real, kr_market_value_coverage real, us_market_value_coverage real, crypto_market_value_coverage real, kr_market_value real, us_market_value_base real, crypto_market_value_base real, kr_cost_basis real, us_cost_basis_base real, crypto_cost_basis_base real, kr_unrealized_gl real, us_unrealized_gl_base real, crypto_unrealized_gl_base real, kr_return_pct real, us_return_pct real, crypto_return_pct real);
+    create table tax_lots (market text, account text, ticker text, name text, acquired_date text, currency text,
+      open_quantity real, native_cost_basis real, cost_basis_krw real);
+    create table realized_lots (market text, account text, ticker text, name text, acquired_date text, sold_date text,
+      quantity_sold real, cost_basis_krw real, superseded_by text);
+    create table dividends (date text, currency text, native_amount real);
+    create table holdings (market text, quantity real, base_cost real, base_market_value real);
+    create table historical_prices (market text, ticker text, currency text, price_date text, close real);
+    create table historical_fx_rates (price_date text, rate real);
+    insert into portfolio_snapshots (snapshot_date, captured_at, global_base_cost) values ('2026-11-23', 'x', 0);
+    insert into tax_lots values ('US', 'a', 'ZZZ', 'Zed Corp', '2026-01-05', 'USD', 10, 1000, 1000);
+  `)
+  const days = ['2026-11-16', '2026-11-17', '2026-11-18', '2026-11-19', '2026-11-20']
+  days.forEach((day, index) => {
+    db.prepare("insert into historical_prices values ('US', 'ZZZ', 'USD', ?, ?)").run(day, 10 + index)
+    db.prepare('insert into historical_fx_rates values (?, ?)').run(day, 1000 + index * 10)
+  })
+  db.close()
+  runBackfill(root, dbPath)
+  const check = new Database(dbPath, { readonly: true })
+  const positions = check
+    .prepare("select snapshot_date, market_value_krw from position_snapshots where snapshot_date >= '2026-11-16' order by snapshot_date")
+    .all()
+  const portfolioDates = check
+    .prepare("select snapshot_date from portfolio_snapshots where snapshot_date >= '2026-11-16' or snapshot_date like '%-31' or snapshot_date like '%-30' or snapshot_date like '%-28' order by snapshot_date")
+    .all()
+    .map((row: any) => row.snapshot_date)
+  check.close()
+  assert.deepEqual(
+    positions,
+    days.map((day, index) => ({ snapshot_date: day, market_value_krw: 10 * (10 + index) * (1000 + index * 10) }))
+  )
+  assert.ok(!portfolioDates.includes('2026-11-21'))
+  assert.ok(!portfolioDates.includes('2026-11-22'))
+  for (const day of [...days, '2026-01-31', '2026-10-31', '2026-11-23']) assert.ok(portfolioDates.includes(day), day)
+})
