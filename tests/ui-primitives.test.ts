@@ -746,9 +746,18 @@ test('Card issues badge sits before the action', () => {
   assert.ok(header.indexOf('1 to review') < header.indexOf('act'))
 })
 
-test('Card with an action and no issues keeps its header unchanged', () => {
+test('Card with an action and no issues puts the action in one wrapping box', () => {
   const html = renderToStaticMarkup(h(Card, { title: 'T', action: h('a', { href: '/x' }, 'act'), children: 'x' }))
-  assert.match(cardHeader(html), /<\/div><a href="\/x">act<\/a>$/)
+  assert.match(cardHeader(html), /<\/div><div class="flex flex-wrap items-center justify-end gap-1"><a href="\/x">act<\/a><\/div>$/)
+})
+
+test('Card header wraps, and a fragment action stays one header item', () => {
+  // TrendRangeLinks passes its chips as a fragment. Unboxed, each chip became a header
+  // item, and on a phone the title shrank to one Hangul character per line.
+  const chips = h(React.Fragment, null, h('a', { href: '/1' }, '1M'), h('a', { href: '/2' }, '3M'))
+  const html = renderToStaticMarkup(h(Card, { title: 'T', action: chips, children: 'x' }))
+  assert.match(html, /<header class="flex flex-wrap items-center justify-between /)
+  assert.match(cardHeader(html), /^<div class="flex items-center">.*?<\/div><div class="[^"]*"><a href="\/1">1M<\/a><a href="\/2">3M<\/a><\/div>$/)
 })
 
 test('Card issues needs a title', () => {
