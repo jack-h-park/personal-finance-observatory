@@ -1,6 +1,6 @@
 # Total assets page (`/net-worth`) — legibility plan
 
-**Status:** 2026-11-23. Follows `2026-11-22-net-worth-redesign.md` (implemented). The owner took the recommended option on all five decisions below. N1 is implemented; N2–N5 are not started.
+**Status:** 2026-11-23. Follows `2026-11-22-net-worth-redesign.md` (implemented). The owner took the recommended option on all five decisions below. N1 and N2 are implemented; N3–N5 are not started.
 
 ## Why
 
@@ -86,6 +86,8 @@ type ValuationBasisItem = {
 - Chip text: market, date + time in the market's own zone, 종가/장중. Popover: provider, exchange(s), fetched at, quote window, priced/missing counts, staleness rule, link to `/health#prices`.
 - Remove the stock price note from the composition card (`overviewCopy.stockPriceNote` stays for the Overview, which can take the strip in a later phase).
 - Copy in `lib/ui-copy/pages/netWorth.ts`, both languages; times through `fmtDateTime` with the language.
+
+*As built:* `components/ValuationBasisStrip.tsx` renders the chips; their words come from `lib/valuation-basis-view.ts` (pure, tested in both languages). Quote times use a new `fmtMomentIn()` on each market's own clock, labelled KST or ET, so a US close reads 16:00 rather than the next morning in Seoul; fetch times use `fmtMomentShort()` like `/health`. The staleness rule in each popover is built from the constants in `lib/price-staleness.ts`, not written into the copy. `HelpPopover` gained a `trigger` prop so the chip itself opens the popover; with a trigger the button is named by its own text (no `aria-label`), and the status is added as screen-reader text because the dot's colour carries it otherwise. Crypto and gold appear only when the portfolio holds them. The composition card's stock price sentence is gone; the Overview still uses it until N5.
 
 ### N3. Coverage panel → one-line data status
 
