@@ -1,6 +1,10 @@
 # Filter group labels vs. options: audit and plan
 
-Status: plan, not started. Date: 2026-11-23.
+Status: Phase 1 merged (#465); Phase 2 in review. Date: 2026-11-23.
+
+Since this audit, #458 split /holdings into tabs: A1 now lives in
+`app/holdings/MarketMixView.tsx`, A2–A4 in `app/holdings/WeightsView.tsx`; the
+line numbers below are from before that split.
 
 ## Problem
 
@@ -125,6 +129,10 @@ Record the rulings in `docs/ui-guide.md` next to the existing LinkChips row (lin
 - Screenshot net: expect every page with chips to change; review per page, not per pixel.
 
 ### Phase 2 — /holdings (A1–A5)
+
+Done as planned. `FilterBar` groups gained `separated?: true`, which draws a rule
+above the group; it is opt-in so /cash-inflow, whose view group sits between
+filters, keeps its layout.
 
 - Replace the five inline `span + LinkChip` blocks with `ChipGroup`.
 - 종목별 비중 추이: 범위 and 보기 on separate lines (R3); 따로 보기 keeps its own group

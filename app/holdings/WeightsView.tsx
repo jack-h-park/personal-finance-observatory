@@ -5,7 +5,7 @@ import { Badge, Card, Note, Signed, marketTone } from '@/components/ui'
 import { PortfolioMultiTrendChart, StackedSeriesChart } from '@/components/charts'
 import { RangeSelectForm } from '@/components/RangeSelectForm'
 import { TrendRangeLinks } from '@/components/TrendRangeLinks'
-import { LinkChip } from '@/components/LinkChips'
+import { ChipGroup, LinkChip } from '@/components/LinkChips'
 import { DivergingBar } from '@/components/bars'
 import { DEFAULT_TREND_RANGE, resolveTrendRange, trendRangeDays } from '@/lib/trend-ranges'
 import { SHARE_SCOPES, positionShares, shareDates, shareMoves, type ShareScope } from '@/lib/position-shares'
@@ -141,24 +141,23 @@ export async function WeightsView({ params, rows, language }: { params: Record<s
         action={<TrendRangeLinks selected={mixRange} hrefFor={(key) => withParam(BASE, params, 'trend', key === DEFAULT_TREND_RANGE.key ? null : key)} />}
       >
         <div className="space-y-3">
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-            <div className="flex flex-wrap items-center gap-1">
-              <span className="mr-1 text-label text-ink-3">{weightCopy.scopeFilter}</span>
+          {/* One group per line: side by side, a wrapped row left a label at the end of a line. */}
+          <div className="flex flex-col gap-2">
+            <ChipGroup label={weightCopy.scopeFilter}>
               {SHARE_SCOPES.map((scope) => (
                 <LinkChip key={scope} href={withParam(BASE, params, 'wscope', scope === 'all' ? null : scope)} active={weightScope === scope}>
                   {weightCopy.scopes[scope]}
                 </LinkChip>
               ))}
-            </div>
-            <div className="flex flex-wrap items-center gap-1">
-              <span className="mr-1 text-label text-ink-3">{weightCopy.viewFilter}</span>
+            </ChipGroup>
+            <ChipGroup label={weightCopy.viewFilter}>
               <LinkChip href={withParam(BASE, params, 'wview', null)} active={!weightLines}>
                 {weightCopy.viewStack}
               </LinkChip>
               <LinkChip href={withParam(BASE, params, 'wview', 'lines')} active={weightLines}>
                 {weightCopy.viewLines}
               </LinkChip>
-            </div>
+            </ChipGroup>
           </div>
           {weightLines ? (
             <PortfolioMultiTrendChart
@@ -220,14 +219,13 @@ export async function WeightsView({ params, rows, language }: { params: Record<s
             </Note>
           )}
           {pinCandidates.length > 0 && (
-            <div className="flex flex-wrap items-center gap-1">
-              <span className="mr-1 text-label text-ink-3">{weightCopy.pinFilter}</span>
+            <ChipGroup label={weightCopy.pinFilter}>
               {pinCandidates.map(([key, held]) => (
                 <LinkChip key={key} href={pinHref(key)} active={pins.includes(key)} ariaCurrent="none" aria-label={weightCopy.pinAria(held.name, pins.includes(key))}>
                   {held.name}
                 </LinkChip>
               ))}
-            </div>
+            </ChipGroup>
           )}
         </div>
       </Card>

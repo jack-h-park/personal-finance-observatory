@@ -28,8 +28,10 @@ export function FilterBar({
   /** `defaultValue` is the value the page uses when the param is absent ("All"
    *  when omitted). Choosing it drops the param, and it does not count as an
    *  active filter. `countsAsFilter: false` marks a group that switches the view
-   *  rather than narrowing the data, so it never counts as active either. */
-  groups: { key: string; label: string; options: { value: string; label: string }[]; selected: string; defaultValue?: string; countsAsFilter?: false }[]
+   *  rather than narrowing the data, so it never counts as active either.
+   *  `separated` draws a rule above the group, for a view switch placed after
+   *  the filters it is not one of. */
+  groups: { key: string; label: string; options: { value: string; label: string }[]; selected: string; defaultValue?: string; countsAsFilter?: false; separated?: true }[]
   /** Adds a debounced text box. Omit for tables with nothing worth searching. */
   search?: { key: string; label: string; placeholder: string; value: string }
   /** e.g. "139 of 139" — rendered beside the chips, not inside the fold. */
@@ -39,7 +41,7 @@ export function FilterBar({
   const chips = (
     <div className="flex flex-col gap-2">
       {groups.map((group) => (
-        <ChipGroup key={group.key} label={group.label}>
+        <ChipGroup key={group.key} label={group.label} className={group.separated ? 'border-t border-line-subtle pt-2' : undefined}>
           {group.options.map((option) => (
             <LinkChip
               key={option.value}

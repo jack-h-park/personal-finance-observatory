@@ -2,7 +2,7 @@ import { getPortfolioSnapshots, portfolioToday, type HoldingWithCostStatus } fro
 import { Card } from '@/components/ui'
 import { StackedSeriesChart } from '@/components/charts'
 import { TrendRangeLinks } from '@/components/TrendRangeLinks'
-import { LinkChip } from '@/components/LinkChips'
+import { ChipGroup, LinkChip } from '@/components/LinkChips'
 import { ShareBar } from '@/components/bars'
 import { MIX_MARKETS, marketMixSeries, mixShares, mixSummary } from '@/lib/market-mix'
 import { DEFAULT_TREND_RANGE, resolveTrendRange, trendRangeDays } from '@/lib/trend-ranges'
@@ -43,15 +43,14 @@ export async function MarketMixView({ params, rows, language }: { params: Record
         action={<TrendRangeLinks selected={mixRange} hrefFor={(key) => withParam(BASE, params, 'trend', key === DEFAULT_TREND_RANGE.key ? null : key)} />}
       >
         <div className="space-y-3">
-          <div className="flex flex-wrap items-center gap-1">
-            <span className="mr-1 text-label text-ink-3">{mixCopy.viewFilter}</span>
+          <ChipGroup label={mixCopy.viewFilter}>
             <LinkChip href={withParam(BASE, params, 'mix', null)} active={!mixShareView}>
               {mixCopy.viewAmount}
             </LinkChip>
             <LinkChip href={withParam(BASE, params, 'mix', 'share')} active={mixShareView}>
               {mixCopy.viewShare}
             </LinkChip>
-          </div>
+          </ChipGroup>
           <StackedSeriesChart
             points={mixShown.map((point) => ({
               date: point.date,
