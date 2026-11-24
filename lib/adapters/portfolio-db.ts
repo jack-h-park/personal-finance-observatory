@@ -1215,10 +1215,10 @@ export function getPositionTrendRows(days = 400): { date: string; market: string
 }
 
 /**
- * The date of the price a holding is shown at, from the price file for its market.
+ * The date of each ticker's price in the price file for one market.
  * Toss rows carry the UTC date of the fetch in as_of_date, which after the US close is
  * a day ahead of the quote, so the file's own date is the one to trust. Null when the
- * file or the ticker's entry is missing; the caller falls back to as_of_date.
+ * file is missing or has no entry for a ticker; the caller then falls back to as_of_date.
  */
 function quoteDatesFromPriceFile(filePath: string): Map<string, string> {
   const dates = new Map<string, string>()
@@ -1260,9 +1260,13 @@ export function getDayChangeRows(): DayChangeRow[] {
     const sameMarket = conn.prepare(
       'select price_date as date, close from historical_prices where market = ? and ticker = ? and price_date < ? order by price_date desc limit 1'
     )
-    const sameCurrency = conn.prepare(
-      'select price_date as date, close from historical_prices where ticker = ? and currency = ? and price_date < ? order by price_date desc limit 1'
-    )
+    // The sample database's historical_prices has no currency column, so the fallback is skipped there.
+    const priceColumns = new Set((conn.prepare('pragma table_info(historical_prices)').all() as { name: string }[]).map((column) => column.name))
+    const sameCurrency = priceColumns.has('currency')
+      ? conn.prepare(
+          'select price_date as date, close from historical_prices where ticker = ? and currency = ? and price_date < ? order by price_date desc limit 1'
+        )
+      : null
     const fxOnOrBefore = hasFx ? conn.prepare('select rate from historical_fx_rates where price_date <= ? order by price_date desc limit 1') : null
     return holdings.map((row) => {
       const fallback = row.asOfDate ? row.asOfDate.slice(0, 10) : null
@@ -1270,7 +1274,7 @@ export function getDayChangeRows(): DayChangeRow[] {
       let prev: { date: string; close: number } | undefined
       if (quoteDate) {
         prev = sameMarket.get(row.market, row.ticker, quoteDate) as typeof prev
-        prev ??= sameCurrency.get(row.ticker, row.currency, quoteDate) as typeof prev
+        if (!prev && sameCurrency) prev = sameCurrency.get(row.ticker, row.currency, quoteDate) as typeof prev
       }
       const prevFx = prev && fxOnOrBefore ? ((fxOnOrBefore.get(prev.date) as { rate: number } | undefined)?.rate ?? null) : null
       return {

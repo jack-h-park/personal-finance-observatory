@@ -113,3 +113,20 @@ test('zero-quantity rows are skipped and a database without the tables gives no 
   assert.deepEqual(await withPaths({ db: file }, () => getDayChangeRows()), [])
   assert.deepEqual(await withPaths({ db: empty }, () => getDayChangeRows()), [])
 })
+
+test('a historical_prices table without a currency column still gives the same-market previous close', async () => {
+  const file = path.join(dir, 'sample-schema.db')
+  const conn = new Database(file)
+  conn.exec(`
+    create table holdings (market text, ticker text, name text, currency text, quantity real, native_price real, as_of_date text, fx_rate_to_base real);
+    create table historical_prices (id integer primary key, market text, ticker text, price_date text, close real, source text);
+    insert into holdings values ('KR', '111111', 'Sample', 'KRW', 5, 100, '2030-03-12', 1);
+    insert into historical_prices (market, ticker, price_date, close, source) values ('KR', '111111', '2030-03-11', 95, 'test');
+  `)
+  conn.close()
+  const { getDayChangeRows } = await import('../lib/adapters/portfolio-db')
+  const rows = await withPaths({ db: file }, () => getDayChangeRows())
+  assert.equal(rows.length, 1)
+  assert.equal(rows[0].prevClose, 95)
+  assert.equal(rows[0].prevFx, null)
+})
