@@ -19,6 +19,7 @@ export function RangeSelectForm({
   labels,
   formatDate = (date) => date,
   action = '/net-worth',
+  describedBy,
 }: {
   /** The plotted snapshot dates, ascending. */
   dates: string[]
@@ -29,11 +30,13 @@ export function RangeSelectForm({
   labels: { from: string; to: string; submit: string }
   formatDate?: (date: string) => string
   action?: string
+  /** The id of the help text that explains the form, rendered by the caller. */
+  describedBy?: string
 }) {
   const first = dates[0] ?? ''
   const last = dates[dates.length - 1] ?? ''
   return (
-    <form key={`${from ?? ''}:${to ?? ''}`} method="get" action={action} className="flex flex-wrap items-end gap-3">
+    <form key={`${from ?? ''}:${to ?? ''}`} method="get" action={action} aria-describedby={describedBy} className="flex flex-wrap items-end gap-3">
       {Object.entries(keep)
         .filter(([key]) => key !== 'from' && key !== 'to')
         .map(([key, value]) => (

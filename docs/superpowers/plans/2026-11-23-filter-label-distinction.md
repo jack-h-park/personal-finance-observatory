@@ -1,6 +1,6 @@
 # Filter group labels vs. options: audit and plan
 
-Status: Phase 1 merged (#465); Phase 2 in review. Date: 2026-11-23.
+Status: Phases 1–2 merged (#465, #467); Phase 3 in review. Date: 2026-11-23.
 
 Since this audit, #458 split /holdings into tabs: A1 now lives in
 `app/holdings/MarketMixView.tsx`, A2–A4 in `app/holdings/WeightsView.tsx`; the
@@ -144,6 +144,11 @@ filters, keeps its layout.
   It was added inline in #459 by copying the chart-card pattern above it.
 
 ### Phase 3 — /net-worth (A6–A9)
+
+Done. The toggle's group is named 자녀 / "Children" and its chip 포함 / "Include"
+(the old single chip text 자녀 포함 / "Include children" is gone; the accessible
+name still says the full phrase and the state). The hint is a caption-size
+`Note` under the form, tied with `aria-describedby`.
 
 - 기간 / 자산군 / 보기 through `ChipGroup`.
 - Split 자녀 포함 out of 보기 into its own toggle (R4); copy needs a group label for it,

@@ -133,7 +133,9 @@ export const netWorth = defineCopy({
       healthLink: 'Review freshness',
     },
     children: {
-      toggle: 'Include children',
+      // A group of its own: a toggle, not one of the Show choices.
+      filter: 'Children',
+      include: 'Include',
       toggleAria: (included: boolean) => (included ? 'Include children: included' : 'Include children: excluded'),
       toggleHint: "Off: every figure is the maintainer's own. On: the children's accounts are added beside them, never inside a total.",
       title: "Children's accounts",
@@ -274,7 +276,8 @@ export const netWorth = defineCopy({
       healthLink: '최신성 확인',
     },
     children: {
-      toggle: '자녀 포함',
+      filter: '자녀',
+      include: '포함',
       toggleAria: (included: boolean) => (included ? '자녀 포함: 포함됨' : '자녀 포함: 제외됨'),
       toggleHint: '끄면 모든 숫자가 본인 것만입니다. 켜면 자녀 계좌를 옆에 따로 보여주며, 어떤 합계에도 더하지 않습니다.',
       title: '자녀 계좌',

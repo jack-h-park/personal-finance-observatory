@@ -22,7 +22,7 @@ import { TrendRangeLinks } from '@/components/TrendRangeLinks'
 import { RangeBreakdownPanel } from '@/components/RangeBreakdownPanel'
 import { RangeSelectForm } from '@/components/RangeSelectForm'
 import { TextLink } from '@/components/controls'
-import { LinkChip } from '@/components/LinkChips'
+import { ChipGroup, LinkChip } from '@/components/LinkChips'
 import { DEFAULT_TREND_RANGE, TREND_RANGES, resolveTrendRange, trendRangeDays, type TrendRange } from '@/lib/trend-ranges'
 import type { AllocationClass } from '@/lib/asset-allocation'
 import { ASSET_CLASS_COLOR, WRAPPER_COLOR } from '@/lib/palette'
@@ -259,8 +259,7 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
           </div>
           <ValuationBasisStrip items={valuationBasis} language={language} />
           <div className="flex flex-col gap-2 border-t border-line-subtle pt-4">
-            <div className="flex flex-wrap items-center gap-1">
-              <span className="mr-1 text-label text-ink-3">{copy.rangeFilter}</span>
+            <ChipGroup label={copy.rangeFilter}>
               <TrendRangeLinks
                 selected={selectedRange}
                 hrefFor={(trend) => {
@@ -268,9 +267,8 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
                   return hrefWith({ trend, ...(selection && !keepsSelection(target, selection.from, today) ? { range: null } : {}) })
                 }}
               />
-            </div>
-            <div className="flex flex-wrap items-center gap-1">
-              <span className="mr-1 text-label text-ink-3">{copy.classFilter}</span>
+            </ChipGroup>
+            <ChipGroup label={copy.classFilter}>
               {ASSET_CLASS_KEYS.map((key) => (
                 <LinkChip
                   key={key}
@@ -282,15 +280,17 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
                   {copy.classes[key]}
                 </LinkChip>
               ))}
-            </div>
-            <div className="flex flex-wrap items-center gap-1">
-              <span className="mr-1 text-label text-ink-3">{copy.viewFilter}</span>
+            </ChipGroup>
+            <ChipGroup label={copy.viewFilter}>
               <LinkChip href={hrefWith({ share: false })} active={!shareView}>
                 {copy.viewAmount}
               </LinkChip>
               <LinkChip href={hrefWith({ share: true })} active={shareView}>
                 {copy.viewShare}
               </LinkChip>
+            </ChipGroup>
+            {/* An on/off toggle, so it does not share a name with the single-choice Show group. */}
+            <ChipGroup label={childCopy.filter}>
               <LinkChip
                 href={hrefWith({ children: !includeChildren })}
                 active={includeChildren}
@@ -298,11 +298,10 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
                 aria-label={childCopy.toggleAria(includeChildren)}
                 title={childCopy.toggleHint}
               >
-                {childCopy.toggle}
+                {childCopy.include}
               </LinkChip>
-            </div>
-            <div className="flex flex-col gap-2 pt-1">
-              <span className="text-label text-ink-3">{breakdownCopy.selectHint}</span>
+            </ChipGroup>
+            <div className="flex flex-col gap-1.5 pt-1">
               <RangeSelectForm
                 dates={rangeFormDates}
                 from={selection?.from ?? null}
@@ -310,7 +309,12 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
                 keep={rangeFormKeep}
                 labels={{ from: breakdownCopy.fromLabel, to: breakdownCopy.toLabel, submit: breakdownCopy.apply }}
                 formatDate={(date) => fmtDate(date, language)}
+                describedBy="net-worth-range-hint"
               />
+              {/* A sentence of help under the form, not a label-sized line that reads as a fourth group name. */}
+              <Note size="caption" id="net-worth-range-hint">
+                {breakdownCopy.selectHint}
+              </Note>
             </div>
           </div>
           {shareView && includeChildren ? <Note>{copy.shareChildrenNote}</Note> : null}

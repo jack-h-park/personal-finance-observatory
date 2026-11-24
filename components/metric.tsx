@@ -33,6 +33,7 @@ export function Note({
   row = false,
   band,
   title,
+  id,
   children,
 }: {
   size?: keyof typeof NOTE_SIZE
@@ -43,10 +44,13 @@ export function Note({
   row?: boolean
   band?: 'top' | 'bottom'
   title?: string
+  /** For `aria-describedby` on the control this note explains. */
+  id?: string
   children: ReactNode
 }) {
   return (
     <p
+      id={id}
       className={clsx(
         NOTE_SPACING[spacing],
         row && 'flex flex-wrap items-center gap-2',

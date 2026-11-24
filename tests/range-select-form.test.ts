@@ -42,3 +42,17 @@ test('the form is keyed by the period, so a client-side navigation remounts the 
   assert.equal(a.key, '2026-01-31:2026-02-28')
   assert.equal(b.key, ':')
 })
+
+test('describedBy ties the form to the caller\'s help text', () => {
+  const html = renderToStaticMarkup(
+    React.createElement(RangeSelectForm, {
+      dates: ['2026-01-31'],
+      from: null,
+      to: null,
+      keep: {},
+      labels: { from: 'From', to: 'To', submit: 'Show' },
+      describedBy: 'hint',
+    }),
+  )
+  assert.match(html, /<form[^>]*aria-describedby="hint"/)
+})
