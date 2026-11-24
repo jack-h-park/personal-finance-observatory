@@ -46,3 +46,27 @@ test('realized gains skip superseded rows', async () => {
     { market: 'US', ticker: 'MSFT', soldDate: '2026-10-10', realizedKrw: 500 },
   ])
 })
+
+// Daily snapshots exist for the /holdings charts; every other reader gets one date per month.
+test('snapshot readers keep one date per month unless daily is requested', async () => {
+  const db = new Database(dbPath)
+  db.exec(`drop table if exists portfolio_snapshots;
+    create table portfolio_snapshots (
+      snapshot_date text, captured_at text, global_base_cost real, global_base_market_value real,
+      global_base_unrealized_gl real, global_base_return_pct real,
+      kr_market_value real, us_market_value_base real, crypto_market_value_base real,
+      kr_cost_basis real, us_cost_basis_base real, crypto_cost_basis_base real,
+      kr_unrealized_gl real, us_unrealized_gl_base real, crypto_unrealized_gl_base real,
+      kr_return_pct real, us_return_pct real, crypto_return_pct real,
+      krw_cost real, usd_cost real, dividends_krw real, dividends_usd real, holding_count integer, share_count real);
+    insert into portfolio_snapshots (snapshot_date, captured_at, global_base_cost) values
+      ('2026-10-30', '2026-10-30', 1), ('2026-10-31', '2026-10-31', 1),
+      ('2026-11-20', '2026-11-20', 1), ('2026-11-23', '2026-11-23', 1)`)
+  db.close()
+  const { getSnapshotDates, getPortfolioSnapshots } = await import('../lib/adapters/portfolio-db')
+  const all = ['2026-10-30', '2026-10-31', '2026-11-20', '2026-11-23']
+  assert.deepEqual(getSnapshotDates(3650), ['2026-10-31', '2026-11-23'])
+  assert.deepEqual(getSnapshotDates(3650, { daily: true }), all)
+  assert.deepEqual(getPortfolioSnapshots(3650).map((r) => r.snapshot_date), ['2026-10-31', '2026-11-23'])
+  assert.deepEqual(getPortfolioSnapshots(3650, { daily: true }).map((r) => r.snapshot_date), all)
+})

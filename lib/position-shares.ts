@@ -29,18 +29,6 @@ export type SharePoint = { date: string; total: number; other: number | null } &
 export type ShareExclusion = { date: string; count: number; costPct: number | null }
 
 /**
- * The dates a weight trend plots: the last snapshot of each past month, and
- * every snapshot of the newest month, where the ingest has written daily rows.
- */
-export function shareDates(dates: readonly string[]): string[] {
-  const sorted = [...new Set(dates)].sort()
-  const newestMonth = sorted.at(-1)?.slice(0, 7)
-  const lastOfMonth = new Map<string, string>()
-  for (const date of sorted) lastOfMonth.set(date.slice(0, 7), date)
-  return sorted.filter((date) => date.slice(0, 7) === newestMonth || lastOfMonth.get(date.slice(0, 7)) === date)
-}
-
-/**
  * The market a snapshot row belongs to. Snapshot rows are keyed by the lot's
  * market, so a Toss US stock is `KR:<ticker>` there and US in holdings. A row
  * whose market holds nothing now, while exactly one other market holds the

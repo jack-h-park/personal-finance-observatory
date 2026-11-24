@@ -14,7 +14,9 @@ import { Panel } from '@/components/card'
 import { Label } from '@/components/metric'
 import { DivergingBarList, RankedBarList } from '@/components/RankedBars'
 import { aggregateSecurities, concentration, gainContributors, securityWeights } from '@/lib/holdings-composition'
-import { getHoldings, getPositionTrendRows, getValuationBasis } from '@/lib/adapters/portfolio-db'
+import { getDayChangeRows, getHoldings, getPositionTrendRows, getValuationBasis } from '@/lib/adapters/portfolio-db'
+import { DayChangeCard } from '@/components/DayChangeCard'
+import { dayChange } from '@/lib/day-change'
 import { ValuationBasisStrip } from '@/components/ValuationBasisStrip'
 import { groupBySecurity, holdingWeight, trendChangePct, trendDates, trendSeries, weightTotal, type GroupAccount } from '@/lib/holdings-view'
 import { marketColor } from '@/lib/palette'
@@ -332,6 +334,8 @@ export default async function HoldingsPage({
   return (
     <>
       {header}
+      {/* The day's change covers every holding, so it sits above the filtered table. */}
+      <DayChangeCard change={dayChange(getDayChangeRows())} copy={copy.dayChange} language={language} money={(krw) => money(krw, 'KRW')} />
       <Card title={copy.caption}>
         <div className="space-y-3">
           <FilterBar

@@ -2,38 +2,57 @@ import { strict as assert } from 'node:assert'
 import { test } from 'node:test'
 import { marketMixSeries, mixShares, mixSummary } from '../lib/market-mix'
 
-const snap = (snapshot_date: string, kr: number | null, us: number | null, crypto: number | null) => ({
-  snapshot_date,
-  kr_market_value: kr,
-  us_market_value_base: us,
-  crypto_market_value_base: crypto,
-})
+const at = (date: string, market: string, ticker: string, marketValueKrw: number | null) => ({ date, market, ticker, marketValueKrw })
 
-test('past snapshots, then today from the holdings, replacing a same-day snapshot', () => {
-  const points = marketMixSeries(
-    [snap('2026-10-31', 600, 400, null), snap('2026-11-23', 1, 1, 1), snap('2026-09-30', 500, 500, 0)],
-    [
-      { market: 'KR', base_market_value: 700 },
-      { market: 'US', base_market_value: 250 },
-      { market: 'US', base_market_value: 250 },
-      { market: 'CRYPTO', base_market_value: null },
-      { market: 'CASH', base_market_value: 999 },
-    ],
-    '2026-11-23'
-  )
+test('past dates sum rows by market, then today from the holdings', () => {
+  const rows = [
+    at('2026-10-30', 'KR', '005930', 600),
+    at('2026-10-30', 'US', 'NVDA', 400),
+    at('2026-11-23', 'KR', '005930', 1),
+    at('2026-09-30', 'KR', '005930', 500),
+    at('2026-09-30', 'US', 'NVDA', 300),
+    at('2026-09-30', 'US', 'MSFT', 200),
+    at('2026-09-30', 'CRYPTO', 'BTC', 0),
+  ]
+  const holdings = [
+    { market: 'KR', ticker: '005930', base_market_value: 700 },
+    { market: 'US', ticker: 'NVDA', base_market_value: 250 },
+    { market: 'US', ticker: 'MSFT', base_market_value: 250 },
+    { market: 'CRYPTO', ticker: 'BTC', base_market_value: null },
+    { market: 'CASH', ticker: 'KRW', base_market_value: 999 },
+  ]
+  const points = marketMixSeries(rows, ['2026-09-30', '2026-10-30', '2026-11-23'], holdings, '2026-11-23')
   assert.deepEqual(
     points.map((p) => [p.date, p.KR, p.US, p.CRYPTO, p.total]),
     [
       ['2026-09-30', 500, 500, 0, 1000],
-      ['2026-10-31', 600, 400, null, 1000],
+      ['2026-10-30', 600, 400, null, 1000],
       ['2026-11-23', 700, 500, null, 1200],
     ]
   )
 })
 
-test('a snapshot that values no market is dropped', () => {
-  const points = marketMixSeries([snap('2026-10-31', null, null, null)], [], '2026-11-23')
-  assert.deepEqual(points, [])
+test('a date no row values is dropped, and a null row value is skipped', () => {
+  const rows = [at('2026-11-20', 'KR', '005930', null), at('2026-11-19', 'KR', '005930', 5), at('2026-11-19', 'US', 'NVDA', null)]
+  const holdings = [
+    { market: 'KR', ticker: '005930', base_market_value: null },
+    { market: 'US', ticker: 'NVDA', base_market_value: null },
+  ]
+  const points = marketMixSeries(rows, ['2026-11-19', '2026-11-20'], holdings, '2026-11-23')
+  assert.deepEqual(points.map((p) => [p.date, p.KR, p.US]), [['2026-11-19', 5, null]])
+})
+
+test('a Toss-held US stock stays in US on past points', () => {
+  const rows = [
+    { date: '2026-11-20', market: 'KR', ticker: 'TSLA', marketValueKrw: 100 },
+    { date: '2026-11-20', market: 'KR', ticker: '005930', marketValueKrw: 50 },
+  ]
+  const holdings = [
+    { market: 'US', ticker: 'TSLA', base_market_value: 110 },
+    { market: 'KR', ticker: '005930', base_market_value: 55 },
+  ]
+  const points = marketMixSeries(rows, ['2026-11-20'], holdings, '2026-11-23')
+  assert.deepEqual(points.map((p) => [p.date, p.KR, p.US]), [['2026-11-20', 50, 100], ['2026-11-23', 55, 110]])
 })
 
 test('shares are of each date total, and an unvalued market stays null', () => {

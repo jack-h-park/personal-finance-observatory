@@ -1,17 +1,8 @@
 import { strict as assert } from 'node:assert'
 import { test } from 'node:test'
-import { MAX_SHARE_SERIES, positionShares, rowMarket, shareDates, shareMoves, type ShareRow } from '../lib/position-shares'
+import { MAX_SHARE_SERIES, positionShares, rowMarket, shareMoves, type ShareRow } from '../lib/position-shares'
 
 const row = (date: string, market: string, ticker: string, v: number | null, name = ticker): ShareRow => ({ date, market, ticker, name, marketValueKrw: v })
-
-test('dates: last snapshot of each past month, every snapshot of the newest month', () => {
-  assert.deepEqual(shareDates(['2026-09-15', '2026-09-30', '2026-10-31', '2026-11-03', '2026-11-20', '2026-10-31']), [
-    '2026-09-30',
-    '2026-10-31',
-    '2026-11-03',
-    '2026-11-20',
-  ])
-})
 
 test('a Toss US row keyed KR joins the US holding; a sold letters-only KR ticker is US', () => {
   const held = new Map([['TSLA', new Set(['US'])], ['005930', new Set(['KR'])]])

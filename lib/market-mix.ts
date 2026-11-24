@@ -4,42 +4,51 @@
  * Pure, so the shaping is tested without a database.
  */
 
+import { rowMarket } from './position-shares'
+
 export const MIX_MARKETS = ['KR', 'US', 'CRYPTO'] as const
 export type MixMarket = (typeof MIX_MARKETS)[number]
 
 export type MixPoint = { date: string; total: number } & Record<MixMarket, number | null>
 
-type SnapshotValues = {
-  snapshot_date: string
-  kr_market_value: number | null
-  us_market_value_base: number | null
-  crypto_market_value_base: number | null
-}
-
 const finite = (value: number | null | undefined) => (value == null || !Number.isFinite(Number(value)) ? null : Number(value))
 
 /**
- * One point per past snapshot, then today's from the holdings themselves, so
- * the last point is the table's own total rather than the morning's snapshot.
- * A snapshot on or after `today` is replaced by that point. A market a
- * snapshot does not value is null (no area), not zero; a date with no market
- * valued at all is dropped.
+ * One point per plotted date before today, then today's from the holdings
+ * themselves, so the last point is the table's own total rather than the
+ * morning's snapshot. Each position row goes to the market it is held in now
+ * (a Toss US stock is keyed KR in the snapshots), so the last past point does
+ * not jump when today's holdings take over. A row with no value is skipped; a
+ * market no row values is null (no area), not zero; a date with no market
+ * valued at all is dropped. Dates on or after `today` are replaced by that point.
  */
 export function marketMixSeries(
-  snapshots: readonly SnapshotValues[],
-  holdings: readonly { market: string; base_market_value: number | null }[],
+  rows: readonly { date: string; market: string; ticker: string; marketValueKrw: number | null }[],
+  dates: readonly string[],
+  holdings: readonly { market: string; ticker: string; base_market_value: number | null }[],
   today: string
 ): MixPoint[] {
+  const held = new Map<string, Set<string>>()
+  for (const h of holdings) {
+    const markets = held.get(h.ticker) ?? new Set<string>()
+    markets.add(h.market)
+    held.set(h.ticker, markets)
+  }
+  const byDate = new Map<string, Record<MixMarket, number | null>>()
+  for (const row of rows) {
+    const value = finite(row.marketValueKrw)
+    if (value == null) continue
+    const market = rowMarket(row.market, row.ticker, held)
+    if (!(MIX_MARKETS as readonly string[]).includes(market)) continue
+    const values = byDate.get(row.date) ?? { KR: null, US: null, CRYPTO: null }
+    values[market as MixMarket] = (values[market as MixMarket] ?? 0) + value
+    byDate.set(row.date, values)
+  }
   const points: MixPoint[] = []
-  for (const snapshot of [...snapshots].sort((a, b) => a.snapshot_date.localeCompare(b.snapshot_date))) {
-    if (snapshot.snapshot_date >= today) continue
-    const values = {
-      KR: finite(snapshot.kr_market_value),
-      US: finite(snapshot.us_market_value_base),
-      CRYPTO: finite(snapshot.crypto_market_value_base),
-    }
-    if (MIX_MARKETS.every((market) => values[market] == null)) continue
-    points.push({ date: snapshot.snapshot_date, ...values, total: MIX_MARKETS.reduce((sum, market) => sum + (values[market] ?? 0), 0) })
+  for (const date of [...new Set(dates)].sort()) {
+    const values = byDate.get(date)
+    if (date >= today || !values) continue
+    points.push({ date, ...values, total: MIX_MARKETS.reduce((sum, market) => sum + (values[market] ?? 0), 0) })
   }
 
   const now: Record<MixMarket, number | null> = { KR: null, US: null, CRYPTO: null }

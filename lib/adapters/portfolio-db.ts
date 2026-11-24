@@ -28,6 +28,8 @@ import { isActivePensionEntry, loadAccountMap } from '@/scripts/account-map.mjs'
 import { bankAccountGroup, bankAccountName, brokerageAccountLabel, retiredBankAccounts, retiredBrokerageAccounts, type BankAccountEntry } from '@/lib/bank-accounts'
 import { createLotValuer } from '@/scripts/lot-valuation.mjs'
 import { buildWashSaleWindows, type WashSaleBuy, type WashSaleLot, type WashSaleWindow } from '@/lib/wash-sale'
+import { lastPerMonth } from '@/lib/snapshot-density'
+import type { DayChangeRow } from '@/lib/day-change'
 import {
   GOLD_ETF_TICKERS,
   addGoldBooks,
@@ -1097,7 +1099,11 @@ const PRICE_DATE_COLUMNS = [
   'crypto_price_date_oldest',
 ] as const
 
-export function getPortfolioSnapshots(days = 3650): PortfolioSnapshot[] {
+/**
+ * Stored snapshots within the last `days`, oldest first. Daily rows exist for the
+ * /holdings charts; without `daily: true` only the last row of each month is kept.
+ */
+export function getPortfolioSnapshots(days = 3650, options: { daily?: boolean } = {}): PortfolioSnapshot[] {
   const conn = db()
   try {
     const table = conn
@@ -1128,7 +1134,10 @@ export function getPortfolioSnapshots(days = 3650): PortfolioSnapshot[] {
          order by snapshot_date`
       )
       .all(`-${Math.max(1, Math.floor(days))} days`) as PortfolioSnapshot[]
-    return withCumulativeRealized(conn, snapshots)
+    const withRealized = withCumulativeRealized(conn, snapshots)
+    if (options.daily) return withRealized
+    const kept = new Set(lastPerMonth(withRealized.map((row) => row.snapshot_date)))
+    return withRealized.filter((row) => kept.has(row.snapshot_date))
   } finally {
     conn.close()
   }
@@ -1201,6 +1210,130 @@ export function getPositionTrendRows(days = 400): { date: string; market: string
          order by snapshot_date`
       )
       .all(`-${Math.max(1, Math.floor(days))} days`) as { date: string; market: string; ticker: string; name: string; quantity: number; costKrw: number; marketValueKrw: number | null }[]
+  } finally {
+    conn.close()
+  }
+}
+
+type FileQuote = { price: number; asOfDate: string; currency: string | null }
+
+/**
+ * Each ticker's price and quote date from one market's price file. KR and US
+ * files have one entry per ticker and are keyed by ticker. The crypto file has
+ * one entry per venue, each with its currency, so it is keyed by ticker and
+ * currency: BTC on a KRW venue and BTC on a USD venue are separate quotes. An
+ * entry without a usable price or date is left out, and the map is empty when
+ * the file is missing.
+ */
+function quotesFromPriceFile(filePath: string, byCurrency: boolean): Map<string, FileQuote> {
+  const quotes = new Map<string, FileQuote>()
+  const prices = readJson(filePath)?.prices
+  const entries: any[] = Array.isArray(prices) ? prices : prices && typeof prices === 'object' ? Object.values(prices) : []
+  for (const entry of entries) {
+    const ticker = typeof entry?.ticker === 'string' ? entry.ticker.toUpperCase() : ''
+    const asOf = typeof entry?.asOfDate === 'string' ? entry.asOfDate.slice(0, 10) : ''
+    const price = Number(entry?.price)
+    const currency = typeof entry?.currency === 'string' && entry.currency ? entry.currency.toUpperCase() : null
+    if (!ticker || !/^\d{4}-\d{2}-\d{2}$/.test(asOf) || !Number.isFinite(price) || price <= 0) continue
+    if (byCurrency && !currency) continue
+    quotes.set(byCurrency ? `${ticker}\t${currency}` : ticker, { price, asOfDate: asOf, currency })
+  }
+  return quotes
+}
+
+const EXCHANGE_TIME_ZONES: Record<string, string> = { KR: 'Asia/Seoul', US: 'America/New_York', CRYPTO: 'UTC' }
+
+/** The calendar date of an instant on the exchange's own clock, or null for an unreadable instant. */
+function exchangeDate(instant: unknown, market: string): string | null {
+  if (typeof instant !== 'string' || !instant) return null
+  const at = new Date(instant)
+  if (Number.isNaN(at.getTime())) return null
+  const timeZone = EXCHANGE_TIME_ZONES[market] ?? 'UTC'
+  return new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(at)
+}
+
+/**
+ * Holdings with the inputs for the day's change: today's price and FX, and the last close
+ * strictly before the date of that price.
+ *
+ * Price and quote date always come as a pair. When the market's price file quotes the ticker
+ * (in the holding's currency, where the entry states one), both come from that entry. Otherwise
+ * the row keeps its own price: a Toss row then takes the Toss fetch time on the exchange's clock
+ * as its date, because its as_of_date is the UTC date of the fetch and runs a day ahead after the
+ * US close; any other row takes as_of_date.
+ *
+ * The close must be in the holding's currency. It is looked up under the holding's own market
+ * first, then under any market quoting that currency, because a US stock held through a Korean
+ * broker can have its closes stored under KR. Crypto closes are stored in USD, so a KRW crypto
+ * row finds none and is left out. A historical_prices table without a currency column (the
+ * sample database) gets the same-market lookup without the currency check. Empty when a table
+ * is missing.
+ */
+export function getDayChangeRows(): DayChangeRow[] {
+  const conn = db()
+  try {
+    const has = (name: string) => Boolean(conn.prepare("select 1 from sqlite_master where type in ('table', 'view') and name = ?").get(name))
+    if (!has('holdings') || !has('historical_prices')) return []
+    const hasFx = has('historical_fx_rates')
+    const columnsOf = (table: string) => new Set((conn.prepare(`pragma table_info(${table})`).all() as { name: string }[]).map((column) => column.name))
+    const sourceColumn = columnsOf('holdings').has('source_system') ? 'source_system' : 'null'
+    const holdings = conn
+      .prepare(
+        `select market, ticker, coalesce(name, ticker) as name, currency, quantity, native_price as price, as_of_date as asOfDate, fx_rate_to_base as fxNow,
+                ${sourceColumn} as sourceSystem
+         from holdings
+         where quantity != 0
+         order by market, ticker`
+      )
+      .all() as { market: string; ticker: string; name: string; currency: string; quantity: number; price: number | null; asOfDate: string | null; fxNow: number | null; sourceSystem: string | null }[]
+    const fileQuotes: Record<string, Map<string, FileQuote>> = {
+      KR: quotesFromPriceFile(config.stockKrPricesPath, false),
+      US: quotesFromPriceFile(config.stockUsPricesPath, false),
+      CRYPTO: quotesFromPriceFile(config.stockCryptoPricesPath, true),
+    }
+    const tossFetchedAt = readJson(config.stockTossSnapshotPath)?.fetchedAt
+    const hasCurrency = columnsOf('historical_prices').has('currency')
+    const sameMarket = hasCurrency
+      ? conn.prepare(
+          'select price_date as date, close from historical_prices where market = ? and ticker = ? and currency = ? and price_date < ? order by price_date desc limit 1'
+        )
+      : conn.prepare('select price_date as date, close from historical_prices where market = ? and ticker = ? and price_date < ? order by price_date desc limit 1')
+    // Listing the markets lets the lookup use idx_historical_prices_lookup(market, ticker, price_date).
+    const sameCurrency = hasCurrency
+      ? conn.prepare(
+          "select price_date as date, close from historical_prices where market in ('KR', 'US', 'CRYPTO') and ticker = ? and currency = ? and price_date < ? order by price_date desc limit 1"
+        )
+      : null
+    const fxOnOrBefore = hasFx ? conn.prepare('select rate from historical_fx_rates where price_date <= ? order by price_date desc limit 1') : null
+    return holdings.map((row) => {
+      const ticker = String(row.ticker).toUpperCase()
+      const currency = String(row.currency ?? '').toUpperCase()
+      const quotes = fileQuotes[row.market]
+      const fileQuote = row.market === 'CRYPTO' ? quotes?.get(`${ticker}\t${currency}`) : quotes?.get(ticker)
+      const usable = fileQuote && (fileQuote.currency == null || fileQuote.currency === currency) ? fileQuote : undefined
+      const ownDate = row.sourceSystem === 'toss_open_api' ? (exchangeDate(tossFetchedAt, row.market) ?? row.asOfDate) : row.asOfDate
+      const price = usable ? usable.price : row.price
+      const quoteDate = usable ? usable.asOfDate : ownDate ? ownDate.slice(0, 10) : null
+      let prev: { date: string; close: number } | undefined
+      if (quoteDate) {
+        prev = (hasCurrency ? sameMarket.get(row.market, row.ticker, row.currency, quoteDate) : sameMarket.get(row.market, row.ticker, quoteDate)) as typeof prev
+        if (!prev && sameCurrency) prev = sameCurrency.get(row.ticker, row.currency, quoteDate) as typeof prev
+      }
+      const prevFx = prev && fxOnOrBefore ? ((fxOnOrBefore.get(prev.date) as { rate: number } | undefined)?.rate ?? null) : null
+      return {
+        market: row.market,
+        ticker: row.ticker,
+        name: row.name,
+        currency: row.currency,
+        quantity: Number(row.quantity),
+        price,
+        quoteDate,
+        fxNow: row.fxNow,
+        prevClose: prev?.close ?? null,
+        prevCloseDate: prev?.date ?? null,
+        prevFx,
+      }
+    })
   } finally {
     conn.close()
   }
@@ -1590,17 +1723,21 @@ export function portfolioYearMonth(at: Date = new Date()) {
   return { year, month }
 }
 
-/** Snapshot dates within the last `days`, oldest first: the dates the total-assets chart plots. */
-export function getSnapshotDates(days = 3650): string[] {
+/**
+ * Snapshot dates within the last `days`, oldest first: the dates the total-assets chart plots.
+ * Without `daily: true` only the last date of each month is returned.
+ */
+export function getSnapshotDates(days = 3650, options: { daily?: boolean } = {}): string[] {
   const conn = db()
   try {
     const table = conn.prepare("select 1 from sqlite_master where type = 'table' and name = 'portfolio_snapshots'").get()
     if (!table) return []
-    return (
+    const dates = (
       conn
         .prepare("select snapshot_date from portfolio_snapshots where snapshot_date >= date('now', ?) order by snapshot_date")
         .all(`-${Math.max(1, Math.floor(days))} days`) as { snapshot_date: string }[]
     ).map((row) => row.snapshot_date)
+    return options.daily ? dates : lastPerMonth(dates)
   } finally {
     conn.close()
   }

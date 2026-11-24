@@ -8,7 +8,8 @@ import { TrendRangeLinks } from '@/components/TrendRangeLinks'
 import { ChipGroup, LinkChip } from '@/components/LinkChips'
 import { DivergingBar } from '@/components/bars'
 import { DEFAULT_TREND_RANGE, resolveTrendRange, trendRangeDays } from '@/lib/trend-ranges'
-import { SHARE_SCOPES, positionShares, shareDates, shareMoves, type ShareScope } from '@/lib/position-shares'
+import { SHARE_SCOPES, positionShares, shareMoves, type ShareScope } from '@/lib/position-shares'
+import { holdingsChartDates } from '@/lib/snapshot-density'
 import { weightChanges, type WeightChange } from '@/lib/weight-changes'
 import { resolveRangeSelection } from '@/lib/range-selection'
 import { OTHER_SERIES_COLOR, SERIES_COLORS } from '@/lib/palette'
@@ -43,8 +44,9 @@ export async function WeightsView({ params, rows, language }: { params: Record<s
   const weightScope: ShareScope = (SHARE_SCOPES as readonly string[]).includes(String(params.wscope)) ? (params.wscope as ShareScope) : 'all'
   const weightLines = (Array.isArray(params.wview) ? params.wview[0] : params.wview) === 'lines'
   const pins = (typeof params.pin === 'string' ? params.pin.split(',') : []).filter(Boolean)
-  const weightRows = getPositionTrendRows(trendRangeDays(mixRange.days)) ?? []
-  const weightDates = shareDates(weightRows.map((row) => row.date))
+  const rangeDays = trendRangeDays(mixRange.days)
+  const weightRows = getPositionTrendRows(rangeDays) ?? []
+  const weightDates = holdingsChartDates(weightRows.map((row) => row.date), rangeDays)
   const weights = positionShares({ rows: weightRows, dates: weightDates, held: rows, scope: weightScope, pins })
 
   const weightColor = (index: number) => SERIES_COLORS[index] ?? OTHER_SERIES_COLOR

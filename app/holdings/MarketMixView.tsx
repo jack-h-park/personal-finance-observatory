@@ -1,4 +1,5 @@
-import { getPortfolioSnapshots, portfolioToday, type HoldingWithCostStatus } from '@/lib/adapters/portfolio-db'
+import { getPositionTrendRows, portfolioToday, type HoldingWithCostStatus } from '@/lib/adapters/portfolio-db'
+import { holdingsChartDates } from '@/lib/snapshot-density'
 import { Card } from '@/components/ui'
 import { StackedSeriesChart } from '@/components/charts'
 import { TrendRangeLinks } from '@/components/TrendRangeLinks'
@@ -19,13 +20,17 @@ const BASE = '/holdings'
 /** The market mix tab: KR / US / crypto over time, by amount or share. */
 export async function MarketMixView({ params, rows, language }: { params: Record<string, string | string[] | undefined>; rows: HoldingWithCostStatus[]; language: Language }) {
   const copy = getPageCopy('holdings', language)
-  // The market-mix trend (?trend= period, ?mix=share for shares). It reads the
-  // portfolio snapshots and today's holdings, so it ignores the table filters.
+  // The market-mix trend (?trend= period, ?mix=share for shares). It sums the
+  // per-security snapshots (each row's market matched to today's holdings) and
+  // today's holdings, so it ignores the table filters.
   const mixCopy = copy.mix
   const currencyPreferences = await getCurrencyPreferences()
   const mixRange = resolveTrendRange(params.trend)
   const mixShareView = (Array.isArray(params.mix) ? params.mix[0] : params.mix) === 'share'
-  const mixPoints = marketMixSeries(getPortfolioSnapshots(trendRangeDays(mixRange.days)), rows, portfolioToday())
+  const rangeDays = trendRangeDays(mixRange.days)
+  const chartRows = getPositionTrendRows(rangeDays) ?? []
+  const chartDates = holdingsChartDates(chartRows.map((row) => row.date), rangeDays)
+  const mixPoints = marketMixSeries(chartRows, chartDates, rows, portfolioToday())
   const mixShown = mixShareView ? mixShares(mixPoints) : mixPoints
   const toDisplay = (krw: number | null) => (krw == null ? null : convertMoney(krw, 'KRW', currencyPreferences.displayCurrency, currencyPreferences.usdKrwRate).value)
   const mixSeries = MIX_MARKETS.filter((market) => mixPoints.some((point) => point[market] != null)).map((market) => ({

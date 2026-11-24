@@ -32,24 +32,28 @@ export function createLotValuer({ openLots, realizedLots, historicalPrices, hist
   const fxByDate = new Map(historicalFxRates.map((row) => [row.price_date, Number(row.rate)]))
   const latestFx = historicalFxRates.length ? Number(historicalFxRates[historicalFxRates.length - 1].rate) : null
 
+  // Index of the last row whose price_date is on or before the date, or -1.
+  function lastOnOrBefore(rows, date) {
+    let low = 0
+    let high = rows.length
+    while (low < high) {
+      const mid = (low + high) >> 1
+      if (rows[mid].price_date <= date) low = mid + 1
+      else high = mid
+    }
+    return low - 1
+  }
+
   function latestPrice(market, ticker, date) {
     const rows = pricesByTicker.get(`${market}:${ticker}`) ?? []
-    let result = null
-    for (const row of rows) {
-      if (row.price_date > date) break
-      result = row
-    }
-    return result
+    const index = lastOnOrBefore(rows, date)
+    return index < 0 ? null : rows[index]
   }
 
   function fxRate(date) {
     if (fxByDate.has(date)) return fxByDate.get(date)
-    let result = null
-    for (const row of historicalFxRates) {
-      if (row.price_date > date) break
-      result = Number(row.rate)
-    }
-    return result ?? latestFx
+    const index = lastOnOrBefore(historicalFxRates, date)
+    return index < 0 ? latestFx : Number(historicalFxRates[index].rate)
   }
 
   /** Raw positions keyed `market\taccount\tticker`; the quantity may be negative on bad data. */
