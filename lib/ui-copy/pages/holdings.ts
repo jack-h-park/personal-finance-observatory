@@ -44,7 +44,7 @@ export const holdings = defineCopy({
     trendLabel: (name: string, change: string | null) => (change ? `${name}, value over 12 months: ${change}` : `${name}, value over 12 months`),
     mix: {
       title: 'Market mix over time',
-      info: "Value held in each market on each snapshot date, ending with today's holdings. It always covers every holding, whatever the search and filters below.",
+      info: "Value held in each market, one point per weekday for periods up to a year and per month end for longer ones, ending with today's holdings. It always covers every holding, whatever the search and filters below.",
       markets: { KR: 'Korea', US: 'US', CRYPTO: 'Crypto' } as Record<string, string>,
       total: 'Total',
       viewFilter: 'Show',
@@ -60,7 +60,7 @@ export const holdings = defineCopy({
     },
     weights: {
       title: 'Security weights over time',
-      info: "Each security's share of the held value, summed across accounts: month ends for past months, every snapshot in the current month. The eight largest on the newest date get their own band, plus any you show separately; the rest is Other. Like the chart above, it ignores the table's search and filters.",
+      info: "Each security's share of the held value, summed across accounts: one point per weekday for periods up to a year and per month end for longer ones. The eight largest on the newest date get their own band, plus any you show separately; the rest is Other. Like the chart above, it ignores the table's search and filters.",
       scopeFilter: 'Scope',
       scopes: { all: 'All', KR: 'Korea', US: 'US', CRYPTO: 'Crypto' } as Record<string, string>,
       scopeHint: { all: 'Share of all held securities', KR: 'Share within Korean stocks', US: 'Share within US stocks', CRYPTO: 'Share within crypto' } as Record<string, string>,
@@ -181,7 +181,7 @@ export const holdings = defineCopy({
     trendLabel: (name: string, change: string | null) => (change ? `${name}, 12개월 평가금액 추이: ${change}` : `${name}, 12개월 평가금액 추이`),
     mix: {
       title: '시장별 비중 추이',
-      info: '스냅샷 날짜마다 시장별 보유 평가금액을 쌓은 차트이며, 마지막 점은 오늘의 보유종목입니다. 아래 검색어와 필터와 관계없이 항상 전체 보유종목을 보여줍니다.',
+      info: '시장별 보유 평가금액을 1년 이하 기간은 평일마다, 더 긴 기간은 월말마다 쌓은 차트이며, 마지막 점은 오늘의 보유종목입니다. 아래 검색어와 필터와 관계없이 항상 전체 보유종목을 보여줍니다.',
       markets: { KR: '한국 주식', US: '미국 주식', CRYPTO: '가상자산' } as Record<string, string>,
       total: '합계',
       viewFilter: '보기',
@@ -197,7 +197,7 @@ export const holdings = defineCopy({
     },
     weights: {
       title: '종목별 비중 추이',
-      info: '여러 계좌에 나뉜 같은 종목을 합산한 비중입니다. 지난 달까지는 월말 값, 이번 달은 스냅샷마다의 값입니다. 최신 날짜 기준 상위 8개 종목과 따로 보기로 고른 종목은 각자 띠로, 나머지는 기타로 묶어 그립니다. 위 차트처럼 아래 표의 검색어와 필터와 관계없이 그립니다.',
+      info: '여러 계좌에 나뉜 같은 종목을 합산한 비중입니다. 1년 이하 기간은 평일마다, 더 긴 기간은 월말마다의 값입니다. 최신 날짜 기준 상위 8개 종목과 따로 보기로 고른 종목은 각자 띠로, 나머지는 기타로 묶어 그립니다. 위 차트처럼 아래 표의 검색어와 필터와 관계없이 그립니다.',
       scopeFilter: '범위',
       scopes: { all: '전체', KR: '한국 주식', US: '미국 주식', CRYPTO: '가상자산' } as Record<string, string>,
       scopeHint: { all: '전체 보유종목 대비 비중', KR: '한국 주식 안에서의 비중', US: '미국 주식 안에서의 비중', CRYPTO: '가상자산 안에서의 비중' } as Record<string, string>,

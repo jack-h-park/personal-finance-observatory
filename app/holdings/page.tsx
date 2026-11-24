@@ -11,11 +11,12 @@ import { Panel } from '@/components/card'
 import { Label } from '@/components/metric'
 import { DivergingBarList, RankedBarList } from '@/components/RankedBars'
 import { aggregateSecurities, concentration, gainContributors, securityWeights } from '@/lib/holdings-composition'
-import { getHoldings, getOperationalHealth, getPortfolioSnapshots, getPositionTrendRows, portfolioToday, type FreshnessItem } from '@/lib/adapters/portfolio-db'
+import { getHoldings, getOperationalHealth, getPositionTrendRows, portfolioToday, type FreshnessItem } from '@/lib/adapters/portfolio-db'
+import { holdingsChartDates } from '@/lib/snapshot-density'
 import { MIX_MARKETS, marketMixSeries, mixShares, mixSummary } from '@/lib/market-mix'
 import { DEFAULT_TREND_RANGE, resolveTrendRange, trendRangeDays } from '@/lib/trend-ranges'
 import { PortfolioMultiTrendChart, StackedSeriesChart } from '@/components/charts'
-import { SHARE_SCOPES, positionShares, shareDates, shareMoves, type ShareScope } from '@/lib/position-shares'
+import { SHARE_SCOPES, positionShares, shareMoves, type ShareScope } from '@/lib/position-shares'
 import { weightChanges, type WeightChange } from '@/lib/weight-changes'
 import { resolveRangeSelection } from '@/lib/range-selection'
 import { RangeSelectForm } from '@/components/RangeSelectForm'
@@ -286,11 +287,14 @@ export default async function HoldingsPage({
   const incompleteTotals = filtered.length > 0 && Object.values(totals).includes(null)
 
   // The market-mix trend (?trend= period, ?mix=share for shares). It reads the
-  // portfolio snapshots and today's holdings, so it ignores the table filters.
+  // position snapshots and today's holdings, so it ignores the table filters.
   const mixCopy = copy.mix
   const mixRange = resolveTrendRange(params.trend)
   const mixShareView = (Array.isArray(params.mix) ? params.mix[0] : params.mix) === 'share'
-  const mixPoints = marketMixSeries(getPortfolioSnapshots(trendRangeDays(mixRange.days)), rows, portfolioToday())
+  const chartRangeDays = trendRangeDays(mixRange.days)
+  const chartRows = getPositionTrendRows(chartRangeDays) ?? []
+  const chartDates = holdingsChartDates(chartRows.map((row) => row.date), chartRangeDays)
+  const mixPoints = marketMixSeries(chartRows, chartDates, rows, portfolioToday())
   const mixShown = mixShareView ? mixShares(mixPoints) : mixPoints
   const toDisplay = (krw: number | null) => (krw == null ? null : convertMoney(krw, 'KRW', currencyPreferences.displayCurrency, currencyPreferences.usdKrwRate).value)
   const mixSeries = MIX_MARKETS.filter((market) => mixPoints.some((point) => point[market] != null)).map((market) => ({
@@ -308,9 +312,7 @@ export default async function HoldingsPage({
   const weightScope: ShareScope = (SHARE_SCOPES as readonly string[]).includes(String(params.wscope)) ? (params.wscope as ShareScope) : 'all'
   const weightLines = (Array.isArray(params.wview) ? params.wview[0] : params.wview) === 'lines'
   const pins = (typeof params.pin === 'string' ? params.pin.split(',') : []).filter(Boolean)
-  const weightRows = getPositionTrendRows(trendRangeDays(mixRange.days)) ?? []
-  const weightDates = shareDates(weightRows.map((row) => row.date))
-  const weights = positionShares({ rows: weightRows, dates: weightDates, held: rows, scope: weightScope, pins })
+  const weights = positionShares({ rows: chartRows, dates: chartDates, held: rows, scope: weightScope, pins })
 
   const weightColor = (index: number) => SERIES_COLORS[index] ?? OTHER_SERIES_COLOR
   const weightMoves = shareMoves(weights.points, weights.series)
@@ -356,10 +358,10 @@ export default async function HoldingsPage({
   // The weight-change table (?from=&to=, snapped to the plotted dates; the
   // whole plotted window by default), in the weights card's scope.
   const changeCopy = copy.changes
-  const selection = resolveRangeSelection(params.from, params.to, weightDates)
-  const changeFrom = selection?.from ?? weightDates[0] ?? null
-  const changeTo = selection?.to ?? weightDates.at(-1) ?? null
-  const changes = changeFrom && changeTo && changeFrom !== changeTo ? weightChanges({ rows: weightRows, from: changeFrom, to: changeTo, held: rows, scope: weightScope }) : null
+  const selection = resolveRangeSelection(params.from, params.to, chartDates)
+  const changeFrom = selection?.from ?? chartDates[0] ?? null
+  const changeTo = selection?.to ?? chartDates.at(-1) ?? null
+  const changes = changeFrom && changeTo && changeFrom !== changeTo ? weightChanges({ rows: chartRows, from: changeFrom, to: changeTo, held: rows, scope: weightScope }) : null
   const shownChanges = (changes?.changes ?? []).slice(0, 15)
   const maxChangePp = Math.max(0, ...shownChanges.map((c) => Math.abs(c.changePp)))
   const clearRangeHref = (() => {
@@ -589,7 +591,7 @@ export default async function HoldingsPage({
                 <Note size="label">{changeCopy.selectHint}</Note>
               </div>
               <RangeSelectForm
-                dates={weightDates}
+                dates={chartDates}
                 from={changeFrom}
                 to={changeTo}
                 keep={keepParams}
@@ -600,7 +602,7 @@ export default async function HoldingsPage({
             </div>
           ) : null}
           {changes == null ? (
-            <Note size="caption">{weightDates.length >= 2 ? changeCopy.unavailable : changeCopy.empty}</Note>
+            <Note size="caption">{chartDates.length >= 2 ? changeCopy.unavailable : changeCopy.empty}</Note>
           ) : (
             <>
               <DataTable rows={shownChanges} getRowKey={(c) => c.key} caption={changeCopy.title} columns={changeColumns} emptyMessage={changeCopy.empty} />
