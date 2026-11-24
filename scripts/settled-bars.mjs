@@ -113,4 +113,84 @@ function coveredSession(rows, quorum = 5) {
   return covered
 }
 
-export { withoutUnsettledBar, newestSettledSession, coveredSession }
+/**
+ * Fill the newest bar's close when Yahoo left it empty after its session ended.
+ *
+ * For a while after a Korean session closes, Yahoo returns that day's bar with a
+ * null close while `meta.regularMarketPrice` already holds the settled price. The
+ * row was then dropped as non-finite; on 2026-11-23 that left most Korean stocks
+ * without a close for the session, and the daily snapshot valued them at the
+ * close before it.
+ *
+ * Filled only when the bar's session is over (the last trade is at or after its
+ * bell, or the trading period has already moved to a later session) and the
+ * market price is from that same day. Otherwise the bar stays empty and is
+ * dropped as before. A close Yahoo gave is never replaced.
+ */
+function withSettledLastClose(bars, meta) {
+  if (bars.length === 0) return bars
+  const last = bars[bars.length - 1]
+  if (last.close != null && Number.isFinite(Number(last.close))) return bars
+  const price = Number(meta?.regularMarketPrice)
+  const lastTrade = Number(meta?.regularMarketTime)
+  const start = Number(meta?.currentTradingPeriod?.regular?.start)
+  const bell = Number(meta?.currentTradingPeriod?.regular?.end)
+  if (!Number.isFinite(price) || price <= 0 || !Number.isFinite(lastTrade)) return bars
+  const isoDate = (seconds) => new Date(seconds * 1000).toISOString().slice(0, 10)
+  if (isoDate(lastTrade) !== last.price_date) return bars
+  const periodMovedOn = Number.isFinite(start) && isoDate(start) > last.price_date
+  const atOrAfterBell = Number.isFinite(bell) && lastTrade >= bell
+  if (!periodMovedOn && !atOrAfterBell) return bars
+  return [...bars.slice(0, -1), { ...last, close: price }]
+}
+
+/**
+ * The close of the last session before `quoteDate`, from daily bars sorted by
+ * date: the price a day's change is measured against. Null when none is earlier.
+ */
+function previousSessionClose(bars, quoteDate) {
+  for (let index = bars.length - 1; index >= 0; index -= 1) {
+    const bar = bars[index]
+    const close = Number(bar.close)
+    if (bar.price_date < quoteDate && bar.close != null && Number.isFinite(close) && close > 0) return { close, date: bar.price_date }
+  }
+  return null
+}
+
+/**
+ * The newest Korean session that could have a settled close, as a date. The KRX
+ * regular session ends at 15:30 KST, 06:30 UTC, and a KST trading date equals the
+ * UTC date of its bars. Weekends walk back to Friday; holidays are not known and
+ * at worst cost one extra refetch.
+ */
+function newestSettledKrSession(now = new Date()) {
+  const d = new Date(now.getTime())
+  if (d.getUTCHours() * 60 + d.getUTCMinutes() < 6 * 60 + 30) d.setUTCDate(d.getUTCDate() - 1)
+  while (d.getUTCDay() === 0 || d.getUTCDay() === 6) d.setUTCDate(d.getUTCDate() - 1)
+  return d.toISOString().slice(0, 10)
+}
+
+/**
+ * The newest Korean session that nearly every recently traded Korean stock has a
+ * close for. Unlike the US check this cannot be a quorum of rows: on 2026-11-23,
+ * the ETFs had the new close and most stocks did not, and a quorum read that as
+ * covered. A ticker whose newest close is more than 30 days older than the
+ * newest Korean close stopped trading (delisted or sold out of) and does not count.
+ */
+function coveredKrSession(rows, share = 0.9) {
+  const newestByTicker = new Map()
+  for (const row of rows ?? []) {
+    if (row?.market !== 'KR' || row.currency !== 'KRW' || !row.price_date) continue
+    const current = newestByTicker.get(row.ticker)
+    if (!current || row.price_date > current) newestByTicker.set(row.ticker, row.price_date)
+  }
+  if (newestByTicker.size === 0) return ''
+  const dates = [...newestByTicker.values()].sort()
+  const newest = dates[dates.length - 1]
+  const cutoff = new Date(Date.parse(`${newest}T00:00:00Z`) - 30 * 86400000).toISOString().slice(0, 10)
+  const active = dates.filter((date) => date >= cutoff)
+  // The date that at least `share` of the active tickers have reached.
+  return active[Math.floor(active.length * (1 - share))] ?? ''
+}
+
+export { withoutUnsettledBar, newestSettledSession, coveredSession, withSettledLastClose, previousSessionClose, newestSettledKrSession, coveredKrSession }
