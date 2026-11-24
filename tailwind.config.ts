@@ -69,7 +69,8 @@ const config: Config = {
       fontSize: {
         'role-page': ['var(--t-page)', { lineHeight: 'var(--lh-page)' }],
         'role-page-narrow': ['var(--t-page-narrow)', { lineHeight: 'var(--lh-page)' }],
-        'role-ui': ['var(--t-ui)', { lineHeight: 'var(--lh-ui)' }],
+        'role-panel': ['var(--t-panel)', { lineHeight: 'var(--lh-panel)' }],
+        'role-ui':['var(--t-ui)', { lineHeight: 'var(--lh-ui)' }],
         'role-meta': ['var(--t-meta)', { lineHeight: 'var(--lh-meta)' }],
         micro: '10px',
         label: '11px',

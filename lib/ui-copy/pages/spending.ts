@@ -25,6 +25,11 @@ export const spending = defineCopy({
     monthsRecorded: 'Months recorded',
     notAvailable: 'n/a',
     views: { summary: 'Summary', transactions: 'Transactions', review: 'Data review' },
+    viewDescriptions: {
+      summary: 'Net spending for the period, by month and category.',
+      transactions: 'Each spending transaction, filterable by month and category.',
+      review: 'Holds and uncategorized rows that need a decision.',
+    },
     filterPeriod: 'Period',
     filterMonth: 'Month',
     filterKinds: 'Rows',
@@ -152,6 +157,11 @@ export const spending = defineCopy({
     monthsRecorded: '기록된 달',
     notAvailable: '해당 없음',
     views: { summary: '요약', transactions: '거래', review: '데이터 검토' },
+    viewDescriptions: {
+      summary: '기간 순지출을 월별·카테고리별로 봅니다.',
+      transactions: '지출 거래를 하나씩, 월·카테고리로 걸러 봅니다.',
+      review: '확인이 필요한 보류·미분류 거래입니다.',
+    },
     filterPeriod: '기간',
     filterMonth: '월',
     filterKinds: '거래',
