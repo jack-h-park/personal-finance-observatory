@@ -57,6 +57,23 @@ test('a revoked token is reissued once on 401', async () => {
   assert.equal(toss.calls.tokens, 2)
 })
 
+test('a 403 naming the token is reissued once, a 403 for the IP is not', async () => {
+  const calls = { tokens: 0 }
+  const fetchImpl = async (url, options = {}) => {
+    if (new URL(url).pathname === '/oauth2/token') {
+      calls.tokens += 1
+      return new Response(JSON.stringify({ access_token: `tok-${calls.tokens}`, expires_in: 86400 }), { status: 200 })
+    }
+    if (options.headers.Authorization === 'Bearer tok-1') return new Response(JSON.stringify({ error: 'invalid-token' }), { status: 403 })
+    return new Response(JSON.stringify({ result: [{ symbol: 'A', lastPrice: '1', timestamp: '2030-03-12T10:00:00+09:00' }] }), { status: 200 })
+  }
+  assert.equal((await createTossClient({ env: env('forbidden-token'), fetchImpl }).prices(['A'])).size, 1)
+  assert.equal(calls.tokens, 2)
+  const ipBlocked = fakeToss({ failPrices: 'ip-not-allowed' })
+  await assert.rejects(createTossClient({ env: env('forbidden-ip'), fetchImpl: ipBlocked.fetchImpl }).prices(['A']), /ip-not-allowed/)
+  assert.equal(ipBlocked.calls.tokens, 1, 'no reissue for an IP refusal')
+})
+
 test('symbols are requested in batches of 200', async () => {
   const toss = fakeToss()
   const symbols = Array.from({ length: 450 }, (_, i) => String(i).padStart(6, '0'))

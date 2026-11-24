@@ -39,10 +39,37 @@ test('a stock without NXT trading keeps the KRX close, not its last regular trad
   assert.equal(chooseQuote('KR', yahoo, toss).source, 'yahoo')
 })
 
-test('either source alone is kept', () => {
-  assert.equal(chooseQuote('US', null, { price: 10, quotedAt: '2030-03-12T21:00:00Z' }).source, 'toss')
+test('a Toss quote alone is kept only inside the session', () => {
+  assert.equal(chooseQuote('US', null, { price: 10, quotedAt: '2030-03-12T15:00:00Z' }).source, 'toss', '11:00 EDT')
+  assert.equal(chooseQuote('US', null, { price: 10, quotedAt: '2030-03-12T21:00:00Z' }), null, '17:00 EDT is after hours')
   assert.equal(chooseQuote('US', { price: 10, atMs: ms('2030-03-12T21:00:00Z') }, null).source, 'yahoo')
   assert.equal(chooseQuote('US', null, null), null)
+})
+
+test('a Yahoo price without a time is still kept', () => {
+  const quote = chooseQuote('KR', { price: 100, atMs: NaN }, null)
+  assert.equal(quote.source, 'yahoo')
+  assert.equal(quote.price, 100)
+})
+
+test("Yahoo's trading period decides a half day", () => {
+  // The day after Thanksgiving closes at 13:00 ET; 14:10 is after hours.
+  const period = { start: ms('2030-11-29T14:30:00Z') / 1000, end: ms('2030-11-29T18:00:00Z') / 1000 }
+  const yahoo = { price: 100, atMs: ms('2030-11-29T18:00:00Z'), period }
+  assert.equal(chooseQuote('US', yahoo, { price: 99, quotedAt: '2030-11-29T19:10:00Z' }).source, 'yahoo')
+  assert.equal(inRegularSession(ms('2030-11-29T19:10:00Z'), 'US'), true, 'the fixed table alone would have let it in')
+  assert.equal(inRegularSession(ms('2030-11-29T19:10:00Z'), 'US', period), false)
+})
+
+test('the bell minute counts only up to the bell second', () => {
+  assert.equal(inRegularSession(ms('2030-03-12T15:30:00+09:00'), 'KR'), true)
+  assert.equal(inRegularSession(ms('2030-03-12T15:30:01+09:00'), 'KR'), false)
+})
+
+test('a Toss quote outside the session stays as the alternate for reference', () => {
+  const quote = chooseQuote('KR', { price: 100, atMs: ms('2030-03-12T15:30:09+09:00') }, { price: 96, quotedAt: '2030-03-12T19:59:59+09:00' })
+  assert.equal(quote.source, 'yahoo')
+  assert.equal(quote.alternate.price, 96)
 })
 
 test('divergence is reported only when both quotes are inside the session', () => {

@@ -14,6 +14,8 @@ export const TOSS_BASE = process.env.TOSS_OPENAPI_BASE || 'https://openapi.tossi
 const EXPIRY_MARGIN_MS = 10 * 60 * 1000
 /** `/api/v1/prices` takes at most this many symbols per call. */
 export const PRICES_BATCH = 200
+/** A Toss call that hangs must not hold the refresh lock for minutes. */
+const REQUEST_TIMEOUT_MS = 20 * 1000
 
 export function tossTokenCachePath(env = process.env) {
   return env.TOSS_TOKEN_CACHE || path.join(os.homedir(), '.config', 'stock-portfolio-observatory', 'toss-token.json')
@@ -35,6 +37,12 @@ function writeCachedToken(file, clientId, accessToken, expiresAt) {
   const temp = `${file}.${process.pid}.tmp`
   fs.writeFileSync(temp, `${JSON.stringify({ clientId, accessToken, expiresAt })}\n`, { mode: 0o600 })
   fs.renameSync(temp, file)
+}
+
+function tokenRejected(status, body) {
+  if (status === 401) return true
+  // A 403 for the IP allowlist is not fixed by a new token; one naming the token is.
+  return status === 403 && /token/i.test(body) && !/ip-not-allowed|ip address/i.test(body)
 }
 
 function describeError(status, body) {
@@ -61,6 +69,7 @@ export function createTossClient({ env = process.env, fetchImpl = fetch, now = (
   async function issueToken() {
     const res = await fetchImpl(`${base}/oauth2/token`, {
       method: 'POST',
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({ grant_type: 'client_credentials', client_id: clientId, client_secret: clientSecret }),
     })
@@ -78,12 +87,22 @@ export function createTossClient({ env = process.env, fetchImpl = fetch, now = (
     return token
   }
 
-  /** GET a JSON path; a 401 (revoked or expired token) reissues the token once. */
+  /**
+   * GET a JSON path. A rejected token (401, or 403 naming the token rather than
+   * the IP) is dropped from the cache and reissued once; another run with the
+   * same credentials elsewhere would have revoked it.
+   */
   async function get(pathAndQuery, headers = {}) {
     for (let attempt = 0; attempt < 2; attempt += 1) {
-      const res = await fetchImpl(`${base}${pathAndQuery}`, { headers: { ...headers, Authorization: `Bearer ${await accessToken()}` } })
+      const res = await fetchImpl(`${base}${pathAndQuery}`, {
+        headers: { ...headers, Authorization: `Bearer ${await accessToken()}` },
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      })
       const body = await res.text()
-      if (res.status === 401 && attempt === 0) {
+      if (attempt === 0 && tokenRejected(res.status, body)) {
+        try {
+          fs.rmSync(cachePath, { force: true })
+        } catch {}
         token = await issueToken()
         continue
       }

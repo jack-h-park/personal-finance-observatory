@@ -34,33 +34,13 @@ if (!CLIENT_ID || !CLIENT_SECRET) {
   process.exit(1)
 }
 
-
-async function api(url, options = {}) {
-  const res = await fetch(url, options)
-  const body = await res.text()
-  if (!res.ok) {
-    let detail = body.slice(0, 300)
-    try {
-      const parsed = JSON.parse(body)
-      detail = parsed.error_description || parsed.error?.message || detail
-      if (parsed.error === 'access_denied' && /IP/i.test(parsed.error_description ?? '')) {
-        detail += ' — the credentials are valid; this machine\'s public IP is not on the Toss allowlist'
-      }
-    } catch {}
-    throw new Error(`${res.status} ${url.replace(BASE, '')}: ${detail}`)
-  }
-  return JSON.parse(body)
-}
-
 async function main() {
 // The cached token the price fetches share (toss-client.mjs): issuing a fresh
 // one here would revoke theirs, since Toss keeps one valid token per client.
-// The first call goes through the client, which reissues the token once on a
-// 401 (a cached token that was revoked), so the calls below get a live one.
+// Every call goes through the client, which reissues the token once when Toss
+// rejects a cached one (revoked by a run elsewhere with the same credentials).
 const tossClient = createTossClient()
 const accountsRaw = await tossClient.get('/api/v1/accounts')
-const token = await tossClient.accessToken()
-const auth = { Authorization: `Bearer ${token}` }
 const accounts = accountsRaw.result ?? accountsRaw
 const list = Array.isArray(accounts) ? accounts : [accounts]
 if (!list.length) {
@@ -72,8 +52,9 @@ const snapshot = { fetchedAt: new Date().toISOString(), base: BASE, accounts: []
 
 for (const account of list) {
   const seq = account.accountSeq
-  const headers = { ...auth, 'X-Tossinvest-Account': String(seq) }
-  const holdings = (await api(`${BASE}/api/v1/holdings`, { headers })).result
+  // The client adds the bearer token, and reissues it once if Toss rejects it.
+  const headers = { 'X-Tossinvest-Account': String(seq) }
+  const holdings = (await tossClient.get(`/api/v1/holdings`, headers)).result
 
   // Every closed order, oldest included: `from`/`to` omitted means the whole
   // period. The cursor is followed to exhaustion because a truncated history
@@ -85,7 +66,7 @@ for (const account of list) {
   do {
     const query = new URLSearchParams({ status: 'CLOSED', limit: '100' })
     if (cursor) query.set('cursor', cursor)
-    const page = (await api(`${BASE}/api/v1/orders?${query}`, { headers })).result
+    const page = (await tossClient.get(`/api/v1/orders?${query}`, headers)).result
     orders.push(...(page.orders ?? []))
     cursor = page.hasNext ? page.nextCursor : null
     pages += 1
@@ -111,7 +92,7 @@ for (const account of list) {
   const securities = []
   for (let i = 0; i < symbols.length; i += 50) {
     const query = new URLSearchParams({ symbols: symbols.slice(i, i + 50).join(',') })
-    securities.push(...((await api(`${BASE}/api/v1/stocks?${query}`, { headers })).result ?? []))
+    securities.push(...((await tossClient.get(`/api/v1/stocks?${query}`, headers)).result ?? []))
   }
   const unresolved = symbols.filter((s) => !securities.some((sec) => sec.symbol === s))
   if (unresolved.length) {
@@ -138,7 +119,7 @@ if (process.env.STOCK_TOSS_SHADOW_ENABLED === '1' && process.env.STOCK_TOSS_SHAD
   let result = { status: 'absent' }, request
   try {
     request = BASE === 'https://openapi.tossinvest.com' ? claimShadowRequest(process.env) : { status: 'invalid_configuration' }
-    result = request.status === 'claimed' ? await runShadowHandoff(token) : request
+    result = request.status === 'claimed' ? await runShadowHandoff(await tossClient.accessToken()) : request
   } catch { result = { status: 'failed' } }
   if (request?.status === 'claimed' && recordShadowResult(request.claimedPath, result.status).status !== 'recorded') console.error('[toss-shadow] result_write_failed')
   if (result.status !== 'absent') console.error(`[toss-shadow] ${result.status}`)
