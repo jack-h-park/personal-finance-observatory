@@ -3,7 +3,7 @@ import Link from 'next/link'
 
 // The tab bar is the page-level switch, so it reads above the filters under
 // it: panel-size semibold labels, a 3px indicator, readable unselected labels.
-const ITEM_BASE = '-mb-px inline-flex min-h-11 shrink-0 items-center whitespace-nowrap border-b-[3px] px-4 text-role-panel font-semibold'
+const ITEM_BASE = 'inline-flex min-h-11 shrink-0 items-center whitespace-nowrap border-b-[3px] px-4 text-role-panel font-semibold'
 const ITEM_ACTIVE = 'border-info text-ink'
 const ITEM_INACTIVE = 'border-transparent text-ink-2 hover:text-ink'
 
@@ -30,7 +30,7 @@ export function Tabs<K extends string>({
   const description = items.find((item) => item.key === current)?.description
   return (
     <div className="mb-6">
-      <nav aria-label={label} className="flex gap-1 overflow-x-auto border-b border-line-subtle">
+      <nav aria-label={label} className="flex gap-1 overflow-x-auto overflow-y-hidden border-b border-line-subtle">
         {items.map((item) => (
           <Link
             key={item.key}

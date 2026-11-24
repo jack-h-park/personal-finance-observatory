@@ -324,11 +324,11 @@ test('LinkChips as="group" wraps in a labelled role=group div', () => {
   assert.ok(html.startsWith('<div role="group" aria-label="G" class="flex flex-wrap items-center justify-end gap-1">'), html)
 })
 
-const TAB_BASE = '-mb-px inline-flex min-h-11 shrink-0 items-center whitespace-nowrap border-b-[3px] px-4 text-role-panel font-semibold'
+const TAB_BASE = 'inline-flex min-h-11 shrink-0 items-center whitespace-nowrap border-b-[3px] px-4 text-role-panel font-semibold'
 
 test('Tabs nav and items', () => {
   const html = renderToStaticMarkup(h(Tabs, { label: 'P', items: [{ key: 's', href: '/p?tab=s', label: 'S' }, { key: 't', href: '/p?tab=t', label: 'T' }], current: 's' }))
-  assert.ok(html.startsWith('<div class="mb-6"><nav aria-label="P" class="flex gap-1 overflow-x-auto border-b border-line-subtle">'), html)
+  assert.ok(html.startsWith('<div class="mb-6"><nav aria-label="P" class="flex gap-1 overflow-x-auto overflow-y-hidden border-b border-line-subtle">'), html)
   assert.ok(html.endsWith('</nav></div>'), html)
   const tags = html.match(/<a [^>]*>/g) ?? []
   assert.equal(tags.length, 2)
