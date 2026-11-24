@@ -5,7 +5,7 @@ import { FilterBar } from '@/components/FilterBar'
 import { Badge, Card, marketTone } from '@/components/ui'
 import { Total, TotalsStrip } from '@/components/layout'
 import { getTaxLots } from '@/lib/adapters/portfolio-db'
-import { createMoneyFormatter } from '@/lib/currency'
+import { createMoneyFormatter, formatMoneyIn } from '@/lib/currency'
 import { getCurrencyPreferences } from '@/lib/currency-server'
 import { fmtNumber, fmtQuantity } from '@/lib/format'
 import { getLanguage } from '@/lib/i18n-server'
@@ -74,7 +74,7 @@ export default async function LotsPage({
     },
     { key: 'acquired_date', label: copy.columns.acquired, priority: 'secondary', sortable: true, nowrap: true },
     { key: 'open_quantity', label: copy.columns.quantity, align: 'right', sortable: true, render: (r) => fmtNumber(r.open_quantity, 2) },
-    { key: 'native_cost_basis', label: copy.columns.costBasis, priority: 'secondary', align: 'right', sortable: true, render: (r) => money(r.native_cost_basis, r.currency) },
+    { key: 'native_cost_basis', label: copy.columns.costBasis, priority: 'secondary', align: 'right', sortable: true, render: (r) => formatMoneyIn(r.native_cost_basis, r.currency) },
     { key: 'cost_basis_krw', label: copy.columns.baseCost, priority: 'tertiary', align: 'right', sortable: true, render: (r) => money(r.cost_basis_krw, 'KRW') },
     { key: 'holding_days', label: copy.columns.days, align: 'right', sortable: true },
     { key: 'tax_term', label: copy.columns.term, sortable: true, sortFirst: 'asc', render: (r) => <Badge tone={bucketTone(r.tax_term)}>{copy.terms[r.tax_term] ?? r.tax_term ?? copy.unknownTerm}</Badge> },

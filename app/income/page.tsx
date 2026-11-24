@@ -4,7 +4,7 @@ import { TrendBarChart } from '@/components/charts'
 import { Badge, Card, EmptyState, HeroAside, MetricField, MetricHeroCard, Note, marketTone } from '@/components/ui'
 import { getIncomeReview } from '@/lib/adapters/portfolio-db'
 import { EMPTY_VALUE, fmtNumber, fmtPct } from '@/lib/format'
-import { createMoneyFormatter } from '@/lib/currency'
+import { createMoneyFormatter, formatMoneyIn } from '@/lib/currency'
 import { getCurrencyPreferences } from '@/lib/currency-server'
 import { getGlossary } from '@/lib/glossary'
 import { getLanguage } from '@/lib/i18n-server'
@@ -115,7 +115,7 @@ export default async function IncomePage() {
                 <Badge tone={marketTone(row.market)}>{row.market}</Badge>
                 <div className="min-w-0 flex-1">
                   <div className="font-medium tabular-nums text-ink">{money(row.base_income, income.currency)}</div>
-                  <div className="text-label text-ink-3">{money(row.native_income, row.currency)} {copy.native} · {fmtNumber(row.row_count)} {copy.rows}</div>
+                  <div className="text-label text-ink-3">{formatMoneyIn(row.native_income, row.currency)} {copy.native} · {fmtNumber(row.row_count)} {copy.rows}</div>
                 </div>
               </li>
             ))}
@@ -166,7 +166,7 @@ export default async function IncomePage() {
               { key: 'year', label: copy.columns.year },
               { key: 'currency', label: copy.columns.currency },
               { key: 'row_count', label: copy.columns.rows, align: 'right', render: (r) => fmtNumber(r.row_count) },
-              { key: 'native_income', label: copy.columns.native, align: 'right', render: (r) => money(r.native_income, r.currency) },
+              { key: 'native_income', label: copy.columns.native, align: 'right', render: (r) => formatMoneyIn(r.native_income, r.currency) },
               { key: 'base_income', label: copy.columns.base, align: 'right', render: (r) => money(r.base_income, income.currency) },
             ]}
           />
@@ -184,7 +184,7 @@ export default async function IncomePage() {
                 render: (r) => <PositionCell market={r.market} ticker={r.ticker} name={r.name} />,
               },
               { key: 'row_count', priority: 'secondary', label: copy.columns.rows, align: 'right', render: (r) => fmtNumber(r.row_count) },
-              { key: 'native_income', priority: 'secondary', label: copy.columns.nativeIncome, align: 'right', render: (r) => money(r.native_income, r.currency) },
+              { key: 'native_income', priority: 'secondary', label: copy.columns.nativeIncome, align: 'right', render: (r) => formatMoneyIn(r.native_income, r.currency) },
               { key: 'base_income', label: copy.columns.baseIncome, align: 'right', render: (r) => money(r.base_income, income.currency) },
               { key: 'market_value', priority: 'secondary', label: copy.columns.marketValue, align: 'right', render: (r) => (r.market_value == null ? EMPTY_VALUE : money(r.market_value)) },
               { key: 'trailing_yield', label: copy.columns.yield, align: 'right', render: (r) => fmtPct(r.trailing_yield) },
@@ -204,7 +204,7 @@ export default async function IncomePage() {
                 { key: 'type', label: copy.columns.type, render: (r) => labelFor(transactionTypes, r.type) },
                 { key: 'name', label: copy.columns.name },
                 { key: 'row_count', priority: 'secondary', label: copy.columns.rows, align: 'right', render: (r) => fmtNumber(r.row_count) },
-                { key: 'native_income', priority: 'secondary', label: copy.columns.native, align: 'right', render: (r) => money(r.native_income, r.currency) },
+                { key: 'native_income', priority: 'secondary', label: copy.columns.native, align: 'right', render: (r) => formatMoneyIn(r.native_income, r.currency) },
                 { key: 'base_income', label: copy.columns.base, align: 'right', render: (r) => money(r.base_income, income.currency) },
               ]}
             />

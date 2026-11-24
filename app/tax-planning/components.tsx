@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { createSavedTaxPlanAction } from '@/app/tax-planning/actions'
 import { DataTable } from '@/components/DataTable'
 import { Badge, Callout, Card, EmptyState, Label, MetricField, Note, Panel, SectionHeading, Signed, type Tone } from '@/components/ui'
-import type { createMoneyFormatter } from '@/lib/currency'
+import { formatMoneyIn, type createMoneyFormatter } from '@/lib/currency'
 import { fmtDateShort, fmtDateTime, fmtDurationDays, fmtNumber, fmtPct, fmtQuantity, fmtSigned } from '@/lib/format'
 import type { Language } from '@/lib/i18n'
 import type { MonthlySaleMasterPlan, MonthlySalePlanSet, TaxPlanCandidate, MasterPlanStrategyKey } from '@/lib/tax-planning'
@@ -33,7 +33,7 @@ export function CandidateTable({ rows, copy, money }: { rows: TaxPlanCandidate[]
         { key: 'acquired_date', label: copy.candidateTable.acquired },
         { key: 'holdingBucket', label: copy.candidateTable.term, render: (r) => <Badge tone={bucketTone(r.holdingBucket)}>{copy.enums.holdingBucket[r.holdingBucket] ?? r.holdingBucket}</Badge> },
         { key: 'open_quantity', label: copy.candidateTable.quantity, align: 'right', render: (r) => fmtQuantity(r.open_quantity, 4) },
-        { key: 'proceedsNative', label: copy.candidateTable.proceeds, align: 'right', render: (r) => (r.proceedsNative == null ? copy.candidateTable.notAvailable : money(r.proceedsNative, r.currency)) },
+        { key: 'proceedsNative', label: copy.candidateTable.proceeds, align: 'right', render: (r) => (r.proceedsNative == null ? copy.candidateTable.notAvailable : formatMoneyIn(r.proceedsNative, r.currency)) },
         { key: 'gainKrw', label: copy.candidateTable.baseGainLoss, align: 'right', render: (r) => <Signed value={r.gainKrw} format={(m) => money(m, 'KRW')} /> },
         { key: 'estimatedTaxKrw', label: copy.candidateTable.grossLotTax, align: 'right', render: (r) => money(r.estimatedTaxKrw) },
         { key: 'estimatedAfterTaxKrw', label: copy.candidateTable.afterTax, align: 'right', render: (r) => (r.estimatedAfterTaxKrw == null ? copy.candidateTable.notAvailable : money(r.estimatedAfterTaxKrw)) },

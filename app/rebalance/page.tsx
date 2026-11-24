@@ -4,7 +4,7 @@ import { PageHeader } from '@/components/PageHeader'
 import { Badge, Card, EmptyState, FormError, HeroAside, MetricField, MetricHeroCard, Note, Panel, Signed, TextLink, marketTone } from '@/components/ui'
 import { getOperationalHealth, getRebalanceReview } from '@/lib/adapters/portfolio-db'
 import { EMPTY_VALUE, fmtNumber, fmtPct, fmtPctRange } from '@/lib/format'
-import { createMoneyFormatter } from '@/lib/currency'
+import { createMoneyFormatter, formatMoneyIn } from '@/lib/currency'
 import { getCurrencyPreferences } from '@/lib/currency-server'
 import { getGlossary } from '@/lib/glossary'
 import { getLanguage } from '@/lib/i18n-server'
@@ -176,7 +176,7 @@ export default async function RebalancePage({ searchParams }: { searchParams: Pr
                 columns={[
                   { key: 'ticker', label: copy.columns.position, render: (r) => <PositionCell market={r.market} ticker={r.ticker} name={r.name} /> },
                   { key: 'base_cost', label: copy.columns.baseCost, align: 'right', render: (r) => money(r.base_cost) },
-                  { key: 'native_cost', label: copy.columns.nativeCost, align: 'right', render: (r) => money(r.native_cost, r.currency) },
+                  { key: 'native_cost', label: copy.columns.nativeCost, align: 'right', render: (r) => formatMoneyIn(r.native_cost, r.currency) },
                   { key: 'reason', label: copy.columns.reason, render: (r) => copy.reasons[r.reasonCode] },
                 ]}
               />
