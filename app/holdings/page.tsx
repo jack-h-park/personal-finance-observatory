@@ -16,7 +16,6 @@ import { Label } from '@/components/metric'
 import { DivergingBarList, RankedBarList } from '@/components/RankedBars'
 import { aggregateSecurities, concentration, gainContributors, securityWeights } from '@/lib/holdings-composition'
 import { getHoldings, getOperationalHealth, getPositionTrendRows, type FreshnessItem } from '@/lib/adapters/portfolio-db'
-import { LinkChip } from '@/components/LinkChips'
 import { groupBySecurity, holdingWeight, trendChangePct, trendDates, trendSeries, weightTotal, type GroupAccount } from '@/lib/holdings-view'
 import { marketColor } from '@/lib/palette'
 import { DivergingBar, InlineBar, ShareBar } from '@/components/bars'
@@ -343,27 +342,34 @@ export default async function HoldingsPage({
             basePath={BASE}
             params={params}
             search={{ key: 'q', label: labels.search, placeholder: copy.searchPlaceholder, value: query }}
-            groups={GROUPS.map((group) => ({
-              key: group.key,
-              label: groupLabels[group.key] ?? group.label,
-              // The status column stores a machine value; the chip shows the
-              // wording, and the URL keeps the value.
-              options: options[group.key].map((value: string) => ({
-                value,
-                label: group.key === 'status' ? (copy.costStatus[value] ?? value) : value,
+            groups={[
+              ...GROUPS.map((group) => ({
+                key: group.key,
+                label: groupLabels[group.key] ?? group.label,
+                // The status column stores a machine value; the chip shows the
+                // wording, and the URL keeps the value.
+                options: options[group.key].map((value: string) => ({
+                  value,
+                  label: group.key === 'status' ? (copy.costStatus[value] ?? value) : value,
+                })),
+                selected: selected[group.key],
               })),
-              selected: selected[group.key],
-            }))}
+              {
+                // Regroups the rows rather than narrowing them: last, set apart, and never counted as a filter.
+                // (Label before key: tests/holdings-columns.test.ts reads `key: …, label: copy.` as a table column.)
+                label: copy.rowsFilter,
+                key: 'group',
+                options: [
+                  { value: 'account', label: copy.perAccount },
+                  { value: 'security', label: copy.perSecurity },
+                ],
+                selected: perSecurity ? 'security' : 'account',
+                defaultValue: 'account',
+                countsAsFilter: false,
+                separated: true,
+              },
+            ]}
           />
-          <div className="flex flex-wrap items-center gap-1">
-            <span className="mr-1 text-label text-ink-3">{copy.rowsFilter}</span>
-            <LinkChip href={withParam(BASE, params, 'group', null)} active={!perSecurity}>
-              {copy.perAccount}
-            </LinkChip>
-            <LinkChip href={withParam(BASE, params, 'group', 'security')} active={perSecurity}>
-              {copy.perSecurity}
-            </LinkChip>
-          </div>
           <TotalsStrip columns="sm-4">
             <Total label={copy.filtered} value={<>{fmtNumber(filtered.length)} / {fmtNumber(perSecurity ? new Set(rows.map((r) => `${r.market}:${r.ticker}`)).size : rows.length)}</>} />
             <Total label={copy.costBasis} value={totals.cost == null ? labels.noValue : money(totals.cost, 'KRW')} />
