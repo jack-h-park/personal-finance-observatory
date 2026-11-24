@@ -5,7 +5,7 @@ import { Badge, Card, Label, Note } from '@/components/ui'
 import { CardRow, Columns, KpiBand } from '@/components/layout'
 import { TotalAssetsChangeField } from '@/components/TotalAssetsChangeField'
 import { StackedAssetChart } from '@/components/charts'
-import { getAssetCoverageReview, getAssetAllocation, getAssetEvents, getChildAssets, getHoldings, getMeta, getNetWorth, getPortfolioSnapshots, getPositionSnapshots, getRealizedGains, getSnapshotDates, getTotalAssetsSeries, getValuationBasis, portfolioToday } from '@/lib/adapters/portfolio-db'
+import { getAssetCoverageReview, getAssetAllocation, getAssetEvents, getChildAssets, getHoldings, getMeta, getNetWorth, getPortfolioSnapshots, getPositionSnapshots, getRealizedGains, getSnapshotDates, getTotalAssetsSeries, getTotalValuationBasis, portfolioToday } from '@/lib/adapters/portfolio-db'
 import { ValuationBasisStrip } from '@/components/ValuationBasisStrip'
 import { convertMoney, createMoneyFormatter, formatKrw, formatUsd } from '@/lib/currency'
 import { getCurrencyPreferences } from '@/lib/currency-server'
@@ -88,9 +88,7 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
   // What the total is valued as of: each price file, the rate and the cash balance dates.
   // Crypto and gold only when the portfolio holds them, so an absent class shows no missing price.
   const coverageReview = getAssetCoverageReview(netWorth)
-  const valuationBasis = getValuationBasis({ cash: coverageReview?.cash ?? null, withGold: netWorth.byClass.gold !== 0 }).filter(
-    (item) => item.key !== 'CRYPTO' || netWorth.byClass.crypto !== 0
-  )
+  const valuationBasis = getTotalValuationBasis(netWorth, coverageReview)
   const investmentPoints: InvestmentPoint[] = portfolioSnapshots.map((row) => ({
     date: row.snapshot_date,
     unrealized: row.global_base_unrealized_gl,

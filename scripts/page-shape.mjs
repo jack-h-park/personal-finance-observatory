@@ -24,6 +24,8 @@ export const SHAPE_ROUTES = [
   { path: '/positions/KR/005930', lead: '#position-lead' },
   { path: '/cash-inflow', lead: '#cash-inflow-lead' },
   { path: '/review', lead: '#review-summary' },
+  // The trend card leads; the coverage panel that used to sit above it is on /health now.
+  { path: '/net-worth', lead: '#net-worth-trend' },
   // Served only where a spending ledger or snapshot is configured; a 404 is skipped, not failed.
   { path: '/spending', lead: '#spending-lead', optional: true },
 ]

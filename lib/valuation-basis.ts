@@ -43,8 +43,10 @@ export type ValuationBasisItem = {
   exchanges: string[]
   priced: number
   missing: number
-  /** The rate (FX) or the price per gram (gold). */
+  /** The rate (FX), the price per gram (gold), or one security's price (position page). */
   value?: number
+  /** The currency of a security's price. */
+  currency?: string
   cashRange?: CashRange
 }
 
@@ -194,4 +196,19 @@ export function buildValuationBasis(input: ValuationBasisInput): ValuationBasisI
   if (input.fx !== undefined) items.push(fxItem(input.fx, now))
   if (input.cash !== undefined) items.push(cashItem(input.cash))
   return items
+}
+
+/**
+ * One security's own quote, for its position page: the price file narrowed to its ticker. A
+ * ticker the file lists as missing has one missing and no quote; one the file does not list
+ * at all has neither, which the view reads as "not in the price file" rather than "no price"
+ * (a broker export or pension snapshot may still price it).
+ */
+export function securityValuationBasis(key: 'KR' | 'US' | 'CRYPTO', file: PriceFile | null, ticker: string, now: Date): ValuationBasisItem[] {
+  if (!file) return buildValuationBasis({ [key.toLowerCase()]: null, now })
+  const prices = list(file.prices).filter((price) => price?.ticker === ticker)
+  const narrowed = { ...file, prices, missing: list(file.missing).filter((entry) => entry === ticker || entry?.ticker === ticker) }
+  const [item] = buildValuationBasis({ [key.toLowerCase()]: narrowed, now })
+  const quote = prices.length === 1 ? prices[0] : null
+  return [quote && typeof quote.price === 'number' ? { ...item, value: quote.price, currency: text(quote.currency) ?? undefined } : item]
 }

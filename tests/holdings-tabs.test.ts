@@ -43,8 +43,8 @@ test('each /holdings tab loads only its own data', () => {
   assert.ok(page.includes('resolveHoldingsView(params.view)'))
   assert.ok(!page.includes('marketMixSeries('))
   assert.ok(!page.includes('positionShares('))
-  // The trend tabs return before the holdings tab's freshness and sparkline reads.
-  assert.ok(page.indexOf("view === 'weights'") < page.indexOf('getOperationalHealth()'))
+  // The trend tabs return before the holdings tab's valuation basis and sparkline reads.
+  assert.ok(page.indexOf("view === 'weights'") < page.indexOf('getValuationBasis('))
   assert.ok(page.indexOf("view === 'weights'") < page.indexOf('getPositionTrendRows()'))
   assert.ok(source('app/holdings/MarketMixView.tsx').includes('marketMixSeries('))
   const weights = source('app/holdings/WeightsView.tsx')

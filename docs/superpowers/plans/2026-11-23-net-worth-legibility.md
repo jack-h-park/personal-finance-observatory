@@ -1,6 +1,6 @@
 # Total assets page (`/net-worth`) — legibility plan
 
-**Status:** 2026-11-23. Follows `2026-11-22-net-worth-redesign.md` (implemented). The owner took the recommended option on all five decisions below. N1–N4 are implemented; N5 is not started.
+**Status:** 2026-11-23. Follows `2026-11-22-net-worth-redesign.md` (implemented). The owner took the recommended option on all five decisions below. N1–N5 are implemented; the plan is complete.
 
 ## Why
 
@@ -123,6 +123,8 @@ type ValuationBasisItem = {
 - Add `/net-worth` with lead `#net-worth-trend` to `SHAPE_ROUTES` in `scripts/page-shape.mjs`, so the lead's top edge (≤ 840px) and the card budget are checked.
 - Reuse `ValuationBasisStrip` on `/holdings` (KR/US/crypto only) and the Overview hero (compact: dots only, popover on tap).
 - Position detail (`/positions/[market]/[ticker]`) gets the per-security row: price, quote time, exchange, provider, or "broker export price as of …" when repricing did not apply.
+
+*As built:* `/net-worth` (`#net-worth-trend`) is in `SHAPE_ROUTES` and `docs/ui-guide.md`; locally it reads 4 cards with the lead at 209–230px. `getTotalValuationBasis()` gives `/net-worth` and the Overview the same chips. The Overview's aside carries them `compact` (dot and name; the date moves into the popover), replacing its FX and stock price sentences, which are deleted along with `getPriceSources()`, `formatPriceBasis()` and `pricesDifferByDate()`. `/holdings` replaces its freshness note with the chips of the markets it holds and the rate. A position page shows its own quote (`securityValuationBasis`: time, exchange, price, provider, and the rate for a US security). A ticker the price file does not list reads "not in the price file" in neutral ink, since a broker export or snapshot may price it; one the file lists as missing warns. The "broker export price as of …" wording is not built: `holdings` does not store `price_as_of`, so the page cannot tell which price a row used (see N1).
 
 ## Decisions (confirmed 2026-11-23)
 

@@ -2,7 +2,7 @@
 // Every date, price and count below is invented.
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { buildValuationBasis, quoteSession, quoteWindow, sourceText } from '../lib/valuation-basis'
+import { buildValuationBasis, quoteSession, quoteWindow, securityValuationBasis, sourceText } from '../lib/valuation-basis'
 import { quoteSessionAt } from '../scripts/market-hours.mjs'
 
 const HOUR = 60 * 60 * 1000
@@ -20,7 +20,7 @@ const krFile = {
   prices: [
     // 15:30:05 KST on Friday: after the bell, a close.
     { ticker: 'A', exchangeName: 'KSC', asOfDate: '2030-01-04', regularMarketTime: epoch('2030-01-04T06:30:05Z') },
-    { ticker: 'B', exchangeName: 'KOE', asOfDate: '2030-01-03', regularMarketTime: epoch('2030-01-03T06:30:01Z') },
+    { ticker: 'B', exchangeName: 'KOE', asOfDate: '2030-01-03', regularMarketTime: epoch('2030-01-03T06:30:01Z'), price: 51000, currency: 'KRW' },
     { ticker: 'C', exchangeName: 'KSC', asOfDate: '2030-01-04', regularMarketTime: epoch('2030-01-04T06:30:02Z') },
   ],
   missing: ['D'],
@@ -150,4 +150,30 @@ test('cash balances carry their date range and are not judged fresh or stale her
   assert.equal(item.status, null)
   assert.deepEqual(item.cashRange, { oldest: '2029-11-01', newest: '2030-01-03', undated: 2 })
   assert.equal(buildValuationBasis({ cash: null, now: SATURDAY })[0].status, 'missing')
+})
+
+test('one security is described by its own quote: time, exchange, price and currency', () => {
+  const [item] = securityValuationBasis('KR', krFile, 'B', SATURDAY)
+  assert.equal(item.key, 'KR')
+  assert.equal(item.marketDate, '2030-01-03')
+  assert.equal(item.quotedNewest, '2030-01-03T06:30:01.000Z')
+  assert.equal(item.quotedOldest, '2030-01-03T06:30:01.000Z')
+  assert.deepEqual(item.exchanges, ['KOE'])
+  assert.equal(item.value, 51000)
+  assert.equal(item.currency, 'KRW')
+  assert.equal(item.priced, 1)
+  assert.equal(item.missing, 0)
+  assert.equal(item.fetchedAt, krFile.generatedAt)
+  assert.equal(item.source, 'Example quotes API')
+})
+
+test('a security the price file lists as missing, or does not list at all, carries no quote', () => {
+  const [missing] = securityValuationBasis('KR', krFile, 'D', SATURDAY)
+  assert.equal(missing.priced, 0)
+  assert.equal(missing.missing, 1)
+  assert.equal(missing.quotedNewest, null)
+  const [absent] = securityValuationBasis('KR', krFile, 'ZZZ', SATURDAY)
+  assert.equal(absent.priced, 0)
+  assert.equal(absent.missing, 0)
+  assert.equal(securityValuationBasis('KR', null, 'A', SATURDAY)[0].status, 'missing')
 })

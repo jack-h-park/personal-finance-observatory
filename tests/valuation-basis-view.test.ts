@@ -87,3 +87,19 @@ test('cash shows its balance date range, is not judged, and counts undated balan
   assert.equal(row(chip, 'Balance dates'), '2029-11-01 – 2030-01-03 · 2 undated')
   assert.equal(row(chip, 'Source'), undefined)
 })
+
+test('a security shows its own price; one not in the file says so in neutral ink; one listed missing warns', () => {
+  const opts = { copy: getPageCopy('netWorth', 'en').valuationBasis, statusLabels: getUiCopy('en').freshness.labels, language: 'en' as const, security: true }
+  const priced = valuationChip({ ...base, key: 'US', quotedNewest: '2030-01-04T21:00:00.000Z', session: 'close', priced: 1, value: 123.45, currency: 'USD' }, opts)
+  assert.equal(priced.summary, '01-04 16:00 ET close')
+  assert.equal(priced.rows.find((r) => r.label === 'Price')?.value, '$123.45')
+  assert.equal(priced.rows.find((r) => r.label === 'Holdings'), undefined)
+  const absent = valuationChip({ ...base, priced: 0, missing: 0 }, opts)
+  assert.equal(absent.summary, 'not in the price file')
+  assert.equal(absent.tone, 'neutral')
+  assert.equal(absent.statusLabel, null)
+  assert.match(absent.rule, /broker export or a snapshot/)
+  const listedMissing = valuationChip({ ...base, priced: 0, missing: 1 }, opts)
+  assert.equal(listedMissing.summary, 'no price')
+  assert.equal(listedMissing.tone, 'warning')
+})
