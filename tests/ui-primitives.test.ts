@@ -255,11 +255,11 @@ const CHIP_INK = 'inline-flex min-h-8 items-center rounded-sm border px-2.5 text
 
 const chipCases: [string, 'info' | 'subtle' | 'ink' | undefined, boolean, string][] = [
   ['info (default) active', undefined, true, `${CHIP_INFO} border-info bg-info/10 text-info`],
-  ['info inactive', 'info', false, `${CHIP_INFO} border-line text-ink-3 hover:border-info hover:text-info`],
+  ['info inactive', 'info', false, `${CHIP_INFO} border-line-control text-ink-2 hover:border-info hover:text-info`],
   ['subtle active', 'subtle', true, `${CHIP_SUBTLE} border-line bg-surface font-medium text-ink`],
   ['subtle inactive', 'subtle', false, `${CHIP_SUBTLE} border-transparent text-ink-3 hover:border-line hover:text-ink`],
   ['ink active', 'ink', true, `${CHIP_INK} border-ink bg-ink text-card`],
-  ['ink inactive', 'ink', false, `${CHIP_INK} border-line bg-card text-ink-2 hover:border-ink-3 hover:bg-surface hover:text-ink`],
+  ['ink inactive', 'ink', false, `${CHIP_INK} border-line-control bg-card text-ink-2 hover:border-ink-3 hover:bg-surface hover:text-ink`],
 ]
 for (const [name, variant, active, expected] of chipCases) {
   test(`LinkChip ${name}`, () => {
