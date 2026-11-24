@@ -57,6 +57,28 @@ test('a row quoted a day older is excluded', () => {
   assert.equal(result.excluded, 1)
 })
 
+test('a newer-dated row without a previous close does not move the session', () => {
+  const result = dayChange([
+    row({ ticker: 'AAA' }),
+    row({ ticker: 'BBB', price: 220, prevClose: 200 }),
+    row({ ticker: 'CCC', quoteDate: '2026-11-21', prevClose: null, prevCloseDate: null })
+  ])
+  assert.equal(result.markets[0].session, '2026-11-20')
+  assert.equal(result.markets[0].changeKrw, 300)
+  assert.equal(result.excluded, 1)
+})
+
+test('a newer-dated USD row missing its previous FX does not move the session', () => {
+  const us = { market: 'US', currency: 'USD', fxNow: 1000, prevFx: 1000 }
+  const result = dayChange([
+    row({ ...us, ticker: 'USA', quantity: 1, price: 11, prevClose: 10 }),
+    row({ ...us, ticker: 'USB', quoteDate: '2026-11-21', prevCloseDate: '2026-11-20', prevFx: null })
+  ])
+  assert.equal(result.markets[0].session, '2026-11-20')
+  assert.equal(result.markets[0].changeKrw, 1000)
+  assert.equal(result.excluded, 1)
+})
+
 test('rows missing a price or a previous close are excluded', () => {
   const result = dayChange([
     row(),

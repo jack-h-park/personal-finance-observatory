@@ -46,19 +46,34 @@ const num = (value: number | null | undefined): number | null => (value == null 
 const percent = (change: number, base: number): number | null => (base === 0 ? null : (change / base) * 100)
 
 /**
+ * Whether a row has every input its change needs: price, previous close and
+ * both dates, and for a non-KRW row both FX rates. Only such rows set a
+ * market's session, so an unvaluable row with a newer date cannot exclude the
+ * correctly quoted ones.
+ */
+function isValuable(row: DayChangeRow): boolean {
+  if (num(row.quantity) == null || num(row.price) == null || num(row.prevClose) == null) return false
+  if (row.quoteDate == null || row.prevCloseDate == null) return false
+  if (row.currency === 'KRW') return true
+  return num(row.fxNow) != null && num(row.prevFx) != null
+}
+
+/**
  * Per market, the change between the newest session's close and the close
  * before it. A market closed today (weekend, holiday) reports its last
- * session, not zero. One market never mixes two sessions: rows quoted before
- * the market's newest quote date are excluded and counted, as are rows with a
- * missing price, close or date, a non-KRW row missing either FX rate, and rows
- * of any market other than KR, US and CRYPTO.
+ * session, not zero. A market's session is the newest quote date among its
+ * rows that can be valued. One market never mixes two sessions: rows quoted
+ * before that date are excluded and counted, as are rows with a missing
+ * price, close or date, a non-KRW row missing either FX rate, and rows of any
+ * market other than KR, US and CRYPTO.
  */
 export function dayChange(rows: readonly DayChangeRow[], limit = 5): DayChange {
   const sessions = new Map<string, string>()
   for (const row of rows) {
-    if (row.quoteDate == null || !(DAY_MARKETS as readonly string[]).includes(row.market)) continue
+    if (!isValuable(row) || !(DAY_MARKETS as readonly string[]).includes(row.market)) continue
+    const quoteDate = row.quoteDate as string
     const known = sessions.get(row.market)
-    if (known == null || row.quoteDate > known) sessions.set(row.market, row.quoteDate)
+    if (known == null || quoteDate > known) sessions.set(row.market, quoteDate)
   }
 
   let excluded = 0
