@@ -18,6 +18,7 @@ export type DayChangeCopy = {
   up: string
   down: string
   excludedNote: (count: string) => string
+  none: string
   empty: string
 }
 
@@ -102,10 +103,10 @@ function Movers({
   money: (krw: number) => string
   pct: (value: number | null) => ReactNode
 }) {
-  if (items.length === 0) return <div />
   return (
     <div>
       <h3 className="mb-1 text-label font-medium text-ink-2">{heading}</h3>
+      {items.length === 0 && <Note size="caption">{copy.none}</Note>}
       <ul className="space-y-1">
         {items.map((item) => (
           <li key={`${item.market}:${item.ticker}`} className="flex items-baseline justify-between gap-3 text-caption">
