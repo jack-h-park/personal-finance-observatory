@@ -11,7 +11,9 @@ import { Panel } from '@/components/card'
 import { Label } from '@/components/metric'
 import { DivergingBarList, RankedBarList } from '@/components/RankedBars'
 import { aggregateSecurities, concentration, gainContributors, securityWeights } from '@/lib/holdings-composition'
-import { getHoldings, getOperationalHealth, getPositionTrendRows, portfolioToday, type FreshnessItem } from '@/lib/adapters/portfolio-db'
+import { getDayChangeRows, getHoldings, getOperationalHealth, getPositionTrendRows, portfolioToday, type FreshnessItem } from '@/lib/adapters/portfolio-db'
+import { DayChangeCard } from '@/components/DayChangeCard'
+import { dayChange } from '@/lib/day-change'
 import { holdingsChartDates } from '@/lib/snapshot-density'
 import { MIX_MARKETS, marketMixSeries, mixShares, mixSummary } from '@/lib/market-mix'
 import { DEFAULT_TREND_RANGE, resolveTrendRange, trendRangeDays } from '@/lib/trend-ranges'
@@ -424,6 +426,12 @@ export default async function HoldingsPage({
         title={copy.title}
         emphasis={copy.emphasis}
         subtitle={copy.subtitle(fmtNumber(rows.length))}
+      />
+      <DayChangeCard
+        change={dayChange(getDayChangeRows())}
+        copy={copy.dayChange}
+        language={language}
+        money={(krw) => money(krw, 'KRW')}
       />
       <Card
         title={mixCopy.title}
