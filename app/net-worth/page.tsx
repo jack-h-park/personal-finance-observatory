@@ -21,7 +21,7 @@ import { AllocationShares } from '@/components/AllocationShares'
 import { RangeBreakdownPanel } from '@/components/RangeBreakdownPanel'
 import { RangeSelectForm } from '@/components/RangeSelectForm'
 import { TextLink } from '@/components/controls'
-import { LinkChip, LinkSegmentedControl } from '@/components/LinkChips'
+import { ChipGroup, LinkChip, LinkSegmentedControl } from '@/components/LinkChips'
 import { DEFAULT_TREND_RANGE, TREND_RANGES, resolveTrendRange, trendRangeDays, type TrendRange } from '@/lib/trend-ranges'
 import type { AllocationClass } from '@/lib/asset-allocation'
 import { ASSET_CLASS_COLOR, WRAPPER_COLOR } from '@/lib/palette'
@@ -265,72 +265,68 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
             </div>
           </div>
           <ValuationBasisStrip items={valuationBasis} language={language} />
-          {/* One toolbar: window, classes (which double as the chart legend), view, children. Group
-              labels are for screen readers; each control's shape says what it is. */}
-          <div className="flex flex-col gap-3 border-t border-line-subtle pt-4">
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-              <div className="flex flex-wrap items-center gap-1">
-                <LinkSegmentedControl
-                  label={copy.rangeFilter}
-                  current={selectedRange.key}
-                  items={TREND_RANGES.map((range) => ({
-                    key: range.key,
-                    label: range.key === 'all' ? getUiCopy(language).common.all : range.label,
-                    href: hrefWith({ trend: range.key, ...(selection && !keepsSelection(range, selection.from, today) ? { range: null } : {}) }),
-                  }))}
-                />
+          {/* The trend controls, one named group per line (docs/ui-guide.md, Chip groups): period,
+              classes (whose colours stand in for the chart legend), view, and the two toggles,
+              which share no group with a single choice. */}
+          <div className="flex flex-col gap-2 border-t border-line-subtle pt-4">
+            <ChipGroup label={copy.rangeFilter}>
+              <LinkSegmentedControl
+                current={selectedRange.key}
+                items={TREND_RANGES.map((range) => ({
+                  key: range.key,
+                  label: range.key === 'all' ? getUiCopy(language).common.all : range.label,
+                  href: hrefWith({ trend: range.key, ...(selection && !keepsSelection(range, selection.from, today) ? { range: null } : {}) }),
+                }))}
+              />
+            </ChipGroup>
+            <ChipGroup label={copy.classFilter}>
+              {ASSET_CLASS_KEYS.map((key) => (
                 <LinkChip
-                  href={selection ? clearHref : hrefWith({ custom: !customOpen })}
-                  active={rangeFormOpen}
+                  key={key}
+                  href={hrefWith({ classes: toggleClass(selectedClasses, key) })}
+                  active={selectedClasses.includes(key)}
                   ariaCurrent="none"
-                  variant="subtle"
-                  checkbox
-                  aria-label={copy.customRangeAria(rangeFormOpen)}
-                  title={breakdownCopy.selectHint}
+                  swatch={ASSET_CLASS_COLOR[key]}
+                  aria-label={copy.classToggleAria(copy.classes[key], selectedClasses.includes(key))}
                 >
-                  {copy.customRange}
+                  {copy.classes[key]}
                 </LinkChip>
-              </div>
-              <div role="group" aria-label={copy.classFilter} className="flex flex-wrap items-center gap-1">
-                {ASSET_CLASS_KEYS.map((key) => (
-                  <LinkChip
-                    key={key}
-                    href={hrefWith({ classes: toggleClass(selectedClasses, key) })}
-                    active={selectedClasses.includes(key)}
-                    ariaCurrent="none"
-                    variant="subtle"
-                    swatch={ASSET_CLASS_COLOR[key]}
-                    aria-label={copy.classToggleAria(copy.classes[key], selectedClasses.includes(key))}
-                  >
-                    {copy.classes[key]}
-                  </LinkChip>
-                ))}
-              </div>
-              <div className="flex flex-wrap items-center gap-1">
-                <LinkSegmentedControl
-                  label={copy.viewFilter}
-                  current={shareView ? 'share' : 'amount'}
-                  items={[
-                    { key: 'amount', label: copy.viewAmount, href: hrefWith({ share: false }) },
-                    { key: 'share', label: copy.viewShare, href: hrefWith({ share: true }) },
-                  ]}
-                />
-                <LinkChip
-                  href={hrefWith({ children: !includeChildren })}
-                  active={includeChildren}
-                  ariaCurrent="none"
-                  variant="subtle"
-                  checkbox
-                  aria-label={childCopy.toggleAria(includeChildren)}
-                  title={childCopy.toggleHint}
-                >
-                  {childCopy.toggle}
-                </LinkChip>
-              </div>
-            </div>
+              ))}
+            </ChipGroup>
+            <ChipGroup label={copy.viewFilter}>
+              <LinkSegmentedControl
+                current={shareView ? 'share' : 'amount'}
+                items={[
+                  { key: 'amount', label: copy.viewAmount, href: hrefWith({ share: false }) },
+                  { key: 'share', label: copy.viewShare, href: hrefWith({ share: true }) },
+                ]}
+              />
+            </ChipGroup>
+            <ChipGroup label={copy.optionsFilter}>
+              <LinkChip
+                href={selection ? clearHref : hrefWith({ custom: !customOpen })}
+                active={rangeFormOpen}
+                ariaCurrent="none"
+                checkbox
+                aria-label={copy.customRangeAria(rangeFormOpen)}
+                title={breakdownCopy.selectHint}
+              >
+                {copy.customRange}
+              </LinkChip>
+              <LinkChip
+                href={hrefWith({ children: !includeChildren })}
+                active={includeChildren}
+                ariaCurrent="none"
+                checkbox
+                aria-label={childCopy.toggleAria(includeChildren)}
+                title={childCopy.toggleHint}
+              >
+                {childCopy.toggle}
+              </LinkChip>
+            </ChipGroup>
             {rangeFormOpen ? (
-              <div className="flex flex-col gap-2">
-                <span className="text-label text-ink-3">{breakdownCopy.selectHint}</span>
+              // Under the chips, aligned with them (the label column is w-16 plus the group's gap).
+              <div className="flex flex-col gap-1.5 pt-1 sm:pl-[4.375rem]">
                 <RangeSelectForm
                   dates={rangeFormDates}
                   from={selection?.from ?? null}
@@ -338,7 +334,11 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
                   keep={rangeFormKeep}
                   labels={{ from: breakdownCopy.fromLabel, to: breakdownCopy.toLabel, submit: breakdownCopy.apply }}
                   formatDate={(date) => fmtDate(date, language)}
+                  hintId="net-worth-range-hint"
                 />
+                <span id="net-worth-range-hint" className="text-caption text-ink-3">
+                  {breakdownCopy.selectHint}
+                </span>
               </div>
             ) : null}
           </div>

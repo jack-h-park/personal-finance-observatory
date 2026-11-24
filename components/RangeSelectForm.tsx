@@ -19,6 +19,7 @@ export function RangeSelectForm({
   labels,
   formatDate = (date) => date,
   action = '/net-worth',
+  hintId,
 }: {
   /** The plotted snapshot dates, ascending. */
   dates: string[]
@@ -29,6 +30,8 @@ export function RangeSelectForm({
   labels: { from: string; to: string; submit: string }
   formatDate?: (date: string) => string
   action?: string
+  /** The id of help text the caller renders next to the form; both selects are described by it. */
+  hintId?: string
 }) {
   const first = dates[0] ?? ''
   const last = dates[dates.length - 1] ?? ''
@@ -41,7 +44,7 @@ export function RangeSelectForm({
         ))}
       <label className="flex flex-col gap-1 text-label text-ink-3">
         <span>{labels.from}</span>
-        <Select name="from" size="md" defaultValue={from ?? first}>
+        <Select name="from" size="md" defaultValue={from ?? first} aria-describedby={hintId}>
           {dates.map((date) => (
             <option key={date} value={date}>
               {formatDate(date)}
@@ -51,7 +54,7 @@ export function RangeSelectForm({
       </label>
       <label className="flex flex-col gap-1 text-label text-ink-3">
         <span>{labels.to}</span>
-        <Select name="to" size="md" defaultValue={to ?? last}>
+        <Select name="to" size="md" defaultValue={to ?? last} aria-describedby={hintId}>
           {dates.map((date) => (
             <option key={date} value={date}>
               {formatDate(date)}

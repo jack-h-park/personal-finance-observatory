@@ -4,7 +4,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import * as React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { LinkChip, LinkSegmentedControl } from '../components/LinkChips'
+import { ChipGroup, LinkChip, LinkSegmentedControl } from '../components/LinkChips'
 
 // next/link reads a global React under the classic JSX runtime; Next supplies it in the app.
 ;(globalThis as { React?: typeof React }).React = React
@@ -44,4 +44,17 @@ test('a checkbox chip draws a box, ticked when active, hidden from screen reader
   assert.match(on, /<span aria-hidden="true"[^>]*>✓<\/span>/)
   const off = renderToStaticMarkup(h(LinkChip, { href: '/x', active: false, ariaCurrent: 'none', checkbox: true, children: 'Include children' }))
   assert.doesNotMatch(off, /✓/)
+})
+
+test('inside a ChipGroup the segmented control names no group of its own, and its options are not group-label ink', () => {
+  const html = renderToStaticMarkup(
+    h(ChipGroup, { label: 'Period', children: h(LinkSegmentedControl, { current: 'a', items: [{ key: 'a', href: '/x', label: 'A' }, { key: 'b', href: '/y', label: 'B' }] }) })
+  )
+  // One named group: the ChipGroup's.
+  assert.equal(html.match(/role="group"/g)?.length, 1)
+  assert.match(html, /aria-label="Period"/)
+  // The track has a visible boundary and an unselected option is ink-2, not the label's ink-3.
+  assert.match(html, /border-line-control/)
+  const unselected = (html.match(/<a [^>]*href="\/y"[^>]*>/) ?? [''])[0]
+  assert.match(unselected, /text-ink-2/)
 })

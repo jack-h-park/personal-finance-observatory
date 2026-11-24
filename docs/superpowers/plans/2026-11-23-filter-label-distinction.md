@@ -151,6 +151,13 @@ filters, keeps its layout.
 - Restyle the `selectHint` sentence (A9) as help text under the form (`text-caption`,
   `aria-describedby`), not as a label-looking line.
 
+*Done* with the `/net-worth` legibility plan's N4 (`docs/superpowers/plans/2026-11-23-net-worth-legibility.md`).
+기간 and 보기 are `LinkSegmentedControl` tracks (one bordered track, as `SegmentedControl` in
+section C) inside `ChipGroup`; 자산군 chips carry the class colour and stand in for the chart
+legend. The two toggles, 직접 지정 (shows the month selects) and 자녀 포함, share an `옵션` /
+"Options" group rather than a `포함` one, since neither is a single choice. The hint sits under
+the form as `text-caption`, and both selects point at it with `aria-describedby`.
+
 ### Phase 4 — overview trend toolbar (B1)
 
 - Give the three groups visible labels (보기 / 범위 / 지표 — confirm wording in Phase 0)
