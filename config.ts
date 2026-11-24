@@ -26,6 +26,8 @@ export const config = {
   stockKrStatementsDir: env('STOCK_KR_STATEMENTS_DIR', repoPath('data/kr-statements')),
   stockCryptoActivityPath: env('STOCK_CRYPTO_ACTIVITY_PATH', repoPath('data/crypto-activity.json')),
   stockCryptoPricesPath: env('STOCK_CRYPTO_PRICES_PATH', repoPath('data/crypto-prices.json')),
+  // The KRX gold price fetch:gold-price writes. Read here only to say what gold is valued as of.
+  stockGoldPricesPath: env('STOCK_GOLD_PRICES_PATH', repoPath('data/gold-prices.json')),
   stockManualMappingsPath: env('STOCK_MANUAL_MAPPINGS_PATH', repoPath('data/manual-mappings.json')),
   stockRefreshRunsPath: env('STOCK_REFRESH_RUNS_PATH', repoPath('data/refresh-runs.json')),
   // Daily portfolio briefing archive, written by the briefing cron on the iMac.
