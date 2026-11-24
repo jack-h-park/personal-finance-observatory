@@ -324,17 +324,33 @@ test('LinkChips as="group" wraps in a labelled role=group div', () => {
   assert.ok(html.startsWith('<div role="group" aria-label="G" class="flex flex-wrap items-center justify-end gap-1">'), html)
 })
 
-const TAB_BASE = '-mb-px inline-flex min-h-8 items-center border-b-2 px-3 text-caption font-medium'
+const TAB_BASE = '-mb-px inline-flex min-h-11 shrink-0 items-center whitespace-nowrap border-b-[3px] px-4 text-role-panel font-semibold'
 
 test('Tabs nav and items', () => {
   const html = renderToStaticMarkup(h(Tabs, { label: 'P', items: [{ key: 's', href: '/p?tab=s', label: 'S' }, { key: 't', href: '/p?tab=t', label: 'T' }], current: 's' }))
-  assert.ok(html.startsWith('<nav aria-label="P" class="mb-5 flex flex-wrap gap-1 border-b border-line-subtle">'), html)
+  assert.ok(html.startsWith('<div class="mb-6"><nav aria-label="P" class="flex gap-1 overflow-x-auto border-b border-line-subtle">'), html)
+  assert.ok(html.endsWith('</nav></div>'), html)
   const tags = html.match(/<a [^>]*>/g) ?? []
   assert.equal(tags.length, 2)
   assert.equal(attr(tags[0], 'class'), `${TAB_BASE} border-info text-ink`)
   assert.equal(attr(tags[0], 'aria-current'), 'page')
-  assert.equal(attr(tags[1], 'class'), `${TAB_BASE} border-transparent text-ink-3 hover:text-ink`)
+  assert.equal(attr(tags[1], 'class'), `${TAB_BASE} border-transparent text-ink-2 hover:text-ink`)
   assert.equal(attr(tags[1], 'aria-current'), undefined)
+})
+
+test("Tabs shows the selected item's description", () => {
+  const html = renderToStaticMarkup(
+    h(Tabs, {
+      label: 'P',
+      items: [
+        { key: 's', href: '/p?tab=s', label: 'S', description: 'About S' },
+        { key: 't', href: '/p?tab=t', label: 'T', description: 'About T' },
+      ],
+      current: 't',
+    })
+  )
+  assert.ok(html.includes('<p class="mt-2 text-role-ui text-ink-2">About T</p>'), html)
+  assert.ok(!html.includes('About S'), html)
 })
 
 /** The outer element's tag and attributes, as rendered. */
