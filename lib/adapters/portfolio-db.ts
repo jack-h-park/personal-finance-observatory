@@ -1217,8 +1217,9 @@ export function getPositionTrendRows(days = 400): { date: string; market: string
 /**
  * The date of each ticker's price in the price file for one market.
  * Toss rows carry the UTC date of the fetch in as_of_date, which after the US close is
- * a day ahead of the quote, so the file's own date is the one to trust. Null when the
- * file is missing or has no entry for a ticker; the caller then falls back to as_of_date.
+ * a day ahead of the quote, so the file's own date is the one to trust. The map is empty
+ * when the file is missing, and a ticker without an entry is absent from it; the caller then
+ * falls back to as_of_date.
  */
 function quoteDatesFromPriceFile(filePath: string): Map<string, string> {
   const dates = new Map<string, string>()
