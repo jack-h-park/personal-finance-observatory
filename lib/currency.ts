@@ -43,13 +43,43 @@ export function convertMoney(value: number, fromCurrency: string, displayCurrenc
   return { value, currency: from }
 }
 
+/**
+ * An amount in its own currency, never converted.
+ *
+ * createMoneyFormatter converts every amount into the display currency, which
+ * is right for a figure the reader compares across rows. A column that exists
+ * to show the native figure (a USD cost basis, a USD dividend) must not go
+ * through it: with a KRW preference and a known USD/KRW rate, the USD amount
+ * came out in won, and a native-over-base cell showed the same won figure on
+ * both lines.
+ */
+export function formatMoneyIn(value: number | null | undefined, currency: string | null | undefined = 'KRW') {
+  const n = Number(value ?? 0)
+  const code = (currency || 'KRW').toUpperCase()
+  if (code === 'KRW') return formatKrw(n)
+  if (code === 'USD') return formatUsd(n)
+  return `${n.toLocaleString('en-US')} ${code}`
+}
+
+/**
+ * Whether a native-over-base cell needs its second line.
+ *
+ * The first line is the native amount in its own currency; the second is the
+ * KRW base amount in the display currency. When the second line would land in
+ * the native currency anyway (a KRW row under a KRW preference, a USD row
+ * under a USD preference, or no rate to convert with), it would repeat the
+ * first line, so it is left out.
+ */
+export function needsDisplayLine(nativeCurrency: string | null | undefined, { displayCurrency, usdKrwRate }: CurrencyPreferences) {
+  const native = (nativeCurrency || 'KRW').toUpperCase()
+  return convertMoney(0, 'KRW', displayCurrency, usdKrwRate).currency !== native
+}
+
 export function createMoneyFormatter({ displayCurrency, usdKrwRate }: CurrencyPreferences) {
   return (value: number | null | undefined, currency: string | null | undefined = 'KRW') => {
     const n = Number(value ?? 0)
     const code = (currency || 'KRW').toUpperCase()
     const converted = convertMoney(n, code, displayCurrency, usdKrwRate)
-    if (converted.currency === 'KRW') return formatKrw(converted.value)
-    if (converted.currency === 'USD') return formatUsd(converted.value)
-    return `${converted.value.toLocaleString('en-US')} ${converted.currency}`
+    return formatMoneyIn(converted.value, converted.currency)
   }
 }

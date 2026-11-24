@@ -4,7 +4,7 @@ import { PageHeader } from '@/components/PageHeader'
 import { Badge, Card, EmptyState, HeroAside, MetricField, MetricHeroCard, marketTone } from '@/components/ui'
 import { getReconciliationReview, type ReconciliationReview } from '@/lib/adapters/portfolio-db'
 import { EMPTY_VALUE, fmtNumber, fmtQuantity } from '@/lib/format'
-import { createMoneyFormatter } from '@/lib/currency'
+import { createMoneyFormatter, formatMoneyIn } from '@/lib/currency'
 import { getCurrencyPreferences } from '@/lib/currency-server'
 import { getGlossary } from '@/lib/glossary'
 import { getLanguage } from '@/lib/i18n-server'
@@ -190,7 +190,7 @@ export default async function ReconciliationPage({
                   ),
                 },
                 { key: 'brokerage', label: copy.columns.brokerage },
-                { key: 'native_cost', label: copy.columns.nativeCost, align: 'right', render: (r) => money(r.native_cost, r.currency) },
+                { key: 'native_cost', label: copy.columns.nativeCost, align: 'right', render: (r) => formatMoneyIn(r.native_cost, r.currency) },
                 { key: 'base_cost', label: copy.columns.baseCost, align: 'right', render: (r) => (r.base_cost == null ? EMPTY_VALUE : money(r.base_cost)) },
               ]}
             />

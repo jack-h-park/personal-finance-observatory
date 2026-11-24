@@ -3,7 +3,7 @@ import { DataTable, type DataTableColumn } from '@/components/DataTable'
 import { FilterBar } from '@/components/FilterBar'
 import { Badge, Card, marketTone } from '@/components/ui'
 import { getRecentTransactions } from '@/lib/adapters/portfolio-db'
-import { createMoneyFormatter } from '@/lib/currency'
+import { createMoneyFormatter, formatMoneyIn } from '@/lib/currency'
 import { getCurrencyPreferences } from '@/lib/currency-server'
 import { EMPTY_VALUE, fmtNumber, fmtQuantity } from '@/lib/format'
 import { getLanguage } from '@/lib/i18n-server'
@@ -59,7 +59,7 @@ export default async function TransactionsPage({
     { key: 'ticker', label: copy.columns.ticker, sortable: true, sortFirst: 'asc' },
     { key: 'name', label: copy.columns.name, priority: 'secondary', sortable: true, sortFirst: 'asc' },
     { key: 'quantity', label: copy.columns.quantity, priority: 'secondary', align: 'right', sortable: true, render: (r) => fmtQuantity(r.quantity, 2) },
-    { key: 'native_amount', label: copy.columns.amount, align: 'right', sortable: true, render: (r) => money(r.native_amount, r.currency) },
+    { key: 'native_amount', label: copy.columns.amount, align: 'right', sortable: true, render: (r) => formatMoneyIn(r.native_amount, r.currency) },
     { key: 'amount_krw', label: copy.columns.baseAmount, priority: 'secondary', align: 'right', sortable: true, render: (r) => (r.amount_krw == null ? EMPTY_VALUE : money(r.amount_krw, 'KRW')) },
     { key: 'source', label: copy.columns.source, priority: 'tertiary' },
     { key: 'page', label: copy.columns.page, align: 'right', priority: 'tertiary' },
