@@ -1937,25 +1937,37 @@ if (tossSnapshot?.accounts?.length) {
       const toKrw = (value) => (value == null ? null : currency === 'KRW' ? value : usdRate == null ? null : value * usdRate)
       const quantity = number(item.quantity) ?? 0
       const nativeCost = number(item.marketValue?.purchaseAmount) ?? 0
-      const marketValue = number(item.marketValue?.amount)
-      const unrealized = number(item.profitLoss?.amount)
-      const rate = number(item.profitLoss?.rate)
+      const market = text(item.marketCountry) === 'US' ? 'US' : 'KR'
+      const ticker = normalizeTicker(item.symbol)
+      // The price comes from the market's quote file when it has the ticker in this
+      // currency, the same basis every other holding uses: the Toss quote inside the
+      // regular session and the KRX or NYSE/Nasdaq regular-session price outside it
+      // (quote-sources.mjs). Toss's own lastPrice is only as fresh as this snapshot,
+      // refreshed six-hourly, and after the KRX bell it is the NXT evening trade, so
+      // left as is it valued Toss holdings on another basis from the rest.
+      const quote = (market === 'US' ? usPricesByTicker : krPricesByTicker).get(ticker)
+      const quotePrice = quote && (!quote.currency || quote.currency === currency) ? number(quote.price) : null
+      const priced = quotePrice != null && quotePrice > 0
+      const lastPrice = priced ? quotePrice : number(item.lastPrice)
+      const marketValue = priced ? quotePrice * quantity : number(item.marketValue?.amount)
+      const unrealized = priced ? marketValue - nativeCost : number(item.profitLoss?.amount)
+      const rate = priced ? (nativeCost ? unrealized / nativeCost : null) : number(item.profitLoss?.rate)
       rows.push({
-        market: text(item.marketCountry) === 'US' ? 'US' : 'KR',
+        market,
         currency,
         base_currency: 'KRW',
         fx_rate_to_base: currency === 'KRW' ? 1 : usdRate,
         brokerage: tossAccountLabel,
         account_type: '',
         source_system: 'toss_open_api',
-        as_of_date: asOf,
+        as_of_date: priced && quote.asOfDate ? quote.asOfDate : asOf,
         account: tossAccountLabel,
-        ticker: normalizeTicker(item.symbol),
+        ticker,
         name: text(item.name),
         quantity,
         native_average_unit_cost: number(item.averagePurchasePrice),
         native_cost: nativeCost,
-        native_price: number(item.lastPrice),
+        native_price: lastPrice,
         native_market_value: marketValue,
         native_unrealized_gl: unrealized,
         native_unrealized_gl_pct: rate == null ? null : rate * 100,
@@ -1964,7 +1976,7 @@ if (tossSnapshot?.accounts?.length) {
         base_unrealized_gl: toKrw(unrealized),
         average_unit_cost: toKrw(number(item.averagePurchasePrice)),
         total_cost_krw: toKrw(nativeCost) ?? 0,
-        current_price: toKrw(number(item.lastPrice)),
+        current_price: toKrw(lastPrice),
         pe: null,
         eps: null,
         unrealized_gl_krw: toKrw(unrealized),
