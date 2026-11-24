@@ -6,6 +6,7 @@ import {
   CHECKS,
   compareToBaseline,
   findAccentProp,
+  findBareChipLabel,
   findBareFootnote,
   findBrowserLocaleNumber,
   findConflicts,
@@ -790,11 +791,12 @@ test('the counted checks are registered in order with their scopes', () => {
       'G13 raw-enum-badge',
       'G14 form-page-polls',
       'G15 data-layer-sentence',
+      'G16 bare-chip-label',
     ],
   )
   const byCode = Object.fromEntries(checks.map((c) => [c.code, c]))
   for (const code of ['G1', 'G2', 'G3']) assert.ok(byCode[code].exclude.includes('app/global-error.tsx'))
-  for (const code of ['G1', 'G2', 'G3', 'G4', 'G5', 'G6', 'G9', 'G10', 'G13']) {
+  for (const code of ['G1', 'G2', 'G3', 'G4', 'G5', 'G6', 'G9', 'G10', 'G13', 'G16']) {
     assert.deepEqual(byCode[code].roots, ['app', 'components'], code)
     assert.equal(byCode[code].include, null, code)
   }
@@ -857,4 +859,24 @@ test('the baseline fails a file that got worse and passes one that got better', 
 
   const absentCheck = compareToBaseline({ 'english-prose-literal': { 'app/a.tsx': 1 } }, {})
   assert.equal(absentCheck.ok, false)
+})
+
+test('G16 flags a bare grey label right before a chip row, direct or mapped', () => {
+  const direct = '<div>\n  <span className="mr-1 text-label text-ink-3">{copy.viewFilter}</span>\n  <LinkChip href="/a" active>{copy.a}</LinkChip>\n</div>'
+  assert.deepEqual((findBareChipLabel(direct) as Hit[]).map((h) => h.line), [2])
+  const mapped = '<span className="text-micro text-ink-3">{copy.scope}</span>\n{SCOPES.map((scope) => (\n  <LinkChip key={scope} href="/" active={false}>{scope}</LinkChip>\n))}'
+  assert.equal(findBareChipLabel(mapped).length, 1)
+  for (const tag of ['LinkChips items={[]} current="a"', 'LinkSegmentedControl items={[]} current="a"', 'TrendRangeLinks selected={r} hrefFor={f}']) {
+    assert.equal(findBareChipLabel(`<span className="text-label text-ink-3">x</span> <${tag} />`).length, 1, tag)
+  }
+  assert.equal(findBareChipLabel('<Label as="span" size="micro">x</Label>\n<LinkChip href="/" active>y</LinkChip>').length, 1)
+})
+
+test('G16 leaves ChipGroup, other colours and non-chip neighbours alone', () => {
+  assert.deepEqual(findBareChipLabel('<ChipGroup label={copy.scope}>\n  <LinkChip href="/" active>x</LinkChip>\n</ChipGroup>'), [])
+  assert.deepEqual(findBareChipLabel('<span className="text-label text-ink-2">x</span><LinkChip href="/" active>y</LinkChip>'), [])
+  assert.deepEqual(findBareChipLabel('<span className="text-caption text-ink-3">x</span><LinkChip href="/" active>y</LinkChip>'), [])
+  assert.deepEqual(findBareChipLabel('<span className="text-label text-ink-3">x</span>\n<p>y</p>'), [])
+  // A chip's own text is not a label in front of the row.
+  assert.deepEqual(findBareChipLabel('<LinkChip href="/" active><span className="text-label text-ink-3">x</span></LinkChip>'), [])
 })

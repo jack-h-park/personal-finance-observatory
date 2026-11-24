@@ -5,7 +5,7 @@ import { Badge, Card, Note, Signed, marketTone } from '@/components/ui'
 import { PortfolioMultiTrendChart, StackedSeriesChart } from '@/components/charts'
 import { RangeSelectForm } from '@/components/RangeSelectForm'
 import { TrendRangeLinks } from '@/components/TrendRangeLinks'
-import { ChipGroup, LinkChip } from '@/components/LinkChips'
+import { ChipGroup, LinkChip, LinkSegmentedControl } from '@/components/LinkChips'
 import { DivergingBar } from '@/components/bars'
 import { DEFAULT_TREND_RANGE, resolveTrendRange, trendRangeDays } from '@/lib/trend-ranges'
 import { SHARE_SCOPES, positionShares, shareMoves, type ShareScope } from '@/lib/position-shares'
@@ -145,20 +145,25 @@ export async function WeightsView({ params, rows, language }: { params: Record<s
         <div className="space-y-3">
           {/* One group per line: side by side, a wrapped row left a label at the end of a line. */}
           <div className="flex flex-col gap-2">
+            {/* Single choices are segmented tracks, as on /net-worth and the overview; the pin toggles below stay chips. */}
             <ChipGroup label={weightCopy.scopeFilter}>
-              {SHARE_SCOPES.map((scope) => (
-                <LinkChip key={scope} href={withParam(BASE, params, 'wscope', scope === 'all' ? null : scope)} active={weightScope === scope}>
-                  {weightCopy.scopes[scope]}
-                </LinkChip>
-              ))}
+              <LinkSegmentedControl
+                items={SHARE_SCOPES.map((scope) => ({
+                  key: scope,
+                  href: withParam(BASE, params, 'wscope', scope === 'all' ? null : scope),
+                  label: weightCopy.scopes[scope],
+                }))}
+                current={weightScope}
+              />
             </ChipGroup>
             <ChipGroup label={weightCopy.viewFilter}>
-              <LinkChip href={withParam(BASE, params, 'wview', null)} active={!weightLines}>
-                {weightCopy.viewStack}
-              </LinkChip>
-              <LinkChip href={withParam(BASE, params, 'wview', 'lines')} active={weightLines}>
-                {weightCopy.viewLines}
-              </LinkChip>
+              <LinkSegmentedControl
+                items={[
+                  { key: 'stack', href: withParam(BASE, params, 'wview', null), label: weightCopy.viewStack },
+                  { key: 'lines', href: withParam(BASE, params, 'wview', 'lines'), label: weightCopy.viewLines },
+                ]}
+                current={weightLines ? 'lines' : 'stack'}
+              />
             </ChipGroup>
           </div>
           {weightLines ? (

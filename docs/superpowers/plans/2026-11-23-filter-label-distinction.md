@@ -1,6 +1,6 @@
 # Filter group labels vs. options: audit and plan
 
-Status: Phases 1–3 merged (#465, #467, #464); Phase 4 in review; Phase 5 not started. Date: 2026-11-23.
+Status: Phases 1–4 merged (#465, #467, #464, #470); Phase 5 in review. Date: 2026-11-23.
 
 Since this audit, #458 split /holdings into tabs: A1 now lives in
 `app/holdings/MarketMixView.tsx`, A2–A4 in `app/holdings/WeightsView.tsx`; the
@@ -172,6 +172,18 @@ text was exactly a group label's look.
   group including its label).
 
 ### Phase 5 — guardrail
+
+Done. G16 `bare-chip-label` in `scripts/ui-guardrails.mjs` flags a small grey
+`<span>` (or `Label`) right before `LinkChip`, `LinkChips`, `LinkSegmentedControl`
+or `TrendRangeLinks`, directly or as the body of a mapped list. Run over the
+files as they were before Phase 2, it finds all eight labelled groups A1–A8; the
+current tree has none, so it starts at zero with no baseline entry. The contrast
+test landed with Phase 1 (`tests/chip-group.test.ts`).
+
+The open question from Phase 4 is settled in `docs/ui-guide.md`: in a card
+toolbar a single choice is a `LinkSegmentedControl`, toggles stay chips, and
+`FilterBar` keeps its chips. The /holdings chart cards (A1–A3) moved to segmented
+tracks to match.
 
 - Add a rule to `scripts/ui-guardrails.mjs`: a `text-label text-ink-3` (or `text-micro`)
   `<span>` immediately followed by `<LinkChip` / `<LinkChips` / `<TrendRangeLinks` fails;

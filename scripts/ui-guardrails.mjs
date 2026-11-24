@@ -642,6 +642,35 @@ export function findBareFootnote(source, file = '<source>') {
 }
 
 /**
+ * The components that render a row of choices a group label would name, either
+ * directly or as the body of a mapped list: `{items.map((x) => (<LinkChip …`.
+ */
+const CHIP_ROW_TAG = /^(?:\{[^<{}]*?=>\s*\(?\s*)?<(?:LinkChips?|LinkSegmentedControl|TrendRangeLinks)\b/
+
+/**
+ * G16: a group name written as a bare small grey span (or `Label`) right before
+ * a row of chips. The span matched an unselected chip in size and colour, so
+ * the reader could not tell the group's name from its options. `ChipGroup`
+ * owns that label: its own size, weight and column, and the group's
+ * `role="group"` name. See docs/ui-guide.md "Chip groups".
+ */
+export function findBareChipLabel(source, file = '<source>') {
+  const hits = []
+  const text = stripComments(source)
+  for (const match of text.matchAll(/<(span|Label)\b[^>]*>[^<]*<\/\1>\s*/g)) {
+    const after = text.slice(match.index + match[0].length)
+    if (!CHIP_ROW_TAG.test(after)) continue
+    const open = match[0].slice(0, match[0].indexOf('>') + 1)
+    const cls = open.match(CLASS_NAME_LITERAL)
+    // A Label is always the small grey recipe; a span only when its classes say so.
+    if (match[1] === 'span' && !(cls && /text-(?:label|micro)(?![\w-])/.test(cls[1]) && /text-ink-3(?![\w-])/.test(cls[1]))) continue
+    const line = text.slice(0, match.index).split('\n').length
+    hits.push(hit(file, line, match[0].replace(/\s+/g, ' ')))
+  }
+  return hits
+}
+
+/**
  * Latin words a Korean sentence may carry as they are: codes, units and
  * acronyms a Korean reader sees in English anyway. Case-sensitive.
  */
@@ -1135,6 +1164,12 @@ export const CHECKS = [
     roots: ['lib'],
     include: outside(DATA_LAYER_TEXT_OWNERS),
     find: findDataLayerSentence,
+  },
+  {
+    code: 'G16',
+    id: 'bare-chip-label',
+    title: 'chip group named by a bare grey span instead of ChipGroup',
+    find: findBareChipLabel,
   },
 ].map((check) => ({ roots: ['app', 'components'], exclude: [], include: null, ...check }))
 

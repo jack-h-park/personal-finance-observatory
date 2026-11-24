@@ -272,6 +272,13 @@ from the options at a glance. The rules, from
 - A single choice and an on/off toggle never share one group name.
 - `FilterBar` renders its rows through `ChipGroup`, so the table filters and the
   chart controls look the same.
+- Inside a card toolbar, a single choice is a `<LinkSegmentedControl>` (one
+  bordered track, one current option): period, view, scope, metric. An on/off
+  toggle or a multi-select stays as chips (`LinkChip` with `ariaCurrent="none"`,
+  or its `checkbox` / `swatch` forms). `FilterBar`'s table filters keep their
+  `ink` chips: an account list can run long, and the rows fold on a phone.
+- `pnpm ui:guardrails` check G16 (`bare-chip-label`) fails a small grey `<span>`
+  or `<Label>` placed right before a chip row; name the group with `ChipGroup`.
 
 ### Card budget
 
