@@ -85,7 +85,7 @@ It replaces the month-end filter in `shareDates` (`lib/position-shares.ts`). Lon
 
 Using the current quantity for both sides means today's buys and sells never count as gains or losses (anti-goal above). Rows of the same security across accounts are summed, as the security-weight chart already does.
 
-**One session per market.** Each market's session is its newest quote date among its rows. Only rows quoted on that date count toward the market's change and the contributors. A row with an older quote (a stale or fallback price, or a row valued from another source) is left out and counted in the gaps note, so one market's "today" never mixes two sessions. *(builder's call, made in design)*
+**One session per market.** Each market's session is the newest quote date among its rows that can be valued (a price, a previous close and, for a non-KRW row, both FX rates), so a row that cannot be valued never moves the session. Only rows quoted on that date count toward the market's change and the contributors. A row with an older quote (a stale or fallback price, or a row valued from another source) is left out and counted in the gaps note, so one market's "today" never mixes two sessions. *(builder's call, made in design)*
 
 **Market summary.** One row per market (Korean stocks, US stocks, crypto) and a total row:
 - change in KRW, and the percentage against the previous-close KRW value of the same rows;
