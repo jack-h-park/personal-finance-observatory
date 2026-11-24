@@ -51,3 +51,38 @@ test('a receipt with ambiguous identity, duplicate holdings, or inconsistent tot
     ...input, isa: { ...input.isa, positions: [...input.isa.positions, ...input.isa.positions] },
   }), /position/)
 })
+
+test('a quoted ISA position is valued at the market price; an unquoted one keeps the certificate value', () => {
+  const approved = approvedMiraeBalances({
+    ...input,
+    isa: {
+      ...input.isa, cashWon: 10, totalWon: 40,
+      positions: [
+        { ticker: '005930', name: '삼성전자', quantity: 2, valueWon: 20, unitCostWon: 8 },
+        { ticker: '000660', name: 'SK하이닉스', quantity: 1, valueWon: 10, unitCostWon: 9 },
+      ],
+    },
+  })
+  const quotes = { '005930': { price: 12, asOfDate: '2026-01-05' } }
+  const [samsung, hynix] = approved.holdings([], (ticker) => quotes[ticker] ?? null)
+  assert.equal(samsung.native_price, 12)
+  assert.equal(samsung.native_market_value, 24)
+  assert.equal(samsung.base_market_value, 24)
+  assert.equal(samsung.native_unrealized_gl, 24 - 16)
+  assert.equal(samsung.valuation_source, 'price')
+  assert.equal(samsung.as_of_date, '2026-01-05')
+  assert.equal(hynix.native_market_value, 10)
+  assert.equal(hynix.valuation_source, 'snapshot')
+  assert.equal(hynix.as_of_date, '2026-01-01')
+})
+
+test('lots that a newer certificate disagrees with are reported; an older certificate says nothing', () => {
+  const approved = approvedMiraeBalances(input)
+  const lot = (ticker, open_quantity, as_of_date = '2025-12-15') => ({ account: isaAccount, ticker, open_quantity, as_of_date })
+  const other = { account: '미래에셋증권(IRP)', ticker: '111111', open_quantity: 5, as_of_date: '2025-12-15' }
+  const result = approved.lotDisagreements([lot('005930', 1), lot('005930', 1), lot('111111', 7), other])
+  assert.equal(result.statementDate, '2025-12-15')
+  assert.equal(result.certificateDate, '2026-01-01')
+  assert.deepEqual(result.mismatches, [{ ticker: '111111', lots: 7, certificate: 0 }])
+  assert.deepEqual(approved.lotDisagreements([lot('111111', 7, '2026-01-02')]).mismatches, [])
+})

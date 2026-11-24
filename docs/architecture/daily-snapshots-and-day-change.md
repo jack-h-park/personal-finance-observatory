@@ -66,6 +66,14 @@ Each line says what was decided, and what it costs if it turns out wrong.
 - The session comes only from rows that can be valued. Cost if wrong: none known.
 - The fallback close lookup is written to use `idx_historical_prices_lookup`. Cost if wrong: none.
 
+## Holdings valued from the quote files
+
+Every Korean and US holding with a quote-file entry in its currency is valued at that entry's price and dated by it, so the holdings table, today's chart point and the day's-change card share one basis.
+
+- **Toss holdings** keep Toss's quantities and purchase amounts but take the quote-file price (`scripts/ingest-stock-data.mjs`, the Toss snapshot block). Toss's own last price stays only for a ticker the files do not quote. This keeps the six-hourly Toss snapshot and the NXT evening price out of the valuation.
+- **Mirae ISA positions** keep the approved certificate's quantities and costs, but are valued at the quote-file price (`approvedMiraeBalances().holdings(rows, quoteFor)`, `valuation_source: 'price'`). A ticker without a quote keeps the certificate value (`'snapshot'`), which for a weekend certificate is the previous Friday's close.
+- **The `mirae_isa_certificate_lots_agree` warning** fires when the certificate is newer than the ISA tax lots' last statement and the two hold different quantities, which means a sale or transfer happened after the last transaction statement. Holdings follow the certificate, but the lots and every daily snapshot rebuilt from them keep the old quantity until a Mirae ISA transaction statement covering the gap is filed.
+
 ## Known gaps
 
 - A Toss holding missing from the quote files, fetched on a weekend or holiday, is dated on a day with no session. It can then set its market's session, so that market reads about zero until the next weekday fetch. This is rare, because the quote files normally cover every held ticker.
