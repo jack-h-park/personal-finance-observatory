@@ -28,6 +28,7 @@ import { bankAccountGroup, bankAccountName, brokerageAccountLabel, retiredBankAc
 import { createLotValuer } from '@/scripts/lot-valuation.mjs'
 import { buildWashSaleWindows, type WashSaleBuy, type WashSaleLot, type WashSaleWindow } from '@/lib/wash-sale'
 import { lastPerMonth } from '@/lib/snapshot-density'
+import type { DayChangeRow } from '@/lib/day-change'
 import {
   GOLD_ETF_TICKERS,
   addGoldBooks,
@@ -1208,6 +1209,84 @@ export function getPositionTrendRows(days = 400): { date: string; market: string
          order by snapshot_date`
       )
       .all(`-${Math.max(1, Math.floor(days))} days`) as { date: string; market: string; ticker: string; name: string; quantity: number; costKrw: number; marketValueKrw: number | null }[]
+  } finally {
+    conn.close()
+  }
+}
+
+/**
+ * The date of the price a holding is shown at, from the price file for its market.
+ * Toss rows carry the UTC date of the fetch in as_of_date, which after the US close is
+ * a day ahead of the quote, so the file's own date is the one to trust. Null when the
+ * file or the ticker's entry is missing; the caller falls back to as_of_date.
+ */
+function quoteDatesFromPriceFile(filePath: string): Map<string, string> {
+  const dates = new Map<string, string>()
+  const prices = readJson(filePath)?.prices
+  const entries: any[] = Array.isArray(prices) ? prices : prices && typeof prices === 'object' ? Object.values(prices) : []
+  for (const entry of entries) {
+    const ticker = typeof entry?.ticker === 'string' ? entry.ticker.toUpperCase() : ''
+    const asOf = typeof entry?.asOfDate === 'string' ? entry.asOfDate.slice(0, 10) : ''
+    if (ticker && /^\d{4}-\d{2}-\d{2}$/.test(asOf)) dates.set(ticker, asOf)
+  }
+  return dates
+}
+
+/**
+ * Holdings with the inputs for the day's change: today's price and FX, and the last close
+ * strictly before the date of that price. The close is looked up under the holding's own
+ * market first, then under any market quoting the same currency, because a US stock held
+ * through a Korean broker can have its closes stored under KR. Empty when a table is missing.
+ */
+export function getDayChangeRows(): DayChangeRow[] {
+  const conn = db()
+  try {
+    const has = (name: string) => Boolean(conn.prepare("select 1 from sqlite_master where type in ('table', 'view') and name = ?").get(name))
+    if (!has('holdings') || !has('historical_prices')) return []
+    const hasFx = has('historical_fx_rates')
+    const holdings = conn
+      .prepare(
+        `select market, ticker, coalesce(name, ticker) as name, currency, quantity, native_price as price, as_of_date as asOfDate, fx_rate_to_base as fxNow
+         from holdings
+         where quantity != 0
+         order by market, ticker`
+      )
+      .all() as { market: string; ticker: string; name: string; currency: string; quantity: number; price: number | null; asOfDate: string | null; fxNow: number | null }[]
+    const fileDates: Record<string, Map<string, string>> = {
+      KR: quoteDatesFromPriceFile(config.stockKrPricesPath),
+      US: quoteDatesFromPriceFile(config.stockUsPricesPath),
+      CRYPTO: quoteDatesFromPriceFile(config.stockCryptoPricesPath),
+    }
+    const sameMarket = conn.prepare(
+      'select price_date as date, close from historical_prices where market = ? and ticker = ? and price_date < ? order by price_date desc limit 1'
+    )
+    const sameCurrency = conn.prepare(
+      'select price_date as date, close from historical_prices where ticker = ? and currency = ? and price_date < ? order by price_date desc limit 1'
+    )
+    const fxOnOrBefore = hasFx ? conn.prepare('select rate from historical_fx_rates where price_date <= ? order by price_date desc limit 1') : null
+    return holdings.map((row) => {
+      const fallback = row.asOfDate ? row.asOfDate.slice(0, 10) : null
+      const quoteDate = fileDates[row.market]?.get(String(row.ticker).toUpperCase()) ?? fallback
+      let prev: { date: string; close: number } | undefined
+      if (quoteDate) {
+        prev = sameMarket.get(row.market, row.ticker, quoteDate) as typeof prev
+        prev ??= sameCurrency.get(row.ticker, row.currency, quoteDate) as typeof prev
+      }
+      const prevFx = prev && fxOnOrBefore ? ((fxOnOrBefore.get(prev.date) as { rate: number } | undefined)?.rate ?? null) : null
+      return {
+        market: row.market,
+        ticker: row.ticker,
+        name: row.name,
+        currency: row.currency,
+        quantity: Number(row.quantity),
+        price: row.price,
+        quoteDate,
+        fxNow: row.fxNow,
+        prevClose: prev?.close ?? null,
+        prevCloseDate: prev?.date ?? null,
+        prevFx,
+      }
+    })
   } finally {
     conn.close()
   }
