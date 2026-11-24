@@ -51,16 +51,9 @@ test('run history keeps the last runs of each kind, and a record without a kind 
 })
 
 test('a price-only run fetches prices and ingests, and leaves out the slow extractors and the publishes', () => {
-  for (const name of ['fetch:fx', 'fetch:kr-prices', 'fetch:us-prices', 'fetch:crypto-prices', 'fetch:historical-prices', 'ingest']) assert.ok(PRICE_ONLY_STEPS.has(name), name)
+  for (const name of ['fetch:fx', 'fetch:kr-prices', 'fetch:us-prices', 'fetch:crypto-prices', 'ingest']) assert.ok(PRICE_ONLY_STEPS.has(name), name)
   for (const name of PRICE_ONLY_STEPS) assert.ok(/^(fetch|ingest|backfill)/.test(name), name)
   for (const name of ['extract:kr-statements', 'extract:bank-statements', 'fetch:toss', 'publish:kr-sheet', 'publish:us-sheet']) assert.ok(!PRICE_ONLY_STEPS.has(name), name)
-})
-
-test('the price-only run marks the historical-prices fetch optional, so a provider miss cannot stop its ingest', () => {
-  const source = fs.readFileSync(path.resolve(import.meta.dirname, '../scripts/refresh.mjs'), 'utf8')
-  const priceBlock = source.slice(source.indexOf('if (pricesOnly)'), source.indexOf('const optionalSteps'))
-  assert.match(priceBlock, /'fetch:historical-prices'/)
-  assert.match(priceBlock, /optional: true/)
 })
 
 test('every step a price-only run keeps is a step the full refresh declares', () => {

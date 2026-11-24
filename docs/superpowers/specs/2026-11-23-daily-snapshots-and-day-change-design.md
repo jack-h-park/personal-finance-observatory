@@ -70,7 +70,7 @@ It replaces the month-end filter in `shareDates` (`lib/position-shares.ts`). Lon
 
 **Copy.** The security-weight chart's info text ("month-ends up to last month, per snapshot this month") and the market-mix info text change to describe the rule above. Korean UI copy lives in `lib/ui-copy/pages/holdings.ts`.
 
-**Fresh daily closes in the price run.** `PRICE_ONLY_STEPS` (`scripts/refresh-history.mjs`) runs `backfill:history` but not `fetch:historical-prices`, so between full runs yesterday's point and the previous close can be up to six hours old. Add `fetch:historical-prices` to the price run. *(builder's call, made in design: the step took well under a second in the measured full run.)*
+**No daily closes in the price run.** `PRICE_ONLY_STEPS` (`scripts/refresh-history.mjs`) runs `backfill:history` but not `fetch:historical-prices`, and that stays so. The fetch's skip condition fails several times a day, and when it does the fetch refetches every ticker's whole history serially, which would hold the refresh lock far beyond the budget below. Full runs land each settled close before the next session opens, so yesterday's point can lag by up to one full-refresh interval.
 
 **Performance budget.** The backfill runs in both the six-hourly full refresh and the half-hourly price run. Measure it on the ops host before and after. If the daily window adds more than about 10 seconds to the price run, rebuild the daily window incrementally (keep stored daily rows and recompute only dates on or after the earliest changed lot or close), or skip the window when its inputs are unchanged. Which to ship is left to the builder, as long as the budget holds.
 
@@ -90,7 +90,7 @@ Using the current quantity for both sides means today's buys and sells never cou
 **Market summary.** One row per market (Korean stocks, US stocks, crypto) and a total row:
 - change in KRW, and the percentage against the previous-close KRW value of the same rows;
 - the session the change belongs to: the quote date (and time where the price file carries it). A market closed today shows its last session's change with that date, never zero.
-- a short note under the US row with the USD/KRW move since the previous close, since the KRW change includes it.
+- a short note under the US row with the USD/KRW move since the previous close, since the KRW change includes it. Today's rate comes from the live quote source and the previous one from the daily reference series, so the US row's change includes the usual small gap between the two sources.
 
 **Top contributors.** The five securities with the largest positive KRW change and the five with the largest negative, each with name, market, change in KRW and price change in percent. Fewer are shown when fewer moved. *(builder's call, made in design: five each way)*
 

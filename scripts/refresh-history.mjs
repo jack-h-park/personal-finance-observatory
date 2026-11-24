@@ -7,7 +7,6 @@ export const PRICE_ONLY_STEPS = new Set([
   'fetch:gold-price',
   'fetch:us-prices',
   'fetch:crypto-prices',
-  'fetch:historical-prices',
   'ingest',
   'backfill:history',
 ])
