@@ -53,3 +53,8 @@ test('each /holdings tab loads only its own data', () => {
   // The range links drop only from/to, so they stay on the weights tab.
   assert.ok(weights.includes("key !== 'from' && key !== 'to'"))
 })
+
+test('the page subtitle shows only on the holdings tab', () => {
+  // It offers a search the trend tabs do not have.
+  assert.ok(source('app/holdings/page.tsx').includes("subtitle={view === 'holdings' ? copy.subtitle("))
+})

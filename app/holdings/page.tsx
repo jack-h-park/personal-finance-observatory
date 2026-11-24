@@ -78,7 +78,8 @@ export default async function HoldingsPage({
         eyebrow={routeSection('/holdings', language)}
         title={copy.title}
         emphasis={copy.emphasis}
-        subtitle={copy.subtitle(fmtNumber(rows.length))}
+        // It offers a search, which only the holdings tab has.
+        subtitle={view === 'holdings' ? copy.subtitle(fmtNumber(rows.length)) : undefined}
       />
       <Tabs
         label={copy.title}
