@@ -54,3 +54,37 @@ export function AccountCell({ brokerage, account }: { brokerage: string | null; 
     </div>
   )
 }
+
+/**
+ * The accounts behind a row that groups one security: how many, then each
+ * account with its share of the security's value, largest first. Past
+ * `shown` accounts the rest are counted, not listed.
+ */
+export function AccountGroupCell({
+  accounts,
+  countLabel,
+  shareText,
+  shown = 3,
+}: {
+  accounts: readonly { brokerage: string | null; account: string; share: number | null }[]
+  countLabel: string
+  shareText: (share: number | null) => string
+  shown?: number
+}) {
+  const rest = accounts.length - shown
+  return (
+    <div className="min-w-0">
+      <div className="text-caption font-medium text-ink">{countLabel}</div>
+      {accounts.slice(0, shown).map((a, i) => {
+        const label = [a.brokerage, maskAccountLabel(a.account)].filter(Boolean).join(' · ')
+        return (
+          <div key={i} className="flex max-w-[16rem] items-baseline justify-between gap-2 text-caption text-ink-3" title={label}>
+            <span className="truncate">{label}</span>
+            <span className="shrink-0 tabular-nums">{shareText(a.share)}</span>
+          </div>
+        )
+      })}
+      {rest > 0 && <div className="text-caption text-ink-3">+{rest}</div>}
+    </div>
+  )
+}
