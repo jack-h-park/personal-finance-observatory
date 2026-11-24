@@ -140,7 +140,13 @@ const steps = [
 ]
 
 if (pricesOnly) {
-  const keep = steps.filter((step) => PRICE_ONLY_STEPS.has(step.name))
+  // Optional in the price run only; the full run keeps it required. A provider
+  // hiccup (Yahoo or Frankfurter) makes this step exit 1, and a required step
+  // would stop the run before ingest. The fetch keeps its previous snapshot on
+  // failure, so the price run can still ingest.
+  const keep = steps
+    .filter((step) => PRICE_ONLY_STEPS.has(step.name))
+    .map((step) => (step.name === 'fetch:historical-prices' ? { ...step, optional: true } : step))
   steps.splice(0, steps.length, ...keep)
 }
 

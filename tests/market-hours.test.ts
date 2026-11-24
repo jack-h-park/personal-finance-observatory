@@ -56,6 +56,13 @@ test('a price-only run fetches prices and ingests, and leaves out the slow extra
   for (const name of ['extract:kr-statements', 'extract:bank-statements', 'fetch:toss', 'publish:kr-sheet', 'publish:us-sheet']) assert.ok(!PRICE_ONLY_STEPS.has(name), name)
 })
 
+test('the price-only run marks the historical-prices fetch optional, so a provider miss cannot stop its ingest', () => {
+  const source = fs.readFileSync(path.resolve(import.meta.dirname, '../scripts/refresh.mjs'), 'utf8')
+  const priceBlock = source.slice(source.indexOf('if (pricesOnly)'), source.indexOf('const optionalSteps'))
+  assert.match(priceBlock, /'fetch:historical-prices'/)
+  assert.match(priceBlock, /optional: true/)
+})
+
 test('every step a price-only run keeps is a step the full refresh declares', () => {
   const source = fs.readFileSync(path.resolve(import.meta.dirname, '../scripts/refresh.mjs'), 'utf8')
   const declared = new Set([...source.matchAll(/\{ name: '([a-z:-]+)', args:/g)].map((m) => m[1]))
