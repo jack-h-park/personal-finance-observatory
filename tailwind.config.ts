@@ -29,6 +29,7 @@ const config: Config = {
         'ink-3': themeColor('--text-tertiary'),
         line: themeColor('--border-default'),
         'line-subtle': themeColor('--border-subtle'),
+        'line-control': themeColor('--border-control'),
         info: themeColor('--accent-info'),
         success: themeColor('--accent-success'),
         warning: themeColor('--accent-warning-text'),

@@ -11,6 +11,25 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* The boundary of an unselected chip or other control whose border is the only
+   thing that marks it as clickable. The kit's --border-default sits at 1.07:1
+   (dark) and 1.16:1 (light) against the card, so an unselected chip read as plain
+   text beside its group label. These pass 3:1 (WCAG 1.4.11): light 3.50 on the
+   card and 3.24 on the surface, dark 3.27 on the card and 3.75 on the page.
+   tests/chip-group.test.ts checks the numbers. */
+:root {
+  --border-control: #8A8984;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --border-control: #75746F;
+  }
+}
+:root[data-theme="dark"],
+:root.dark {
+  --border-control: #75746F;
+}
+
 /* Eight categorical series colours, for charts that tell individual securities
    apart (the /holdings weight trend). Assigned in this order, never cycled: a
    ninth security folds into "Other". Each mode is its own validated set (CVD
