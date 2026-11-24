@@ -124,6 +124,21 @@ export function fmtMomentShort(value: string | null | undefined, language: Langu
   return `${pick('month')}-${pick('day')} ${pick('hour')}:${pick('minute')} ${pick('timeZoneName')}`.trim()
 }
 
+/**
+ * A moment as month-day and clock time in a given zone, without the zone's name
+ * ("11-24 15:30"). For a market quote read in that market's own clock, where the
+ * caller names the zone itself: Intl's short zone names differ by locale
+ * ("GMT+9" in one, "KST" in none), so they cannot label a chip consistently.
+ */
+export function fmtMomentIn(value: string | null | undefined, timeZone: string) {
+  if (!value) return EMPTY_VALUE
+  const d = parseTimestamp(value)
+  if (Number.isNaN(d.getTime())) return value
+  const parts = new Intl.DateTimeFormat('en-US', { timeZone, month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(d)
+  const pick = (type: string) => parts.find((p) => p.type === type)?.value ?? ''
+  return `${pick('month')}-${pick('day')} ${pick('hour')}:${pick('minute')}`
+}
+
 export function fmtDateTime(value: string | null | undefined, language: Language) {
   if (!value) return EMPTY_VALUE
   const d = parseTimestamp(value)
