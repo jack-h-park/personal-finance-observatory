@@ -21,9 +21,12 @@ function harness() {
   const run = (output: string, rc: number) => {
     fs.writeFileSync(path.join(dir, 'out'), `${output}\n`)
     fs.writeFileSync(path.join(dir, 'rc'), String(rc))
+    // HOME stays the real one: a developer's `pnpm` can be a shim that finds node through $HOME,
+    // and pointing HOME at the temp dir makes every `pnpm refresh:prices` exit 126. The repo and
+    // state paths are pinned below, so the wrapper writes nothing under the real HOME.
     const result = spawnSync('bash', [WRAPPER], {
       encoding: 'utf8',
-      env: { ...process.env, HOME: dir, OBSERVATORY_REPO: repo, OBSERVATORY_PRICE_REFRESH_STATE: path.join(dir, 'state') },
+      env: { ...process.env, OBSERVATORY_REPO: repo, OBSERVATORY_PRICE_REFRESH_STATE: path.join(dir, 'state') },
     })
     return { stdout: result.stdout.trim(), status: result.status }
   }
