@@ -204,6 +204,51 @@ b.save(sys.argv[1])
             self.assertEqual(daily.tick(self.root, cfg)['sources']['korea']['status'], 'already_published')
             self.assertEqual(self.remote.read_bytes(), after)
 
+            with sqlite3.connect(run / daily.STORAGE) as db:
+                self.assertEqual(db.execute('SELECT count(*) FROM spending_batch').fetchone(), (1,))
+                self.assertEqual(db.execute('SELECT count(*) FROM spending_observation').fetchone(), (2,))
+            second = daily.enqueue_workbook(self.root, cfg, 'korea', bank, issuer, '2026-11-01', '2026-11-29')
+            second_dir = self.root / 'runs' / second['run']
+            (second_dir / 'decisions.json').write_bytes((run / 'decisions.json').read_bytes())
+            replay = daily.tick(self.root, cfg)['sources']['korea']
+            self.assertEqual((replay['inserted'], replay['matched']), (0, 2))
+
+            old_binding = daily.read(self.binding)
+            old_binding['accountId'] = 'unknown-account'
+            self.binding.write_bytes(daily.encode(old_binding))
+            state = daily.read(second_dir / 'pointer.json')
+            state['bindingSha256'] = daily.digest(self.binding.read_bytes())
+            (second_dir / 'pointer.json').write_bytes(daily.encode(state))
+            cmd = [python, str(Path(cfg['checkout']) / 'scripts/banksalad-evidence.py'),
+                   str(second_dir / daily.STORAGE), str(second_dir), str(self.binding)]
+            refused = subprocess.run(cmd, capture_output=True, text=True)
+            self.assertNotEqual(refused.returncode, 0)
+            self.assertIn('unknown_account', refused.stderr)
+
+    def test_banksalad_groups_cannot_offset_refunds(self):
+        import os
+        import subprocess
+        import sys
+
+        python = os.environ.get('STOCK_PYTHON_BIN', sys.executable)
+        script = """
+import runpy,sys
+app=runpy.run_path(sys.argv[1])
+items={2:{'day':'2026-11-01','kind':'지출','amount':-1200,'description':'Bus'},
+       3:{'day':'2026-11-02','kind':'지출','amount':200,'description':'Bus refund'}}
+target={'t':{'day':'2026-11-02','amount':-1000,'description':'Bus group'}}
+binding={'product':'card','matchExact':False,'showUnmatched':True}
+review={'links':[{'rows':[2,3],'transactionId':'t','basis':'issuer_aggregate'}]}
+try:
+    app['plan'](items,target,binding,review)
+except ValueError as issue:
+    assert str(issue)=='invalid_banksalad_aggregate'
+else:
+    raise AssertionError('mixed-sign aggregate accepted')
+"""
+        subprocess.run([python, '-c', script,
+                        str(Path(__file__).parents[1] / 'scripts/banksalad-evidence.py')], check=True)
+
     def test_review_gate_then_exact_replay(self):
         with patch.object(daily, 'cli', self.cli), patch.object(daily, 'publish', self.publish):
             self.assertEqual(daily.tick(self.root, self.config)['status'], 'awaiting_review')

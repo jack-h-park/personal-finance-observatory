@@ -76,8 +76,9 @@ def plan(records, transactions, binding, review):
         basis = item['basis']
         checked(sum(records[row]['amount'] for row in rows) == txn['amount'], 'banksalad_amount_mismatch')
         if basis == 'issuer_aggregate':
-            checked(binding['product'] == 'card' and len(rows) > 1 and
-                    all(records[row]['kind'] == '지출' for row in rows), 'invalid_banksalad_aggregate')
+            checked(binding['product'] == 'card' and len(rows) > 1 and txn['amount'] < 0 and
+                    all(records[row]['kind'] == '지출' and records[row]['amount'] < 0 for row in rows),
+                    'invalid_banksalad_aggregate')
         else:
             checked(basis == 'issuer_row' and len(rows) == 1 and
                     records[rows[0]]['day'] == txn['day'], 'banksalad_date_mismatch')
@@ -87,8 +88,9 @@ def plan(records, transactions, binding, review):
 
     if binding['matchExact']:
         by_merchant, by_ledger = defaultdict(list), defaultdict(list)
+        reviewed_fees = {item['row'] for item in review.get('issuerFees', [])}
         for row, item in records.items():
-            if item['kind'] == '지출':
+            if item['kind'] == '지출' and row not in reviewed_fees:
                 by_merchant[exact_key(item)].append(row)
         for target, item in transactions.items():
             by_ledger[exact_key(item)].append(target)
@@ -125,8 +127,12 @@ def plan_fees(db, records, binding, review, links):
             WHERE account_id=? AND posted_date=? AND currency='KRW' AND amount_minor=?""",
             (account, row['day'], row['amount'])).fetchall()
         if candidates:
-            if len(candidates) == 1 and candidates[0][0] == key and json.loads(candidates[0][1]) == txn:
-                links[number] = key
+            if len(candidates) == 1:
+                prior_id, payload = candidates[0]
+                prior = json.loads(payload)
+                if ((prior_id == key and prior == txn) or (prior['kind'] == 'purchase' and
+                        reader.merchant_name(prior['description']) == reader.merchant_name(row['description']))):
+                    links[number] = prior_id
             # Competing transactions leave the workbook row held.
             continue
         if not db.execute('SELECT id FROM spending_transaction WHERE id=?', (key,)).fetchone():
@@ -157,6 +163,9 @@ def run(ledger, directory, binding_path, apply_token):
         db.execute('PRAGMA foreign_keys=ON')
         if apply_token:
             db.execute('BEGIN IMMEDIATE')
+        checked(db.execute("SELECT 1 FROM spending_transaction WHERE account_id=? AND currency='KRW' LIMIT 1",
+                           (binding['accountId'],)).fetchone(), 'unknown_account')
+        generation = db.execute('SELECT count(*) FROM spending_batch').fetchone()[0]
         transactions = {key: dict(day=day, amount=amount, description=json.loads(payload)['description'])
                         for key, day, amount, payload in db.execute('''
                             SELECT id,posted_date,amount_minor,payload FROM spending_transaction
@@ -168,7 +177,7 @@ def run(ledger, directory, binding_path, apply_token):
         fees = plan_fees(db, records, binding, review, links)
         holds = [item for item in holds if item['row'] not in fees and item['row'] not in links]
         batch = digest(encode([pointer, review]))
-        token = digest(encode([str(ledger), batch, sorted(transactions.items()), links, holds, fees]))
+        token = digest(encode([str(ledger), generation, batch, sorted(transactions.items()), links, holds, fees]))
         totals = [dict(currency='KRW', addedPurchaseMinor=str(sum(-row['amountMinor'] for _, row in fees.values())))]
         result = dict(status='preview', reviewToken=token, inserted=len(fees), matched=len(set(links.values())),
                       evidenceLinked=len(links), issues=[], held=holds, totals=totals)
@@ -188,26 +197,27 @@ def run(ledger, directory, binding_path, apply_token):
             PRIMARY KEY (batch_id,row_number))''')
         db.execute('INSERT INTO spending_banksalad_batch VALUES (?,?,?,?)',
                    (batch, binding['accountId'], encode(pointer).decode(), encode(review).decode()))
-        if fees:
-            source = 'offline-banksalad-issuer-fee'
-            evidence = encode(dict(pointer=pointer, review=review))
-            record_hash = digest(evidence)
-            archive = ledger.parent.parent / 'records/spending'
-            archive.mkdir(parents=True, exist_ok=True)
-            record = archive / (record_hash + '.json')
-            if record.exists():
-                checked(record.read_bytes() == evidence, 'archived_evidence_changed')
-            else:
-                with record.open('xb') as stream:
-                    stream.write(evidence)
-            db.execute('INSERT INTO spending_batch VALUES (?,?,?,?,?,?,?,?,?)',
-                       (batch, source, pointer['from'], pointer['to'], record_hash, record.name,
-                        'banksalad-reviewed-issuer-fees-v1', len(fees), datetime.now().isoformat()))
-            for row, (key, item) in fees.items():
-                db.execute('INSERT INTO spending_transaction VALUES (?,?,?,?,?,?,?,?)',
-                           (key, source, item['accountId'], item['postedDate'], 'KRW', item['amountMinor'],
-                            item['sourceId'], encode(item).decode()))
-                db.execute('INSERT INTO spending_observation VALUES (?,?,?)', (batch, row, key))
+        source = 'offline-banksalad-issuer-fee' if fees else 'offline-banksalad-evidence'
+        evidence = encode(dict(pointer=pointer, review=review))
+        record_hash = digest(evidence)
+        archive = ledger.parent.parent / 'records/spending'
+        archive.mkdir(parents=True, exist_ok=True)
+        record = archive / (record_hash + '.json')
+        if record.exists():
+            checked(record.read_bytes() == evidence, 'archived_evidence_changed')
+        else:
+            with record.open('xb') as stream:
+                stream.write(evidence)
+        db.execute('INSERT INTO spending_batch VALUES (?,?,?,?,?,?,?,?,?)',
+                   (batch, source, pointer['from'], pointer['to'], record_hash, record.name,
+                   'banksalad-reviewed-evidence-v1', len(fees) + len(links), datetime.now().isoformat()))
+        for row, (key, item) in fees.items():
+            db.execute('INSERT INTO spending_transaction VALUES (?,?,?,?,?,?,?,?)',
+                       (key, source, item['accountId'], item['postedDate'], 'KRW', item['amountMinor'],
+                        item['sourceId'], encode(item).decode()))
+        db.executemany('INSERT INTO spending_observation VALUES (?,?,?)',
+                       [(batch, row, target) for row, target in links.items()] +
+                       [(batch, row, key) for row, (key, _) in fees.items()])
         db.executemany('INSERT INTO spending_banksalad_evidence VALUES (?,?,?,?)',
                        [(batch, row, target, None) for row, target in links.items()] +
                        [(batch, row, key, None) for row, (key, _) in fees.items()] +
