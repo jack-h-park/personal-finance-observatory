@@ -33,7 +33,14 @@ export function SnapshotTaxContext({ language }: { language: Language }) {
                     <TextLink href={`/taxes/records/${encodeURIComponent(row.id)}`}>
                       {copy.year(row.year)} · {row.unit} · {labelFor(history.authorities, row.authority)}
                     </TextLink>
-                    <span className="text-body tabular-nums">{row.principal == null ? copy.paymentUnknown : formatMoney({ currency: row.currency, minor: row.principal })}</span>
+                    {row.principal != null ? (
+                      <span className="text-body tabular-nums">{formatMoney({ currency: row.currency, minor: row.principal })}</span>
+                    ) : row.reportedMinor != null ? (
+                      <span className="text-body tabular-nums">
+                        {formatMoney({ currency: row.currency, minor: row.reportedMinor })}
+                        <span className="ml-2 text-caption text-ink-2">{copy.paymentReported}</span>
+                      </span>
+                    ) : <span className="text-body">{copy.paymentUnknown}</span>}
                   </li>
                 ))}
               </ul>
