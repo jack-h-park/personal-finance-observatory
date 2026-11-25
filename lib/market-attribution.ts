@@ -33,6 +33,23 @@ export function remapToHeld<T extends { market: string; ticker: string }>(rows: 
   return rows.map((r) => ({ ...r, market: rowMarket(r.market, r.ticker, held) }))
 }
 
+/** Sums rows that share date, market and ticker; unpriced if either part is. */
+function mergeRows(rows: readonly PositionSnapshotRow[]): PositionSnapshotRow[] {
+  const merged = new Map<string, PositionSnapshotRow>()
+  for (const r of rows) {
+    const key = `${r.date}|${r.market}|${r.ticker}`
+    const prev = merged.get(key)
+    if (!prev) {
+      merged.set(key, { ...r })
+      continue
+    }
+    prev.quantity += r.quantity
+    prev.costKrw += r.costKrw
+    prev.marketValueKrw = prev.marketValueKrw === null || r.marketValueKrw === null ? null : prev.marketValueKrw + r.marketValueKrw
+  }
+  return [...merged.values()]
+}
+
 const emptyTotals = (): MarketTotals => ({ marketEffect: 0, moneyIn: 0, valueChange: 0, startValue: 0, endValue: 0 })
 
 /**
@@ -49,7 +66,8 @@ export function attribute(input: {
   held: readonly { market: string; ticker: string }[]
 }): Attribution {
   const heldMap = heldMarketMap(input.held)
-  const rows = remapToHeld(input.rows, heldMap)
+  // Remapping can put two rows on one key; rangeBreakdown keeps only the last, so merge first.
+  const rows = mergeRows(remapToHeld(input.rows, heldMap))
   const realized = remapToHeld(input.realized, heldMap)
   const breakdown = rangeBreakdown({ from: input.from, to: input.to, rows, realized, markets: [...ATTRIBUTION_MARKETS] })
 

@@ -30,7 +30,7 @@ test('a purchase is money in, not market effect', () => {
 test('a Toss-held US stock sold in full lands under US', () => {
   const rows = [row(A, 'KR', 'TSLQ', 100, 100)]
   const r = attribute({ from: A, to: B, rows, realized: [gain('KR', 'TSLQ', 50)], held: [] })
-  assert.ok(r.byMarket.US.marketEffect >= 50)
+  assert.equal(r.byMarket.US.marketEffect, 50)
   assert.equal(r.byMarket.KR.marketEffect, 0)
   assert.equal(r.byMarket.KR.startValue, 0)
   assert.equal(r.byMarket.US.startValue, 100)
@@ -71,4 +71,23 @@ test('start + money in + effect = end, unpriced excluded', () => {
   assert.equal(r.startValue + moneyIn + effect, r.endValue)
   assert.equal(r.startValue, 120 + 210 + 80 + 45)
   assert.equal(r.endValue, 150 + 300 + 70)
+})
+
+test('one ticker under two markets, held in one, is merged before the split', () => {
+  const rows = [
+    row(A, 'KR', 'TSLQ', 100, 100),
+    row(A, 'US', 'TSLQ', 100, 100),
+    row(B, 'KR', 'TSLQ', 100, 150),
+    row(B, 'US', 'TSLQ', 100, 150),
+  ]
+  const r = attribute({ from: A, to: B, rows, realized: [], held: [{ market: 'US', ticker: 'TSLQ' }] })
+  assert.equal(r.startValue, 200)
+  assert.equal(r.endValue, 300)
+  assert.equal(r.byMarket.US.marketEffect, 100)
+  assert.equal(r.byMarket.US.moneyIn, 0)
+  const moneyIn = ATTRIBUTION_MARKETS.reduce((s, m) => s + r.byMarket[m].moneyIn, 0)
+  const effect = ATTRIBUTION_MARKETS.reduce((s, m) => s + r.byMarket[m].marketEffect, 0)
+  assert.equal(r.startValue + moneyIn + effect, r.endValue)
+  const plain = rangeBreakdown({ from: A, to: B, rows, realized: [], markets: ['KR', 'US', 'CRYPTO'] })
+  assert.equal(r.breakdown.marketEffectTotal, plain.marketEffectTotal)
 })
