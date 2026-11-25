@@ -58,3 +58,20 @@ test('a documented return supplies a reference amount until a payment is recorde
   store.evidence[0].deleted = true
   assert.equal(snapshotTaxPayments(store)[0].reportedMinor, null)
 })
+
+test('a rejected amendment supersedes earlier returns only when a live successor replaces it', () => {
+  const store = fixture()
+  const obligation = store.obligations[2]
+  obligation.taxType = 'capital-gains'
+  const original = {
+    id: 'kr-original', recordRevision: 1, obligationId: obligation.id, status: 'accepted' as const,
+    liability: { currency: 'KRW' as const, minor: '100000' }, evidenceIds: ['doc-1'],
+  }
+  const rejected = { ...original, id: 'kr-rejected', status: 'rejected' as const, supersedesId: original.id }
+  store.returns.push(original, rejected)
+  assert.equal(snapshotTaxPayments(validateTaxHistory(store))[0].reportedMinor, '100000')
+  store.returns.push({
+    ...original, id: 'kr-current', supersedesId: rejected.id, liability: { currency: 'KRW', minor: '300000' },
+  })
+  assert.equal(snapshotTaxPayments(validateTaxHistory(store))[0].reportedMinor, '300000')
+})

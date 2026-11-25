@@ -5,7 +5,15 @@ import { live, type TaxHistoryStoreV1 } from '@/lib/domain/taxes/history'
 export function snapshotTaxPayments(store: TaxHistoryStoreV1) {
   const evidence = new Set(live(store.evidence).map(row => row.id))
   const returns = live(store.returns).filter(row => row.status !== 'rejected')
-  const superseded = new Set(returns.map(row => row.supersedesId))
+  const returnById = new Map(store.returns.map(row => [row.id, row]))
+  const superseded = new Set<string>()
+  for (const row of returns) {
+    let previous = row.supersedesId
+    while (previous && !superseded.has(previous)) {
+      superseded.add(previous)
+      previous = returnById.get(previous)?.supersedesId
+    }
+  }
   const currentReturns = returns.filter(row => !superseded.has(row.id))
   return getAnnualTaxSummary(store).years.flatMap(({ rows }) => rows.filter(row => row.taxType === 'capital-gains').map(row => {
     const [candidate, other] = currentReturns.filter(item => item.obligationId === row.id)
