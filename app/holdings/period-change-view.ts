@@ -8,6 +8,18 @@ import { actualSummary, periodStart, type Basis, type Period } from '@/lib/perio
 const SNAPSHOT_LOOKBACK_DAYS = 400 * 3
 
 /**
+ * The dates inside the range that have position rows, or null when fewer than
+ * two do: one date has nothing to compare with (every row would read as bought
+ * and the end as zero).
+ */
+export function measuredDates(dates: readonly string[], rows: readonly { date: string }[]): string[] | null {
+  // Only dates with position rows can be measured: a date without them would read as selling (or buying) everything.
+  const rowDates = new Set(rows.map((r) => r.date))
+  const measured = dates.filter((d) => rowDates.has(d))
+  return measured.length >= 2 ? measured : null
+}
+
+/**
  * Reads only what the selected period needs. 1D is the live day's change and
  * reads no snapshot history. Holdings return reads the day's-change rows with
  * the period start as the reference date. Actual P&L reads the snapshot rows
@@ -30,10 +42,8 @@ export function periodChangeView(period: Period, basis: Basis, held: readonly { 
   const inRange = dates.filter((d) => d >= start.date)
   const rows = getPositionSnapshots(inRange)
   if (!rows) return { kind: 'empty' }
-  // Only dates with position rows can be measured: a date without them would read as selling (or buying) everything.
-  const rowDates = new Set(rows.map((r) => r.date))
-  const measured = inRange.filter((d) => rowDates.has(d))
-  if (measured.length === 0) return { kind: 'empty' }
+  const measured = measuredDates(inRange, rows)
+  if (!measured) return { kind: 'empty' }
   const from = measured[0]
   const to = measured[measured.length - 1]
   const realized = getRealizedGains(from, to)
