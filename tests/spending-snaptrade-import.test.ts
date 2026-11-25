@@ -52,7 +52,12 @@ test('SnapTrade CLI previews, holds uncertain rows, and preserves totals on repl
     return JSON.parse(result.stdout)
   }
   const first = snapshot('snaptrade.json', rows)
-  const preview = run(first, issuer)
+  const invalidWindow = spawnSync(process.execPath, ['--import', 'tsx', 'scripts/import-spending.ts',
+    '--workspace', root, '--accounts', accounts, '--input', first, '--chase-csv', issuer,
+    '--binding', bindingFile, '--from', '2026-11-07', '--to', '2026-11-09'], { encoding: 'utf8' })
+  assert.notEqual(invalidWindow.status, 0)
+  assert.match(invalidWindow.stderr, /snaptrade_chase_outside_review_window/)
+  const preview = run(first, issuer, '--from', '2026-11-06', '--to', '2026-11-06')
   assert.equal(preview.status, 'preview')
   assert.equal(preview.inserted, 7)
   assert.deepEqual(preview.held.map((row: SnaptradeHold) => row.reason).sort(),

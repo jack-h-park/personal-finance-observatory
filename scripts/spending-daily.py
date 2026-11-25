@@ -72,19 +72,31 @@ def clone(source, target):
 
 
 def projection(before, after, published, account, expected_inserts, labels=None, currency='USD',
-               source_key=None, reviewed_holds=None):
+               source_key=None, reviewed_holds=None, resolved_keys=()):
     packet = json.loads(published)
     view = packet['snapshot']
     previous_holds = list(view['holds'])
     if source_key and reviewed_holds is not None:
-        view['holds'] = [hold for hold in previous_holds
-                         if not isinstance(hold, dict) or hold.get('ingestSource') != source_key]
+        view['holds'] = [dict(hold) if isinstance(hold, dict) else hold for hold in previous_holds
+                         if not isinstance(hold, dict) or
+                         (hold.get('ingestSource') != source_key and hold.get('observationKey') not in resolved_keys)]
         for hold in reviewed_holds:
             fingerprint = hold.get('fingerprint', {})
-            source = {'issuer': 'samsung', 'banksalad': 'banksalad'}.get(hold.get('workbook'), 'simplefin')
-            view['holds'].append(dict(accountId=account, source=source, row=hold['row'], reason=hold['reason'],
-                date=fingerprint.get('postedDate'), amountMinor=fingerprint.get('amountMinor'),
-                currency=currency, ingestSource=source_key))
+            source = {'issuer': 'samsung', 'banksalad': 'banksalad'}.get(hold.get('workbook'), hold.get('source', 'simplefin'))
+            item = dict(accountId=account, source=source, row=hold['row'], reason=hold['reason'],
+                        date=fingerprint.get('postedDate'), amountMinor=fingerprint.get('amountMinor'),
+                        currency=currency, ingestSource=source_key)
+            if hold.get('observationKey'):
+                item['observationKey'] = hold['observationKey']
+            # Older reviewed snapshots may already surface this exact archived observation.
+            identity = ('accountId', 'source', 'row', 'date', 'amountMinor', 'currency')
+            existing = next((old for old in view['holds'] if item['date'] is not None and isinstance(old, dict) and
+                (old['observationKey'] == item['observationKey'] if old.get('observationKey') and item.get('observationKey')
+                 else all(old.get(k) == item[k] for k in identity))), None)
+            if existing is None:
+                view['holds'].append(item)
+            elif item.get('observationKey'):
+                existing.setdefault('observationKey', item['observationKey'])
     with closing(db_at(before)) as baseline, closing(db_at(after)) as staged:
         require(staged.execute('PRAGMA integrity_check').fetchone() == ('ok',), 'invalid_staged_ledger')
         require(not staged.execute('PRAGMA foreign_key_check').fetchall(), 'invalid_staged_references')
@@ -133,17 +145,27 @@ def approve(root, run, token, keep_holds=False):
 
 
 def cli(config, directory, apply_token=None):
-    if config.get('kind') == 'banksalad-evidence':
-        command = [config['workbookPython'], str(Path(config['checkout']) / 'scripts/banksalad-evidence.py'),
+    helper = {'banksalad-evidence': 'banksalad-evidence.py', 'us-evidence': 'spending-us-evidence.py'}.get(config.get('kind'))
+    if helper:
+        command = [config['workbookPython'], str(Path(config['checkout']) / 'scripts' / helper),
                    str(directory / STORAGE), str(directory), config['binding']]
+        if config.get('kind') == 'us-evidence':
+            command.append(config['accounts'])
         if apply_token:
             command.extend(['--apply-token', apply_token])
         result = subprocess.run(command, cwd=config['checkout'], capture_output=True, timeout=120)
-        require(result.returncode == 0, 'banksalad_evidence_failed')
+        require(result.returncode == 0, 'reviewed_evidence_failed')
         return json.loads(result.stdout)
     command = [config['node'], config['tsx'], str(Path(config['checkout']) / 'scripts/import-spending.ts'),
                '--workspace', str(directory), '--accounts', config['accounts'], '--binding', config['binding']]
-    if config.get('kind') == 'workbook':
+    if config.get('kind') == 'snaptrade-card':
+        pointer = read(directory / 'pointer.json')
+        for path, key in ((Path(config['binding']), 'bindingSha256'), (directory / 'provider.json', 'providerSha256'),
+                          (directory / 'issuer.csv', 'issuerSha256')):
+            require(digest(path.read_bytes()) == pointer[key], 'us_evidence_input_changed')
+        command.extend(['--input', str(directory / 'provider.json'), '--chase-csv', str(directory / 'issuer.csv'),
+                        '--from', pointer['from'], '--to', pointer['to']])
+    elif config.get('kind') == 'workbook':
         pointer = read(directory / 'pointer.json')
         require(digest(Path(config['binding']).read_bytes()) == pointer['bindingSha256'], 'workbook_binding_changed')
         for name, key in (('issuer.xlsx', 'issuerSha256'), ('banksalad.xlsx', 'bankSaladSha256')):
@@ -349,25 +371,30 @@ def carry_decisions(runs, directory, key, active):
     carried.unlink(missing_ok=True)
 
 
-def enqueue_workbook(root, config, key, banksalad, issuer, start, end):
+def enqueue_workbook(root, config, key, banksalad, issuer, start, end, us=False):
     require(RUN_ID.fullmatch(key) and key in config.get('sources', {}), 'invalid_workbook_source')
     source = config['sources'][key]
-    require(source.get('kind') in ('workbook', 'banksalad-evidence'), 'invalid_workbook_source')
+    allowed = ('us-evidence', 'snaptrade-card') if us else ('workbook', 'banksalad-evidence')
+    require(source.get('kind') in allowed, 'invalid_workbook_source')
     require(date.fromisoformat(start).isoformat() == start and date.fromisoformat(end).isoformat() == end
             and start <= end, 'invalid_workbook_period')
     def load(path, suffixes):
         require(path.is_file() and path.suffix.lower() in suffixes and 0 < path.stat().st_size <= 16 * 1024 * 1024,
                 'invalid_workbook_file')
         return path.read_bytes()
-    bank = load(banksalad, ('.xlsx',))
-    card = load(issuer, ('.xlsx', '.xls', '.pdf') if source['kind'] == 'banksalad-evidence' else ('.xlsx',))
-    metadata = {'connectionKey': key, 'issuerSha256': digest(card), 'bankSaladSha256': digest(bank),
+    if us:
+        bank = load(banksalad, ('.json',))
+        card = load(issuer, ('.csv',))
+        input_name, issuer_name, field, prefix = 'provider.json', 'issuer.csv', 'providerSha256', 'us-'
+    else:
+        bank = load(banksalad, ('.xlsx',))
+        card = load(issuer, ('.xlsx', '.xls', '.pdf') if source['kind'] == 'banksalad-evidence' else ('.xlsx',))
+        input_name, issuer_name, field, prefix = 'banksalad.xlsx', 'issuer' + issuer.suffix.lower(), 'bankSaladSha256', 'workbook-'
+    metadata = {'connectionKey': key, 'issuerSha256': digest(card), field: digest(bank),
                 'from': start, 'to': end, 'bindingSha256': digest(Path(source['binding']).read_bytes())}
-    issuer_name = 'issuer.xlsx'
     if source['kind'] == 'banksalad-evidence':
-        issuer_name = 'issuer' + issuer.suffix.lower()
         metadata['issuerFile'] = issuer_name
-    metadata['runId'] = 'workbook-' + digest(encode(metadata))
+    metadata['runId'] = prefix + digest(encode(metadata))
     pointer = Path(source['pointer'])
     if pointer.is_file():
         previous = read(pointer)['runId']
@@ -379,7 +406,7 @@ def enqueue_workbook(root, config, key, banksalad, issuer, start, end):
     directory = root / 'runs' / metadata['runId']
     require(not (directory / 'rejected.json').is_file(), 'workbook_rejected')
     directory.mkdir(parents=True, exist_ok=True)
-    for name, body in (('banksalad.xlsx', bank), (issuer_name, card), ('pointer.json', encode(metadata))):
+    for name, body in ((input_name, bank), (issuer_name, card), ('pointer.json', encode(metadata))):
         target = directory / name
         if target.is_file():
             require(target.read_bytes() == body, 'workbook_input_changed')
@@ -393,7 +420,7 @@ def enqueue_workbook(root, config, key, banksalad, issuer, start, end):
 def reject_workbook(root, config, key, run):
     require(RUN_ID.fullmatch(key) and RUN_ID.fullmatch(run), 'invalid_run_id')
     source = config.get('sources', {}).get(key, {})
-    require(source.get('kind') in ('workbook', 'banksalad-evidence'), 'invalid_workbook_source')
+    require(source.get('kind') in ('workbook', 'banksalad-evidence', 'us-evidence', 'snaptrade-card'), 'invalid_workbook_source')
     pointer = read(Path(source['pointer']))
     require(pointer['connectionKey'] == key and pointer['runId'] == run, 'workbook_pointer_changed')
     directory = root / 'runs' / run
@@ -453,7 +480,7 @@ def preview(root, config, active, directory):
     clone(parent, ledger)
     copy_evidence(parent, ledger)
     result = cli(config, directory)
-    require(result['status'] == 'preview' or (config.get('kind') in ('workbook', 'banksalad-evidence') and
+    require(result['status'] == 'preview' or (config.get('kind') in ('workbook', 'banksalad-evidence', 'us-evidence', 'snaptrade-card') and
             result['status'] == 'already_applied'), 'unexpected_preview_status')
     if config.get('kind') in ('workbook', 'banksalad-evidence') or config.get('keepHeld') is True:
         result['keepHoldsAllowed'] = True
@@ -467,7 +494,7 @@ def copy_evidence(parent, ledger):
     for archive in ('records', 'records/spending'):
         folder = source / archive
         if folder.is_dir():
-            shutil.copytree(folder, target / 'records', dirs_exist_ok=True,
+            shutil.copytree(folder, target / archive, dirs_exist_ok=True,
                             ignore=shutil.ignore_patterns('spending'))
     for name in ('category-hints.json', 'account-labels.json'):
         if (source / name).is_file():
@@ -487,19 +514,20 @@ def apply(root, config, active, directory, preview_result):
     result = cli(config, directory, preview_result['reviewToken'])
     require(result['status'] == 'applied' and not result['issues']
             and all(result.get(key) == preview_result.get(key)
-                    for key in ('inserted', 'matched', 'totals', 'held', 'evidenceLinked')), 'approval_result_changed')
+                    for key in ('inserted', 'matched', 'totals', 'held', 'evidenceLinked', 'resolvedKeys')), 'approval_result_changed')
     parent = root / 'runs' / active
     before = (parent / 'snapshot.json').read_bytes()
     account = read(Path(config['binding']))['accountId']
     workbook = config.get('kind') in ('workbook', 'banksalad-evidence')
     source_key = config.get('sourceKey')
-    if workbook:
+    if workbook or config.get('kind') in ('us-evidence', 'snaptrade-card'):
         # An overlapping export may omit earlier unresolved observations.
         # Keep those receipts unless a separate evidence review resolves them.
         source_key = f'{source_key}:{directory.name}'
     after = projection(parent / STORAGE, directory / STORAGE, before, account, result['inserted'],
                        config.get('accountLabels'), 'KRW' if workbook else 'USD', source_key,
-                       result['held'] if preview_result.get('keepHoldsAllowed') else None)
+                       result['held'] if preview_result.get('keepHoldsAllowed') else None,
+                       result.get('resolvedKeys', ()))
     atomic(directory / 'snapshot.json', after)
     journal = dict(parentRun=active, parentSnapshotSha256=digest(before), snapshotSha256=digest(after),
                    ledgerSha256=digest((directory / STORAGE).read_bytes()), inserted=result['inserted'],
@@ -522,13 +550,14 @@ def main():
             item.add_argument('run')
             item.add_argument('token')
             item.add_argument('--keep-holds', action='store_true')
-    item = sub.add_parser('enqueue-workbook')
-    item.add_argument('config', type=Path)
-    item.add_argument('source')
-    item.add_argument('banksalad', type=Path)
-    item.add_argument('issuer', type=Path)
-    item.add_argument('period_start')
-    item.add_argument('period_end')
+    for action in ('enqueue-workbook', 'enqueue-us'):
+        item = sub.add_parser(action)
+        item.add_argument('config', type=Path)
+        item.add_argument('source')
+        item.add_argument('banksalad', type=Path)
+        item.add_argument('issuer', type=Path)
+        item.add_argument('period_start')
+        item.add_argument('period_end')
     item = sub.add_parser('reject-workbook')
     item.add_argument('config', type=Path)
     item.add_argument('source')
@@ -549,9 +578,9 @@ def main():
             if args.action == 'approve':
                 approve(root, args.run, args.token, args.keep_holds)
                 result = dict(status='approved', run=args.run)
-            elif args.action == 'enqueue-workbook':
+            elif args.action in ('enqueue-workbook', 'enqueue-us'):
                 result = enqueue_workbook(root, config, args.source, args.banksalad, args.issuer,
-                                          args.period_start, args.period_end)
+                                          args.period_start, args.period_end, args.action == 'enqueue-us')
             elif args.action == 'reject-workbook':
                 result = reject_workbook(root, config, args.source, args.run)
             else:

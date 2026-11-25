@@ -33,7 +33,7 @@ class DailySpendingTest(unittest.TestCase):
         ledger = base / daily.STORAGE
         ledger.parent.mkdir(parents=True)
         db = sqlite3.connect(ledger)
-        db.execute('CREATE TABLE spending_transaction (id,account_id,posted_date,currency,payload)')
+        db.execute('CREATE TABLE spending_transaction (id TEXT PRIMARY KEY,account_id,posted_date,currency,payload)')
         db.close()
         archived = ledger.parent.parent / 'records'
         archived.mkdir()
@@ -177,7 +177,7 @@ b.save(sys.argv[1])
         with sqlite3.connect(seed / daily.STORAGE) as db:
             db.execute('DROP TABLE spending_transaction')
             db.execute('CREATE TABLE spending_transaction (id PRIMARY KEY,source,account_id,posted_date,currency,amount_minor,source_id,payload)')
-            db.execute('CREATE TABLE spending_batch (id,source,period_start,period_end,record_sha256,record_path,adapter,row_count,applied_at)')
+            db.execute('CREATE TABLE spending_batch (id TEXT PRIMARY KEY,source,period_start,period_end,record_sha256,record_path,adapter,row_count,applied_at)')
             db.execute('CREATE TABLE spending_observation (batch_id,row_number,transaction_id)')
             db.execute('INSERT INTO spending_transaction VALUES (?,?,?,?,?,?,?,?)',
                        ('known', 'fixture', 'checking', '2026-11-01', 'KRW', -500, None, json.dumps(event)))
@@ -248,6 +248,90 @@ else:
 """
         subprocess.run([python, '-c', script,
                         str(Path(__file__).parents[1] / 'scripts/banksalad-evidence.py')], check=True)
+
+    def test_saved_us_evidence_holds_new_card_observations_and_links_approved_history(self):
+        import sys
+        provider = self.root / 'card.json'
+        issuer = self.root / 'card.csv'
+        issuer.write_bytes(b'Date,Description,Amount\n2026-11-24,Sample charge,-3.00\n')
+        self.binding.write_bytes(daily.encode(dict(accountId='checking', provider='simplefin-card',
+            providerAccountId='sample', connectionId='approved', suffix='0001', domain='example.com')))
+        stamp = int(daily.datetime.fromisoformat('2026-11-24T12:00:00+00:00').timestamp())
+        provider.write_bytes(daily.encode(dict(response=dict(errlist=[], connections=[
+            dict(conn_id='approved', org_url='https://www.example.com')], accounts=[
+            dict(id='sample', conn_id='approved', currency='USD', name='Example (0001)', transactions=[
+                dict(id='confirmed', posted=stamp, amount='-3', description='Sample charge'),
+                dict(id='unknown', posted=stamp, amount='20', description='Unknown credit')])]))))
+        config = dict(sources={'archive': {**self.config, 'kind':'us-evidence', 'keepHeld':True,
+                                           'pointer': str(self.root / 'archive-latest.json')}},
+                      checkout=str(Path(__file__).parents[1].resolve()), workbookPython=sys.executable,
+                      accounts=str(self.root / 'accounts.json'))
+        Path(config['accounts']).write_bytes(daily.encode(dict(accounts=[dict(inventory=dict(
+            accountId='checking', role='primary', owner=dict(state='confirmed')))])))
+        seed = self.root / 'runs/seed'
+        credit = {**ROW, 'amountMinor': 2000, 'kind': 'refund', 'description': 'Credit'}
+        with sqlite3.connect(seed / daily.STORAGE) as db:
+            db.execute('ALTER TABLE spending_transaction ADD COLUMN amount_minor')
+            db.execute('CREATE TABLE spending_batch (id TEXT PRIMARY KEY,source,period_start,period_end,record_sha256,record_path,adapter,row_count,applied_at)')
+            db.execute('CREATE TABLE spending_observation (batch_id,row_number,transaction_id)')
+            db.execute('INSERT INTO spending_transaction VALUES (?,?,?,?,?,?)',
+                       ('prior', 'checking', '2026-11-24', 'USD', json.dumps(ROW), -300))
+            db.execute('INSERT INTO spending_transaction VALUES (?,?,?,?,?,?)',
+                       ('refund', 'checking', '2026-11-24', 'USD', json.dumps(credit), 2000))
+        packet = json.loads(self.original)
+        packet['snapshot']['rows'] = [{'id':'prior', **ROW}, {'id':'refund', **credit}]
+        packet['snapshot']['holds'].append(dict(accountId='checking', source='simplefin', row=2,
+            reason='unconfirmed_credit', date='2026-11-24', amountMinor=2000, currency='USD'))
+        start = daily.encode(packet)
+        (seed / 'snapshot.json').write_bytes(start)
+        self.remote.write_bytes(start)
+        queued = daily.enqueue_workbook(self.root, config, 'archive', provider, issuer, '2026-11-24', '2026-11-24', True)
+        run = self.root / 'runs' / queued['run']
+        marker = daily.read(run / 'pointer.json')
+        (run / 'decisions.json').write_bytes(daily.encode(dict(providerSha256=marker['providerSha256'],
+            issuerSha256=marker['issuerSha256'], rows=[dict(sourceId='confirmed', postedDate='2026-11-24',
+                amountMinor=-300, descriptionSha256=daily.digest(b'Sample charge'), transactionId='prior')])))
+        with patch.object(daily, 'publish', self.publish):
+            preview = daily.tick(self.root, config)['sources']['archive']
+            self.assertEqual((preview['inserted'], preview['matched'], preview['held']), (0, 1, 1))
+            self.assertEqual(self.remote.read_bytes(), start)
+            daily.approve(self.root, queued['run'], daily.read(run / 'preview.json')['reviewToken'], keep_holds=True)
+            self.assertEqual(daily.tick(self.root, config)['sources']['archive']['status'], 'published')
+            after = self.remote.read_bytes()
+            self.assertEqual(json.loads(after)['snapshot']['rows'], packet['snapshot']['rows'])
+            old = json.loads(after)['snapshot']['holds']
+            self.assertEqual(len(old), 2)
+            self.assertEqual(old[1]['amountMinor'], 2000)
+            self.assertEqual(old[1]['reason'], 'unconfirmed_credit')
+            self.assertIn('observationKey', old[1])
+            self.assertEqual(daily.tick(self.root, config)['sources']['archive']['status'], 'already_published')
+            self.assertEqual(self.remote.read_bytes(), after)
+            from importlib.util import module_from_spec, spec_from_file_location
+            spec = spec_from_file_location('us_evidence', Path(config['checkout']) / 'scripts/spending-us-evidence.py')
+            us_evidence = module_from_spec(spec)
+            spec.loader.exec_module(us_evidence)
+            with sqlite3.connect(run / daily.STORAGE) as db:
+                scope, = db.execute('SELECT provider_scope FROM spending_us_provider_evidence LIMIT 1').fetchone()
+                copied = dict(sourceId='second-id', postedDate='2026-11-24', amountMinor=-300,
+                              descriptionSha256=daily.digest(b'Sample charge'), transactionId='prior')
+                with self.assertRaisesRegex(ValueError, 'us_evidence_link_mismatch'):
+                    us_evidence.review_rows(db, [(1, 'second-id', '2026-11-24', -300, 'Sample charge')],
+                                            'checking', {'rows': [copied]}, marker, 'simplefin-card', scope)
+            issuer.write_bytes(issuer.read_bytes() + b'2026-11-24,Credit,20.00\n')
+            next_batch = daily.enqueue_workbook(self.root, config, 'archive', provider, issuer,
+                                                '2026-11-24', '2026-11-24', True)
+            new_run = self.root / 'runs' / next_batch['run']
+            marker = daily.read(new_run / 'pointer.json')
+            (new_run / 'decisions.json').write_bytes(daily.encode(dict(providerSha256=marker['providerSha256'],
+                issuerSha256=marker['issuerSha256'], rows=[dict(sourceId='unknown', postedDate='2026-11-24',
+                    amountMinor=2000, descriptionSha256=daily.digest(b'Unknown credit'), transactionId='refund')])))
+            later = daily.tick(self.root, config)['sources']['archive']
+            self.assertEqual((later['inserted'], later['matched'], later['held']), (0, 1, 0))
+            daily.approve(self.root, next_batch['run'], daily.read(new_run / 'preview.json')['reviewToken'])
+            self.assertEqual(daily.tick(self.root, config)['sources']['archive']['status'], 'published')
+            final = daily.read(self.remote)['snapshot']
+            self.assertEqual(final['rows'], packet['snapshot']['rows'])
+            self.assertEqual(final['holds'], ['keep-existing-hold'])
 
     def test_review_gate_then_exact_replay(self):
         with patch.object(daily, 'cli', self.cli), patch.object(daily, 'publish', self.publish):
