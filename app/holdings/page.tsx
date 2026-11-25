@@ -14,9 +14,10 @@ import { Panel } from '@/components/card'
 import { Label } from '@/components/metric'
 import { DivergingBarList, RankedBarList } from '@/components/RankedBars'
 import { aggregateSecurities, concentration, gainContributors, securityWeights } from '@/lib/holdings-composition'
-import { getDayChangeRows, getHoldings, getPositionTrendRows, getValuationBasis } from '@/lib/adapters/portfolio-db'
-import { DayChangeCard } from '@/components/DayChangeCard'
-import { dayChange } from '@/lib/day-change'
+import { getHoldings, getPositionTrendRows, getValuationBasis } from '@/lib/adapters/portfolio-db'
+import { PeriodChangeCard } from '@/components/PeriodChangeCard'
+import { periodChangeView } from './period-change-view'
+import { resolveBasis, resolvePeriod } from '@/lib/period-change'
 import { ValuationBasisStrip } from '@/components/ValuationBasisStrip'
 import { groupBySecurity, holdingWeight, trendChangePct, trendDates, trendSeries, weightTotal, type GroupAccount } from '@/lib/holdings-view'
 import { marketColor } from '@/lib/palette'
@@ -324,6 +325,10 @@ export default async function HoldingsPage({
   const securityItem = (s: { key: string; market: string; ticker: string; name: string }) => ({ key: s.key, label: s.name, href: positionHref(s.market, s.ticker) })
 
 
+  // The period change card's own parameters (?chg=, ?basis=); the table's filters do not apply to it.
+  const changePeriod = resolvePeriod(params.chg)
+  const changeBasis = resolveBasis(params.basis)
+
   const groupLabels: Record<string, string> = {
     market: copy.market,
     brokerage: copy.broker,
@@ -334,8 +339,16 @@ export default async function HoldingsPage({
   return (
     <>
       {header}
-      {/* The day's change covers every holding, so it sits above the filtered table. */}
-      <DayChangeCard change={dayChange(getDayChangeRows())} copy={copy.dayChange} language={language} money={(krw) => money(krw, 'KRW')} />
+      {/* The period change covers every holding, so it sits above the filtered table. */}
+      <PeriodChangeCard
+        view={periodChangeView(changePeriod, changeBasis, rows)}
+        period={changePeriod}
+        basis={changeBasis}
+        copy={copy.periodChange}
+        language={language}
+        money={(krw) => money(krw, 'KRW')}
+        href={(param, value) => withParam(BASE, params, param, (param === 'chg' ? value === '1d' : value === 'actual') ? null : value)}
+      />
       <Card title={copy.caption}>
         <div className="space-y-3">
           <FilterBar
