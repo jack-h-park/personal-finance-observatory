@@ -153,7 +153,8 @@ test('a second unreviewed posting with the same date and amount blocks a cross-s
   t.after(() => db.close())
   const target = db.prepare('SELECT id FROM spending_transaction').pluck().get() as string
   const incoming = snapshot('possible-link', [checking[0]])
-  assert.equal(importSpending(p.input(incoming)).held?.[0].linkCandidateId, target)
+  const candidate = importSpending(p.input(incoming)).held?.[0]
+  assert.equal(candidate && 'linkCandidateId' in candidate && candidate.linkCandidateId, target)
   const repeated = snapshot('ambiguous', [checking[0], tx('other-retail', '-20.00', 'Known shop')])
   const reviewed = { schemaVersion: 1, decisions: [{ ...decisions.decisions[0], linkToTransactionId: target }] }
   const preview = importSpending(p.input(repeated, reviewed))
