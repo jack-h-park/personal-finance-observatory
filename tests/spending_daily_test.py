@@ -35,6 +35,10 @@ class DailySpendingTest(unittest.TestCase):
         db = sqlite3.connect(ledger)
         db.execute('CREATE TABLE spending_transaction (id,account_id,posted_date,currency,payload)')
         db.close()
+        archived = ledger.parent.parent / 'records'
+        archived.mkdir()
+        (archived / 'receipt.json').write_bytes(b'original evidence')
+        (ledger.parent.parent / 'account-labels.json').write_bytes(b'{}')
         (base / 'snapshot.json').write_bytes(self.original)
         (self.root / 'current.json').write_bytes(daily.encode(dict(run='seed')))
 
@@ -50,7 +54,7 @@ class DailySpendingTest(unittest.TestCase):
                     inserted=1, matched=0, totals=[dict(netMinor='300')])
 
     def publish(self, _, expected, candidate):
-        return daily.receive(self.remote, expected, candidate, lambda: None)
+        return daily.receive(self.remote, expected, candidate, lambda *_: None)
 
     def test_review_gate_then_exact_replay(self):
         with patch.object(daily, 'cli', self.cli), patch.object(daily, 'publish', self.publish):
@@ -66,6 +70,9 @@ class DailySpendingTest(unittest.TestCase):
             self.assertEqual(view['holds'], ['keep-existing-hold'])
             self.assertEqual(daily.tick(self.root, self.config)['status'], 'already_published')
             self.assertEqual(self.remote.read_bytes(), after)
+            active = self.root / 'runs/day-one' / daily.STORAGE
+            self.assertEqual((active.parent.parent / 'records/receipt.json').read_bytes(), b'original evidence')
+            self.assertEqual((active.parent.parent / 'account-labels.json').read_bytes(), b'{}')
 
     def test_restart_adopts_the_prepared_batch_after_publish_transport_failure(self):
         with patch.object(daily, 'cli', self.cli), patch.object(daily, 'publish', self.publish):
@@ -85,9 +92,9 @@ class DailySpendingTest(unittest.TestCase):
     def test_receiver_preserves_snapshot_on_conflicts_and_failed_live_checks(self):
         candidate = daily.encode(dict(version=1, snapshot=dict(rows=[ROW])))
         with self.assertRaisesRegex(ValueError, 'operating_snapshot_changed'):
-            daily.receive(self.remote, '0' * 64, candidate, lambda: None)
+            daily.receive(self.remote, '0' * 64, candidate, lambda *_: None)
 
-        def unavailable():
+        def unavailable(*_):
             raise OSError('site unavailable')
 
         with self.assertRaises(OSError):
@@ -98,20 +105,20 @@ class DailySpendingTest(unittest.TestCase):
         candidate = daily.encode(dict(version=1, snapshot=dict(rows=[ROW])))
         previous = daily.digest(self.original)
 
-        def interrupted():
+        def interrupted(*_):
             raise KeyboardInterrupt()
 
         with self.assertRaises(KeyboardInterrupt):
             daily.receive(self.remote, previous, candidate, interrupted)
         self.assertEqual(self.remote.read_bytes(), candidate)
 
-        def unavailable():
+        def unavailable(*_):
             raise OSError('site unavailable')
 
         with self.assertRaises(OSError):
             daily.receive(self.remote, previous, candidate, unavailable)
         self.assertEqual(self.remote.read_bytes(), self.original)
-        self.assertFalse(daily.receive(self.remote, previous, candidate, lambda: None)['unchanged'])
+        self.assertFalse(daily.receive(self.remote, previous, candidate, lambda *_: None)['unchanged'])
 
     def test_held_batch_cannot_be_approved(self):
         def held(config, directory, apply_token=None):

@@ -9,10 +9,12 @@ import json
 import os
 from pathlib import Path
 import re
+import shutil
 import sqlite3
 import subprocess
 import sys
 import tempfile
+from urllib.parse import urlencode
 import urllib.request
 from zoneinfo import ZoneInfo
 
@@ -125,11 +127,25 @@ def cli(config, directory, apply_token=None):
     return json.loads(result.stdout)
 
 
-def public_check(url):
-    request = urllib.request.Request(url, headers={'User-Agent': 'spending-publication-check'})
-    with urllib.request.urlopen(request, timeout=15) as response:
-        require(response.status == 200 and 'no-store' in response.headers.get('Cache-Control', ''), 'live_route_unavailable')
-        require(b'id="spending-lead"' in response.read(), 'live_summary_missing')
+def public_check(url, candidate, previous):
+    def verify(url_to_check, marker):
+        request = urllib.request.Request(url_to_check, headers={
+            'User-Agent': 'spending-publication-check', 'Cookie': 'jhp_lang=en',
+        })
+        with urllib.request.urlopen(request, timeout=15) as response:
+            require(response.status == 200 and 'no-store' in response.headers.get('Cache-Control', ''),
+                    'live_route_unavailable')
+            require(marker in response.read(), 'live_spending_data_missing')
+
+    verify(url, b'id="spending-lead"')
+    rows = json.loads(candidate)['snapshot']['rows']
+    earlier = {row['id'] for row in json.loads(previous)['snapshot']['rows']}
+    added = [row for row in rows if row['id'] not in earlier]
+    probes = added or [max(rows, key=lambda row: row['activityDate'])]
+    for row in probes:
+        query = urlencode(dict(view='transactions', account=row['accountId'], transaction=row['id'],
+                               month=row['activityDate'][:7], kinds='all', period='24'))
+        verify(url + '?' + query, b'Selected transaction')
 
 
 def receive(snapshot, expected, body, check):
@@ -155,12 +171,13 @@ def receive(snapshot, expected, body, check):
                 require(digest(prior) == journal['parent'], 'operating_snapshot_changed')
             journal_path.unlink()
         if prior == body:
-            check()
+            check(body, prior)
             require(snapshot.read_bytes() == body, 'operating_snapshot_changed')
             return dict(snapshotSha256=digest(body), unchanged=True)
         require(digest(prior) == expected, 'operating_snapshot_changed')
         atomic(backup_path, prior)
         atomic(journal_path, encode(dict(parent=expected, candidate=digest(body))))
+        require(snapshot.read_bytes() == prior, 'operating_snapshot_changed')
         atomic(snapshot, body)
         try:
             verify_publication(snapshot, body, prior, check)
@@ -174,7 +191,7 @@ def receive(snapshot, expected, body, check):
 
 def verify_publication(snapshot, candidate, prior, check):
     try:
-        check()
+        check(candidate, prior)
         require(snapshot.read_bytes() == candidate, 'operating_snapshot_changed')
     except Exception:
         if snapshot.read_bytes() == candidate:
@@ -184,7 +201,7 @@ def verify_publication(snapshot, candidate, prior, check):
 
 def publish(config, expected, candidate):
     result = subprocess.run([*config['publishCommand'], expected], input=candidate,
-                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=90)
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=240)
     require(result.returncode == 0, 'operating_publication_failed')
     receipt = json.loads(result.stdout)
     require(receipt['snapshotSha256'] == digest(candidate), 'operating_receipt_mismatch')
@@ -249,11 +266,26 @@ def preview(root, config, active, directory):
             'invalid_review_directory')
     ledger = directory / STORAGE
     ledger.parent.mkdir(parents=True, exist_ok=True)
-    clone(root / 'runs' / active / STORAGE, ledger)
+    parent = root / 'runs' / active / STORAGE
+    clone(parent, ledger)
+    copy_evidence(parent, ledger)
     result = cli(config, directory)
     require(result['status'] == 'preview', 'unexpected_preview_status')
     atomic(directory / 'preview.json', encode(result))
     return result
+
+
+def copy_evidence(parent, ledger):
+    source = parent.parent.parent
+    target = ledger.parent.parent
+    for archive in ('records', 'records/spending'):
+        folder = source / archive
+        if folder.is_dir():
+            shutil.copytree(folder, target / 'records', dirs_exist_ok=True,
+                            ignore=shutil.ignore_patterns('spending'))
+    for name in ('category-hints.json', 'account-labels.json'):
+        if (source / name).is_file():
+            shutil.copyfile(source / name, target / name)
 
 
 def accepted(directory, result):
@@ -295,7 +327,7 @@ def main():
     if args.action == 'receive':
         body = sys.stdin.buffer.read(25_000_001)
         require(len(body) <= 25_000_000, 'publication_too_large')
-        result = receive(args.snapshot, args.previous, body, lambda: public_check(args.url))
+        result = receive(args.snapshot, args.previous, body, lambda candidate, previous: public_check(args.url, candidate, previous))
     else:
         config = read(args.config)
         root = args.config.resolve().parent
