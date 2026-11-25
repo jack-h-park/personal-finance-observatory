@@ -100,7 +100,7 @@ export const holdings = defineCopy({
           title: 'Actual P&L',
           items: [
             'Actual P&L is the change in value minus the money put in: purchases add to money in and sales take it out, so a purchase never reads as a gain. Gains realized on sales inside the period are included.',
-            'Start value + money in + market effect = end value. A security without a price on the start or end date is left out of all four, and the card says how many.',
+            'Start value + money in + market effect = end value. A security without a price on the start or end date is left out of all four, and the card says how many. A security held under two lot markets is left out whole when either part has no price on a measured date.',
             "Each security counts in the market it is held in now, as on the market-mix chart, so US stocks held at Toss Securities count as US. A security sold in full keeps its lot's market, except that a Korean lot whose ticker has no digit counts as US. The total equals the market effect on Net worth for the same dates; the split by market can differ, because Net worth groups by the lot's market.",
             'The line under the markets adds up the market effect of each pair of stored dates, the same as the bars on the market-mix tab. A security without a price on one date drops out of the pairs around it only, so the line shows the shape and can end slightly off the figure above, which is the one to read.',
           ],
