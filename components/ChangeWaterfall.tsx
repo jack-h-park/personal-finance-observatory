@@ -80,7 +80,7 @@ export function ChangeWaterfall({
           const width = Math.max(0.5, Math.abs(at(segment.to) - at(segment.from)))
           return (
             <li key={segment.key} className="flex items-center gap-2">
-              <span className="w-16 shrink-0 truncate text-caption text-ink-2 sm:w-20">{labels.steps[segment.key] ?? segment.key}</span>
+              <span className="w-16 shrink-0 break-words text-caption text-ink-2 sm:w-20">{labels.steps[segment.key] ?? segment.key}</span>
               <div className="relative h-3 flex-1">
                 <div className="absolute inset-x-0 top-1/2 h-px bg-line-subtle" />
                 <div
