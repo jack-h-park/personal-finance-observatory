@@ -35,6 +35,7 @@ export type PeriodChangeCopy = {
   cumulativeTitle: string
   cumulativeHelpLabel: string
   cumulativeHelp: string
+  cumulativeKeyboardHelp: string
   cumulativeGapNote: string
   none: string
   fxNote: (now: string, prev: string, prevDate: string) => string
@@ -199,7 +200,13 @@ function Body({
               {copy.cumulativeHelp}
             </HelpPopover>
           </div>
-          <CumulativeEffectChart points={cumulative} label={copy.cumulativeTitle} currency={chartCurrency} language={language} />
+          <CumulativeEffectChart
+            points={cumulative}
+            label={copy.cumulativeTitle}
+            keyboardHelp={copy.cumulativeKeyboardHelp}
+            currency={chartCurrency}
+            language={language}
+          />
           {view.gaps > 0 && <Note spacing="above-0.5">{copy.cumulativeGapNote}</Note>}
         </div>
         <Movers copy={copy} up={s.up.map(driverItem)} down={s.down.map(driverItem)} />
