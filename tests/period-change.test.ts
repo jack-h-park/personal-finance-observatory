@@ -76,3 +76,23 @@ test('pct is null when a market starts empty', () => {
   assert.equal(s.clamped, true)
   assert.equal(s.markets.find((m) => m.market === 'KR')!.pct, null)
 })
+
+test('periodStart takes the first snapshot after a nominal start that falls on a weekend', () => {
+  // 1Y from a Monday reaches back to a Sunday; the stored weekday window begins the next day.
+  const dates = ['2025-10-31', '2025-11-24', '2025-11-25', '2026-11-20']
+  assert.deepEqual(periodStart('1y', '2026-11-23', dates), { date: '2025-11-24', clamped: false })
+})
+
+test('periodStart handles a span with 29 February', () => {
+  // 2024-03-01 reaches back 366 days, so the stored window (365 days) begins the day after the nominal Wednesday.
+  assert.deepEqual(periodStart('1y', '2024-03-01', ['2023-01-31', '2023-03-02', '2023-03-03']), { date: '2023-03-02', clamped: false })
+})
+
+test('periodStart keeps a snapshot on or just before the nominal start', () => {
+  assert.deepEqual(periodStart('1w', '2030-03-12', ['2030-03-03', '2030-03-06']), { date: '2030-03-03', clamped: false })
+  assert.deepEqual(periodStart('1w', '2030-03-12', ['2030-03-03', '2030-03-06', '2030-03-07']), { date: '2030-03-03', clamped: false })
+})
+
+test('periodStart clamps when nothing is on, before, or within 4 days after the nominal start', () => {
+  assert.deepEqual(periodStart('1w', '2030-03-12', ['2030-03-11', '2030-03-12']), { date: '2030-03-11', clamped: true })
+})

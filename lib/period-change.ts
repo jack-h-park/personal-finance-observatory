@@ -45,7 +45,19 @@ export function nominalStart(period: Exclude<Period, '1d'>, today: string): stri
   }
 }
 
-/** Latest snapshot on or before the nominal start; the earliest one, flagged, when none reaches back that far. */
+/** How far past the nominal start a snapshot may sit, and how far before it one may sit, to be taken as the start. */
+const START_TOLERANCE_DAYS = 4
+
+const dayNumber = (date: string) => Date.parse(`${date}T00:00:00Z`) / 86_400_000
+
+/**
+ * The stored snapshot nearest the nominal start: the latest one on or before
+ * it, unless that is more than four days early (or absent) and one exists
+ * within four days after it, which then wins. 365 days is 52 weeks and a day,
+ * and a leap span adds another, so the weekday window of stored snapshots can
+ * begin just after the nominal date. With neither, the earliest snapshot,
+ * flagged as clamped.
+ */
 export function periodStart(
   period: Exclude<Period, '1d'>,
   today: string,
@@ -53,13 +65,22 @@ export function periodStart(
 ): { date: string; clamped: boolean } | null {
   if (snapshotDates.length === 0) return null
   const nominal = nominalStart(period, today)
-  let best: string | null = null
+  const nominalDay = dayNumber(nominal)
+  let before: string | null = null
+  let after: string | null = null
   let earliest = snapshotDates[0]
   for (const d of snapshotDates) {
     if (d < earliest) earliest = d
-    if (d <= nominal && (best === null || d > best)) best = d
+    if (d <= nominal) {
+      if (before === null || d > before) before = d
+    } else if (dayNumber(d) - nominalDay <= START_TOLERANCE_DAYS && (after === null || d < after)) {
+      after = d
+    }
   }
-  return best !== null ? { date: best, clamped: false } : { date: earliest, clamped: true }
+  const beforeIsClose = before !== null && nominalDay - dayNumber(before) <= START_TOLERANCE_DAYS
+  if (before !== null && (beforeIsClose || after === null)) return { date: before, clamped: false }
+  if (after !== null) return { date: after, clamped: false }
+  return { date: earliest, clamped: true }
 }
 
 export type ActualSummary = {
