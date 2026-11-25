@@ -224,6 +224,21 @@ test('two approved credit card scopes coexist with the legacy checking scope and
   assert.equal(db.prepare('SELECT count(*) FROM spending_transaction').pluck().get(), 14)
 })
 
+test('a reviewed issuer card name can be pinned without accepting a renamed or bank account', () => {
+  const run = snapshot('issuer-card')
+  const accountName = 'Example Cash Rewards Visa Signature (6265)'
+  run.data.accounts[0].name = accountName
+  const cardBinding = { ...binding, accountKind: 'credit_card', expectedAccountName: accountName }
+  const cardDecisions = { ...decisions, decisions: decisions.decisions.map(row => ({ ...row, postedDate: '2026-11-11' })) }
+  const input = { run, binding: cardBinding, decisions: cardDecisions, accountIds: new Set([binding.accountId]),
+    manifestSha256: descriptionSha256('issuer-card'), connectionKey: run.manifest.connectionKey }
+  assert.equal(prepareSimplefinSpending(input).batch.transactions.length, 4)
+  assert.throws(() => prepareSimplefinSpending({ ...input,
+    binding: { ...cardBinding, accountKind: 'checking' } }), /invalid_simplefin_binding/)
+  run.data.accounts[0].name = 'Another Credit Card (6265)'
+  assert.throws(() => prepareSimplefinSpending(input), /simplefin_account_mismatch/)
+})
+
 test('an explicit deposit binding preserves a reviewed cross-source merchant alias', (t) => {
   const p = pilot(t)
   const baseline = p.input(snapshot('seed-deposit', [checking[0]]))

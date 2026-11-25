@@ -66,12 +66,16 @@ function reviewDecisions(value: unknown) {
 type AccountKind = 'credit_card' | 'checking' | 'savings'
 
 function accountBinding(value: unknown, accountIds: Set<string>) {
-  if (!object(value) || Object.keys(value).some(key => !['accountId', 'providerAccountId', 'connectionId', 'accountKind'].includes(key)) || !text(value.accountId) ||
+  if (!object(value) || Object.keys(value).some(key => !['accountId', 'providerAccountId', 'connectionId', 'accountKind', 'expectedAccountName'].includes(key)) || !text(value.accountId) ||
       !providerId(value.providerAccountId) || !providerId(value.connectionId) ||
-      (value.accountKind !== undefined && !['credit_card', 'checking', 'savings'].includes(value.accountKind as string))) throw new Error('invalid_simplefin_binding')
+      (value.accountKind !== undefined && !['credit_card', 'checking', 'savings'].includes(value.accountKind as string)) ||
+      (value.expectedAccountName !== undefined && (value.accountKind !== 'credit_card' || !providerId(value.expectedAccountName)))) {
+    throw new Error('invalid_simplefin_binding')
+  }
   if (!accountIds.has(value.accountId)) throw new Error('unknown_account')
   return { accountId: value.accountId, providerAccountId: value.providerAccountId, connectionId: value.connectionId,
-    ...(value.accountKind === undefined ? {} : { accountKind: value.accountKind as AccountKind }) }
+    ...(value.accountKind === undefined ? {} : { accountKind: value.accountKind as AccountKind }),
+    ...(value.expectedAccountName === undefined ? {} : { expectedAccountName: value.expectedAccountName }) }
 }
 
 /** Prepare transactions from the connector's already verified banking/v1 run. */
@@ -101,7 +105,8 @@ export function prepareSimplefinSpending(options: {
       !Array.isArray(data['pending-transactions'])) throw new Error('invalid_simplefin_run')
   const [account] = data.accounts
   if (!object(account) || !text(account.accountRef) || account.currency !== 'USD' ||
-      typeof account.name !== 'string' || !accountName.test(account.name) ||
+      typeof account.name !== 'string' ||
+      (binding.expectedAccountName === undefined ? !accountName.test(account.name) : account.name !== binding.expectedAccountName) ||
       account.providerAccountId !== binding.providerAccountId || account.connectionId !== binding.connectionId ||
       manifest.connectionId !== binding.connectionId || !Array.isArray(manifest.accountIds) ||
       manifest.accountIds.length !== 1 || manifest.accountIds[0] !== binding.providerAccountId) {

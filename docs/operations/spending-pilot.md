@@ -311,6 +311,12 @@ their prior shape and New York posting-day convention. Card runs use the UTC
 posted day supplied by the connector. The ledger permits one approved mapping
 per canonical account and provider identity.
 
+For a verified credit card whose provider display name omits the word
+`Card`, set `expectedAccountName` in the private card binding to the exact
+display name returned by the provider. The account ID, connection ID,
+canonical inventory ID, and currency checks still apply. A name change
+requires review of the binding.
+
 Enable `carryDecisions` to seed a new preview from the last applied run of
 the same connection. The runner verifies its archived evidence hash before
 writing `carried-decisions.json`. To edit the carried set, copy that file
