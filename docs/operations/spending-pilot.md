@@ -497,8 +497,10 @@ observations. Inspect the preview before accepting them. Unmatched BankSalad row
 remain evidence and cannot independently create spending. Re-registering
 identical inputs yields the same run and does not change spending totals.
 The operating configuration can specify `workbookPython` for the installed
-extractor dependencies. Complete the open workbook review before registering a different export for
-that source.
+extractor dependencies. Complete an open workbook review or use `reject-workbook CONFIG SOURCE RUN`
+before registering a corrected export. Rejection preserves the source and
+does not approve a batch. Published holds are tied to the workbook batch;
+later exports preserve earlier unresolved evidence.
 
 Keep Samsung issuer coverage current and retain out-of-window or ambiguous
 evidence privately. Additional Korean products need their own verified

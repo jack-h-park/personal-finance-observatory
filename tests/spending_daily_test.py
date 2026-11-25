@@ -95,6 +95,21 @@ class DailySpendingTest(unittest.TestCase):
         self.assertNotEqual(first, second)
         self.assertEqual((directory / 'banksalad.xlsx').read_bytes(), b'bank fixture')
 
+    def test_workbook_rejection_preserves_unapplied_inputs_and_allows_a_new_upload(self):
+        issuer = self.root / 'issuer.xlsx'
+        bank = self.root / 'bank.xlsx'
+        issuer.write_bytes(b'issuer fixture')
+        bank.write_bytes(b'malformed input')
+        cfg = {'sources': {'korea': {**self.config, 'kind': 'workbook',
+                                    'pointer': str(self.root / 'workbook-latest.json')}}}
+        before = daily.enqueue_workbook(self.root, cfg, 'korea', bank, issuer, '2026-10-01', '2026-11-30')
+        self.assertEqual(daily.reject_workbook(self.root, cfg, 'korea', before['run'])['status'], 'rejected')
+        self.assertEqual(daily.tick(self.root, cfg)['sources']['korea']['status'], 'awaiting_source')
+        bank.write_bytes(b'corrected input')
+        after = daily.enqueue_workbook(self.root, cfg, 'korea', bank, issuer, '2026-10-01', '2026-11-30')
+        self.assertNotEqual(before['run'], after['run'])
+        self.assertEqual((self.root / 'runs' / before['run'] / 'banksalad.xlsx').read_bytes(), b'malformed input')
+
     def test_workbook_tick_publishes_an_accepted_hold_without_repeating_a_purchase(self):
         issuer = self.root / 'issuer.xlsx'
         bank = self.root / 'bank.xlsx'
@@ -119,6 +134,14 @@ class DailySpendingTest(unittest.TestCase):
             self.assertEqual(snap['holds'][1]['row'], 5)
             self.assertEqual(daily.tick(self.root, cfg)['sources']['korea']['status'], 'already_published')
             self.assertEqual(self.remote.read_bytes(), published)
+            second = daily.enqueue_workbook(self.root, cfg, 'korea', bank, issuer, '2026-12-01', '2026-12-31')
+            def clean(config, directory, apply_token=None):
+                return {**cli(config, directory, apply_token), 'held': []}
+            with patch.object(daily, 'cli', clean):
+                daily.tick(self.root, cfg)
+                daily.approve(self.root, second['run'], TOKEN)
+                self.assertEqual(daily.tick(self.root, cfg)['sources']['korea']['status'], 'published')
+                self.assertEqual(self.remote.read_bytes(), published)
 
     def test_review_gate_then_exact_replay(self):
         with patch.object(daily, 'cli', self.cli), patch.object(daily, 'publish', self.publish):
