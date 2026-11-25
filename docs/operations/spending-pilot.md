@@ -311,7 +311,9 @@ posted day supplied by the connector. The ledger permits one approved mapping
 per canonical account and provider identity.
 
 Enable `carryDecisions` to seed a new preview from the last applied run of
-the same connection. A previously reviewed row must still match its signed
+the same connection. The runner verifies its archived evidence hash before
+writing `carried-decisions.json`. To edit the carried set, copy that file
+to `decisions.json` and add reviewed decisions for new transactions. A previously reviewed row must still match its signed
 amount, posted date, source ID, and original description hash. Review new
 purchases and merchant refunds, and record repayments as card payments and
 explicit card benefits as other. Pending rows and unreviewed credits are

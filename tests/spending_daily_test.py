@@ -42,7 +42,8 @@ class DailySpendingTest(unittest.TestCase):
         (base / 'snapshot.json').write_bytes(self.original)
         (self.root / 'current.json').write_bytes(daily.encode(dict(run='seed')))
 
-    def cli(self, _, directory, apply_token=None):
+    def cli(self, config, directory, apply_token=None):
+        result = {}
         if apply_token:
             self.assertEqual(apply_token, TOKEN)
             db = sqlite3.connect(directory / daily.STORAGE)
@@ -50,8 +51,18 @@ class DailySpendingTest(unittest.TestCase):
                        ('tx', ROW['accountId'], ROW['postedDate'], ROW['currency'], json.dumps(ROW)))
             db.commit()
             db.close()
+            if config.get('carryDecisions'):
+                data = daily.read(directory / 'decisions.json')
+                pointer = daily.read(directory / 'pointer.json')
+                body = daily.encode(dict(decisions=data['decisions'], manifestSha256=pointer['manifestSha256'],
+                                         run=dict(manifest=dict(runId=directory.name))))
+                evidence_hash = daily.digest(body)
+                records = (directory / daily.STORAGE).parent.parent / 'records/spending'
+                records.mkdir(exist_ok=True)
+                (records / (evidence_hash + '.json')).write_bytes(body)
+                result['evidenceSha256'] = evidence_hash
         return dict(status='applied' if apply_token else 'preview', reviewToken=TOKEN, held=[], issues=[],
-                    inserted=1, matched=0, totals=[dict(netMinor='300')])
+                    inserted=1, matched=0, totals=[dict(netMinor='300')], **result)
 
     def publish(self, _, expected, candidate):
         return daily.receive(self.remote, expected, candidate, lambda *_: None)
@@ -123,7 +134,7 @@ class DailySpendingTest(unittest.TestCase):
     def test_multiple_sources_keep_approvals_and_carried_decisions_account_scoped(self):
         self.source.write_bytes(daily.encode(dict(runId='day-one', connectionKey='checking')))
         card = self.root / 'card-latest.json'
-        card.write_bytes(daily.encode(dict(runId='card-one', connectionKey='card')))
+        card.write_bytes(daily.encode(dict(runId='card-one', connectionKey='card', manifestSha256=TOKEN)))
         config = dict(sources={'card': {**self.config, 'pointer': str(card), 'carryDecisions': True},
                                'checking': self.config})
         with patch.object(daily, 'cli', self.cli), patch.object(daily, 'publish', self.publish):
@@ -139,12 +150,16 @@ class DailySpendingTest(unittest.TestCase):
             self.assertEqual(status['card']['status'], 'awaiting_source')
             self.assertEqual(status['checking']['status'], 'awaiting_review')
             self.assertEqual(self.remote.read_bytes(), self.original)
-            card.write_bytes(daily.encode(dict(runId='card-two', connectionKey='card')))
+            card.write_bytes(daily.encode(dict(runId='card-two', connectionKey='card', manifestSha256=TOKEN)))
             status = daily.tick(self.root, config)['sources']
             self.assertEqual(status['card']['status'], 'published')
+            carried = self.root / 'runs/card-two/carried-decisions.json'
+            self.assertFalse(carried.exists())
+            approved = evidence.read_bytes()
+            evidence.write_bytes(daily.encode(dict(schemaVersion=1, decisions=['tampered'])))
             status = daily.tick(self.root, config)['sources']
             self.assertEqual(status['checking']['status'], 'awaiting_review')
-            self.assertEqual((self.root / 'runs/card-two/decisions.json').read_bytes(), evidence.read_bytes())
+            self.assertEqual(carried.read_bytes(), approved)
             self.assertFalse((self.root / 'runs/day-one/decisions.json').exists())
 
     def test_held_batch_cannot_be_approved(self):

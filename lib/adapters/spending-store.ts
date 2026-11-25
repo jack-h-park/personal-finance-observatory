@@ -497,7 +497,7 @@ function processBatch(db: Database.Database | null, input: ImportInput) {
       batchId, snaptrade.accountId, snaptrade.providerAccountId, JSON.stringify(cardHeld),
     )
   }
-  return { status: 'applied', ...result }
+  return { status: 'applied', ...result, ...(savedBank ? { evidenceSha256: rawHash } : {}) }
 }
 
 export function importSpending(input: ImportInput) {
