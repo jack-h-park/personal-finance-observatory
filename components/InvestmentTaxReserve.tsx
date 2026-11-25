@@ -12,8 +12,15 @@ const emptyScenario = { taxable: '', preferential: '', magi: '', nii: '' }
 const sources = [RESERVE_RULES.revenueProcedure, RESERVE_RULES.capitalGainLaw, RESERVE_RULES.niitGuide]
 const components = ['regular', 'niit', 'total'] as const
 
-export function InvestmentTaxReserve({ language }: { language: Language }) {
+export function InvestmentTaxReserve({
+  language,
+  comparison,
+}: {
+  language: Language
+  comparison?: { baseline: string; scenario: string; result: string }
+}) {
   const copy = investmentTaxReserve[language]
+  const labels = comparison ?? copy
   const [profile, setProfile] = useState('')
   const [filing, setFiling] = useState('')
   const [baseline, setBaseline] = useState(emptyScenario)
@@ -63,7 +70,7 @@ export function InvestmentTaxReserve({ language }: { language: Language }) {
                 { key: 'scenario', amounts: scenario, setAmounts: setScenario },
               ] as const).map(({ key, amounts, setAmounts }) => (
                 <fieldset key={key} className="min-w-0 flex-1 basis-72 space-y-3 rounded-md border border-line p-4">
-                  <legend className="px-1 text-body font-medium">{copy[key]}</legend>
+                  <legend className="px-1 text-body font-medium">{labels[key]}</legend>
                   {reserveFields.map(field => (
                     <label key={field} className="block">
                       <span className="mb-1 block text-label">{copy.fields[field]}</span>
@@ -92,7 +99,7 @@ export function InvestmentTaxReserve({ language }: { language: Language }) {
       <div role="status" aria-live="polite">
         {result?.status === 'unavailable' ? <Note>{copy.unavailable[result.reason]}</Note> : null}
         {result?.status === 'ready' ? (
-          <Card title={copy.result}>
+          <Card title={labels.result}>
             <div className="overflow-x-auto p-4">
               <table className="w-full text-body">
                 <thead>
