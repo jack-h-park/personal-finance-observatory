@@ -355,11 +355,11 @@ function processBatch(db: Database.Database | null, input: ImportInput) {
   const sourceByAlias = new Map(storedAliases.map(row => [row.transaction_id, row.source_id]))
   const priorProof = savedBank?.reviewedEvidenceScope && reviewedLinks.size && db?.prepare(
     "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'spending_us_provider_evidence'",
-  ).get() ? db.prepare(`SELECT source_id AS sourceId, min(transaction_id) AS transactionId
+  ).get() ? db.prepare(`SELECT source_id AS sourceId, min(transaction_id) AS transactionId, min(fingerprint) AS fingerprint
     FROM spending_us_provider_evidence WHERE account_id = ? AND provider_scope = ? AND transaction_id IS NOT NULL
-    GROUP BY source_id HAVING count(DISTINCT transaction_id) = 1 ORDER BY source_id`)
-    .all(savedBank.accountId, savedBank.reviewedEvidenceScope) as { sourceId: string; transactionId: string }[] : []
-  const proofBySource = new Map(priorProof.map(row => [row.sourceId, row.transactionId]))
+    GROUP BY source_id HAVING count(DISTINCT transaction_id) = 1 AND count(DISTINCT fingerprint) = 1 ORDER BY source_id`)
+    .all(savedBank.accountId, savedBank.reviewedEvidenceScope) as { sourceId: string; transactionId: string; fingerprint: string }[] : []
+  const proofBySource = new Map(priorProof.map(row => [row.sourceId, row]))
   const overlapState = reviewedLinks.size || storedAliases.length
     ? [storedAliases, stored.map(({ id, row }) => [id, row])] : null
   const reviewToken = digest([input.ledgerPath, batchId, input.inventorySha256, count,
@@ -387,7 +387,11 @@ function processBatch(db: Database.Database | null, input: ImportInput) {
   const ambiguousPostings = new Set(savedBank?.ambiguousPostingRows)
   function bankCandidate(row: SpendingRow, rowNumber: number, targetHash?: string, knownId?: string, reviewedId?: string) {
     const posted = stored.filter(candidate => postingKey(candidate.row) === postingKey(row))
-    const provenId = row.sourceId && targetHash && reviewedId && proofBySource.get(row.sourceId) === reviewedId ? reviewedId : null
+    const proof = row.sourceId ? proofBySource.get(row.sourceId) : undefined
+    // Match the sorted keys used by the retained provider evidence writer.
+    const provenId = proof && targetHash && proof.transactionId === reviewedId && proof.fingerprint === digest({
+      amountMinor: row.amountMinor, descriptionSha256: sha256(row.description), postedDate: row.postedDate, sourceId: row.sourceId,
+    }) ? reviewedId : null
     const target = provenId ? posted.find(item => item.id === provenId && item.row.sourceId === row.sourceId) :
       posted.length === 1 && !ambiguousPostings.has(rowNumber) ? posted[0] : undefined
     if (target && target.source !== batch.source && target.row.kind === row.kind &&

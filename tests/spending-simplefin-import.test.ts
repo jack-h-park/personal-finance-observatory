@@ -183,18 +183,28 @@ test('repeated card purchases link only with evidence for the exact SimpleFIN ac
   const links = baseDecisions.map(row => ({ ...row, linkToTransactionId: target.get(row.sourceId),
     targetDescriptionSha256: row.descriptionSha256 }))
   const reviewed = incoming({ schemaVersion: 1, decisions: links })
-  db.exec('CREATE TABLE spending_us_provider_evidence (account_id, provider_scope, source_id, transaction_id)')
-  const notice = db.prepare('INSERT INTO spending_us_provider_evidence VALUES (?, ?, ?, ?)')
+  db.exec('CREATE TABLE spending_us_provider_evidence (account_id, provider_scope, source_id, transaction_id, fingerprint)')
+  const notice = db.prepare('INSERT INTO spending_us_provider_evidence VALUES (?, ?, ?, ?, ?)')
   const scope = descriptionSha256(JSON.stringify(['simplefin-card', [binding.connectionId, binding.providerAccountId]]))
-  notice.run(binding.accountId, scope, links[0].sourceId, links[0].linkToTransactionId)
-  notice.run(binding.accountId, 'other-provider-account', links[1].sourceId, links[1].linkToTransactionId)
+  const legacyFingerprint = (row: typeof links[number]) => descriptionSha256(JSON.stringify({
+    amountMinor: row.amountMinor, descriptionSha256: row.descriptionSha256, postedDate: row.postedDate, sourceId: row.sourceId,
+  }))
+  notice.run(binding.accountId, scope, links[0].sourceId, links[0].linkToTransactionId, legacyFingerprint(links[0]))
+  notice.run(binding.accountId, 'other-provider-account', links[1].sourceId, links[1].linkToTransactionId, legacyFingerprint(links[1]))
   assert.equal(importSpending(reviewed).matched, 1)
   assert.equal(importSpending(reviewed).held?.length, 1)
-  notice.run(binding.accountId, scope, links[1].sourceId, links[1].linkToTransactionId)
+  notice.run(binding.accountId, scope, links[1].sourceId, links[1].linkToTransactionId, legacyFingerprint(links[1]))
   const swapped = incoming({ schemaVersion: 1, decisions: [
     { ...links[0], linkToTransactionId: links[1].linkToTransactionId }, links[1],
   ] })
   assert.equal(importSpending(swapped).held?.length, 1)
+  const original = run.data.transactions[1]
+  run.data.transactions[1] = { ...original, description: 'Changed card description' }
+  const revised = incoming({ schemaVersion: 1, decisions: [links[0],
+    { ...links[1], descriptionSha256: descriptionSha256('Changed card description') },
+  ] })
+  assert.equal(importSpending(revised).held?.length, 1)
+  run.data.transactions[1] = original
   const preview = importSpending(reviewed)
   assert.equal(preview.matched, 2)
   assert.equal(preview.inserted, 0)
