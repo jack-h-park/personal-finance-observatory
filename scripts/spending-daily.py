@@ -136,21 +136,50 @@ def receive(snapshot, expected, body, check):
     require(HEX.fullmatch(expected), 'invalid_previous_hash')
     candidate = json.loads(body)
     require(candidate['version'] == 1 and isinstance(candidate['snapshot']['rows'], list), 'invalid_publication')
+    journal_path = snapshot.parent / '.daily-publish.pending.json'
+    backup_path = snapshot.parent / '.daily-publish.previous'
     with locked(snapshot.parent / '.daily-publish.lock'):
         prior = snapshot.read_bytes()
+        if journal_path.is_file():
+            journal = read(journal_path)
+            backup = backup_path.read_bytes()
+            require(digest(backup) == journal['parent'], 'receiver_backup_changed')
+            if digest(prior) == journal['candidate']:
+                try:
+                    verify_publication(snapshot, prior, backup, check)
+                except Exception:
+                    if snapshot.read_bytes() == backup:
+                        journal_path.unlink()
+                    raise
+            else:
+                require(digest(prior) == journal['parent'], 'operating_snapshot_changed')
+            journal_path.unlink()
         if prior == body:
             check()
+            require(snapshot.read_bytes() == body, 'operating_snapshot_changed')
             return dict(snapshotSha256=digest(body), unchanged=True)
         require(digest(prior) == expected, 'operating_snapshot_changed')
+        atomic(backup_path, prior)
+        atomic(journal_path, encode(dict(parent=expected, candidate=digest(body))))
         atomic(snapshot, body)
         try:
-            check()
-            require(snapshot.read_bytes() == body, 'operating_snapshot_changed')
+            verify_publication(snapshot, body, prior, check)
         except Exception:
-            if snapshot.read_bytes() == body:
-                atomic(snapshot, prior)
+            if snapshot.read_bytes() == prior:
+                journal_path.unlink()
             raise
+        journal_path.unlink()
         return dict(snapshotSha256=digest(body), unchanged=False)
+
+
+def verify_publication(snapshot, candidate, prior, check):
+    try:
+        check()
+        require(snapshot.read_bytes() == candidate, 'operating_snapshot_changed')
+    except Exception:
+        if snapshot.read_bytes() == candidate:
+            atomic(snapshot, prior)
+        raise
 
 
 def publish(config, expected, candidate):

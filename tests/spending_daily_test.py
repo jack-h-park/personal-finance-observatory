@@ -94,6 +94,25 @@ class DailySpendingTest(unittest.TestCase):
             daily.receive(self.remote, daily.digest(self.original), candidate, unavailable)
         self.assertEqual(self.remote.read_bytes(), self.original)
 
+    def test_receiver_restores_prior_state_if_process_dies_before_check(self):
+        candidate = daily.encode(dict(version=1, snapshot=dict(rows=[ROW])))
+        previous = daily.digest(self.original)
+
+        def interrupted():
+            raise KeyboardInterrupt()
+
+        with self.assertRaises(KeyboardInterrupt):
+            daily.receive(self.remote, previous, candidate, interrupted)
+        self.assertEqual(self.remote.read_bytes(), candidate)
+
+        def unavailable():
+            raise OSError('site unavailable')
+
+        with self.assertRaises(OSError):
+            daily.receive(self.remote, previous, candidate, unavailable)
+        self.assertEqual(self.remote.read_bytes(), self.original)
+        self.assertFalse(daily.receive(self.remote, previous, candidate, lambda: None)['unchanged'])
+
     def test_held_batch_cannot_be_approved(self):
         def held(config, directory, apply_token=None):
             return {**self.cli(config, directory, apply_token), 'held':[dict(row=1)]}
