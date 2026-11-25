@@ -106,10 +106,11 @@ type SavedBankEvidence = {
   accountId: string
   providerKey: string
   card: boolean
+  legacyChecking: boolean
   sourceRows: number[]
   held: SavedBankHold[]
   pendingIgnored: number
-  reviewedLinks?: { row: number; transactionId: string }[]
+  reviewedLinks?: { row: number; transactionId: string; targetDescriptionSha256?: string }[]
   ambiguousPostingRows?: number[]
 }
 
@@ -290,7 +291,7 @@ function matchWorkbookEvidence(
 }
 
 function validateSavedBankScope(db: Database.Database, evidence: SavedBankEvidence) {
-  const { scope, accountId, providerKey, card } = evidence
+  const { scope, accountId, providerKey, legacyChecking } = evidence
   const hasTable = db.prepare("SELECT 1 FROM sqlite_master WHERE name = ? AND type = 'table'")
   if (hasTable.get('spending_saved_bank_scope') && db.prepare(`
     SELECT 1 FROM spending_saved_bank_scope
@@ -305,13 +306,13 @@ function validateSavedBankScope(db: Database.Database, evidence: SavedBankEviden
     SELECT 1 FROM spending_saved_bank bank
     JOIN spending_batch batch ON batch.id = bank.batch_id
     WHERE bank.scope <> ? AND batch.adapter = 'simplefin-chase-checking-v1'
-      AND (? = 0 OR EXISTS (
+      AND (? = 1 OR EXISTS (
         SELECT 1 FROM spending_observation obs
         JOIN spending_transaction tx ON tx.id = obs.transaction_id
         WHERE obs.batch_id = bank.batch_id AND tx.account_id = ?
       ))
     LIMIT 1
-  `).get(scope, Number(card), accountId)) {
+  `).get(scope, Number(legacyChecking), accountId)) {
     throw new Error('offline_scope_changed')
   }
 }
@@ -319,7 +320,7 @@ function validateSavedBankScope(db: Database.Database, evidence: SavedBankEviden
 function processBatch(db: Database.Database | null, input: ImportInput) {
   const { batch, bytes, format, workbook, savedBank, snaptrade } = input
   const adapter = workbook ? 'samsung-banksalad-xlsx-v1' :
-    savedBank ? (savedBank.card ? 'simplefin-card-v1' : 'simplefin-chase-checking-v1') :
+    savedBank ? (savedBank.legacyChecking ? 'simplefin-chase-checking-v1' : savedBank.card ? 'simplefin-card-v1' : 'simplefin-deposit-v1') :
       snaptrade ? 'snaptrade-chase-card-v1' : `synthetic-${format}-v${batch.schemaVersion}`
   const rawHash = sha256(bytes)
   const recordName = `${rawHash}.${format}`
@@ -344,7 +345,7 @@ function processBatch(db: Database.Database | null, input: ImportInput) {
     { id: string; source: string; payload: string }[])
     .map(({ id, source, payload }) => ({ id, source, row: JSON.parse(payload) as SpendingRow }))
   const existing = stored.map(record => record.row)
-  const reviewedLinks = new Map(savedBank?.reviewedLinks?.map(link => [link.row, link.transactionId]))
+  const reviewedLinks = new Map(savedBank?.reviewedLinks?.map(link => [link.row, link]))
   const storedAliases = savedBank && db?.prepare(
     "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'spending_saved_bank_alias'",
   ).get() ? db.prepare('SELECT source_id, transaction_id, payload_sha256 FROM spending_saved_bank_alias WHERE scope = ? ORDER BY source_id')
@@ -375,13 +376,14 @@ function processBatch(db: Database.Database | null, input: ImportInput) {
   const multiplicity = new Map<string, number>()
   const matchModes = new Map<string, boolean>()
   const ambiguousPostings = new Set(savedBank?.ambiguousPostingRows)
-  function bankCandidate(row: SpendingRow, rowNumber: number) {
+  function bankCandidate(row: SpendingRow, rowNumber: number, targetHash?: string, knownId?: string) {
     if (ambiguousPostings.has(rowNumber)) return
     const posted = stored.filter(candidate => postingKey(candidate.row) === postingKey(row))
     const target = posted[0]
     if (posted.length === 1 && target.source !== batch.source && target.row.kind === row.kind &&
         (!row.transferRef || target.row.transferRef === row.transferRef) &&
-        bankDescription(target.row.description) === bankDescription(row.description)) return target.id
+        (targetHash ? sha256(target.row.description) === targetHash :
+          target.id === knownId || bankDescription(target.row.description) === bankDescription(row.description))) return target.id
   }
   const newAliases: { sourceId: string; transactionId: string; payloadSha256: string }[] = []
   const priorCardKeys = snaptrade && new Set(stored
@@ -406,13 +408,13 @@ function processBatch(db: Database.Database | null, input: ImportInput) {
     const batchMode = matchModes.get(matchKey)
     const approvedTarget = reviewedLinks.get(rowNumber)
     const previousAlias = row.sourceId ? aliasBySource.get(row.sourceId) : undefined
-    const targetId = approvedTarget ?? previousAlias?.transaction_id
+    const targetId = approvedTarget?.transactionId ?? previousAlias?.transaction_id
     if (seenIds.has(id)) issues.push({ row: rowNumber, code: 'duplicate_source_id' })
     else if ((prior && prior !== payload) || (previousAlias && previousAlias.payload_sha256 !== fingerprint)) issues.push({ row: rowNumber, code: 'changed_source_transaction' })
     else if (targetId && row.sourceId) {
       const claimedBy = sourceByAlias.get(targetId)
       if (prior || (previousAlias && previousAlias.transaction_id !== targetId) || (claimedBy && claimedBy !== row.sourceId) ||
-          bankCandidate(row, rowNumber) !== targetId) {
+          bankCandidate(row, rowNumber, approvedTarget?.targetDescriptionSha256, previousAlias?.transaction_id) !== targetId) {
         issues.push({ row: rowNumber, code: 'reviewed_link_mismatch' })
       } else {
         pending.push({ id: targetId, row, rowNumber, insert: false })

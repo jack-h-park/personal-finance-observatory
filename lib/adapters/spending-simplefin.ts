@@ -14,7 +14,7 @@ const newYorkDate = new Intl.DateTimeFormat('sv-SE', {
   timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit',
 })
 const kinds: SpendingRow['kind'][] = ['purchase', 'refund', 'card_payment', 'own_transfer', 'fee', 'other']
-type Decision = SavedBankFingerprint & { kind: SpendingRow['kind']; basis: string; transferRef?: string; linkToTransactionId?: string }
+type Decision = SavedBankFingerprint & { kind: SpendingRow['kind']; basis: string; transferRef?: string; linkToTransactionId?: string; targetDescriptionSha256?: string }
 
 function postedDate(value: unknown, card: boolean) {
   if (!instant(value)) throw new Error('invalid_simplefin_date')
@@ -40,7 +40,7 @@ function reviewDecisions(value: unknown) {
   const decisions = new Map<string, Decision>()
   for (const row of value.decisions) {
     if (!object(row)) throw new Error('invalid_simplefin_decisions')
-    const { sourceId, amountMinor, descriptionSha256, kind, basis, transferRef, linkToTransactionId } = row
+    const { sourceId, amountMinor, descriptionSha256, kind, basis, transferRef, linkToTransactionId, targetDescriptionSha256 } = row
     const date = strictIsoDate(row.postedDate)
     if (!providerId(sourceId) || decisions.has(sourceId) || !date ||
       typeof amountMinor !== 'number' || !Number.isSafeInteger(amountMinor) || !amountMinor ||
@@ -48,25 +48,30 @@ function reviewDecisions(value: unknown) {
       !kinds.includes(kind as SpendingRow['kind']) || !text(basis) || basis.length > 800 ||
       (transferRef !== undefined && (!providerId(transferRef) || (kind !== 'card_payment' && kind !== 'own_transfer'))) ||
       (linkToTransactionId !== undefined && (typeof linkToTransactionId !== 'string' || !sha256.test(linkToTransactionId))) ||
-      Object.keys(row).some(key => !['sourceId', 'postedDate', 'amountMinor', 'descriptionSha256', 'kind', 'basis', 'transferRef', 'linkToTransactionId'].includes(key))) {
+      (targetDescriptionSha256 !== undefined && (typeof targetDescriptionSha256 !== 'string' ||
+        !sha256.test(targetDescriptionSha256) || !linkToTransactionId)) ||
+      Object.keys(row).some(key => !['sourceId', 'postedDate', 'amountMinor', 'descriptionSha256', 'kind', 'basis', 'transferRef', 'linkToTransactionId', 'targetDescriptionSha256'].includes(key))) {
       throw new Error('invalid_simplefin_decisions')
     }
     decisions.set(sourceId, {
       sourceId, postedDate: date, amountMinor, descriptionSha256, kind: kind as SpendingRow['kind'], basis,
       ...(transferRef === undefined ? {} : { transferRef }),
       ...(linkToTransactionId === undefined ? {} : { linkToTransactionId }),
+      ...(targetDescriptionSha256 === undefined ? {} : { targetDescriptionSha256 }),
     })
   }
   return decisions
 }
 
+type AccountKind = 'credit_card' | 'checking' | 'savings'
+
 function accountBinding(value: unknown, accountIds: Set<string>) {
   if (!object(value) || Object.keys(value).some(key => !['accountId', 'providerAccountId', 'connectionId', 'accountKind'].includes(key)) || !text(value.accountId) ||
       !providerId(value.providerAccountId) || !providerId(value.connectionId) ||
-      (value.accountKind !== undefined && value.accountKind !== 'credit_card')) throw new Error('invalid_simplefin_binding')
+      (value.accountKind !== undefined && !['credit_card', 'checking', 'savings'].includes(value.accountKind as string))) throw new Error('invalid_simplefin_binding')
   if (!accountIds.has(value.accountId)) throw new Error('unknown_account')
   return { accountId: value.accountId, providerAccountId: value.providerAccountId, connectionId: value.connectionId,
-    ...(value.accountKind === 'credit_card' ? { accountKind: value.accountKind as 'credit_card' } : {}) }
+    ...(value.accountKind === undefined ? {} : { accountKind: value.accountKind as AccountKind }) }
 }
 
 /** Prepare transactions from the connector's already verified banking/v1 run. */
@@ -80,7 +85,10 @@ export function prepareSimplefinSpending(options: {
 }) {
   const binding = accountBinding(options.binding, options.accountIds)
   const card = binding.accountKind === 'credit_card'
-  const accountName = card ? /\bcard\b/i : /\bchecking\b/i
+  const legacyChecking = binding.accountKind === undefined
+  const accountName = binding.accountKind === 'savings' ? /\bsavings\b/i :
+    card ? /\bcard\b/i : legacyChecking ? /\bchecking\b/i : /\b(checking|banking)\b/i
+  const source = card ? 'offline-simplefin-card' : legacyChecking ? 'offline-simplefin-chase' : 'offline-simplefin-deposit'
   const decisions = reviewDecisions(options.decisions)
   const { run, manifestSha256, connectionKey } = options
   if (!sha256.test(manifestSha256) || !runKey.test(connectionKey) ||
@@ -107,7 +115,7 @@ export function prepareSimplefinSpending(options: {
   const dates: string[] = []
   const usedDecisions: Decision[] = []
   const postingRows = new Map<string, number[]>()
-  const reviewedLinks: { row: number; transactionId: string }[] = []
+  const reviewedLinks: { row: number; transactionId: string; targetDescriptionSha256?: string }[] = []
   for (const [index, row] of data.transactions.entries()) {
     if (!object(row) || row.state !== 'posted' || row.currency !== 'USD' || row.accountRef !== account.accountRef ||
         !providerId(row.providerTransactionId) || seen.has(row.providerTransactionId) || typeof row.description !== 'string') {
@@ -140,14 +148,15 @@ export function prepareSimplefinSpending(options: {
       description: row.description, kind: decision.kind, transferRef: decision.transferRef,
     })
     sourceRows.push(rowNumber)
-    if (decision.linkToTransactionId) reviewedLinks.push({ row: rowNumber, transactionId: decision.linkToTransactionId })
+    if (decision.linkToTransactionId) reviewedLinks.push({ row: rowNumber, transactionId: decision.linkToTransactionId,
+      targetDescriptionSha256: decision.targetDescriptionSha256 })
   }
   dates.sort()
   const start = dates[0] ?? postedDate(manifest.fetchedAt, card)
   const batch = normalizeSimplefinBatch({
-    schemaVersion: 1, mode: 'offline', status: 'complete', source: card ? 'offline-simplefin-card' : 'offline-simplefin-chase',
+    schemaVersion: 1, mode: 'offline', status: 'complete', source,
     periodStart: start, periodEnd: dates.at(-1) ?? start, transactions,
-  }, options.accountIds, card)
+  }, options.accountIds, source)
   // The collector keeps the immutable original; this archive preserves its
   // manifest hash, normalized rows with their raw pointers, and review evidence.
   const bytes = Buffer.from(JSON.stringify({ manifestSha256, run, binding, decisions: usedDecisions }))
@@ -155,7 +164,7 @@ export function prepareSimplefinSpending(options: {
     batch, bytes, format: 'json' as const,
     savedBank: {
       scope: hash(JSON.stringify([binding, connectionKey])),
-      accountId: binding.accountId, card, providerKey: hash(JSON.stringify([binding.connectionId, binding.providerAccountId])),
+      accountId: binding.accountId, card, legacyChecking, providerKey: hash(JSON.stringify([binding.connectionId, binding.providerAccountId])),
       sourceRows, held, reviewedLinks,
       ambiguousPostingRows: [...postingRows.values()].filter(rows => rows.length > 1).flat(),
       pendingIgnored: data['pending-transactions'].length,
@@ -184,7 +193,9 @@ export async function loadSimplefinSpending(options: {
     throw new Error('invalid_simplefin_pointer')
   }
   const binding = accountBinding(readJson(options.binding), options.accountIds)
-  const domains = binding.accountKind === 'credit_card' ? ['americanexpress.com', 'amazon.syf.com'] : ['chase.com']
+  const domains = binding.accountKind === undefined ? ['chase.com'] :
+    binding.accountKind === 'credit_card' ? ['americanexpress.com', 'amazon.syf.com'] :
+      binding.accountKind === 'savings' ? ['americanexpress.com'] : ['americanexpress.com', 'bankofamerica.com']
   if (!object(config) || config.provider !== 'simplefin' || config.environment !== 'live' || config.sample !== false ||
       typeof config.institutionDomain !== 'string' || !domains.includes(config.institutionDomain) || config.connectionKey !== pointer.connectionKey) {
     throw new Error('invalid_simplefin_config')

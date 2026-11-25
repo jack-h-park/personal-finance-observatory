@@ -223,3 +223,30 @@ test('two approved credit card scopes coexist with the legacy checking scope and
   assert.throws(() => importSpending(card(binding.accountId, 'wrong-kind')), /offline_scope_changed/)
   assert.equal(db.prepare('SELECT count(*) FROM spending_transaction').pluck().get(), 14)
 })
+
+test('an explicit deposit binding preserves a reviewed cross-source merchant alias', (t) => {
+  const p = pilot(t)
+  const baseline = p.input(snapshot('seed-deposit', [checking[0]]))
+  const seed = { ...baseline, savedBank: undefined, batch: { ...baseline.batch, source: 'reviewed-csv' } }
+  importSpending({ ...seed, reviewToken: importSpending(seed).reviewToken })
+  const db = new Database(p.ledgerPath, { readonly: true })
+  t.after(() => db.close())
+  const id = db.prepare('select id from spending_transaction').pluck().get() as string
+  const row = tx('retail-deposit', '-20.00', 'Known shop issuer alias')
+  const incoming = snapshot('deposit-1', [row])
+  incoming.data.accounts[0].name = 'Example Adv Plus Banking'
+  const reviewed = decision('retail-deposit', -2000, row.description, 'purchase')
+  const input = (expected: string) => ({ ...baseline, ...prepareSimplefinSpending({
+    run: incoming, binding: { ...binding, accountKind: 'checking' },
+    decisions: { schemaVersion: 1, decisions: [{ ...reviewed, linkToTransactionId: id, targetDescriptionSha256: expected }] },
+    accountIds: accounts, manifestSha256: descriptionSha256('deposit-1'), connectionKey: 'chase-checking',
+  }) })
+  assert.equal(importSpending(input(descriptionSha256('different shop'))).held?.[0].reason, 'reviewed_link_mismatch')
+  const good = input(descriptionSha256('Known shop'))
+  const preview = importSpending(good)
+  assert.equal(preview.matched, 1)
+  assert.equal(preview.inserted, 0)
+  assert.deepEqual(preview.held, [])
+  assert.equal(importSpending({ ...good, reviewToken: preview.reviewToken }).status, 'applied')
+  assert.equal(db.prepare('select count(*) from spending_transaction').pluck().get(), 1)
+})
