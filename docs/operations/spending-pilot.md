@@ -491,12 +491,14 @@ The command pins both workbook contents, binding and period. The next review
 tick builds the normal transaction and duplicate preview. Use the existing
 approval and publication path. The optional `--keep-holds` records exactly
 which reviewed holds stay out when approving confirmed rows and evidence.
-Inspect the preview before using this option. Unmatched BankSalad rows
+This option applies to the workbook source or deposit sources explicitly
+configured with `keepHeld`. The published hold list preserves unresolved
+observations. Inspect the preview before accepting them. Unmatched BankSalad rows
 remain evidence and cannot independently create spending. Re-registering
 identical inputs yields the same run and does not change spending totals.
 The operating configuration can specify `workbookPython` for the installed
-extractor dependencies. Register each incoming batch before moving on to a
-different export for that source.
+extractor dependencies. Complete the open workbook review before registering a different export for
+that source.
 
 Keep Samsung issuer coverage current and retain out-of-window or ambiguous
 evidence privately. Additional Korean products need their own verified

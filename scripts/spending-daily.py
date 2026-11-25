@@ -71,9 +71,20 @@ def clone(source, target):
         os.replace(staged, target)
 
 
-def projection(before, after, published, account, expected_inserts, labels=None, currency='USD'):
+def projection(before, after, published, account, expected_inserts, labels=None, currency='USD',
+               source_key=None, reviewed_holds=None):
     packet = json.loads(published)
     view = packet['snapshot']
+    previous_holds = list(view['holds'])
+    if source_key and reviewed_holds is not None:
+        view['holds'] = [hold for hold in previous_holds
+                         if not isinstance(hold, dict) or hold.get('ingestSource') != source_key]
+        for hold in reviewed_holds:
+            fingerprint = hold.get('fingerprint', {})
+            source = {'issuer': 'samsung', 'banksalad': 'banksalad'}.get(hold.get('workbook'), 'simplefin')
+            view['holds'].append(dict(accountId=account, source=source, row=hold['row'], reason=hold['reason'],
+                date=fingerprint.get('postedDate'), amountMinor=fingerprint.get('amountMinor'),
+                currency=currency, ingestSource=source_key))
     with closing(db_at(before)) as baseline, closing(db_at(after)) as staged:
         require(staged.execute('PRAGMA integrity_check').fetchone() == ('ok',), 'invalid_staged_ledger')
         require(not staged.execute('PRAGMA foreign_key_check').fetchall(), 'invalid_staged_references')
@@ -88,7 +99,7 @@ def projection(before, after, published, account, expected_inserts, labels=None,
         require(all(current.get(tx) == payload for tx, payload in old.items()), 'existing_ledger_row_changed')
         added = sorted(current.keys() - old.keys())
         require(len(added) == expected_inserts, 'unexpected_insert_count')
-        if not added:
+        if not added and previous_holds == view['holds']:
             return published
         for tx in added:
             row = json.loads(current[tx])
@@ -112,7 +123,8 @@ def approve(root, run, token, keep_holds=False):
     result = read(directory / 'preview.json')
     require(result['status'] == 'preview' and result['reviewToken'] == token, 'stale_review_token')
     require(not result['issues'] and (not result['held'] or (
-        keep_holds and (result['inserted'] or result['matched'] or result.get('evidenceLinked')))), 'unresolved_review')
+        keep_holds and result.get('keepHoldsAllowed') and
+        (result['inserted'] or result['matched'] or result.get('evidenceLinked')))), 'unresolved_review')
     receipt = dict(reviewToken=token)
     if result['held']:
         receipt['keptHolds'] = result['held']
@@ -268,10 +280,10 @@ def tick(root, config):
     results = {}
     for key, source in sources.items():
         require(RUN_ID.fullmatch(key) and isinstance(source, dict) and
-                source.keys() <= {'pointer', 'binding', 'simplefinConfig', 'accountLabels', 'carryDecisions', 'kind'},
+                source.keys() <= {'pointer', 'binding', 'simplefinConfig', 'accountLabels', 'carryDecisions', 'kind', 'keepHeld'},
                 'invalid_review_source')
         try:
-            results[key] = tick_source(root, {**config, **source}, runs, active_run(root), key)
+            results[key] = tick_source(root, {**config, **source, 'sourceKey': key}, runs, active_run(root), key)
         except Exception as error:
             results[key] = dict(status='failed', reason=safe_reason(error))
             # Finish an interrupted publication before any later source stages changes.
@@ -342,6 +354,14 @@ def enqueue_workbook(root, config, key, banksalad, issuer, start, end):
     metadata = {'connectionKey': key, 'issuerSha256': digest(card), 'bankSaladSha256': digest(bank),
                 'from': start, 'to': end, 'bindingSha256': digest(Path(source['binding']).read_bytes())}
     metadata['runId'] = 'workbook-' + digest(encode(metadata))
+    pointer = Path(source['pointer'])
+    if pointer.is_file():
+        previous = read(pointer)['runId']
+        require(RUN_ID.fullmatch(previous), 'invalid_run_id')
+        open_run = root / 'runs' / previous
+        open_preview = open_run / 'preview.json'
+        require(previous == metadata['runId'] or (open_run / 'published.json').is_file() or
+                (open_preview.is_file() and read(open_preview)['status'] == 'already_applied'), 'workbook_review_pending')
     directory = root / 'runs' / metadata['runId']
     directory.mkdir(parents=True, exist_ok=True)
     for name, body in (('banksalad.xlsx', bank), ('issuer.xlsx', card), ('pointer.json', encode(metadata))):
@@ -350,7 +370,6 @@ def enqueue_workbook(root, config, key, banksalad, issuer, start, end):
             require(target.read_bytes() == body, 'workbook_input_changed')
         else:
             atomic(target, body)
-    pointer = Path(source['pointer'])
     pointer.parent.mkdir(parents=True, exist_ok=True)
     atomic(pointer, encode(metadata))
     return dict(status='queued', run=metadata['runId'])
@@ -406,6 +425,8 @@ def preview(root, config, active, directory):
     result = cli(config, directory)
     require(result['status'] == 'preview' or (config.get('kind') == 'workbook' and
             result['status'] == 'already_applied'), 'unexpected_preview_status')
+    if config.get('kind') == 'workbook' or config.get('keepHeld') is True:
+        result['keepHoldsAllowed'] = True
     atomic(directory / 'preview.json', encode(result))
     return result
 
@@ -428,7 +449,8 @@ def accepted(directory, result):
     if not approval.is_file() or result['status'] != 'preview' or result['issues']:
         return False
     marker = read(approval)
-    return marker.get('reviewToken') == result['reviewToken'] and marker.get('keptHolds', []) == result['held']
+    return (marker.get('reviewToken') == result['reviewToken'] and marker.get('keptHolds', []) == result['held']
+            and (not result['held'] or result.get('keepHoldsAllowed') is True))
 
 
 def apply(root, config, active, directory, preview_result):
@@ -440,7 +462,8 @@ def apply(root, config, active, directory, preview_result):
     before = (parent / 'snapshot.json').read_bytes()
     account = read(Path(config['binding']))['accountId']
     after = projection(parent / STORAGE, directory / STORAGE, before, account, result['inserted'],
-                       config.get('accountLabels'), 'KRW' if config.get('kind') == 'workbook' else 'USD')
+                       config.get('accountLabels'), 'KRW' if config.get('kind') == 'workbook' else 'USD',
+                       config.get('sourceKey'), result['held'] if preview_result.get('keepHoldsAllowed') else None)
     atomic(directory / 'snapshot.json', after)
     journal = dict(parentRun=active, parentSnapshotSha256=digest(before), snapshotSha256=digest(after),
                    ledgerSha256=digest((directory / STORAGE).read_bytes()), inserted=result['inserted'],

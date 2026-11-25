@@ -72,7 +72,7 @@ class DailySpendingTest(unittest.TestCase):
         bank = self.root / 'bank.xlsx'
         issuer.write_bytes(b'issuer fixture')
         bank.write_bytes(b'bank fixture')
-        self.config['kind'] = 'workbook'
+        self.config.update(kind='workbook', pointer=str(self.root / 'workbook-latest.json'))
         config = {'sources': {'korea': self.config}}
         first = daily.enqueue_workbook(self.root, config, 'korea', bank, issuer, '2026-10-01', '2026-11-30')
         self.assertEqual(first, daily.enqueue_workbook(self.root, config, 'korea', bank, issuer,
@@ -80,7 +80,7 @@ class DailySpendingTest(unittest.TestCase):
         directory = self.root / 'runs' / first['run']
         self.assertEqual((directory / 'banksalad.xlsx').read_bytes(), b'bank fixture')
         reviewed = dict(status='preview', reviewToken=TOKEN, issues=[],
-                        held=[{'workbook': 'banksalad', 'row': 5}], inserted=0, matched=0, evidenceLinked=2)
+                        held=[{'workbook': 'banksalad', 'row': 5}], inserted=0, matched=0, evidenceLinked=2, keepHoldsAllowed=True)
         (directory / 'preview.json').write_bytes(daily.encode(reviewed))
         with self.assertRaisesRegex(ValueError, 'unresolved_review'):
             daily.approve(self.root, first['run'], TOKEN)
@@ -88,9 +88,37 @@ class DailySpendingTest(unittest.TestCase):
         self.assertTrue(daily.accepted(directory, reviewed))
         self.assertFalse(daily.accepted(directory, {**reviewed, 'held': []}))
         bank.write_bytes(b'overlapping bank fixture')
+        with self.assertRaisesRegex(ValueError, 'workbook_review_pending'):
+            daily.enqueue_workbook(self.root, config, 'korea', bank, issuer, '2026-11-01', '2026-12-31')
+        (directory / 'published.json').write_bytes(b'{}')
         second = daily.enqueue_workbook(self.root, config, 'korea', bank, issuer, '2026-11-01', '2026-12-31')
         self.assertNotEqual(first, second)
         self.assertEqual((directory / 'banksalad.xlsx').read_bytes(), b'bank fixture')
+
+    def test_workbook_tick_publishes_an_accepted_hold_without_repeating_a_purchase(self):
+        issuer = self.root / 'issuer.xlsx'
+        bank = self.root / 'bank.xlsx'
+        issuer.write_bytes(b'issuer fixture')
+        bank.write_bytes(b'bank fixture')
+        cfg = {'sources': {'korea': {**self.config, 'kind': 'workbook',
+                                    'pointer': str(self.root / 'workbook-latest.json')}}}
+        queued = daily.enqueue_workbook(self.root, cfg, 'korea', bank, issuer, '2026-10-01', '2026-11-30')
+        def cli(config, directory, apply_token=None):
+            return dict(status='applied' if apply_token else 'preview', reviewToken=TOKEN, issues=[],
+                        held=[{'workbook': 'banksalad', 'row': 5, 'reason': 'ambiguous_match'}],
+                        inserted=0, matched=1, evidenceLinked=1, totals=[])
+        with patch.object(daily, 'cli', cli), patch.object(daily, 'publish', self.publish):
+            self.assertEqual(daily.tick(self.root, cfg)['sources']['korea']['held'], 1)
+            self.assertEqual(self.remote.read_bytes(), self.original)
+            daily.approve(self.root, queued['run'], TOKEN, keep_holds=True)
+            self.assertEqual(daily.tick(self.root, cfg)['sources']['korea']['status'], 'published')
+            published = self.remote.read_bytes()
+            snap = json.loads(published)['snapshot']
+            self.assertEqual(snap['rows'], [])
+            self.assertEqual(snap['holds'][1]['source'], 'banksalad')
+            self.assertEqual(snap['holds'][1]['row'], 5)
+            self.assertEqual(daily.tick(self.root, cfg)['sources']['korea']['status'], 'already_published')
+            self.assertEqual(self.remote.read_bytes(), published)
 
     def test_review_gate_then_exact_replay(self):
         with patch.object(daily, 'cli', self.cli), patch.object(daily, 'publish', self.publish):
