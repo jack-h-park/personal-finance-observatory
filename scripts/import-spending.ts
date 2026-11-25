@@ -48,12 +48,18 @@ async function main() {
   }
   if (snaptrade) {
     if (format !== 'json' || !values['chase-csv'] || !values.binding || simplefin ||
-        [values.source, values.from, values.to, values.banksalad].some(value => value !== undefined)) {
+        [values.source, values.banksalad].some(value => value !== undefined)) {
       throw new Error('--chase-csv FILE and --binding FILE require a saved SnapTrade card JSON as --input')
     }
     const input = loadSnaptradeChaseSpending({
       snapshot: values.input, chaseCsv: values['chase-csv'], binding: values.binding, accountIds,
     })
+    if (values.from !== undefined || values.to !== undefined) {
+      if (!values.from || !values.to || !/^\d{4}-\d{2}-\d{2}$/.test(values.from) || !/^\d{4}-\d{2}-\d{2}$/.test(values.to) ||
+          input.batch.periodStart < values.from || input.batch.periodEnd > values.to) {
+        throw new Error('snaptrade_chase_outside_review_window')
+      }
+    }
     console.log(JSON.stringify(importSpending({ ...common, ...input }), null, 2))
   } else if (simplefin) {
     if (format !== 'json' || !values['simplefin-config'] || !values['connector-repo'] || !values.binding ||

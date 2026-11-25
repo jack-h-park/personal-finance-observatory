@@ -252,15 +252,12 @@ a later export never remove retained history.
 
 ## Schedule reviewed SimpleFIN spending refresh
 
-The review runner consumes saved SimpleFIN pointers for Chase Checking and
-the approved Amex and Amazon cards. It pins each run, previews it through the
-standard importer, and
-writes a private preview in `runs/<run-id>/preview.json`. It does not call
-the provider. Install the spending-review launch agent on the operating Mac Studio
-(`ops-host`) under the existing runtime account. The timer checks for a new
-daily run. Keep the collector, raw run archive, review state, and publisher
-on that host. Invoke the local receiver directly there. The reviewed spending
-pipeline must work with the MacBook offline.
+The Mac Studio system LaunchDaemon `com.jackpark.stock-observatory.spending-review`
+runs the review code as `runtime` every 30 minutes. The daily SimpleFIN collector
+runs separately on that host. The review runner pins each saved run, writes
+`runs/<run-id>/preview.json`, and invokes the local receiver after an exact
+approval. Hermes monitors the services. Neither the collector nor reviewer
+requires an interactive session.
 
 Keep the runner configuration and state outside Git. The configuration
 uses absolute paths for `pointer`, `accounts`, `binding`, `simplefinConfig`,
@@ -531,3 +528,28 @@ The BankSalad export stays manual. For the next monthly refresh, use the
 two preceding completed months and keep originals in the financial-records
 inbox. This workflow can use already archived issuer evidence; new issuer
 exports are needed only for an uncovered period with relevant activity.
+
+### Retained US provider and issuer pairs
+
+Register an explicitly scoped `snaptrade-card` (Chase) or `us-evidence` source,
+then enqueue a saved provider JSON and an issuer activity CSV:
+
+```sh
+python3 scripts/spending-daily.py enqueue-us CONFIG SOURCE PROVIDER_JSON ISSUER_CSV FROM TO
+```
+
+The runner checks queued pairs at its regular interval. Audit the private
+preview and use the existing review-token approval; `--keep-holds` publishes
+only accepted evidence while preserving unresolved rows. Chase uses the
+existing card importer, with SnapTrade as the fallback for the two verified
+historical card downloads. The evidence-only source supports scoped SimpleFIN
+card captures and retained SnapTrade bank runs. A reviewer can attach pinned
+decisions to link an existing USD transaction or record an explicit bank
+exclusion. The evidence-only helper creates zero economic rows. A one-day
+difference between the captured bank date and issuer posting date requires
+an explicit review decision and an exact signed amount match.
+
+This queue consumes saved input pairs. Collection and delivery of new files
+for accounts outside the scheduled SimpleFIN bindings are separate steps.
+An account present in a connection or in a historical batch has no implied
+ongoing transaction coverage.
