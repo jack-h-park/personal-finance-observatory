@@ -1,8 +1,8 @@
-# Daily snapshots and the day's change
+# Daily snapshots, the day's change and the period change
 
-How the /holdings charts get a point per weekday, and how the "today's change" card is calculated. This is the reference for the rules as built. The design that led here is `docs/superpowers/specs/2026-11-23-daily-snapshots-and-day-change-design.md`.
+How the /holdings charts get a point per weekday, and how the period change card (formerly "today's change") is calculated. This is the reference for the rules as built. The designs that led here are `docs/superpowers/specs/2026-11-23-daily-snapshots-and-day-change-design.md` and `docs/superpowers/specs/2026-11-24-period-change-and-daily-bars-design.md`.
 
-The card's own "how this is calculated" disclosure (`dayChange.rules` in `lib/ui-copy/pages/holdings.ts`) states the reader-facing rules from the "Day's change" section below. Change both together.
+The card's own "how this is calculated" disclosure (`periodChange.rules` in `lib/ui-copy/pages/holdings.ts`) states the reader-facing rules from the "Day's change" and "Period change" sections below, grouped the same way. Change both together.
 
 ## Where the code lives
 
@@ -14,9 +14,13 @@ The card's own "how this is calculated" disclosure (`dayChange.rules` in `lib/ui
 | Which dates a chart plots | `lib/snapshot-density.ts` (`lastPerMonth`, `holdingsChartDates`) |
 | Monthly filter for other pages | `lib/adapters/portfolio-db.ts` (`getPortfolioSnapshots`, `getSnapshotDates`, option `daily`) |
 | Market-mix series | `lib/market-mix.ts` (`marketMixSeries`) |
-| Day's change computation | `lib/day-change.ts` (`dayChange`) |
-| Day's change inputs | `lib/adapters/portfolio-db.ts` (`getDayChangeRows`) |
-| Card, on the holdings tab above the table | `components/DayChangeCard.tsx`, rendered by `app/holdings/page.tsx` |
+| Day's change computation (1D and Holdings return) | `lib/day-change.ts` (`dayChange`) |
+| Day's change inputs | `lib/adapters/portfolio-db.ts` (`getDayChangeRows`, option `referenceDate`) |
+| Period start and Actual P&L summary | `lib/period-change.ts` (`periodStart`, `actualSummary`) |
+| Market effects per market (row market remap, `rangeBreakdown`) | `lib/market-attribution.ts` (`attribute`) |
+| Daily market effects and the cumulative line | `lib/daily-change.ts` (`dailyChangeSeries`, `cumulativeEffect`) |
+| What the card reads for the selected period | `app/holdings/period-change-view.ts` (`periodChangeView`) |
+| Card, on the holdings tab above the table | `components/PeriodChangeCard.tsx` and `components/ChangeWaterfall.tsx`, rendered by `app/holdings/page.tsx` |
 | Market-mix and weights tabs | `app/holdings/MarketMixView.tsx`, `app/holdings/WeightsView.tsx` |
 
 ## Snapshot history
@@ -53,6 +57,42 @@ Rules, in the order the card's disclosure states them:
 6. **FX.** The won change of a US row includes the dollar's move. Today's rate is the live quote (`fx_rate_to_base`) and the previous rate is the daily reference series (`historical_fx_rates`), so their usual small gap shows up every day. The note under the US row shows both rates.
 7. **Contributors.** Rows of one security across accounts are summed. The five largest positive and the five most negative won changes are listed. Zero changes are not listed.
 8. **Scope.** The card always covers every holding, whatever the table's search and filters.
+
+## Period change
+
+The card on the holdings tab has period chips 1D, 1W, 1M, 3M, YTD and 1Y (`?chg=`, default 1D) and a basis toggle, Actual P&L or Holdings return (`?basis=`, default Actual P&L). 1D is the live day's change above in either basis. The disclosure groups its rules as below.
+
+### Period start
+
+1. For 1W and longer, the period starts on the stored snapshot date (`portfolio_snapshots`) nearest the nominal start: the latest one on or before it, unless that is more than 4 days early (or absent) and one exists within 4 days after it, in which case the earliest such one is used and the start is not clamped. 365 days is 52 weeks and a day, so on Sundays and Mondays, and in any span containing 29 February, the weekday window can begin just after the nominal start. The nominal start is today minus 7 days for 1W, one calendar month for 1M, three months for 3M, 31 December of last year for YTD, one year for 1Y. A month step clamps to the last day of the shorter month. Snapshots are stored for every weekday of the past year and for each month end before that.
+2. When no snapshot reaches back that far, the period starts at the earliest snapshot, and the headline says the record starts there. The chip stays available.
+3. The period ends at the newest snapshot date, which the ingest writes from today's holdings in the same run as `holdings`. With no row for today yet, the newest snapshot is the end, and the headline names its date. For Actual P&L, start and end are the first and last dates inside the period that have `position_snapshots` rows, because a date with a portfolio total but no position rows would read as selling or buying everything.
+
+### Actual P&L
+
+1. **Definition.** Market effect = change in value − money in, per security, from `rangeBreakdown` over the start and end `position_snapshots` rows and the realized gains sold in (start, end]. Purchases add to money in and sales take it out, so a purchase never reads as a gain. Realized gains inside the period count.
+2. **Identity.** Start value + money in + market effect = end value. A security unpriced on either date is left out of all four and counted in the exclusion note. A ticker held under two lot markets is left out whole when either part is unpriced on a measured date.
+3. **Market assignment.** Before `rangeBreakdown`, rows and gains are remapped with `rowMarket`, using today's holdings as the held map, so per-market figures follow the market-mix chart (US stocks held at Toss count as US). A security sold in full keeps its lot market, except that a KR lot whose ticker has no digit counts as US. The total equals /net-worth's range breakdown for the same dates. The split by market can differ from /net-worth, which groups by the lot's market.
+4. **Waterfall.** Start value, one step per market's effect (zero steps are left out), a neutral money-in step, then the end value. The scale spans only the totals the period passes through, never zero.
+5. **Cumulative line.** The sum of the daily pairs' market effects (`dailyChangeSeries` over the stored dates inside the period that have position rows, starting at zero on the start date), the same series as the daily bars on the market-mix tab. A security unpriced on one date drops out of the pairs around that date only, so the line can end off the headline. It shows shape and is not rescaled. The headline is authoritative, and a note under the line says when any pair dropped a security.
+6. **Movers.** The five largest positive and five most negative market effects per security, each linking to its position page.
+
+### Holdings return
+
+1. **Definition.** `dayChange` over `getDayChangeRows({ referenceDate: start })`: today's quantities at the close on or before the stored period-start date and at the current price. Trades inside the period are not counted. A holding bought after the start counts at its full quantity.
+2. **Start close.** The latest `historical_prices` close on or before the reference date, in the holding's own currency, with that date's `historical_fx_rates` rate. The quote file's own `previousClose` applies only to 1D. A holding with no close by then (listed or first priced later) is measured from its first close inside the period. A holding with no close in its own currency at all, such as crypto traded in won, is left out and counted.
+3. **Waterfall.** Market steps only, because money in is zero by definition.
+4. The headline's range runs from the start date to the newest market session among the holdings.
+
+### 1D and the last daily bar
+
+The 1D figure can differ from the last bar on the market-mix tab. 1D measures each market against its own previous session at the live quote-file price, on today's quantities. The bar is the pair of the last two stored snapshots, and today's trades enter it through money in. This gap is accepted.
+
+### What a render reads
+
+- 1D reads only the day's-change rows, no snapshot history.
+- Holdings return reads the snapshot dates (to find the start) and the day's-change rows with the reference date.
+- Actual P&L reads the snapshot dates, the `position_snapshots` rows for the dates inside the period, and the realized gains in the period, once each. The headline uses the start and end rows and the line uses all of them.
 
 ## Decisions made during implementation
 
