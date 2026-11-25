@@ -76,7 +76,7 @@ function normalizeRow(value: unknown, batch: Omit<SpendingBatch, 'transactions'>
     transferRef: transferRef ?? null }
 }
 
-function normalizeBatch(value: unknown, accountIds: Set<string>, offlineSource?: 'offline-samsung' | 'offline-simplefin-chase' | 'offline-simplefin-card' | 'offline-snaptrade-chase'): SpendingBatch {
+function normalizeBatch(value: unknown, accountIds: Set<string>, offlineSource?: 'offline-samsung' | 'offline-simplefin-chase' | 'offline-simplefin-card' | 'offline-simplefin-deposit' | 'offline-snaptrade-chase'): SpendingBatch {
   if (!object(value) || Object.keys(value).some(key =>
     !['schemaVersion', 'mode', 'status', 'source', 'periodStart', 'periodEnd', 'transactions'].includes(key))) {
     throw new Error('invalid_batch')
@@ -110,8 +110,9 @@ export function normalizeSamsungBatch(value: unknown, accountIds: Set<string>) {
   return normalizeBatch(value, accountIds, 'offline-samsung')
 }
 
-export function normalizeSimplefinBatch(value: unknown, accountIds: Set<string>, card: boolean) {
-  return normalizeBatch(value, accountIds, card ? 'offline-simplefin-card' : 'offline-simplefin-chase')
+export function normalizeSimplefinBatch(value: unknown, accountIds: Set<string>,
+  source: 'offline-simplefin-card' | 'offline-simplefin-chase' | 'offline-simplefin-deposit') {
+  return normalizeBatch(value, accountIds, source)
 }
 
 export function normalizeSnaptradeChaseBatch(value: unknown, accountIds: Set<string>) {

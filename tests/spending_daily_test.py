@@ -67,6 +67,31 @@ class DailySpendingTest(unittest.TestCase):
     def publish(self, _, expected, candidate):
         return daily.receive(self.remote, expected, candidate, lambda *_: None)
 
+    def test_workbook_intake_pins_identity_and_exact_hold_approval(self):
+        issuer = self.root / 'issuer.xlsx'
+        bank = self.root / 'bank.xlsx'
+        issuer.write_bytes(b'issuer fixture')
+        bank.write_bytes(b'bank fixture')
+        self.config['kind'] = 'workbook'
+        config = {'sources': {'korea': self.config}}
+        first = daily.enqueue_workbook(self.root, config, 'korea', bank, issuer, '2026-10-01', '2026-11-30')
+        self.assertEqual(first, daily.enqueue_workbook(self.root, config, 'korea', bank, issuer,
+                                                      '2026-10-01', '2026-11-30'))
+        directory = self.root / 'runs' / first['run']
+        self.assertEqual((directory / 'banksalad.xlsx').read_bytes(), b'bank fixture')
+        reviewed = dict(status='preview', reviewToken=TOKEN, issues=[],
+                        held=[{'workbook': 'banksalad', 'row': 5}], inserted=0, matched=0, evidenceLinked=2)
+        (directory / 'preview.json').write_bytes(daily.encode(reviewed))
+        with self.assertRaisesRegex(ValueError, 'unresolved_review'):
+            daily.approve(self.root, first['run'], TOKEN)
+        daily.approve(self.root, first['run'], TOKEN, keep_holds=True)
+        self.assertTrue(daily.accepted(directory, reviewed))
+        self.assertFalse(daily.accepted(directory, {**reviewed, 'held': []}))
+        bank.write_bytes(b'overlapping bank fixture')
+        second = daily.enqueue_workbook(self.root, config, 'korea', bank, issuer, '2026-11-01', '2026-12-31')
+        self.assertNotEqual(first, second)
+        self.assertEqual((directory / 'banksalad.xlsx').read_bytes(), b'bank fixture')
+
     def test_review_gate_then_exact_replay(self):
         with patch.object(daily, 'cli', self.cli), patch.object(daily, 'publish', self.publish):
             self.assertEqual(daily.tick(self.root, self.config)['status'], 'awaiting_review')

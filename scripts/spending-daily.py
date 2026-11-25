@@ -2,7 +2,7 @@
 """Review saved SimpleFIN runs and publish approved spending snapshots."""
 import argparse
 from contextlib import closing, contextmanager
-from datetime import datetime
+from datetime import date, datetime
 import fcntl
 import hashlib
 import json
@@ -71,7 +71,7 @@ def clone(source, target):
         os.replace(staged, target)
 
 
-def projection(before, after, published, account, expected_inserts, labels=None):
+def projection(before, after, published, account, expected_inserts, labels=None, currency='USD'):
     packet = json.loads(published)
     view = packet['snapshot']
     with closing(db_at(before)) as baseline, closing(db_at(after)) as staged:
@@ -92,10 +92,10 @@ def projection(before, after, published, account, expected_inserts, labels=None)
             return published
         for tx in added:
             row = json.loads(current[tx])
-            require(row['accountId'] == account and row['currency'] == 'USD', 'unexpected_insert_scope')
+            require(row['accountId'] == account and row['currency'] == currency, 'unexpected_insert_scope')
             view['rows'].append(dict(id=tx, accountId=account, postedDate=row['postedDate'],
                 activityDate=(row.get('transactionDate') or row['postedDate']) if row['kind'] == 'purchase' else row['postedDate'],
-                currency='USD', amountMinor=row['amountMinor'], kind=row['kind'], description=row['description']))
+                currency=currency, amountMinor=row['amountMinor'], kind=row['kind'], description=row['description']))
         view['coverage'] = [dict(zip(('accountId', 'currency', 'first', 'last', 'count'), row))
             for row in staged.execute('SELECT account_id,currency,min(posted_date),max(posted_date),count(*) '
                                       'FROM spending_transaction GROUP BY account_id,currency ORDER BY currency DESC,account_id')]
@@ -106,28 +106,44 @@ def projection(before, after, published, account, expected_inserts, labels=None)
     return encode(packet)
 
 
-def approve(root, run, token):
+def approve(root, run, token, keep_holds=False):
     require(RUN_ID.fullmatch(run) and HEX.fullmatch(token), 'invalid_approval')
     directory = root / 'runs' / run
     result = read(directory / 'preview.json')
     require(result['status'] == 'preview' and result['reviewToken'] == token, 'stale_review_token')
-    require(not result['held'] and not result['issues'], 'unresolved_review')
-    atomic(directory / 'approval.json', encode(dict(reviewToken=token)))
+    require(not result['issues'] and (not result['held'] or (
+        keep_holds and (result['inserted'] or result['matched'] or result.get('evidenceLinked')))), 'unresolved_review')
+    receipt = dict(reviewToken=token)
+    if result['held']:
+        receipt['keptHolds'] = result['held']
+    atomic(directory / 'approval.json', encode(receipt))
 
 
 def cli(config, directory, apply_token=None):
     command = [config['node'], config['tsx'], str(Path(config['checkout']) / 'scripts/import-spending.ts'),
-               '--workspace', str(directory), '--accounts', config['accounts'], '--binding', config['binding'],
-               '--input', str(directory / 'pointer.json'), '--simplefin-config', config['simplefinConfig'],
-               '--connector-repo', config['connectorRepo']]
-    decisions = directory / 'decisions.json'
-    if not decisions.is_file():
-        decisions = directory / 'carried-decisions.json'
-    if decisions.is_file():
-        command.extend(['--decisions', str(decisions)])
+               '--workspace', str(directory), '--accounts', config['accounts'], '--binding', config['binding']]
+    if config.get('kind') == 'workbook':
+        pointer = read(directory / 'pointer.json')
+        require(digest(Path(config['binding']).read_bytes()) == pointer['bindingSha256'], 'workbook_binding_changed')
+        for name, key in (('issuer.xlsx', 'issuerSha256'), ('banksalad.xlsx', 'bankSaladSha256')):
+            require(digest((directory / name).read_bytes()) == pointer[key], 'workbook_input_changed')
+        command.extend(['--input', str(directory / 'issuer.xlsx'), '--banksalad', str(directory / 'banksalad.xlsx'),
+                        '--from', pointer['from'], '--to', pointer['to']])
+    else:
+        command.extend(['--input', str(directory / 'pointer.json'), '--simplefin-config', config['simplefinConfig'],
+                        '--connector-repo', config['connectorRepo']])
+        decisions = directory / 'decisions.json'
+        if not decisions.is_file():
+            decisions = directory / 'carried-decisions.json'
+        if decisions.is_file():
+            command.extend(['--decisions', str(decisions)])
     if apply_token:
         command.extend(['--apply', '--review-token', apply_token])
-    result = subprocess.run(command, cwd=config['checkout'], stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=120)
+    env = os.environ.copy()
+    if config.get('workbookPython'):
+        env['STOCK_PYTHON_BIN'] = config['workbookPython']
+    result = subprocess.run(command, cwd=config['checkout'], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                            timeout=120, env=env)
     require(result.returncode == 0, 'spending_cli_failed')
     return json.loads(result.stdout)
 
@@ -252,7 +268,7 @@ def tick(root, config):
     results = {}
     for key, source in sources.items():
         require(RUN_ID.fullmatch(key) and isinstance(source, dict) and
-                source.keys() <= {'pointer', 'binding', 'simplefinConfig', 'accountLabels', 'carryDecisions'},
+                source.keys() <= {'pointer', 'binding', 'simplefinConfig', 'accountLabels', 'carryDecisions', 'kind'},
                 'invalid_review_source')
         try:
             results[key] = tick_source(root, {**config, **source}, runs, active_run(root), key)
@@ -312,6 +328,34 @@ def carry_decisions(runs, directory, key, active):
     carried.unlink(missing_ok=True)
 
 
+def enqueue_workbook(root, config, key, banksalad, issuer, start, end):
+    require(RUN_ID.fullmatch(key) and key in config.get('sources', {}), 'invalid_workbook_source')
+    source = config['sources'][key]
+    require(source.get('kind') == 'workbook', 'invalid_workbook_source')
+    require(date.fromisoformat(start).isoformat() == start and date.fromisoformat(end).isoformat() == end
+            and start <= end, 'invalid_workbook_period')
+    def load(path):
+        require(path.is_file() and path.suffix.lower() == '.xlsx' and 0 < path.stat().st_size <= 16 * 1024 * 1024,
+                'invalid_workbook_file')
+        return path.read_bytes()
+    bank, card = load(banksalad), load(issuer)
+    metadata = {'connectionKey': key, 'issuerSha256': digest(card), 'bankSaladSha256': digest(bank),
+                'from': start, 'to': end, 'bindingSha256': digest(Path(source['binding']).read_bytes())}
+    metadata['runId'] = 'workbook-' + digest(encode(metadata))
+    directory = root / 'runs' / metadata['runId']
+    directory.mkdir(parents=True, exist_ok=True)
+    for name, body in (('banksalad.xlsx', bank), ('issuer.xlsx', card), ('pointer.json', encode(metadata))):
+        target = directory / name
+        if target.is_file():
+            require(target.read_bytes() == body, 'workbook_input_changed')
+        else:
+            atomic(target, body)
+    pointer = Path(source['pointer'])
+    pointer.parent.mkdir(parents=True, exist_ok=True)
+    atomic(pointer, encode(metadata))
+    return dict(status='queued', run=metadata['runId'])
+
+
 def tick_source(root, config, runs, active, key=None):
     file = Path(config['pointer'])
     if key is not None and not file.is_file():
@@ -344,6 +388,8 @@ def tick_source(root, config, runs, active, key=None):
     if key is not None and config.get('carryDecisions'):
         carry_decisions(runs, directory, key, active)
     result = preview(root, config, active, directory)
+    if result['status'] == 'already_applied':
+        return dict(status='already_applied', run=run, inserted=0, matched=0)
     if accepted(directory, result):
         return apply(root, config, active, directory, result)
     return dict(status='awaiting_review', run=run, held=len(result['held']), inserted=result['inserted'], matched=result['matched'])
@@ -358,7 +404,8 @@ def preview(root, config, active, directory):
     clone(parent, ledger)
     copy_evidence(parent, ledger)
     result = cli(config, directory)
-    require(result['status'] == 'preview', 'unexpected_preview_status')
+    require(result['status'] == 'preview' or (config.get('kind') == 'workbook' and
+            result['status'] == 'already_applied'), 'unexpected_preview_status')
     atomic(directory / 'preview.json', encode(result))
     return result
 
@@ -378,19 +425,22 @@ def copy_evidence(parent, ledger):
 
 def accepted(directory, result):
     approval = directory / 'approval.json'
-    return (approval.is_file() and read(approval).get('reviewToken') == result['reviewToken']
-            and not result['held'] and not result['issues'])
+    if not approval.is_file() or result['status'] != 'preview' or result['issues']:
+        return False
+    marker = read(approval)
+    return marker.get('reviewToken') == result['reviewToken'] and marker.get('keptHolds', []) == result['held']
 
 
 def apply(root, config, active, directory, preview_result):
     result = cli(config, directory, preview_result['reviewToken'])
-    require(result['status'] == 'applied' and not result['held'] and not result['issues']
-            and all(result[key] == preview_result[key] for key in ('inserted', 'matched', 'totals')), 'approval_result_changed')
+    require(result['status'] == 'applied' and not result['issues']
+            and all(result.get(key) == preview_result.get(key)
+                    for key in ('inserted', 'matched', 'totals', 'held', 'evidenceLinked')), 'approval_result_changed')
     parent = root / 'runs' / active
     before = (parent / 'snapshot.json').read_bytes()
     account = read(Path(config['binding']))['accountId']
     after = projection(parent / STORAGE, directory / STORAGE, before, account, result['inserted'],
-                       config.get('accountLabels'))
+                       config.get('accountLabels'), 'KRW' if config.get('kind') == 'workbook' else 'USD')
     atomic(directory / 'snapshot.json', after)
     journal = dict(parentRun=active, parentSnapshotSha256=digest(before), snapshotSha256=digest(after),
                    ledgerSha256=digest((directory / STORAGE).read_bytes()), inserted=result['inserted'],
@@ -412,6 +462,14 @@ def main():
         if name == 'approve':
             item.add_argument('run')
             item.add_argument('token')
+            item.add_argument('--keep-holds', action='store_true')
+    item = sub.add_parser('enqueue-workbook')
+    item.add_argument('config', type=Path)
+    item.add_argument('source')
+    item.add_argument('banksalad', type=Path)
+    item.add_argument('issuer', type=Path)
+    item.add_argument('period_start')
+    item.add_argument('period_end')
     item = sub.add_parser('receive')
     item.add_argument('snapshot', type=Path)
     item.add_argument('url')
@@ -426,8 +484,11 @@ def main():
         root = args.config.resolve().parent
         with locked(root / '.runner.lock'):
             if args.action == 'approve':
-                approve(root, args.run, args.token)
+                approve(root, args.run, args.token, args.keep_holds)
                 result = dict(status='approved', run=args.run)
+            elif args.action == 'enqueue-workbook':
+                result = enqueue_workbook(root, config, args.source, args.banksalad, args.issuer,
+                                          args.period_start, args.period_end)
             else:
                 try:
                     result = tick(root, config)

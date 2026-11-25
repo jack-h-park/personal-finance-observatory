@@ -466,3 +466,38 @@ bindings, date-window coverage, product support, and statement-cycle differences
 before a live adapter is accepted. The public examples exercise synthetic
 import behavior. The archived real-source results apply to the accounts and
 periods checked in the isolated pilot.
+
+## Review additional US bank deposits and receive BankSalad files
+
+Use explicit checking or savings bindings for the approved BofA and Amex
+saved SimpleFIN accounts. Continue using the original Chase binding and
+archive keys. Review each signed transaction before publication. A reviewed
+cross-source match may identify a different issuer description by its
+target hash, while still requiring a unique account/date/currency/amount
+match and the same classification.
+
+For the Samsung BankSalad intake, configure a runner source with
+`kind: "workbook"`, a private pointer path and the existing Samsung
+binding. On the operating host, register the original BankSalad export
+together with the eligible Samsung issuer workbook and the actual inclusive
+export window:
+
+```sh
+python3 scripts/spending-daily.py enqueue-workbook CONFIG SOURCE \
+  BANKSALAD_XLSX SAMSUNG_XLSX FROM_DATE TO_DATE
+```
+
+The command pins both workbook contents, binding and period. The next review
+tick builds the normal transaction and duplicate preview. Use the existing
+approval and publication path. The optional `--keep-holds` records exactly
+which reviewed holds stay out when approving confirmed rows and evidence.
+Inspect the preview before using this option. Unmatched BankSalad rows
+remain evidence and cannot independently create spending. Re-registering
+identical inputs yields the same run and does not change spending totals.
+The operating configuration can specify `workbookPython` for the installed
+extractor dependencies. Register each incoming batch before moving on to a
+different export for that source.
+
+Keep Samsung issuer coverage current and retain out-of-window or ambiguous
+evidence privately. Additional Korean products need their own verified
+issuer and account bindings.
