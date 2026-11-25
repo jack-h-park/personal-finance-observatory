@@ -252,17 +252,20 @@ a later export never remove retained history.
 
 ## Schedule reviewed SimpleFIN spending refresh
 
-The review runner consumes saved SimpleFIN pointers for Chase Checking and the approved Amex and Amazon cards. It
-pins each immutable run, previews it with the standard importer, and
+The review runner consumes saved SimpleFIN pointers for Chase Checking and
+the approved Amex and Amazon cards. It pins each run, previews it through the
+standard importer, and
 writes a private preview in `runs/<run-id>/preview.json`. It does not call
-the provider. Install the spending-review launch agent on the collector
-machine. The timer checks for a new daily run and retries after sleep or
-a temporary connection failure.
+the provider. Install the spending-review launch agent on the operating Mac Studio
+(`ops-host`) under the existing runtime account. The timer checks for a new
+daily run. Keep the collector, raw run archive, review state, and publisher
+on that host. Invoke the local receiver directly there. The reviewed spending
+pipeline must work with the MacBook offline.
 
 Keep the runner configuration and state outside Git. The configuration
 uses absolute paths for `pointer`, `accounts`, `binding`, `simplefinConfig`,
 `connectorRepo`, `checkout`, `node`, and `tsx`. `publishCommand` is an
-argument array invoking the receiving script over SSH. The receiver's
+argument array invoking the receiving script on the operating host. The receiver's
 last argument is the expected previous operating snapshot hash.
 Initialize `runs/seed/snapshot.json` and
 `runs/seed/private-data/personal-finance-offline/state/spending.sqlite`
@@ -293,12 +296,13 @@ snapshot hash requires reconciling the competing publication first.
 
 ### Collect and review the Amex and Amazon cards
 
-Install the card collector launch agent on the collector machine with the
+Install the card collector launch agent on the collector host with the
 merged finance-connectors CLI and a separate mode-0600 SimpleFIN batch config.
-Its two explicit USD selections use the existing grant and the verified
-`americanexpress.com` and `amazon.syf.com` institution domains. The 10:05
-collector-host local time schedule is independent of the existing bank job.
-The collector stores immutable runs and updates each card's latest-good
+The operating selection includes Chase Checking and two USD cards. The cards
+use the existing grant and the verified `americanexpress.com` and
+`amazon.syf.com` institution domains. The operating collection schedule is
+10:05 Pacific local time and the review timer checks every 30 minutes.
+The collector stores immutable runs and updates each account's latest-good
 pointer. Actual provider history can be shorter than the requested window.
 
 For multiple accounts, put source-specific paths under `sources`, keyed by

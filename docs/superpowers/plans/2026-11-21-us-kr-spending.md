@@ -7,9 +7,9 @@ November 21, 2026 (America/Los_Angeles). Scope is the owner-operated Personal Fi
 The local CLI supports preview, review-token application, and replay for synthetic inputs, paired Samsung Card and BankSalad workbooks, saved SimpleFIN bank runs, and saved SnapTrade card activity paired with Chase issuer CSVs. SimpleFIN Bridge remains primary for US banks and cards. SnapTrade remains primarily a brokerage connector and serves as a card fallback where the verified provider feed lacks coverage. The [pilot guide](../../operations/spending-pilot.md) records input contracts, test results, and a roughly monthly read-only SimpleFIN coverage check. Scheduled collection and reuse of private operating inventory require separate authorization.
 
 The reviewed SimpleFIN schedule supports Chase Checking and the approved
-Amex Marriott Brilliant and Amazon Store Card accounts. The two cards use
-a separate daily collector job, and each verified batch goes through the
-same preview, review token, and atomic publication into the shared ledger.
+Amex Marriott Brilliant and Amazon Store Card accounts. The three accounts
+use a daily collector on the operating Mac Studio. The Studio also owns
+preview, review-token validation, and atomic publication into the shared ledger. The pipeline runs independently of the MacBook.
 Overlap reuses prior row decisions and remains subject to exact batch approval.
 Issuer exports supplement older history or resolve exceptions.
 
