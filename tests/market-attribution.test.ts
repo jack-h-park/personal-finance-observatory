@@ -91,3 +91,10 @@ test('one ticker under two markets, held in one, is merged before the split', ()
   const plain = rangeBreakdown({ from: A, to: B, rows, realized: [], markets: ['KR', 'US', 'CRYPTO'] })
   assert.equal(r.breakdown.marketEffectTotal, plain.marketEffectTotal)
 })
+
+test('a row in a market outside the three is ignored, not a crash', () => {
+  const rows = [row(A, 'KR', '000100', 100, 100), row(B, 'KR', '000100', 100, 110), row(A, 'GOLD' as never, 'G1', 50, 50), row(B, 'GOLD' as never, 'G1', 50, 60)]
+  const r = attribute({ from: A, to: B, rows, realized: [], held: [{ market: 'KR', ticker: '000100' }] })
+  assert.equal(r.byMarket.KR.marketEffect, 10)
+  assert.equal(r.startValue, 100)
+})

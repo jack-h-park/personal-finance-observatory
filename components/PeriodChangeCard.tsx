@@ -38,6 +38,7 @@ export type PeriodChangeCopy = {
   unpricedNote: (count: string) => string
   empty: string
   periodEmpty: string
+  sameBasesNote: string
   rulesTitle: string
   rules: readonly { title: string; items: readonly string[] }[]
 }
@@ -107,6 +108,7 @@ export function PeriodChangeCard({
               </LinkChip>
             ))}
           </ChipGroup>
+          {period === '1d' && <p className="text-caption text-ink-2">{copy.sameBasesNote}</p>}
         </div>
         <Body view={view} copy={copy} money={money} pct={pct} date={date} />
       </div>
@@ -135,7 +137,7 @@ function Body({
     const markets = s.markets.filter((m) => m.marketEffect !== 0 || m.moneyIn !== 0)
     const steps: WaterfallStep[] = [
       ...markets.filter((m) => m.marketEffect !== 0).map((m) => ({ key: m.market, value: m.marketEffect, color: marketColor(m.market) })),
-      { key: MONEY_IN, value: s.moneyIn, color: NEUTRAL },
+      ...(s.moneyIn !== 0 ? [{ key: MONEY_IN, value: s.moneyIn, color: NEUTRAL }] : []),
     ]
     const ratioPct = (value: number | null) => pct(value == null ? null : value * 100)
     const driverItem = (d: ActualSummary['up'][number]): RankedBarItem => ({

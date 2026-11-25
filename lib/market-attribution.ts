@@ -87,6 +87,7 @@ export function attribute(input: {
     if (r.date !== input.from && r.date !== input.to) continue
     if (r.marketValueKrw === null || unpriced.has(`${r.market}:${r.ticker}`)) continue
     const totals = byMarket[r.market]
+    if (!totals) continue
     if (r.date === input.from) {
       startValue += r.marketValueKrw
       totals.startValue += r.marketValueKrw
