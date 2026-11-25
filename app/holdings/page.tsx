@@ -16,6 +16,8 @@ import { DivergingBarList, RankedBarList } from '@/components/RankedBars'
 import { aggregateSecurities, concentration, gainContributors, securityWeights } from '@/lib/holdings-composition'
 import { getHoldings, getPositionTrendRows, getValuationBasis } from '@/lib/adapters/portfolio-db'
 import { PeriodChangeCard } from '@/components/PeriodChangeCard'
+import { SnapshotTrendCard } from '@/components/SnapshotTrendCard'
+import { HOLDINGS_SNAPSHOT_PARAMS, holdingsSnapshotSelection } from '@/lib/snapshot-trend-navigation'
 import { periodChangeView } from './period-change-view'
 import { resolveBasis, resolvePeriod } from '@/lib/period-change'
 import { ValuationBasisStrip } from '@/components/ValuationBasisStrip'
@@ -349,6 +351,12 @@ export default async function HoldingsPage({
         currencyPreferences={currencyPreferences}
         money={(krw) => money(krw, 'KRW')}
         href={(param, value) => withParam(BASE, params, param, (param === 'chg' ? value === '1d' : value === 'actual') ? null : value)}
+      />
+      <SnapshotTrendCard
+        language={language}
+        currencyPreferences={currencyPreferences}
+        selection={holdingsSnapshotSelection(params)}
+        hrefFor={(key, value) => withParam(BASE, params, HOLDINGS_SNAPSHOT_PARAMS[key], value)}
       />
       <Card title={copy.caption}>
         <div className="space-y-3">

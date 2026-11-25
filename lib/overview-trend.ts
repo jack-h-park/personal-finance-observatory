@@ -2,8 +2,8 @@ import { PRICE_STALE_BASE_MS, anyPriceStaleAfterMs } from '@/lib/price-staleness
 import type { PortfolioSnapshot } from '@/lib/adapters/portfolio-db'
 
 /**
- * The Overview's stock trend: scopes, the snapshot field each metric reads, and
- * the points the two chart views plot. Stock-only in both asset views. Deposits,
+ * The portfolio snapshot trend on Overview and Holdings: scopes, the fields
+ * each metric reads, and the points the charts plot. Stock-only in both asset views. Deposits,
  * pensions and gold have their own stacked chart (the total-assets trend), so
  * nothing here adds them to a stock figure.
  *
