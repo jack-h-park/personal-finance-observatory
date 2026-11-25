@@ -219,6 +219,17 @@ array. Copy a row's `fingerprint` fields (`sourceId`, `postedDate`,
 nonempty `basis` describing its evidence. For payments and own transfers,
 an optional `transferRef` can retain a counterpart reference.
 
+For a cross-source duplicate, preview with the classification decisions
+first. A held row may show `linkCandidateId` when the posting has one
+matching ledger entry. Check the account, posting date, currency, signed
+amount, bank description, and classification against the saved source.
+Add `linkToTransactionId` to the decision only when those checks confirm
+the same posting. This attaches an observation to the existing transaction
+and retains its original source and classification. A one-to-one provider
+ID binding is stored with the link. Competing postings, conflicting
+classifications, changed provider records and attempts to remap the binding
+remain held. Later saves still require a valid reviewed fingerprint.
+
 Run preview with `--decisions "$decisions"` and review the projected totals,
 excluded count, held rows, and `pendingIgnored`. Repeat with the same inputs
 plus `--apply --review-token TOKEN`. The ledger is under

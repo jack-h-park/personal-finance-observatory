@@ -79,6 +79,14 @@ const savedBankSchema = `
     reason TEXT NOT NULL,
     PRIMARY KEY (batch_id, row_number)
   );
+  CREATE TABLE IF NOT EXISTS spending_saved_bank_alias (
+    scope TEXT NOT NULL,
+    source_id TEXT NOT NULL,
+    transaction_id TEXT NOT NULL REFERENCES spending_transaction(id),
+    payload_sha256 TEXT NOT NULL,
+    PRIMARY KEY (scope, source_id),
+    UNIQUE (scope, transaction_id)
+  );
 `
 
 export type SavedBankFingerprint = {
@@ -87,8 +95,15 @@ export type SavedBankFingerprint = {
   amountMinor: number
   descriptionSha256: string
 }
-type SavedBankHold = { row: number; reason: string; fingerprint?: SavedBankFingerprint }
-type SavedBankEvidence = { scope: string; sourceRows: number[]; held: SavedBankHold[]; pendingIgnored: number }
+type SavedBankHold = { row: number; reason: string; fingerprint?: SavedBankFingerprint; linkCandidateId?: string }
+type SavedBankEvidence = {
+  scope: string
+  sourceRows: number[]
+  held: SavedBankHold[]
+  pendingIgnored: number
+  reviewedLinks?: { row: number; transactionId: string }[]
+  ambiguousPostingRows?: number[]
+}
 
 export type SnaptradeHold = { source: 'snaptrade' | 'chase'; row: number; reason: string }
 type SnaptradeEvidence = {
@@ -131,8 +146,12 @@ type ImportInput = {
   snaptrade?: SnaptradeEvidence
 }
 type Pending = { id: string; row: SpendingRow; rowNumber: number; insert: boolean }
-type Issue = { row: number; code: 'duplicate_source_id' | 'changed_source_transaction' | 'possible_duplicate' }
+type Issue = { row: number; code: 'duplicate_source_id' | 'changed_source_transaction' | 'possible_duplicate' | 'reviewed_link_mismatch' }
 type Totals = { month: string; currency: Currency; purchase: bigint; refund: bigint }
+
+const postingKey = (row: SpendingRow) => JSON.stringify([row.accountId, row.postedDate, row.currency, row.amountMinor])
+
+const bankDescription = (text: string) => text.normalize('NFKC').trim().replace(/\s+/g, ' ').toLowerCase()
 
 const snaptradeMatchKey = (row: SpendingRow) => JSON.stringify([
   row.accountId, row.postedDate, row.currency, row.amountMinor,
@@ -288,12 +307,21 @@ function processBatch(db: Database.Database | null, input: ImportInput) {
     throw new Error('offline_scope_changed')
   }
   const count = db?.prepare('SELECT count(*) FROM spending_batch').pluck().get() ?? 0
-  const reviewToken = digest([input.ledgerPath, batchId, input.inventorySha256, count])
   const applied = db?.prepare('SELECT id FROM spending_batch WHERE id = ?').get(batchId)
-  const stored = ((db?.prepare('SELECT id, source, payload FROM spending_transaction').all() ?? []) as
+  const stored = ((db?.prepare('SELECT id, source, payload FROM spending_transaction ORDER BY id').all() ?? []) as
     { id: string; source: string; payload: string }[])
     .map(({ id, source, payload }) => ({ id, source, row: JSON.parse(payload) as SpendingRow }))
   const existing = stored.map(record => record.row)
+  const reviewedLinks = new Map(savedBank?.reviewedLinks?.map(link => [link.row, link.transactionId]))
+  const storedAliases = savedBank && db?.prepare(
+    "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'spending_saved_bank_alias'",
+  ).get() ? db.prepare('SELECT source_id, transaction_id, payload_sha256 FROM spending_saved_bank_alias WHERE scope = ? ORDER BY source_id')
+    .all(savedBank.scope) as { source_id: string; transaction_id: string; payload_sha256: string }[] : []
+  const aliasBySource = new Map(storedAliases.map(row => [row.source_id, row]))
+  const sourceByAlias = new Map(storedAliases.map(row => [row.transaction_id, row.source_id]))
+  const overlapState = reviewedLinks.size || storedAliases.length
+    ? [storedAliases, stored.map(({ id, row }) => [id, row])] : null
+  const reviewToken = digest([input.ledgerPath, batchId, input.inventorySha256, count, ...(overlapState ? [overlapState] : [])])
 
   if (applied) return {
     status: 'already_applied', reviewToken, inserted: 0, matched: 0, observations: 0, issues: [],
@@ -314,6 +342,16 @@ function processBatch(db: Database.Database | null, input: ImportInput) {
   const seenIds = new Set<string>()
   const multiplicity = new Map<string, number>()
   const matchModes = new Map<string, boolean>()
+  const ambiguousPostings = new Set(savedBank?.ambiguousPostingRows)
+  function bankCandidate(row: SpendingRow, rowNumber: number) {
+    if (ambiguousPostings.has(rowNumber)) return
+    const posted = stored.filter(candidate => postingKey(candidate.row) === postingKey(row))
+    const target = posted[0]
+    if (posted.length === 1 && target.source !== batch.source && target.row.kind === row.kind &&
+        (!row.transferRef || target.row.transferRef === row.transferRef) &&
+        bankDescription(target.row.description) === bankDescription(row.description)) return target.id
+  }
+  const newAliases: { sourceId: string; transactionId: string; payloadSha256: string }[] = []
   const priorCardKeys = snaptrade && new Set(stored
     .filter(record => record.source === batch.source)
     .map(record => snaptradeMatchKey(record.row)))
@@ -331,12 +369,24 @@ function processBatch(db: Database.Database | null, input: ImportInput) {
     if (!row.sourceId) multiplicity.set(fingerprint, ordinal)
     const id = digest([batch.source, row.accountId, row.sourceId ? ['id', row.sourceId] : ['row', fingerprint, ordinal]])
     const prior = byId?.get(id)
-    const matchKey = JSON.stringify([row.accountId, row.postedDate, row.currency, row.amountMinor])
+    const matchKey = postingKey(row)
     const hasSourceId = row.sourceId !== null
     const batchMode = matchModes.get(matchKey)
+    const approvedTarget = reviewedLinks.get(rowNumber)
+    const previousAlias = row.sourceId ? aliasBySource.get(row.sourceId) : undefined
+    const targetId = approvedTarget ?? previousAlias?.transaction_id
     if (seenIds.has(id)) issues.push({ row: rowNumber, code: 'duplicate_source_id' })
-    else if (prior && prior !== payload) issues.push({ row: rowNumber, code: 'changed_source_transaction' })
-    else if ((batchMode !== undefined && batchMode !== hasSourceId) ||
+    else if ((prior && prior !== payload) || (previousAlias && previousAlias.payload_sha256 !== fingerprint)) issues.push({ row: rowNumber, code: 'changed_source_transaction' })
+    else if (targetId && row.sourceId) {
+      const claimedBy = sourceByAlias.get(targetId)
+      if (prior || (previousAlias && previousAlias.transaction_id !== targetId) || (claimedBy && claimedBy !== row.sourceId) ||
+          bankCandidate(row, rowNumber) !== targetId) {
+        issues.push({ row: rowNumber, code: 'reviewed_link_mismatch' })
+      } else {
+        pending.push({ id: targetId, row, rowNumber, insert: false })
+        if (!previousAlias) newAliases.push({ sourceId: row.sourceId, transactionId: targetId, payloadSha256: fingerprint })
+      }
+    } else if ((batchMode !== undefined && batchMode !== hasSourceId) ||
       candidates?.get(row.accountId, row.postedDate, row.currency, row.amountMinor, batch.source, Number(!hasSourceId)) ||
       (!prior && priorCardKeys?.has(snaptradeMatchKey(row)))) {
       issues.push({ row: rowNumber, code: 'possible_duplicate' })
@@ -350,7 +400,13 @@ function processBatch(db: Database.Database | null, input: ImportInput) {
     pending = holdConflictingRefunds(db, batch.source, pending, held)
   }
   if (savedBank) {
-    bankHeld.push(...issues.map(({ row, code }) => ({ row, reason: code })))
+    const byRow = new Map(savedBank.sourceRows.map((row, index) => [row, batch.transactions[index]]))
+    for (const { row, code } of issues) {
+      const transaction = byRow.get(row)
+      const candidate = transaction && code === 'possible_duplicate' ? bankCandidate(transaction, row) : undefined
+      const claimed = candidate ? sourceByAlias.get(candidate) : undefined
+      bankHeld.push({ row, reason: code, ...(candidate && !claimed ? { linkCandidateId: candidate } : {}) })
+    }
     issues.length = 0
     bankHeld.sort((a, b) => a.row - b.row)
   }
@@ -396,6 +452,8 @@ function processBatch(db: Database.Database | null, input: ImportInput) {
     for (const hold of held) record.run(batchId, hold.workbook, hold.row, null, hold.reason)
   }
   if (savedBank) {
+    const addAlias = db.prepare('INSERT INTO spending_saved_bank_alias VALUES (?, ?, ?, ?)')
+    for (const alias of newAliases) addAlias.run(savedBank.scope, alias.sourceId, alias.transactionId, alias.payloadSha256)
     db.prepare('INSERT INTO spending_saved_bank VALUES (?, ?, ?)').run(batchId, savedBank.scope, savedBank.pendingIgnored)
     const record = db.prepare('INSERT INTO spending_saved_bank_hold VALUES (?, ?, ?)')
     for (const hold of bankHeld) record.run(batchId, hold.row, hold.reason)

@@ -115,3 +115,48 @@ test('saved SimpleFIN provenance and decisions stay bound to the reviewed accoun
   assert.equal(conflict.inserted, 0)
   assert.deepEqual(conflict.totals, preview.totals)
 })
+
+test('a reviewed cross-source link preserves the original transaction across saved runs', (t) => {
+  const p = pilot(t)
+  const first = p.input(snapshot('baseline', [checking[0]]))
+  const seed = { ...first, savedBank: undefined, batch: { ...first.batch, source: 'reviewed-csv' } }
+  importSpending({ ...seed, reviewToken: importSpending(seed).reviewToken })
+  const db = new Database(p.ledgerPath, { readonly: true })
+  t.after(() => db.close())
+  const target = db.prepare('SELECT id, payload FROM spending_transaction').get() as { id: string; payload: string }
+  const reviewed = { schemaVersion: 1, decisions: [{ ...decisions.decisions[0], linkToTransactionId: target.id }] }
+  const incoming = p.input(snapshot('incoming', [checking[0]]), reviewed)
+  const preview = importSpending(incoming)
+  assert.equal(preview.inserted, 0)
+  assert.equal(preview.matched, 1)
+  assert.deepEqual(preview.held, [])
+  assert.equal(importSpending({ ...incoming, reviewToken: preview.reviewToken }).observations, 1)
+  assert.equal(importSpending({ ...incoming, reviewToken: preview.reviewToken }).status, 'already_applied')
+
+  const next = p.input(snapshot('overlap', [checking[0]]), reviewed)
+  assert.equal(importSpending({ ...next, reviewToken: importSpending(next).reviewToken }).matched, 1)
+  const changed = { ...checking[0], description: 'Known  shop' }
+  const revision = p.input(snapshot('revision', [changed]), {
+    schemaVersion: 1, decisions: [{ ...decision('retail', -2000, changed.description, 'purchase'), linkToTransactionId: target.id }],
+  })
+  assert.equal(importSpending(revision).held?.[0].reason, 'changed_source_transaction')
+  assert.deepEqual(db.prepare('SELECT id, payload FROM spending_transaction').all(), [target])
+  assert.equal(db.prepare('SELECT count(*) FROM spending_observation').pluck().get(), 3)
+})
+
+test('a second unreviewed posting with the same date and amount blocks a cross-source link', (t) => {
+  const p = pilot(t)
+  const base = p.input(snapshot('base', [checking[0]]))
+  const seed = { ...base, savedBank: undefined, batch: { ...base.batch, source: 'reviewed-csv' } }
+  importSpending({ ...seed, reviewToken: importSpending(seed).reviewToken })
+  const db = new Database(p.ledgerPath, { readonly: true })
+  t.after(() => db.close())
+  const target = db.prepare('SELECT id FROM spending_transaction').pluck().get() as string
+  const incoming = snapshot('possible-link', [checking[0]])
+  assert.equal(importSpending(p.input(incoming)).held?.[0].linkCandidateId, target)
+  const repeated = snapshot('ambiguous', [checking[0], tx('other-retail', '-20.00', 'Known shop')])
+  const reviewed = { schemaVersion: 1, decisions: [{ ...decisions.decisions[0], linkToTransactionId: target }] }
+  const preview = importSpending(p.input(repeated, reviewed))
+  assert.equal(preview.matched, 0)
+  assert.deepEqual(preview.held?.map(row => row.reason), ['reviewed_link_mismatch', 'unreviewed_transaction'])
+})
