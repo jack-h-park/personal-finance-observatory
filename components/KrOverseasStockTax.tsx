@@ -11,8 +11,15 @@ import { krOverseasStockTax } from '@/lib/ui-copy/pages/krOverseasStockTax'
 
 const scenarios = ['baseline', 'scenario'] as const
 
-export function KrOverseasStockTax({ language }: { language: Language }) {
+export function KrOverseasStockTax({
+  language,
+  comparison,
+}: {
+  language: Language
+  comparison?: { baseline: string; scenario: string; result: string }
+}) {
   const copy = krOverseasStockTax[language]
+  const labels = comparison ?? copy
   const [amounts, setAmounts] = useState({ baseline: '', scenario: '' })
   const [result, setResult] = useState<ReturnType<typeof estimateKrOverseasStockTax> | null>(null)
   const locale = localeFor(language)
@@ -38,7 +45,7 @@ export function KrOverseasStockTax({ language }: { language: Language }) {
             <div className="flex flex-wrap gap-4">
               {scenarios.map(key => (
                 <label key={key} className="block min-w-0 flex-1 basis-64">
-                  <span className="mb-1 block text-label">{copy[key]}</span>
+                  <span className="mb-1 block text-label">{labels[key]}</span>
                   <Input
                     className="w-full tabular-nums"
                     aria-describedby="kr-stock-tax-hint"
@@ -59,14 +66,14 @@ export function KrOverseasStockTax({ language }: { language: Language }) {
       <div role="status" aria-live="polite">
         {result?.status === 'unavailable' ? <Note>{copy.invalid}</Note> : null}
         {result?.status === 'ready' ? (
-          <Card title={copy.result}>
+          <Card title={labels.result}>
             <div className="overflow-x-auto p-4">
               <table className="w-full text-body">
                 <thead>
                   <tr>
                     <th scope="col" className="text-left">{copy.component}</th>
-                    <th scope="col" className="text-right">{copy.baseline}</th>
-                    <th scope="col" className="text-right">{copy.scenario}</th>
+                    <th scope="col" className="text-right">{labels.baseline}</th>
+                    <th scope="col" className="text-right">{labels.scenario}</th>
                     <th scope="col" className="text-right">{copy.change}</th>
                   </tr>
                 </thead>

@@ -1,3 +1,4 @@
+import { SnapshotTaxContext } from '@/components/SnapshotTaxContext'
 import { Card, EmptyState, Panel, TextLink } from '@/components/ui'
 import { PortfolioMultiTrendChart, PortfolioTrendChart } from '@/components/charts'
 import { ChipGroup, LinkSegmentedControl } from '@/components/LinkChips'
@@ -235,7 +236,7 @@ export function SnapshotTrendCard({
           emptyMessage={copy.noPortfolioHistory}
         />
       )}
-      {detailsHref ? <TextLink href={detailsHref} className="mt-2">{copy.snapshotDetails}</TextLink> : null}
+      {detailsHref ? <TextLink href={detailsHref} className="mt-2">{copy.snapshotDetails}</TextLink> : <SnapshotTaxContext language={language} />}
     </Card>
   )
 }
