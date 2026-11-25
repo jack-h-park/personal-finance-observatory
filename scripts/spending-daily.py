@@ -133,6 +133,14 @@ def approve(root, run, token, keep_holds=False):
 
 
 def cli(config, directory, apply_token=None):
+    if config.get('kind') == 'banksalad-evidence':
+        command = [config['workbookPython'], str(Path(config['checkout']) / 'scripts/banksalad-evidence.py'),
+                   str(directory / STORAGE), str(directory), config['binding']]
+        if apply_token:
+            command.extend(['--apply-token', apply_token])
+        result = subprocess.run(command, cwd=config['checkout'], capture_output=True, timeout=120)
+        require(result.returncode == 0, 'banksalad_evidence_failed')
+        return json.loads(result.stdout)
     command = [config['node'], config['tsx'], str(Path(config['checkout']) / 'scripts/import-spending.ts'),
                '--workspace', str(directory), '--accounts', config['accounts'], '--binding', config['binding']]
     if config.get('kind') == 'workbook':
@@ -344,16 +352,21 @@ def carry_decisions(runs, directory, key, active):
 def enqueue_workbook(root, config, key, banksalad, issuer, start, end):
     require(RUN_ID.fullmatch(key) and key in config.get('sources', {}), 'invalid_workbook_source')
     source = config['sources'][key]
-    require(source.get('kind') == 'workbook', 'invalid_workbook_source')
+    require(source.get('kind') in ('workbook', 'banksalad-evidence'), 'invalid_workbook_source')
     require(date.fromisoformat(start).isoformat() == start and date.fromisoformat(end).isoformat() == end
             and start <= end, 'invalid_workbook_period')
-    def load(path):
-        require(path.is_file() and path.suffix.lower() == '.xlsx' and 0 < path.stat().st_size <= 16 * 1024 * 1024,
+    def load(path, suffixes):
+        require(path.is_file() and path.suffix.lower() in suffixes and 0 < path.stat().st_size <= 16 * 1024 * 1024,
                 'invalid_workbook_file')
         return path.read_bytes()
-    bank, card = load(banksalad), load(issuer)
+    bank = load(banksalad, ('.xlsx',))
+    card = load(issuer, ('.xlsx', '.xls', '.pdf') if source['kind'] == 'banksalad-evidence' else ('.xlsx',))
     metadata = {'connectionKey': key, 'issuerSha256': digest(card), 'bankSaladSha256': digest(bank),
                 'from': start, 'to': end, 'bindingSha256': digest(Path(source['binding']).read_bytes())}
+    issuer_name = 'issuer.xlsx'
+    if source['kind'] == 'banksalad-evidence':
+        issuer_name = 'issuer' + issuer.suffix.lower()
+        metadata['issuerFile'] = issuer_name
     metadata['runId'] = 'workbook-' + digest(encode(metadata))
     pointer = Path(source['pointer'])
     if pointer.is_file():
@@ -366,7 +379,7 @@ def enqueue_workbook(root, config, key, banksalad, issuer, start, end):
     directory = root / 'runs' / metadata['runId']
     require(not (directory / 'rejected.json').is_file(), 'workbook_rejected')
     directory.mkdir(parents=True, exist_ok=True)
-    for name, body in (('banksalad.xlsx', bank), ('issuer.xlsx', card), ('pointer.json', encode(metadata))):
+    for name, body in (('banksalad.xlsx', bank), (issuer_name, card), ('pointer.json', encode(metadata))):
         target = directory / name
         if target.is_file():
             require(target.read_bytes() == body, 'workbook_input_changed')
@@ -380,7 +393,7 @@ def enqueue_workbook(root, config, key, banksalad, issuer, start, end):
 def reject_workbook(root, config, key, run):
     require(RUN_ID.fullmatch(key) and RUN_ID.fullmatch(run), 'invalid_run_id')
     source = config.get('sources', {}).get(key, {})
-    require(source.get('kind') == 'workbook', 'invalid_workbook_source')
+    require(source.get('kind') in ('workbook', 'banksalad-evidence'), 'invalid_workbook_source')
     pointer = read(Path(source['pointer']))
     require(pointer['connectionKey'] == key and pointer['runId'] == run, 'workbook_pointer_changed')
     directory = root / 'runs' / run
@@ -440,9 +453,9 @@ def preview(root, config, active, directory):
     clone(parent, ledger)
     copy_evidence(parent, ledger)
     result = cli(config, directory)
-    require(result['status'] == 'preview' or (config.get('kind') == 'workbook' and
+    require(result['status'] == 'preview' or (config.get('kind') in ('workbook', 'banksalad-evidence') and
             result['status'] == 'already_applied'), 'unexpected_preview_status')
-    if config.get('kind') == 'workbook' or config.get('keepHeld') is True:
+    if config.get('kind') in ('workbook', 'banksalad-evidence') or config.get('keepHeld') is True:
         result['keepHoldsAllowed'] = True
     atomic(directory / 'preview.json', encode(result))
     return result
@@ -478,7 +491,7 @@ def apply(root, config, active, directory, preview_result):
     parent = root / 'runs' / active
     before = (parent / 'snapshot.json').read_bytes()
     account = read(Path(config['binding']))['accountId']
-    workbook = config.get('kind') == 'workbook'
+    workbook = config.get('kind') in ('workbook', 'banksalad-evidence')
     source_key = config.get('sourceKey')
     if workbook:
         # An overlapping export may omit earlier unresolved observations.

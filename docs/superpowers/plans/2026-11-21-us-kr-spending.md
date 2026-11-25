@@ -15,7 +15,9 @@ Issuer exports supplement older history or resolve exceptions.
 The same review gate also accepts explicit BofA and Amex deposit bindings
 and paired Samsung and BankSalad inputs. BankSalad export remains a manual
 step. The intake pins the uploaded workbooks and review window before
-preview, deduplication and approval.
+preview, deduplication and approval. Hana Card, Hana Bank and Toss Bank
+use an issuer-evidence intake with explicit account scope and reviewed
+references for shared labels and transit aggregates.
 
 
 The combined local ledger holds separate USD and KRW records, two-sided card payments, Korean billing and evidence, and reviewed records from the US and Korean pilots. The read-only `/spending` view provides net spending for the last 12 or 24 months, this year or last year, category and merchant rankings, the largest individual purchases, account filters, and transaction-month drill-down. It continues to show observed coverage and holds. `/accounts` and `/data-ops` link to the same account filters. Months without purchase or refund evidence are marked unavailable. Production uses an explicitly published snapshot in the private state directory through the existing owner-only gateway. The original ledger and financial records remain private.

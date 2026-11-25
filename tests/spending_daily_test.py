@@ -143,6 +143,112 @@ class DailySpendingTest(unittest.TestCase):
                 self.assertEqual(daily.tick(self.root, cfg)['sources']['korea']['status'], 'published')
                 self.assertEqual(self.remote.read_bytes(), published)
 
+    def test_bank_evidence_runner_keeps_existing_rows_and_only_adds_reviewed_fees(self):
+        import os
+        import subprocess
+        import sys
+
+        python = os.environ.get('STOCK_PYTHON_BIN', sys.executable)
+        fixture = """
+from openpyxl import Workbook
+from datetime import datetime
+import sys
+b=Workbook()
+s=b.active
+s.title='가계부 내역'
+s.append(['날짜','시간','타입','대분류','소분류','내용','금액','화폐','결제수단','메모'])
+for day, text, value in [(1, 'Confirmed shop', -500), (2, '당발송금수수료(Ref No: REF123)', -1000),
+                         (3, 'Unverified purchase', -700)]:
+    s.append([datetime(2026,11,day), None, '지출', None, None, text, value, 'KRW', 'fixture', None])
+b.save(sys.argv[1])
+"""
+        bank = self.root / 'bank.xlsx'
+        issuer = self.root / 'issuer.xls'
+        issuer.write_bytes(b'reviewed issuer fixture')
+        subprocess.run([python, '-c', fixture, str(bank)], check=True)
+        self.binding.write_bytes(daily.encode(dict(accountId='checking', bankSaladPaymentMethod='fixture',
+                                                   product='bank', matchExact=True, showUnmatched=True)))
+        cfg = dict(sources={'korea': {**self.config, 'kind': 'banksalad-evidence',
+                                    'pointer': str(self.root / 'workbook-latest.json')}},
+                   checkout=str(Path(__file__).parents[1].resolve()), workbookPython=python)
+        event = {**ROW, 'currency':'KRW', 'amountMinor':-500, 'postedDate':'2026-11-01',
+                 'activityDate':'2026-11-01', 'description':'Confirmed shop'}
+        seed = self.root / 'runs/seed'
+        with sqlite3.connect(seed / daily.STORAGE) as db:
+            db.execute('DROP TABLE spending_transaction')
+            db.execute('CREATE TABLE spending_transaction (id PRIMARY KEY,source,account_id,posted_date,currency,amount_minor,source_id,payload)')
+            db.execute('CREATE TABLE spending_batch (id,source,period_start,period_end,record_sha256,record_path,adapter,row_count,applied_at)')
+            db.execute('CREATE TABLE spending_observation (batch_id,row_number,transaction_id)')
+            db.execute('INSERT INTO spending_transaction VALUES (?,?,?,?,?,?,?,?)',
+                       ('known', 'fixture', 'checking', '2026-11-01', 'KRW', -500, None, json.dumps(event)))
+        packet = json.loads(self.original)
+        packet['snapshot']['rows'] = [{'id':'known', **event}]
+        before = daily.encode(packet)
+        (seed / 'snapshot.json').write_bytes(before)
+        self.remote.write_bytes(before)
+        q = daily.enqueue_workbook(self.root, cfg, 'korea', bank, issuer, '2026-11-01', '2026-11-30')
+        run = self.root / 'runs' / q['run']
+        pointer = daily.read(run / 'pointer.json')
+        (run / 'decisions.json').write_bytes(daily.encode(dict(
+            bankSaladSha256=pointer['bankSaladSha256'], issuerSha256=pointer['issuerSha256'],
+            issuerFees=[dict(row=3,date='2026-11-02',amountMinor=-1000,reference='REF123')])))
+        with patch.object(daily, 'publish', self.publish):
+            preview = daily.tick(self.root, cfg)['sources']['korea']
+            self.assertEqual((preview['inserted'], preview['matched'], preview['held']), (1, 1, 1))
+            daily.approve(self.root, q['run'], daily.read(run / 'preview.json')['reviewToken'], keep_holds=True)
+            self.assertEqual(daily.tick(self.root, cfg)['sources']['korea']['status'], 'published')
+            after = self.remote.read_bytes()
+            snapshot = json.loads(after)['snapshot']
+            self.assertEqual(len(snapshot['rows']), 2)
+            self.assertEqual(sum(x['amountMinor'] for x in snapshot['rows']), -1500)
+            self.assertEqual(daily.tick(self.root, cfg)['sources']['korea']['status'], 'already_published')
+            self.assertEqual(self.remote.read_bytes(), after)
+
+            with sqlite3.connect(run / daily.STORAGE) as db:
+                self.assertEqual(db.execute('SELECT count(*) FROM spending_batch').fetchone(), (1,))
+                self.assertEqual(db.execute('SELECT count(*) FROM spending_observation').fetchone(), (2,))
+            second = daily.enqueue_workbook(self.root, cfg, 'korea', bank, issuer, '2026-11-01', '2026-11-29')
+            second_dir = self.root / 'runs' / second['run']
+            (second_dir / 'decisions.json').write_bytes((run / 'decisions.json').read_bytes())
+            replay = daily.tick(self.root, cfg)['sources']['korea']
+            self.assertEqual((replay['inserted'], replay['matched']), (0, 2))
+
+            old_binding = daily.read(self.binding)
+            old_binding['accountId'] = 'unknown-account'
+            self.binding.write_bytes(daily.encode(old_binding))
+            state = daily.read(second_dir / 'pointer.json')
+            state['bindingSha256'] = daily.digest(self.binding.read_bytes())
+            (second_dir / 'pointer.json').write_bytes(daily.encode(state))
+            cmd = [python, str(Path(cfg['checkout']) / 'scripts/banksalad-evidence.py'),
+                   str(second_dir / daily.STORAGE), str(second_dir), str(self.binding)]
+            refused = subprocess.run(cmd, capture_output=True, text=True)
+            self.assertNotEqual(refused.returncode, 0)
+            self.assertIn('unknown_account', refused.stderr)
+
+    def test_banksalad_groups_cannot_offset_refunds(self):
+        import os
+        import subprocess
+        import sys
+
+        python = os.environ.get('STOCK_PYTHON_BIN', sys.executable)
+        script = """
+import runpy,sys
+app=runpy.run_path(sys.argv[1])
+items={2:{'day':'2026-11-01','kind':'지출','amount':-1200,'description':'Bus'},
+       3:{'day':'2026-11-02','kind':'지출','amount':200,'description':'Bus refund'}}
+target={'t':{'day':'2026-11-02','amount':-1000,'description':'Bus group'}}
+binding={'product':'card','matchExact':False,'showUnmatched':True}
+review={'links':[{'rows':[2,3],'transactionId':'t','basis':'issuer_aggregate'}]}
+try:
+    app['plan'](items,target,binding,review)
+except ValueError as issue:
+    assert str(issue)=='invalid_banksalad_aggregate'
+else:
+    raise AssertionError('mixed-sign aggregate accepted')
+"""
+        subprocess.run([python, '-c', script,
+                        str(Path(__file__).parents[1] / 'scripts/banksalad-evidence.py')], check=True)
+
     def test_review_gate_then_exact_replay(self):
         with patch.object(daily, 'cli', self.cli), patch.object(daily, 'publish', self.publish):
             self.assertEqual(daily.tick(self.root, self.config)['status'], 'awaiting_review')
