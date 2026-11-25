@@ -71,7 +71,7 @@ def clone(source, target):
         os.replace(staged, target)
 
 
-def projection(before, after, published, account, expected_inserts):
+def projection(before, after, published, account, expected_inserts, labels=None):
     packet = json.loads(published)
     view = packet['snapshot']
     with closing(db_at(before)) as baseline, closing(db_at(after)) as staged:
@@ -99,6 +99,9 @@ def projection(before, after, published, account, expected_inserts):
         view['coverage'] = [dict(zip(('accountId', 'currency', 'first', 'last', 'count'), row))
             for row in staged.execute('SELECT account_id,currency,min(posted_date),max(posted_date),count(*) '
                                       'FROM spending_transaction GROUP BY account_id,currency ORDER BY currency DESC,account_id')]
+    for language, label in (labels or {}).items():
+        require(language in ('en', 'ko') and isinstance(label, str) and label.strip(), 'invalid_account_label')
+        packet['accounts'].setdefault(language, {}).setdefault(account, dict(label=label))
     packet['asOf'] = datetime.now(ZoneInfo('America/Los_Angeles')).date().isoformat()
     return encode(packet)
 
@@ -118,6 +121,8 @@ def cli(config, directory, apply_token=None):
                '--input', str(directory / 'pointer.json'), '--simplefin-config', config['simplefinConfig'],
                '--connector-repo', config['connectorRepo']]
     decisions = directory / 'decisions.json'
+    if not decisions.is_file():
+        decisions = directory / 'carried-decisions.json'
     if decisions.is_file():
         command.extend(['--decisions', str(decisions)])
     if apply_token:
@@ -215,25 +220,106 @@ def finish(root, config, run, pending):
     require(digest((directory / STORAGE).read_bytes()) == pending['ledgerSha256'], 'prepared_ledger_changed')
     with closing(db_at(directory / STORAGE)) as ledger:
         require(ledger.execute('PRAGMA integrity_check').fetchone() == ('ok',), 'invalid_prepared_ledger')
+    if 'evidenceSha256' in pending:
+        applied_evidence(directory, pending['evidenceSha256'])
     receipt = publish(config, pending['parentSnapshotSha256'], candidate)
     atomic(root / 'current.json', encode(dict(run=run)))
     atomic(directory / 'published.json', encode({**pending, **receipt}))
     return dict(status='published', run=run, **receipt)
 
 
-def tick(root, config):
-    runs = root / 'runs'
-    runs.mkdir(exist_ok=True)
-    active = read(root / 'current.json')['run']
-    require(RUN_ID.fullmatch(active), 'invalid_active_run')
+def recover(root, config, runs, active):
     for directory in sorted(runs.iterdir()):
         journal = directory / 'prepared.json'
         if journal.is_file() and not (directory / 'published.json').is_file():
             pending = read(journal)
             require(active in (directory.name, pending['parentRun']), 'prepared_parent_changed')
             return finish(root, config, directory.name, pending)
-    pointer = Path(config['pointer']).read_bytes()
-    run = json.loads(pointer)['runId']
+    return None
+
+
+def tick(root, config):
+    runs = root / 'runs'
+    runs.mkdir(exist_ok=True)
+    active = active_run(root)
+    recovered = recover(root, config, runs, active)
+    if recovered:
+        return recovered
+    sources = config.get('sources')
+    if sources is None:
+        return tick_source(root, config, runs, active)
+    require(isinstance(sources, dict) and bool(sources), 'invalid_review_sources')
+    results = {}
+    for key, source in sources.items():
+        require(RUN_ID.fullmatch(key) and isinstance(source, dict) and
+                source.keys() <= {'pointer', 'binding', 'simplefinConfig', 'accountLabels', 'carryDecisions'},
+                'invalid_review_source')
+        try:
+            results[key] = tick_source(root, {**config, **source}, runs, active_run(root), key)
+        except Exception as error:
+            results[key] = dict(status='failed', reason=safe_reason(error))
+            # Finish an interrupted publication before any later source stages changes.
+            if any((item / 'prepared.json').is_file() and not (item / 'published.json').is_file()
+                   for item in runs.iterdir()):
+                break
+    return dict(status='attention_required' if any(item['status'] == 'failed' for item in results.values())
+                else 'checked', sources=results)
+
+
+def active_run(root):
+    active = read(root / 'current.json')['run']
+    require(RUN_ID.fullmatch(active), 'invalid_active_run')
+    return active
+
+
+def has_source(directory, key):
+    pointer = directory / 'pointer.json'
+    return pointer.is_file() and read(pointer).get('connectionKey') == key
+
+
+def applied_evidence(directory, evidence_hash):
+    require(isinstance(evidence_hash, str) and HEX.fullmatch(evidence_hash), 'invalid_applied_evidence')
+    stored = (directory / STORAGE).parent.parent / 'records/spending' / (evidence_hash + '.json')
+    body = stored.read_bytes()
+    require(digest(body) == evidence_hash, 'applied_evidence_changed')
+    evidence = json.loads(body)
+    pointer = read(directory / 'pointer.json')
+    require(evidence['manifestSha256'] == pointer['manifestSha256'] and
+            evidence['run']['manifest']['runId'] == directory.name and
+            isinstance(evidence['decisions'], list), 'invalid_applied_evidence')
+    return evidence
+
+
+def carry_decisions(runs, directory, key, active):
+    if (directory / 'decisions.json').is_file():
+        return
+    carried = directory / 'carried-decisions.json'
+    seen = set()
+    while active:
+        require(RUN_ID.fullmatch(active) and active not in seen, 'invalid_publication_history')
+        seen.add(active)
+        item = runs / active
+        receipt = item / 'published.json'
+        if not receipt.is_file():
+            break
+        published = read(receipt)
+        evidence_hash = published.get('evidenceSha256')
+        if evidence_hash and has_source(item, key):
+            evidence = applied_evidence(item, evidence_hash)
+            atomic(carried, encode(dict(schemaVersion=1, decisions=evidence['decisions'])))
+            return
+        active = published['parentRun']
+    carried.unlink(missing_ok=True)
+
+
+def tick_source(root, config, runs, active, key=None):
+    file = Path(config['pointer'])
+    if key is not None and not file.is_file():
+        return dict(status='awaiting_source')
+    pointer = file.read_bytes()
+    info = json.loads(pointer)
+    require(key is None or info.get('connectionKey') == key, 'source_pointer_mismatch')
+    run = info['runId']
     require(RUN_ID.fullmatch(run), 'invalid_run_id')
     directory = runs / run
     published = directory == runs / active or (directory / 'published.json').is_file()
@@ -247,7 +333,7 @@ def tick(root, config):
     for item in sorted(runs.iterdir()):
         if item.name == active or (item / 'published.json').is_file() or not (item / 'approval.json').is_file():
             continue
-        if item != directory:
+        if item != directory and (key is None or has_source(item, key)):
             result = preview(root, config, active, item)
             if accepted(item, result):
                 return apply(root, config, active, item, result)
@@ -255,6 +341,8 @@ def tick(root, config):
         prior = (runs / active / 'snapshot.json').read_bytes()
         receipt = publish(config, digest(prior), prior)
         return dict(status='already_published', run=run, **receipt)
+    if key is not None and config.get('carryDecisions'):
+        carry_decisions(runs, directory, key, active)
     result = preview(root, config, active, directory)
     if accepted(directory, result):
         return apply(root, config, active, directory, result)
@@ -301,11 +389,16 @@ def apply(root, config, active, directory, preview_result):
     parent = root / 'runs' / active
     before = (parent / 'snapshot.json').read_bytes()
     account = read(Path(config['binding']))['accountId']
-    after = projection(parent / STORAGE, directory / STORAGE, before, account, result['inserted'])
+    after = projection(parent / STORAGE, directory / STORAGE, before, account, result['inserted'],
+                       config.get('accountLabels'))
     atomic(directory / 'snapshot.json', after)
     journal = dict(parentRun=active, parentSnapshotSha256=digest(before), snapshotSha256=digest(after),
                    ledgerSha256=digest((directory / STORAGE).read_bytes()), inserted=result['inserted'],
                    matched=result['matched'])
+    if config.get('carryDecisions'):
+        evidence_hash = result.get('evidenceSha256')
+        applied_evidence(directory, evidence_hash)
+        journal['evidenceSha256'] = evidence_hash
     atomic(directory / 'prepared.json', encode(journal))
     return finish(root, config, directory.name, journal)
 
@@ -343,6 +436,8 @@ def main():
                     raise
                 atomic(root / 'status.json', encode(result))
     print(encode(result).decode().rstrip())
+    if result['status'] == 'attention_required':
+        sys.exit(1)
 
 
 def safe_reason(error):

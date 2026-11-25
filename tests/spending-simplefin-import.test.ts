@@ -7,6 +7,7 @@ import test, { type TestContext } from 'node:test'
 import Database from 'better-sqlite3'
 import { prepareSimplefinSpending } from '../lib/adapters/spending-simplefin'
 import { importSpending } from '../lib/adapters/spending-store'
+import { spendingAccountIds } from '../lib/domain/spending-import'
 
 const binding = { accountId: 'test-checking', providerAccountId: 'provider-account', connectionId: 'connection-id' }
 const accounts = new Set([binding.accountId])
@@ -160,4 +161,65 @@ test('a second unreviewed posting with the same date and amount blocks a cross-s
   const preview = importSpending(p.input(repeated, reviewed))
   assert.equal(preview.matched, 0)
   assert.deepEqual(preview.held?.map(row => row.reason), ['reviewed_link_mismatch', 'unreviewed_transaction'])
+})
+
+test('two approved credit card scopes coexist with the legacy checking scope and replay without changing spend', (t) => {
+  const p = pilot(t)
+  const legacy = p.input()
+  importSpending({ ...legacy, reviewToken: importSpending(legacy).reviewToken })
+  const db = new Database(p.ledgerPath)
+  t.after(() => db.close())
+  db.exec('DROP TABLE spending_saved_bank_scope')
+
+  const inventory = spendingAccountIds({ accounts: Object.fromEntries(
+    [['Amex credit card', 'amex', 'card-one'], ['Synchrony credit card', 'synchrony', 'card-two']].map(
+      ([label, providerId, accountId]) => [label, { institution: providerId, inventory: {
+        role: 'primary', accountId, providerId, owner: { state: 'confirmed', ownerId: 'test-owner' },
+        dimensions: { wrappers: ['credit-card'], assetClasses: [] }, lifecycle: { state: 'active' },
+        requirements: [{ kind: 'activity', freshnessPolicyId: 'bank-30' }],
+      } }],
+    ),
+  ) })
+  assert.deepEqual([...inventory], ['card-one', 'card-two'])
+  const rows = [tx('purchase-1', '-8.22', 'Sample retail'), tx('purchase-2', '-8.22', 'Sample retail'),
+    tx('refund', '1.50', 'Sample retail'), tx('payment', '50.00', 'Payment'),
+    tx('benefit', '2.00', 'Card benefit')]
+  const review = { schemaVersion: 1, decisions: [
+    decision('purchase-1', -822, 'Sample retail', 'purchase'), decision('purchase-2', -822, 'Sample retail', 'purchase'),
+    decision('refund', 150, 'Sample retail', 'refund'), decision('payment', 5000, 'Payment', 'card_payment'),
+    decision('benefit', 200, 'Card benefit', 'other'),
+  ].map(row => ({ ...row, postedDate: '2026-11-11' })) }
+
+  function card(accountId: string, runId: string, providerAccountId = accountId, connectionKey = accountId) {
+    const run = snapshot(runId, rows)
+    const cardBinding = { ...binding, accountId, providerAccountId, accountKind: 'credit_card' }
+    Object.assign(run.manifest, { connectionKey, accountIds: [providerAccountId] })
+    Object.assign(run.data.accounts[0], { providerAccountId, name: 'Example Credit Card' })
+    const prepared = prepareSimplefinSpending({ run, binding: cardBinding, decisions: review,
+      accountIds: new Set([accountId]), manifestSha256: descriptionSha256(runId), connectionKey })
+    return { ...p.input(), ...prepared }
+  }
+
+  for (const name of ['card-one', 'card-two']) {
+    const input = card(name, name + '-first')
+    const preview = importSpending(input)
+    assert.equal(preview.inserted, 5)
+    assert.equal(preview.pendingIgnored, 1)
+    assert.deepEqual(preview.held, [])
+    const applied = importSpending({ ...input, reviewToken: preview.reviewToken })
+    assert.equal(applied.excluded, name === 'card-one' ? 5 : 7)
+    const net = applied.totals[0].netMinor
+    assert.equal(net, name === 'card-one' ? '3494' : '4988')
+
+    const alternate = card(name, name + '-overlap')
+    const overlap = importSpending(alternate)
+    assert.equal(overlap.inserted, 0)
+    assert.equal(overlap.matched, 5)
+    assert.deepEqual(importSpending({ ...alternate, reviewToken: overlap.reviewToken }).totals, applied.totals)
+  }
+  assert.equal(importSpending(p.input(snapshot('legacy-overlap'))).matched, 4)
+  assert.throws(() => importSpending(card('card-one', 'new-binding', 'different-provider')), /offline_scope_changed/)
+  assert.throws(() => importSpending(card('card-three', 'reused-binding', 'card-one')), /offline_scope_changed/)
+  assert.throws(() => importSpending(card(binding.accountId, 'wrong-kind')), /offline_scope_changed/)
+  assert.equal(db.prepare('SELECT count(*) FROM spending_transaction').pluck().get(), 14)
 })

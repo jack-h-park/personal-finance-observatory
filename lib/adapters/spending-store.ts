@@ -73,6 +73,11 @@ const savedBankSchema = `
     scope TEXT NOT NULL,
     pending_ignored INTEGER NOT NULL
   );
+  CREATE TABLE IF NOT EXISTS spending_saved_bank_scope (
+    scope TEXT PRIMARY KEY,
+    account_id TEXT NOT NULL UNIQUE,
+    provider_key TEXT NOT NULL UNIQUE
+  );
   CREATE TABLE IF NOT EXISTS spending_saved_bank_hold (
     batch_id TEXT NOT NULL REFERENCES spending_saved_bank(batch_id),
     row_number INTEGER NOT NULL,
@@ -98,6 +103,9 @@ export type SavedBankFingerprint = {
 type SavedBankHold = { row: number; reason: string; fingerprint?: SavedBankFingerprint; linkCandidateId?: string }
 type SavedBankEvidence = {
   scope: string
+  accountId: string
+  providerKey: string
+  card: boolean
   sourceRows: number[]
   held: SavedBankHold[]
   pendingIgnored: number
@@ -281,10 +289,37 @@ function matchWorkbookEvidence(
   return matched
 }
 
+function validateSavedBankScope(db: Database.Database, evidence: SavedBankEvidence) {
+  const { scope, accountId, providerKey, card } = evidence
+  const hasTable = db.prepare("SELECT 1 FROM sqlite_master WHERE name = ? AND type = 'table'")
+  if (hasTable.get('spending_saved_bank_scope') && db.prepare(`
+    SELECT 1 FROM spending_saved_bank_scope
+    WHERE (scope = ? OR account_id = ? OR provider_key = ?)
+      AND NOT (scope = ? AND account_id = ? AND provider_key = ?)
+    LIMIT 1
+  `).get(scope, accountId, providerKey, scope, accountId, providerKey)) {
+    throw new Error('offline_scope_changed')
+  }
+  // A pre-registry ledger allowed exactly one Chase Checking binding.
+  if (hasTable.get('spending_saved_bank') && db.prepare(`
+    SELECT 1 FROM spending_saved_bank bank
+    JOIN spending_batch batch ON batch.id = bank.batch_id
+    WHERE bank.scope <> ? AND batch.adapter = 'simplefin-chase-checking-v1'
+      AND (? = 0 OR EXISTS (
+        SELECT 1 FROM spending_observation obs
+        JOIN spending_transaction tx ON tx.id = obs.transaction_id
+        WHERE obs.batch_id = bank.batch_id AND tx.account_id = ?
+      ))
+    LIMIT 1
+  `).get(scope, Number(card), accountId)) {
+    throw new Error('offline_scope_changed')
+  }
+}
+
 function processBatch(db: Database.Database | null, input: ImportInput) {
   const { batch, bytes, format, workbook, savedBank, snaptrade } = input
   const adapter = workbook ? 'samsung-banksalad-xlsx-v1' :
-    savedBank ? 'simplefin-chase-checking-v1' :
+    savedBank ? (savedBank.card ? 'simplefin-card-v1' : 'simplefin-chase-checking-v1') :
       snaptrade ? 'snaptrade-chase-card-v1' : `synthetic-${format}-v${batch.schemaVersion}`
   const rawHash = sha256(bytes)
   const recordName = `${rawHash}.${format}`
@@ -297,10 +332,7 @@ function processBatch(db: Database.Database | null, input: ImportInput) {
   if (hasWorkbookTable && db!.prepare('SELECT 1 FROM spending_workbook WHERE scope <> ? LIMIT 1').get(workbook.scope)) {
     throw new Error('offline_scope_changed')
   }
-  if (savedBank && db?.prepare("SELECT 1 FROM sqlite_master WHERE name = 'spending_saved_bank' AND type = 'table'").get() &&
-      db.prepare('SELECT 1 FROM spending_saved_bank WHERE scope <> ? LIMIT 1').get(savedBank.scope)) {
-    throw new Error('offline_scope_changed')
-  }
+  if (savedBank && db) validateSavedBankScope(db, savedBank)
   if (snaptrade && db?.prepare("SELECT 1 FROM sqlite_master WHERE name = 'spending_snaptrade' AND type = 'table'").get() &&
       db.prepare('SELECT 1 FROM spending_snaptrade WHERE (account_id = ?) <> (provider_account_id = ?) LIMIT 1')
         .get(snaptrade.accountId, snaptrade.providerAccountId)) {
@@ -452,6 +484,8 @@ function processBatch(db: Database.Database | null, input: ImportInput) {
     for (const hold of held) record.run(batchId, hold.workbook, hold.row, null, hold.reason)
   }
   if (savedBank) {
+    db.prepare('INSERT INTO spending_saved_bank_scope VALUES (?, ?, ?) ON CONFLICT(scope) DO NOTHING')
+      .run(savedBank.scope, savedBank.accountId, savedBank.providerKey)
     const addAlias = db.prepare('INSERT INTO spending_saved_bank_alias VALUES (?, ?, ?, ?)')
     for (const alias of newAliases) addAlias.run(savedBank.scope, alias.sourceId, alias.transactionId, alias.payloadSha256)
     db.prepare('INSERT INTO spending_saved_bank VALUES (?, ?, ?)').run(batchId, savedBank.scope, savedBank.pendingIgnored)
@@ -463,7 +497,7 @@ function processBatch(db: Database.Database | null, input: ImportInput) {
       batchId, snaptrade.accountId, snaptrade.providerAccountId, JSON.stringify(cardHeld),
     )
   }
-  return { status: 'applied', ...result }
+  return { status: 'applied', ...result, ...(savedBank ? { evidenceSha256: rawHash } : {}) }
 }
 
 export function importSpending(input: ImportInput) {

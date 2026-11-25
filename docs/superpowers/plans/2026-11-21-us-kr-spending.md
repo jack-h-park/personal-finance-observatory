@@ -6,6 +6,14 @@ November 21, 2026 (America/Los_Angeles). Scope is the owner-operated Personal Fi
 
 The local CLI supports preview, review-token application, and replay for synthetic inputs, paired Samsung Card and BankSalad workbooks, saved SimpleFIN bank runs, and saved SnapTrade card activity paired with Chase issuer CSVs. SimpleFIN Bridge remains primary for US banks and cards. SnapTrade remains primarily a brokerage connector and serves as a card fallback where the verified provider feed lacks coverage. The [pilot guide](../../operations/spending-pilot.md) records input contracts, test results, and a roughly monthly read-only SimpleFIN coverage check. Scheduled collection and reuse of private operating inventory require separate authorization.
 
+The reviewed SimpleFIN schedule supports Chase Checking and the approved
+Amex Marriott Brilliant and Amazon Store Card accounts. The two cards use
+a separate daily collector job, and each verified batch goes through the
+same preview, review token, and atomic publication into the shared ledger.
+Overlap reuses prior row decisions and remains subject to exact batch approval.
+Issuer exports supplement older history or resolve exceptions.
+
+
 The combined local ledger holds separate USD and KRW records, two-sided card payments, Korean billing and evidence, and reviewed records from the US and Korean pilots. The read-only `/spending` view provides net spending for the last 12 or 24 months, this year or last year, category and merchant rankings, the largest individual purchases, account filters, and transaction-month drill-down. It continues to show observed coverage and holds. `/accounts` and `/data-ops` link to the same account filters. Months without purchase or refund evidence are marked unavailable. Production uses an explicitly published snapshot in the private state directory through the existing owner-only gateway. The original ledger and financial records remain private.
 
 Category reporting uses matched issuer labels for US purchases when present, with reviewed Notion merchant references as a fallback. Korean categories use BankSalad observations already linked to eligible issuer records. The combined ledger remains the source for all dates and amounts. Report unclassified purchases explicitly and show how many purchases use each category source.
