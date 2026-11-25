@@ -1,4 +1,5 @@
 import { investmentTaxReserve } from '@/lib/ui-copy/pages/investmentTaxReserve'
+import { krOverseasStockTax } from '@/lib/ui-copy/pages/krOverseasStockTax'
 import { PageHeader } from '@/components/PageHeader'
 import { TaxPlanTimeline } from '@/components/TaxPlanTimeline'
 import { Badge, Button, Card, FormError, HelpPopover, Label, Panel, SectionHeading, Signed, TextLink, marketTone } from '@/components/ui'
@@ -123,6 +124,7 @@ export default async function TaxPlanningPage({
         actions={
           <>
             <TextLink href="/tax-planning/reserve">{investmentTaxReserve[language].title}</TextLink>
+            <TextLink href="/tax-planning/reserve/korea">{krOverseasStockTax[language].title}</TextLink>
             <TextLink href="/tax-planning/annual">{getPageCopy('hypotheticalTax', language).title}</TextLink>
             <TextLink href="/tax-settings">{copy.page.editAssumptions}</TextLink>
           </>
