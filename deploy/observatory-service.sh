@@ -109,7 +109,17 @@ case "$1" in
     trap 'rm -f "$stage"' EXIT
     render_plist "$stage" "$2" "$3" "$4"
     plutil -lint "$stage"
-    if gui_registered; then launchctl bootout "$gui_target"; fi
+    if gui_registered; then
+      launchctl bootout "$gui_target"
+      for ((attempt=0; attempt<50; attempt++)); do
+        if ! gui_registered; then break; fi
+        sleep 0.2
+      done
+      if gui_registered; then
+        echo "timed out waiting for $gui_target to unload" >&2
+        exit 1
+      fi
+    fi
     mv "$stage" "$gui_plist"
     launchctl bootstrap "$gui_domain" "$gui_plist"
     ;;
