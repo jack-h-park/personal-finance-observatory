@@ -275,3 +275,54 @@ test('a file previous close dated on or after the quote date is ignored', async 
   assert.equal(row.prevClose, 95)
   assert.equal(row.prevCloseDate, '2030-03-11')
 })
+
+test('a reference date takes the close on or before it, not the file previous close', async () => {
+  const file = makeDb(
+    'reference-before.db',
+    [{ market: 'US', ticker: 'RFQ', currency: 'USD', asOf: '2030-03-12', price: 20 }],
+    [
+      { market: 'US', ticker: 'RFQ', currency: 'USD', date: '2030-03-06', close: 10 },
+      { market: 'US', ticker: 'RFQ', currency: 'USD', date: '2030-03-08', close: 12 },
+      { market: 'US', ticker: 'RFQ', currency: 'USD', date: '2030-03-11', close: 18 },
+    ],
+    [['2030-03-07', 1300], ['2030-03-08', 1310], ['2030-03-11', 1350]]
+  )
+  const us = path.join(dir, 'reference-before-prices.json')
+  writeFileSync(us, JSON.stringify({ prices: [{ ticker: 'RFQ', price: 22, currency: 'USD', asOfDate: '2030-03-12', previousClose: 21, previousCloseDate: '2030-03-11' }] }))
+  const { getDayChangeRows } = await import('../lib/adapters/portfolio-db')
+  const [row] = await withPaths({ db: file, us }, () => getDayChangeRows({ referenceDate: '2030-03-08' }))
+  assert.equal(row.price, 22)
+  assert.equal(row.quoteDate, '2030-03-12')
+  assert.equal(row.prevClose, 12)
+  assert.equal(row.prevCloseDate, '2030-03-08')
+  assert.equal(row.prevFx, 1310)
+  // A reference date between two closes takes the earlier one.
+  const [between] = await withPaths({ db: file, us }, () => getDayChangeRows({ referenceDate: '2030-03-10' }))
+  assert.equal(between.prevCloseDate, '2030-03-08')
+})
+
+test('a holding first priced after the reference date is measured from its first close', async () => {
+  const file = makeDb('reference-after.db', [{ market: 'KR', ticker: '555555', currency: 'KRW', asOf: '2030-03-12' }], [
+    { market: 'KR', ticker: '555555', currency: 'KRW', date: '2030-03-09', close: 80 },
+    { market: 'KR', ticker: '555555', currency: 'KRW', date: '2030-03-10', close: 85 },
+    { market: 'KR', ticker: '555555', currency: 'KRW', date: '2030-03-12', close: 100 },
+  ])
+  const { getDayChangeRows } = await import('../lib/adapters/portfolio-db')
+  const [row] = await withPaths({ db: file }, () => getDayChangeRows({ referenceDate: '2030-03-01' }))
+  assert.equal(row.prevCloseDate, '2030-03-09')
+  assert.equal(row.prevClose, 80)
+  // A reference date on the quote date falls back to the latest close before it.
+  const [same] = await withPaths({ db: file }, () => getDayChangeRows({ referenceDate: '2030-03-12' }))
+  assert.equal(same.prevCloseDate, '2030-03-10')
+})
+
+test('KRW crypto with only USD closes still has no reference close', async () => {
+  const file = makeDb('reference-crypto.db', [{ market: 'CRYPTO', ticker: 'QQQC', currency: 'KRW', asOf: '2030-03-12' }], [
+    { market: 'CRYPTO', ticker: 'QQQC', currency: 'USD', date: '2030-03-05', close: 50 },
+    { market: 'CRYPTO', ticker: 'QQQC', currency: 'USD', date: '2030-03-09', close: 55 },
+  ])
+  const { getDayChangeRows } = await import('../lib/adapters/portfolio-db')
+  const [row] = await withPaths({ db: file }, () => getDayChangeRows({ referenceDate: '2030-03-07' }))
+  assert.equal(row.prevClose, null)
+  assert.equal(row.prevCloseDate, null)
+})

@@ -1280,8 +1280,15 @@ function exchangeDate(instant: unknown, market: string): string | null {
  * row finds none and is left out. A historical_prices table without a currency column (the
  * sample database) gets the same-market lookup without the currency check. Empty when a table
  * is missing.
+ *
+ * With `referenceDate` the row measures from an older date instead: the file's previous close is
+ * ignored, and the reference close is the latest close on or before that date (own market, then
+ * any market, same currency rules). A holding with no close that early takes its earliest close
+ * after the date. Either way the close stays strictly before the quote date. Price and quote
+ * date are chosen as before.
  */
-export function getDayChangeRows(): DayChangeRow[] {
+export function getDayChangeRows(options: { referenceDate?: string } = {}): DayChangeRow[] {
+  const referenceDate = options.referenceDate
   const conn = db()
   try {
     const has = (name: string) => Boolean(conn.prepare("select 1 from sqlite_master where type in ('table', 'view') and name = ?").get(name))
@@ -1316,6 +1323,19 @@ export function getDayChangeRows(): DayChangeRow[] {
           "select price_date as date, close from historical_prices where market in ('KR', 'US', 'CRYPTO') and ticker = ? and currency = ? and price_date < ? order by price_date desc limit 1"
         )
       : null
+    // Reference-date lookups, prepared only when a reference date is given. Each is bounded by the
+    // quote date as well, so a reference at or after the quote date cannot return the quote's own close.
+    const currencyClause = hasCurrency ? ' and currency = ?' : ''
+    const refSql = (marketClause: string, order: 'desc' | 'asc', dateClause: string) =>
+      `select price_date as date, close from historical_prices where ${marketClause} and ticker = ?${currencyClause} and ${dateClause} and price_date < ? order by price_date ${order} limit 1`
+    const refStatements = referenceDate
+      ? {
+          beforeOwn: conn.prepare(refSql('market = ?', 'desc', 'price_date <= ?')),
+          beforeAny: hasCurrency ? conn.prepare(refSql("market in ('KR', 'US', 'CRYPTO')", 'desc', 'price_date <= ?')) : null,
+          afterOwn: conn.prepare(refSql('market = ?', 'asc', 'price_date > ?')),
+          afterAny: hasCurrency ? conn.prepare(refSql("market in ('KR', 'US', 'CRYPTO')", 'asc', 'price_date > ?')) : null,
+        }
+      : null
     const fxOnOrBefore = hasFx ? conn.prepare('select rate from historical_fx_rates where price_date <= ? order by price_date desc limit 1') : null
     return holdings.map((row) => {
       const ticker = String(row.ticker).toUpperCase()
@@ -1330,8 +1350,14 @@ export function getDayChangeRows(): DayChangeRow[] {
       // the six-hourly refresh fetches and which lagged a whole session for Korean
       // stocks on 2026-11-23. Its currency is the entry's, already matched above.
       let prev: { date: string; close: number } | undefined =
-        usable?.previousClose != null && usable.previousCloseDate ? { date: usable.previousCloseDate, close: usable.previousClose } : undefined
-      if (!prev && quoteDate) {
+        !refStatements && usable?.previousClose != null && usable.previousCloseDate ? { date: usable.previousCloseDate, close: usable.previousClose } : undefined
+      if (!prev && quoteDate && refStatements && referenceDate) {
+        const own = (statement: typeof refStatements.beforeOwn) =>
+          (hasCurrency ? statement.get(row.market, row.ticker, row.currency, referenceDate, quoteDate) : statement.get(row.market, row.ticker, referenceDate, quoteDate)) as typeof prev
+        const any = (statement: typeof refStatements.beforeOwn | null) =>
+          (statement ? statement.get(row.ticker, row.currency, referenceDate, quoteDate) : undefined) as typeof prev
+        prev = own(refStatements.beforeOwn) ?? any(refStatements.beforeAny) ?? own(refStatements.afterOwn) ?? any(refStatements.afterAny)
+      } else if (!prev && quoteDate) {
         prev = (hasCurrency ? sameMarket.get(row.market, row.ticker, row.currency, quoteDate) : sameMarket.get(row.market, row.ticker, quoteDate)) as typeof prev
         if (!prev && sameCurrency) prev = sameCurrency.get(row.ticker, row.currency, quoteDate) as typeof prev
       }
