@@ -3,10 +3,13 @@ import { ChangeWaterfall, type WaterfallStep } from '@/components/ChangeWaterfal
 import { Columns } from '@/components/layout'
 import { ChipGroup, LinkChip } from '@/components/LinkChips'
 import { DivergingBarList, type RankedBarItem } from '@/components/RankedBars'
-import { Sparkline } from '@/components/Sparkline'
+import { CumulativeEffectChart } from '@/components/charts'
+import { HelpPopover } from '@/components/HelpPopover'
 import { Card, Note, Signed } from '@/components/ui'
+import { convertMoney, type CurrencyPreferences } from '@/lib/currency'
+import type { CumulativeEffectPoint } from '@/lib/daily-change'
 import type { DayChange } from '@/lib/day-change'
-import { fmtDateShort, fmtNumber, fmtPct, fmtSigned } from '@/lib/format'
+import { fmtDateShort, fmtNumber, fmtPct } from '@/lib/format'
 import type { Language } from '@/lib/i18n'
 import { marketColor } from '@/lib/palette'
 import { PERIODS, type ActualSummary, type Basis, type Period } from '@/lib/period-change'
@@ -18,6 +21,8 @@ export type PeriodChangeCopy = {
   periodFilter: string
   periods: Record<string, string>
   basisFilter: string
+  basisHelpLabel: string
+  basisHelp: Record<Basis, string>
   bases: Record<string, string>
   liveCaption: string
   range: (from: string, to: string) => string
@@ -27,9 +32,10 @@ export type PeriodChangeCopy = {
   session: (date: string) => string
   waterfall: { start: string; moneyIn: string; end: string }
   waterfallSummary: (start: string, steps: string, end: string) => string
-  sparkTitle: string
-  sparkLabel: (change: string) => string
-  sparkGapNote: string
+  cumulativeTitle: string
+  cumulativeHelpLabel: string
+  cumulativeHelp: string
+  cumulativeGapNote: string
   none: string
   fxNote: (now: string, prev: string, prevDate: string) => string
   up: string
@@ -46,13 +52,13 @@ export type PeriodChangeCopy = {
 /**
  * What the card shows:
  * - `live`: 1D, each market against its own previous session (both bases coincide).
- * - `actual`: Actual P&L from the period start, with the daily cumulative effect for the sparkline.
+ * - `actual`: Actual P&L from the period start, with the cumulative effect on measured dates.
  * - `held`: Holdings return, today's quantities from the period-start close.
  * - `empty`: a period with no stored snapshot to start from.
  */
 export type PeriodChangeView =
   | { kind: 'live'; change: DayChange }
-  | { kind: 'actual'; summary: ActualSummary; spark: number[]; gaps: number }
+  | { kind: 'actual'; summary: ActualSummary; cumulative: CumulativeEffectPoint[]; gaps: number }
   | { kind: 'held'; change: DayChange; from: string; clamped: boolean }
   | { kind: 'empty' }
 
@@ -74,6 +80,7 @@ export function PeriodChangeCard({
   basis,
   copy,
   language,
+  currencyPreferences,
   money,
   href,
 }: {
@@ -82,6 +89,7 @@ export function PeriodChangeCard({
   basis: Basis
   copy: PeriodChangeCopy
   language: Language
+  currencyPreferences: CurrencyPreferences
   /** A KRW amount in the display currency, with its unit. */
   money: (krw: number) => string
   /** The page URL with one card parameter changed and every other parameter kept. */
@@ -107,10 +115,18 @@ export function PeriodChangeCard({
                 {copy.bases[b]}
               </LinkChip>
             ))}
+            <HelpPopover label={copy.basisHelpLabel} language={language} align="left">
+              {BASES.map((b) => (
+                <span key={b} className="mb-2 block">
+                  <strong className="block text-ink">{copy.bases[b]}</strong>
+                  {copy.basisHelp[b]}
+                </span>
+              ))}
+            </HelpPopover>
           </ChipGroup>
           {period === '1d' && <p className="text-caption text-ink-2">{copy.sameBasesNote}</p>}
         </div>
-        <Body view={view} copy={copy} money={money} pct={pct} date={date} />
+        <Body view={view} copy={copy} money={money} pct={pct} date={date} language={language} currencyPreferences={currencyPreferences} />
       </div>
       <CalculationRules title={copy.rulesTitle} rules={copy.rules} />
     </Card>
@@ -123,12 +139,16 @@ function Body({
   money,
   pct,
   date,
+  language,
+  currencyPreferences,
 }: {
   view: PeriodChangeView
   copy: PeriodChangeCopy
   money: (krw: number) => string
   pct: (value: number | null) => ReactNode
   date: (value: string) => string
+  language: Language
+  currencyPreferences: CurrencyPreferences
 }) {
   if (view.kind === 'empty') return <p className="text-body text-ink-2">{copy.periodEmpty}</p>
 
@@ -147,7 +167,12 @@ function Body({
       value: d.marketEffect,
       valueText: <Signed value={d.marketEffect} format={money} />,
     })
-    const last = view.spark.length > 0 ? view.spark[view.spark.length - 1] : null
+    const { displayCurrency, usdKrwRate } = currencyPreferences
+    const chartCurrency = displayCurrency === 'USD' && usdKrwRate != null && usdKrwRate > 0 ? 'USD' : 'KRW'
+    const cumulative = view.cumulative.map((point) => ({
+      date: point.date,
+      total: convertMoney(point.total, 'KRW', chartCurrency, usdKrwRate).value,
+    }))
     return (
       <>
         <Headline
@@ -167,13 +192,16 @@ function Body({
             valueText: <Figures change={m.marketEffect} pct={ratioPct(m.pct)} money={money} />,
           }))}
         />
-        {view.spark.length >= 2 && last != null && (
-          <div>
-            <p className="mb-1 text-caption font-medium text-ink-2">{copy.sparkTitle}</p>
-            <Sparkline values={view.spark} color="var(--accent-info)" label={copy.sparkLabel(fmtSigned(last, money))} width={240} height={40} />
-            {view.gaps > 0 && <Note spacing="above-0.5">{copy.sparkGapNote}</Note>}
+        <div>
+          <div className="mb-1 flex items-center gap-1">
+            <h3 className="text-caption font-medium text-ink-2">{copy.cumulativeTitle}</h3>
+            <HelpPopover label={copy.cumulativeHelpLabel} language={language} align="left">
+              {copy.cumulativeHelp}
+            </HelpPopover>
           </div>
-        )}
+          <CumulativeEffectChart points={cumulative} label={copy.cumulativeTitle} currency={chartCurrency} language={language} />
+          {view.gaps > 0 && <Note spacing="above-0.5">{copy.cumulativeGapNote}</Note>}
+        </div>
         <Movers copy={copy} up={s.up.map(driverItem)} down={s.down.map(driverItem)} />
         {s.unpriced > 0 && <Note>{copy.unpricedNote(fmtNumber(s.unpriced))}</Note>}
       </>
