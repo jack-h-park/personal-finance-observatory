@@ -163,6 +163,46 @@ test('a second unreviewed posting with the same date and amount blocks a cross-s
   assert.deepEqual(preview.held?.map(row => row.reason), ['reviewed_link_mismatch', 'unreviewed_transaction'])
 })
 
+test('repeated card purchases link only with evidence for the exact SimpleFIN account and transaction', (t) => {
+  const p = pilot(t)
+  const txs = [checking[0], { ...checking[0], providerTransactionId: 'second' }]
+  const run = snapshot('repeated-card', txs)
+  run.data.accounts[0].name = 'Example Credit Card'
+  const cardBinding = { ...binding, accountKind: 'credit_card' }
+  const baseDecisions = txs.map(x => ({ ...decision(x.providerTransactionId, -2000, x.description, 'purchase'), postedDate: '2026-11-11' }))
+  function incoming(reviewed: unknown) {
+    return { ...p.input(), ...prepareSimplefinSpending({ run, binding: cardBinding, decisions: reviewed, accountIds: accounts,
+      manifestSha256: descriptionSha256(run.manifest.runId), connectionKey: run.manifest.connectionKey }) }
+  }
+  const first = incoming({ schemaVersion: 1, decisions: baseDecisions })
+  const seed = { ...first, savedBank: undefined, batch: { ...first.batch, source: 'reviewed-saved-card' } }
+  importSpending({ ...seed, reviewToken: importSpending(seed).reviewToken })
+  const db = new Database(p.ledgerPath)
+  t.after(() => db.close())
+  const target = db.prepare('SELECT id FROM spending_transaction WHERE source_id = ?').pluck()
+  const links = baseDecisions.map(row => ({ ...row, linkToTransactionId: target.get(row.sourceId),
+    targetDescriptionSha256: row.descriptionSha256 }))
+  const reviewed = incoming({ schemaVersion: 1, decisions: links })
+  db.exec('CREATE TABLE spending_us_provider_evidence (account_id, provider_scope, source_id, transaction_id)')
+  const notice = db.prepare('INSERT INTO spending_us_provider_evidence VALUES (?, ?, ?, ?)')
+  const scope = descriptionSha256(JSON.stringify(['simplefin-card', [binding.connectionId, binding.providerAccountId]]))
+  notice.run(binding.accountId, scope, links[0].sourceId, links[0].linkToTransactionId)
+  notice.run(binding.accountId, 'other-provider-account', links[1].sourceId, links[1].linkToTransactionId)
+  assert.equal(importSpending(reviewed).matched, 1)
+  assert.equal(importSpending(reviewed).held?.length, 1)
+  notice.run(binding.accountId, scope, links[1].sourceId, links[1].linkToTransactionId)
+  const swapped = incoming({ schemaVersion: 1, decisions: [
+    { ...links[0], linkToTransactionId: links[1].linkToTransactionId }, links[1],
+  ] })
+  assert.equal(importSpending(swapped).held?.length, 1)
+  const preview = importSpending(reviewed)
+  assert.equal(preview.matched, 2)
+  assert.equal(preview.inserted, 0)
+  assert.deepEqual(preview.held, [])
+  importSpending({ ...reviewed, reviewToken: preview.reviewToken })
+  assert.equal(db.prepare('SELECT count(*) FROM spending_transaction').pluck().get(), 2)
+})
+
 test('two approved credit card scopes coexist with the legacy checking scope and replay without changing spend', (t) => {
   const p = pilot(t)
   const legacy = p.input()

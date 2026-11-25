@@ -112,6 +112,7 @@ type SavedBankEvidence = {
   pendingIgnored: number
   reviewedLinks?: { row: number; transactionId: string; targetDescriptionSha256?: string }[]
   ambiguousPostingRows?: number[]
+  reviewedEvidenceScope?: string
 }
 
 export type SnaptradeHold = { source: 'snaptrade' | 'chase'; row: number; reason: string }
@@ -352,9 +353,17 @@ function processBatch(db: Database.Database | null, input: ImportInput) {
     .all(savedBank.scope) as { source_id: string; transaction_id: string; payload_sha256: string }[] : []
   const aliasBySource = new Map(storedAliases.map(row => [row.source_id, row]))
   const sourceByAlias = new Map(storedAliases.map(row => [row.transaction_id, row.source_id]))
+  const priorProof = savedBank?.reviewedEvidenceScope && reviewedLinks.size && db?.prepare(
+    "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'spending_us_provider_evidence'",
+  ).get() ? db.prepare(`SELECT source_id AS sourceId, min(transaction_id) AS transactionId
+    FROM spending_us_provider_evidence WHERE account_id = ? AND provider_scope = ? AND transaction_id IS NOT NULL
+    GROUP BY source_id HAVING count(DISTINCT transaction_id) = 1 ORDER BY source_id`)
+    .all(savedBank.accountId, savedBank.reviewedEvidenceScope) as { sourceId: string; transactionId: string }[] : []
+  const proofBySource = new Map(priorProof.map(row => [row.sourceId, row.transactionId]))
   const overlapState = reviewedLinks.size || storedAliases.length
     ? [storedAliases, stored.map(({ id, row }) => [id, row])] : null
-  const reviewToken = digest([input.ledgerPath, batchId, input.inventorySha256, count, ...(overlapState ? [overlapState] : [])])
+  const reviewToken = digest([input.ledgerPath, batchId, input.inventorySha256, count,
+    ...(overlapState ? [overlapState] : []), ...(priorProof.length ? [priorProof] : [])])
 
   if (applied) return {
     status: 'already_applied', reviewToken, inserted: 0, matched: 0, observations: 0, issues: [],
@@ -376,11 +385,12 @@ function processBatch(db: Database.Database | null, input: ImportInput) {
   const multiplicity = new Map<string, number>()
   const matchModes = new Map<string, boolean>()
   const ambiguousPostings = new Set(savedBank?.ambiguousPostingRows)
-  function bankCandidate(row: SpendingRow, rowNumber: number, targetHash?: string, knownId?: string) {
-    if (ambiguousPostings.has(rowNumber)) return
+  function bankCandidate(row: SpendingRow, rowNumber: number, targetHash?: string, knownId?: string, reviewedId?: string) {
     const posted = stored.filter(candidate => postingKey(candidate.row) === postingKey(row))
-    const target = posted[0]
-    if (posted.length === 1 && target.source !== batch.source && target.row.kind === row.kind &&
+    const provenId = row.sourceId && targetHash && reviewedId && proofBySource.get(row.sourceId) === reviewedId ? reviewedId : null
+    const target = provenId ? posted.find(item => item.id === provenId && item.row.sourceId === row.sourceId) :
+      posted.length === 1 && !ambiguousPostings.has(rowNumber) ? posted[0] : undefined
+    if (target && target.source !== batch.source && target.row.kind === row.kind &&
         (!row.transferRef || target.row.transferRef === row.transferRef) &&
         (targetHash ? sha256(target.row.description) === targetHash :
           target.id === knownId || bankDescription(target.row.description) === bankDescription(row.description))) return target.id
@@ -414,7 +424,8 @@ function processBatch(db: Database.Database | null, input: ImportInput) {
     else if (targetId && row.sourceId) {
       const claimedBy = sourceByAlias.get(targetId)
       if (prior || (previousAlias && previousAlias.transaction_id !== targetId) || (claimedBy && claimedBy !== row.sourceId) ||
-          bankCandidate(row, rowNumber, approvedTarget?.targetDescriptionSha256, previousAlias?.transaction_id) !== targetId) {
+          bankCandidate(row, rowNumber, approvedTarget?.targetDescriptionSha256, previousAlias?.transaction_id,
+            approvedTarget?.transactionId) !== targetId) {
         issues.push({ row: rowNumber, code: 'reviewed_link_mismatch' })
       } else {
         pending.push({ id: targetId, row, rowNumber, insert: false })
