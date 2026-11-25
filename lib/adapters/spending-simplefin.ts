@@ -66,12 +66,16 @@ function reviewDecisions(value: unknown) {
 type AccountKind = 'credit_card' | 'checking' | 'savings'
 
 function accountBinding(value: unknown, accountIds: Set<string>) {
-  if (!object(value) || Object.keys(value).some(key => !['accountId', 'providerAccountId', 'connectionId', 'accountKind'].includes(key)) || !text(value.accountId) ||
+  if (!object(value) || Object.keys(value).some(key => !['accountId', 'providerAccountId', 'connectionId', 'accountKind', 'expectedAccountName'].includes(key)) || !text(value.accountId) ||
       !providerId(value.providerAccountId) || !providerId(value.connectionId) ||
-      (value.accountKind !== undefined && !['credit_card', 'checking', 'savings'].includes(value.accountKind as string))) throw new Error('invalid_simplefin_binding')
+      (value.accountKind !== undefined && !['credit_card', 'checking', 'savings'].includes(value.accountKind as string)) ||
+      (value.expectedAccountName !== undefined && (value.accountKind !== 'credit_card' || !providerId(value.expectedAccountName)))) {
+    throw new Error('invalid_simplefin_binding')
+  }
   if (!accountIds.has(value.accountId)) throw new Error('unknown_account')
   return { accountId: value.accountId, providerAccountId: value.providerAccountId, connectionId: value.connectionId,
-    ...(value.accountKind === undefined ? {} : { accountKind: value.accountKind as AccountKind }) }
+    ...(value.accountKind === undefined ? {} : { accountKind: value.accountKind as AccountKind }),
+    ...(value.expectedAccountName === undefined ? {} : { expectedAccountName: value.expectedAccountName }) }
 }
 
 /** Prepare transactions from the connector's already verified banking/v1 run. */
@@ -101,7 +105,8 @@ export function prepareSimplefinSpending(options: {
       !Array.isArray(data['pending-transactions'])) throw new Error('invalid_simplefin_run')
   const [account] = data.accounts
   if (!object(account) || !text(account.accountRef) || account.currency !== 'USD' ||
-      typeof account.name !== 'string' || !accountName.test(account.name) ||
+      typeof account.name !== 'string' ||
+      (binding.expectedAccountName === undefined ? !accountName.test(account.name) : account.name !== binding.expectedAccountName) ||
       account.providerAccountId !== binding.providerAccountId || account.connectionId !== binding.connectionId ||
       manifest.connectionId !== binding.connectionId || !Array.isArray(manifest.accountIds) ||
       manifest.accountIds.length !== 1 || manifest.accountIds[0] !== binding.providerAccountId) {
@@ -160,10 +165,12 @@ export function prepareSimplefinSpending(options: {
   // The collector keeps the immutable original; this archive preserves its
   // manifest hash, normalized rows with their raw pointers, and review evidence.
   const bytes = Buffer.from(JSON.stringify({ manifestSha256, run, binding, decisions: usedDecisions }))
+  const scopeBinding = { ...binding }
+  delete scopeBinding.expectedAccountName
   return {
     batch, bytes, format: 'json' as const,
     savedBank: {
-      scope: hash(JSON.stringify([binding, connectionKey])),
+      scope: hash(JSON.stringify([scopeBinding, connectionKey])),
       accountId: binding.accountId, card, legacyChecking, providerKey: hash(JSON.stringify([binding.connectionId, binding.providerAccountId])),
       sourceRows, held, reviewedLinks,
       ambiguousPostingRows: [...postingRows.values()].filter(rows => rows.length > 1).flat(),
@@ -194,7 +201,7 @@ export async function loadSimplefinSpending(options: {
   }
   const binding = accountBinding(readJson(options.binding), options.accountIds)
   const domains = binding.accountKind === undefined ? ['chase.com'] :
-    binding.accountKind === 'credit_card' ? ['americanexpress.com', 'amazon.syf.com'] :
+    binding.accountKind === 'credit_card' ? ['americanexpress.com', 'amazon.syf.com', 'bankofamerica.com'] :
       binding.accountKind === 'savings' ? ['americanexpress.com'] : ['americanexpress.com', 'bankofamerica.com']
   if (!object(config) || config.provider !== 'simplefin' || config.environment !== 'live' || config.sample !== false ||
       typeof config.institutionDomain !== 'string' || !domains.includes(config.institutionDomain) || config.connectionKey !== pointer.connectionKey) {

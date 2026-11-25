@@ -5,7 +5,7 @@ import os from 'node:os'
 import path from 'node:path'
 import test, { type TestContext } from 'node:test'
 import Database from 'better-sqlite3'
-import { prepareSimplefinSpending } from '../lib/adapters/spending-simplefin'
+import { loadSimplefinSpending, prepareSimplefinSpending } from '../lib/adapters/spending-simplefin'
 import { importSpending } from '../lib/adapters/spending-store'
 import { spendingAccountIds } from '../lib/domain/spending-import'
 
@@ -222,6 +222,44 @@ test('two approved credit card scopes coexist with the legacy checking scope and
   assert.throws(() => importSpending(card('card-three', 'reused-binding', 'card-one')), /offline_scope_changed/)
   assert.throws(() => importSpending(card(binding.accountId, 'wrong-kind')), /offline_scope_changed/)
   assert.equal(db.prepare('SELECT count(*) FROM spending_transaction').pluck().get(), 14)
+})
+
+test('the saved-run loader accepts a pinned BofA card name without breaking an existing scope', async (t) => {
+  const p = pilot(t)
+  const run = snapshot('issuer-card')
+  const accountName = 'Example Cash Rewards Visa Signature (6265)'
+  run.manifest.connectionKey = 'bofa-card'
+  run.data.accounts[0].name = 'Example Credit Card'
+  const cardBinding = { ...binding, accountKind: 'credit_card', expectedAccountName: accountName }
+  const cardDecisions = { ...decisions, decisions: decisions.decisions.map(row => ({ ...row, postedDate: '2026-11-11' })) }
+  const input = { run, binding: { ...binding, accountKind: 'credit_card' }, decisions: cardDecisions, accountIds: accounts,
+    manifestSha256: descriptionSha256('issuer-card'), connectionKey: run.manifest.connectionKey }
+  const first = { ...p.input(), ...prepareSimplefinSpending(input) }
+  importSpending({ ...first, reviewToken: importSpending(first).reviewToken })
+
+  run.manifest.runId = 'issuer-card-renamed'
+  run.data.accounts[0].name = accountName
+  const connector = path.join(p.root, 'connector')
+  const modules = path.join(connector, 'dist/providers/simplefin')
+  fs.mkdirSync(modules, { recursive: true })
+  const write = (name: string, data: unknown) => {
+    const file = path.join(p.root, name)
+    fs.writeFileSync(file, JSON.stringify(data))
+    return file
+  }
+  fs.writeFileSync(path.join(modules, 'config.js'), 'exports.loadBankConfig = value => value')
+  fs.writeFileSync(path.join(modules, 'storage.js'), `exports.readBankRun = () => (${JSON.stringify(run)})`)
+  const loaded = await loadSimplefinSpending({ connectorRepo: connector, accountIds: accounts,
+    pointer: write('pointer.json', { ...run.manifest, manifestSha256: descriptionSha256(run.manifest.runId) }),
+    config: write('config.json', { ...run.manifest, institutionDomain: 'bankofamerica.com' }),
+    binding: write('binding.json', cardBinding), decisions: write('decisions.json', cardDecisions) })
+  const preview = importSpending({ ...first, ...loaded })
+  assert.equal(preview.matched, 4)
+  assert.equal(preview.inserted, 0)
+  assert.throws(() => prepareSimplefinSpending({ ...input,
+    binding: { ...cardBinding, accountKind: 'checking' } }), /invalid_simplefin_binding/)
+  run.data.accounts[0].name = 'Another Credit Card (6265)'
+  assert.throws(() => prepareSimplefinSpending({ ...input, binding: cardBinding }), /simplefin_account_mismatch/)
 })
 
 test('an explicit deposit binding preserves a reviewed cross-source merchant alias', (t) => {
