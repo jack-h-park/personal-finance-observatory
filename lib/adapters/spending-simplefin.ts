@@ -172,6 +172,7 @@ export function prepareSimplefinSpending(options: {
     savedBank: {
       scope: hash(JSON.stringify([scopeBinding, connectionKey])),
       accountId: binding.accountId, card, legacyChecking, providerKey: hash(JSON.stringify([binding.connectionId, binding.providerAccountId])),
+      ...(card ? { reviewedEvidenceScope: hash(JSON.stringify(['simplefin-card', [binding.connectionId, binding.providerAccountId]])) } : {}),
       sourceRows, held, reviewedLinks,
       ambiguousPostingRows: [...postingRows.values()].filter(rows => rows.length > 1).flat(),
       pendingIgnored: data['pending-transactions'].length,
