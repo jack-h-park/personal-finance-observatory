@@ -87,7 +87,13 @@ test('shares are percent of the previous total', () => {
   assert.equal(z.total, 0)
 })
 
-test('cumulative effect runs over the points', () => {
-  const pts = [1, -3, 2].map((total) => ({ date: D2, KR: total, US: 0, CRYPTO: 0, total, previousTotal: 100, gaps: 0 }))
-  assert.deepEqual(cumulativeEffect(pts), [1, -2, 0])
+test('cumulative effect starts at zero and retains the dates of irregular snapshots', () => {
+  const pts = [[D2, 1], [D3, -3], ['2030-02-01', 2]] as const
+  const daily = pts.map(([date, total]) => ({ date, KR: total, US: 0, CRYPTO: 0, total, previousTotal: 100, gaps: 0 }))
+  assert.deepEqual(cumulativeEffect(D1, daily), [
+    { date: D1, total: 0 },
+    { date: D2, total: 1 },
+    { date: D3, total: -2 },
+    { date: '2030-02-01', total: 0 },
+  ])
 })

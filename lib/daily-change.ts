@@ -88,8 +88,10 @@ export function dailyChangeShares(points: readonly DailyChangePoint[]): DailyCha
   })
 }
 
-/** Running sum of the daily totals. */
-export function cumulativeEffect(points: readonly DailyChangePoint[]): number[] {
+export type CumulativeEffectPoint = Pick<DailyChangePoint, 'date' | 'total'>
+
+/** Running sum on the measured dates, with a zero baseline on the first snapshot. */
+export function cumulativeEffect(from: string, points: readonly DailyChangePoint[]): CumulativeEffectPoint[] {
   let sum = 0
-  return points.map((p) => (sum += p.total))
+  return [{ date: from, total: 0 }, ...points.map(({ date, total }) => ({ date, total: (sum += total) }))]
 }

@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import {
   Area,
@@ -22,8 +22,8 @@ import {
   YAxis,
 } from 'recharts'
 import { ASSET_CLASS_COLOR, CHILDREN_COLOR, marketColor } from '@/lib/palette'
-import { EMPTY_VALUE, fmtDateShort, fmtMonth, fmtSigned } from '@/lib/format'
-import type { DailyChangePoint } from '@/lib/daily-change'
+import { EMPTY_VALUE, fmtDateShort, fmtMonth, fmtSigned, localeFor } from '@/lib/format'
+import type { CumulativeEffectPoint, DailyChangePoint } from '@/lib/daily-change'
 import { axisTick, hasPlottablePoint, tooltipValue, type ChartUnit } from '@/lib/chart-format'
 import type { Language } from '@/lib/i18n'
 import { EmptyState } from '@/components/ui'
@@ -718,5 +718,89 @@ export function DailyChangeBarChart({
         ))}
       </BarChart>
     </ResponsiveContainer>
+  )
+}
+
+export function CumulativeEffectChart({
+  points,
+  label,
+  keyboardHelp,
+  currency,
+  language,
+}: {
+  points: CumulativeEffectPoint[]
+  label: string
+  keyboardHelp: string
+  currency: 'KRW' | 'USD'
+  language: Language
+}) {
+  const [tapToInspect, setTapToInspect] = useState(false)
+  const [activeIndex, setActiveIndex] = useState<number | undefined>()
+  useEffect(() => {
+    const query = window.matchMedia('(hover: none)')
+    const update = () => setTapToInspect(query.matches)
+    update()
+    query.addEventListener('change', update)
+    return () => query.removeEventListener('change', update)
+  }, [])
+
+  const data = useMemo(() => points.map((point) => ({ ...point, time: Date.parse(point.date) })), [points])
+  const unit = { kind: 'money', currency } as const
+  const formatPoint = (point: CumulativeEffectPoint) => fmtSigned(point.total, (value) => tooltipValue(value, unit, language))
+  const activePoint = activeIndex == null ? undefined : points[activeIndex]
+  const announcePoint = ({ activeTooltipIndex }: { activeTooltipIndex?: number }) => setActiveIndex(activeTooltipIndex)
+  const tickDate = new Intl.DateTimeFormat(localeFor(language), { month: 'short', day: 'numeric', timeZone: 'UTC' })
+
+  return (
+    <div className="min-w-0 rounded-sm [&_svg:focus-visible]:outline [&_svg:focus-visible]:outline-2 [&_svg:focus-visible]:-outline-offset-2 [&_svg:focus-visible]:outline-info">
+      <ResponsiveContainer width="100%" height={208}>
+        <LineChart
+          data={data}
+          accessibilityLayer
+          title={label}
+          desc={keyboardHelp}
+          onClick={announcePoint}
+          onMouseEnter={announcePoint}
+          onMouseMove={announcePoint}
+          onMouseLeave={() => setActiveIndex(undefined)}
+          margin={{ top: 8, right: 20, bottom: 0, left: 0 }}
+        >
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" vertical={false} />
+          <XAxis
+            dataKey="time"
+            type="number"
+            scale="utc"
+            domain={['dataMin', 'dataMax']}
+            tickCount={5}
+            minTickGap={18}
+            tickFormatter={(time: number) => tickDate.format(time)}
+            tick={AXIS}
+            tickLine={false}
+            axisLine={false}
+          />
+          <YAxis width={64} tickCount={5} tickFormatter={tickFormatter(unit, language)} tick={AXIS} tickLine={false} axisLine={false} />
+          <ReferenceLine y={0} stroke="var(--text-tertiary)" />
+          <Tooltip
+            trigger={tapToInspect ? 'click' : 'hover'}
+            cursor={{ stroke: 'var(--text-tertiary)', strokeDasharray: '3 3' }}
+            isAnimationActive={false}
+            content={({ active, payload }) => {
+              const point = payload?.[0]?.payload as CumulativeEffectPoint | undefined
+              if (!active || !point) return null
+              return (
+                <div aria-hidden="true" style={{ ...TOOLTIP_SURFACE, padding: '6px 8px' }} className="text-ink">
+                  <div>{fmtDateShort(point.date, language)}</div>
+                  <div className="font-medium tabular-nums">{formatPoint(point)}</div>
+                </div>
+              )
+            }}
+          />
+          <Line dataKey="total" name={label} type="linear" stroke="var(--accent-info)" strokeWidth={2} dot={false} isAnimationActive={false} />
+        </LineChart>
+      </ResponsiveContainer>
+      <span role="status" className="sr-only">
+        {activePoint && `${fmtDateShort(activePoint.date, language)}, ${formatPoint(activePoint)}`}
+      </span>
+    </div>
   )
 }

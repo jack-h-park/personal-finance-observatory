@@ -55,7 +55,6 @@ export function periodChangeView(period: Period, basis: Basis, held: readonly { 
     realized,
     held,
   })
-  // The line starts at zero on the period start.
   const points = dailyChangeSeries({ dates: measured, rows, realized, held })
-  return { kind: 'actual', summary, spark: [0, ...cumulativeEffect(points)], gaps: points.reduce((sum, p) => sum + p.gaps, 0) }
+  return { kind: 'actual', summary, cumulative: cumulativeEffect(from, points), gaps: points.reduce((sum, p) => sum + p.gaps, 0) }
 }

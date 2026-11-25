@@ -346,6 +346,7 @@ export default async function HoldingsPage({
         basis={changeBasis}
         copy={copy.periodChange}
         language={language}
+        currencyPreferences={currencyPreferences}
         money={(krw) => money(krw, 'KRW')}
         href={(param, value) => withParam(BASE, params, param, (param === 'chg' ? value === '1d' : value === 'actual') ? null : value)}
       />
