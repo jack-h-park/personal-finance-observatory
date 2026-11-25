@@ -1,0 +1,135 @@
+import importlib.util
+import json
+from pathlib import Path
+import sqlite3
+import tempfile
+import unittest
+from unittest.mock import patch
+
+spec = importlib.util.spec_from_file_location('spending_daily', Path(__file__).parents[1] / 'scripts/spending-daily.py')
+daily = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(daily)
+
+TOKEN = 'a' * 64
+ROW = dict(accountId='checking', postedDate='2026-11-24', activityDate='2026-11-24',
+           currency='USD', amountMinor=-300, kind='purchase', description='Sample charge')
+
+
+class DailySpendingTest(unittest.TestCase):
+    def setUp(self):
+        temp = tempfile.TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        self.root = Path(temp.name)
+        self.source = self.root / 'latest-good.json'
+        self.binding = self.root / 'binding.json'
+        self.config = {'pointer': str(self.source), 'binding': str(self.binding)}
+        self.binding.write_bytes(daily.encode(dict(accountId='checking')))
+        self.source.write_bytes(daily.encode(dict(runId='day-one')))
+        self.remote = self.root / 'operating.json'
+        self.original = daily.encode(dict(version=1, asOf='2026-11-23', accounts={},
+            snapshot=dict(rows=[], coverage=[], holds=['keep-existing-hold'], reviewIncomplete=False)))
+        self.remote.write_bytes(self.original)
+        base = self.root / 'runs/seed'
+        ledger = base / daily.STORAGE
+        ledger.parent.mkdir(parents=True)
+        db = sqlite3.connect(ledger)
+        db.execute('CREATE TABLE spending_transaction (id,account_id,posted_date,currency,payload)')
+        db.close()
+        archived = ledger.parent.parent / 'records'
+        archived.mkdir()
+        (archived / 'receipt.json').write_bytes(b'original evidence')
+        (ledger.parent.parent / 'account-labels.json').write_bytes(b'{}')
+        (base / 'snapshot.json').write_bytes(self.original)
+        (self.root / 'current.json').write_bytes(daily.encode(dict(run='seed')))
+
+    def cli(self, _, directory, apply_token=None):
+        if apply_token:
+            self.assertEqual(apply_token, TOKEN)
+            db = sqlite3.connect(directory / daily.STORAGE)
+            db.execute('INSERT INTO spending_transaction VALUES (?,?,?,?,?)',
+                       ('tx', ROW['accountId'], ROW['postedDate'], ROW['currency'], json.dumps(ROW)))
+            db.commit()
+            db.close()
+        return dict(status='applied' if apply_token else 'preview', reviewToken=TOKEN, held=[], issues=[],
+                    inserted=1, matched=0, totals=[dict(netMinor='300')])
+
+    def publish(self, _, expected, candidate):
+        return daily.receive(self.remote, expected, candidate, lambda *_: None)
+
+    def test_review_gate_then_exact_replay(self):
+        with patch.object(daily, 'cli', self.cli), patch.object(daily, 'publish', self.publish):
+            self.assertEqual(daily.tick(self.root, self.config)['status'], 'awaiting_review')
+            self.assertEqual(self.remote.read_bytes(), self.original)
+            with self.assertRaisesRegex(ValueError, 'stale_review_token'):
+                daily.approve(self.root, 'day-one', 'b' * 64)
+            daily.approve(self.root, 'day-one', TOKEN)
+            self.assertEqual(daily.tick(self.root, self.config)['status'], 'published')
+            after = self.remote.read_bytes()
+            view = json.loads(after)['snapshot']
+            self.assertEqual(view['rows'], [{'id':'tx', **ROW}])
+            self.assertEqual(view['holds'], ['keep-existing-hold'])
+            self.assertEqual(daily.tick(self.root, self.config)['status'], 'already_published')
+            self.assertEqual(self.remote.read_bytes(), after)
+            active = self.root / 'runs/day-one' / daily.STORAGE
+            self.assertEqual((active.parent.parent / 'records/receipt.json').read_bytes(), b'original evidence')
+            self.assertEqual((active.parent.parent / 'account-labels.json').read_bytes(), b'{}')
+
+    def test_restart_adopts_the_prepared_batch_after_publish_transport_failure(self):
+        with patch.object(daily, 'cli', self.cli), patch.object(daily, 'publish', self.publish):
+            daily.tick(self.root, self.config)
+            daily.approve(self.root, 'day-one', TOKEN)
+
+            def lost_response(config, expected, candidate):
+                self.publish(config, expected, candidate)
+                raise OSError('lost response')
+
+            with patch.object(daily, 'publish', lost_response), self.assertRaises(OSError):
+                daily.tick(self.root, self.config)
+            self.assertEqual(daily.read(self.root / 'current.json')['run'], 'seed')
+            self.assertTrue(daily.tick(self.root, self.config)['unchanged'])
+            self.assertEqual(daily.read(self.root / 'current.json')['run'], 'day-one')
+
+    def test_receiver_preserves_snapshot_on_conflicts_and_failed_live_checks(self):
+        candidate = daily.encode(dict(version=1, snapshot=dict(rows=[ROW])))
+        with self.assertRaisesRegex(ValueError, 'operating_snapshot_changed'):
+            daily.receive(self.remote, '0' * 64, candidate, lambda *_: None)
+
+        def unavailable(*_):
+            raise OSError('site unavailable')
+
+        with self.assertRaises(OSError):
+            daily.receive(self.remote, daily.digest(self.original), candidate, unavailable)
+        self.assertEqual(self.remote.read_bytes(), self.original)
+
+    def test_receiver_restores_prior_state_if_process_dies_before_check(self):
+        candidate = daily.encode(dict(version=1, snapshot=dict(rows=[ROW])))
+        previous = daily.digest(self.original)
+
+        def interrupted(*_):
+            raise KeyboardInterrupt()
+
+        with self.assertRaises(KeyboardInterrupt):
+            daily.receive(self.remote, previous, candidate, interrupted)
+        self.assertEqual(self.remote.read_bytes(), candidate)
+
+        def unavailable(*_):
+            raise OSError('site unavailable')
+
+        with self.assertRaises(OSError):
+            daily.receive(self.remote, previous, candidate, unavailable)
+        self.assertEqual(self.remote.read_bytes(), self.original)
+        self.assertFalse(daily.receive(self.remote, previous, candidate, lambda *_: None)['unchanged'])
+
+    def test_held_batch_cannot_be_approved(self):
+        def held(config, directory, apply_token=None):
+            return {**self.cli(config, directory, apply_token), 'held':[dict(row=1)]}
+
+        with patch.object(daily, 'cli', held):
+            self.assertEqual(daily.tick(self.root, self.config)['held'], 1)
+            with self.assertRaisesRegex(ValueError, 'unresolved_review'):
+                daily.approve(self.root, 'day-one', TOKEN)
+        self.assertEqual(self.remote.read_bytes(), self.original)
+
+
+if __name__ == '__main__':
+    unittest.main()

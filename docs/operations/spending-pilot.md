@@ -127,7 +127,11 @@ Build a projection from the reviewed isolated ledger using
 publication date and optional absolute BankSalad observation path. Redirect
 stdout to a private file. Compare transaction counts, totals and hold counts
 with the source ledger before publishing it. Stage the file with owner-only
-permissions and rename it atomically into the resolved state path. The app
+permissions. If the scheduled review runner is installed, publish manual
+batches through the same guarded receiver while the runner is paused. Adopt
+the manually updated ledger and matching snapshot as the new local baseline
+before resuming the runner. All operating writers must use the receiver lock.
+The app
 serves only the projected fields and displays the publication date. Raw
 evidence, SQLite and ingestion configuration stay at their existing locations.
 
@@ -245,6 +249,47 @@ unreviewed row, a mismatch with the decision fingerprint, or a change to an
 accepted transaction is held. Pending rows remain out of the ledger.
 An overlapping run can add evidence to a known transaction. Missing rows in
 a later export never remove retained history.
+
+## Schedule reviewed SimpleFIN spending refresh
+
+The review runner consumes the existing saved Chase Checking pointer. It
+pins each immutable run, previews it with the standard importer, and
+writes a private preview in `runs/<run-id>/preview.json`. It does not call
+the provider. Install the spending-review launch agent on the collector
+machine. The timer checks for a new daily run and retries after sleep or
+a temporary connection failure.
+
+Keep the runner configuration and state outside Git. The configuration
+uses absolute paths for `pointer`, `accounts`, `binding`, `simplefinConfig`,
+`connectorRepo`, `checkout`, `node`, and `tsx`. `publishCommand` is an
+argument array invoking the receiving script over SSH. The receiver's
+last argument is the expected previous operating snapshot hash.
+Initialize `runs/seed/snapshot.json` and
+`runs/seed/private-data/personal-finance-offline/state/spending.sqlite`
+from the same accepted state, copy its records and label files alongside
+the ledger's state directory, and set `current.json` to `{"run":"seed"}`.
+The active run selected by `current.json` owns the current ledger and
+snapshot. Retain earlier run directories and their receipts for provenance.
+
+Put reviewed importer decisions in `runs/<run-id>/decisions.json` and
+refresh the preview with `python3 scripts/spending-daily.py tick CONFIG`.
+Check the proposed changes and record the exact approval with
+`python3 scripts/spending-daily.py approve CONFIG RUN_ID REVIEW_TOKEN`.
+The next tick applies that approval only when the recomputed preview
+matches the token and has no issues or holds. Pending provider rows remain
+outside the applied batch. A stale or incomplete approval leaves the run
+available for review and does not change the operating view.
+
+On the serving host, invoke
+`python3 scripts/spending-daily.py receive SNAPSHOT OWNER_HTTPS_URL PREVIOUS_SHA`
+with the candidate snapshot on standard input. The receiver checks the
+previous hash and atomically replaces the snapshot. The live check loads
+the transaction detail for each new posting. A durable receiver backup
+allows a failed check or interrupted recovery to restore the prior bytes. If an approved run publishes evidence only, the
+receiver verifies the existing snapshot without rewriting it. If an
+interrupted run may have published, the next tick retries the prepared
+candidate before adopting the new local ledger. An unexpected operating
+snapshot hash requires reconciling the competing publication first.
 
 ## Run the Korean workbook importer
 
