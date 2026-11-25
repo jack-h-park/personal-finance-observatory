@@ -134,3 +134,14 @@ A fresh read-only check found source `dbd2c212a4c0c22c574ff49c2841a6f801154f22` 
 This is a later identity/source-retention observation, not a deployment by this task or a repetition of the complete tax-workflow/financial-content acceptance on that later build. Web writes were still disabled and briefing still disabled/paused at the read-only check. The dated `D4KppbDAlxiiFP1urmlPw` walkthrough above remains the acceptance evidence for this session's tax release. Do not present it as the latest serving build or attribute every later presentation change to its tests.
 
 Further deployment, actual comparison, data/mapping adoption, generation, briefing publication, automatic resumption and Hometax remain held. See the [outcome checkpoint and next priorities](../product/next-increment.md).
+
+## Deposit evidence and federal payment closeout: November 24, 2026
+
+The checks below record the two approved data changes on the existing owner web installation. They apply to the observed build and the specific records reviewed.
+
+| Product outcome | Verified result | Remaining limits |
+| --- | --- | --- |
+| Evidence from Total Assets | [#478](https://github.com/jack-h-park/personal-finance-observatory/pull/478) merged as `77d5e86`. The serving build already included the deposit shortcut and evidence reader. After the two reviewed Robinhood checking and savings entries were placed in the operating private index, the deposit rows showed the statement period, closing balance, PDF page reference and separately dated owner-confirmed balance in English desktop and Korean mobile views. The covered total and every displayed deposit balance and valuation matched before and after. | Both CSV export periods remain unconfirmed. Original statements and the private evidence receipts stay in their existing archives. |
+| 2024 US federal payment history | The latest-state preview at ledger revision 1 found one new IRS-posted payment, zero duplicate matches and zero updates to existing records. The scoped import advanced the ledger to revision 2. Both languages displayed the annual amount and IRS posting date. The original and the private HTTPS evidence download matched by SHA-256, and the download used `private, no-store` caching. | The bank debit date, final liability, outstanding amount and refund remain unconfirmed. The payment appears in the tax-year view and is excluded from cash totals bounded by occurrence date. |
+
+The checks preserved existing financial records, prior-year projections, original evidence, account mappings and the effective access restrictions. Web tax-history writes remain disabled. The actual 2025 comparison remains blocked and further deployment is held. Both data changes were verified on the existing build. Detailed figures, exact evidence dates, paths and private identifiers remain in the operator's receipts.
