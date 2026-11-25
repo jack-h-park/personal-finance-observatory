@@ -22,7 +22,8 @@ import {
   YAxis,
 } from 'recharts'
 import { ASSET_CLASS_COLOR, CHILDREN_COLOR, marketColor } from '@/lib/palette'
-import { EMPTY_VALUE } from '@/lib/format'
+import { EMPTY_VALUE, fmtDateShort, fmtMonth, fmtSigned } from '@/lib/format'
+import type { DailyChangePoint } from '@/lib/daily-change'
 import { axisTick, hasPlottablePoint, tooltipValue, type ChartUnit } from '@/lib/chart-format'
 import type { Language } from '@/lib/i18n'
 import { EmptyState } from '@/components/ui'
@@ -644,6 +645,76 @@ export function StackedBarChart({
               )
             }) : null}
           </Bar>
+        ))}
+      </BarChart>
+    </ResponsiveContainer>
+  )
+}
+
+/**
+ * Each plotted date's market effect, one signed bar per market stacked around
+ * zero. Gains rise above the line and losses fall below it, so the colour only
+ * names the market; the sign is in the tooltip as "+" or "-". Draws on the same
+ * dates as the area chart above it, with the same side margins, so the two line up.
+ */
+export function DailyChangeBarChart({
+  points,
+  series,
+  totalLabel,
+  gapLabel,
+  monthly,
+  height = 140,
+  unit,
+  language,
+  emptyMessage,
+}: ChartContract & {
+  points: DailyChangePoint[]
+  series: { key: 'KR' | 'US' | 'CRYPTO'; label: string; color: string }[]
+  totalLabel: string
+  /** The note for a date whose pair left securities out; the argument is the count. */
+  gapLabel: (count: string) => string
+  /** One bar per month rather than per day: the tooltip names the month. */
+  monthly: boolean
+  height?: number
+}) {
+  const rows: Record<string, unknown>[] = points
+  if (!hasPlottablePoint(rows, series.map((s) => s.key))) return <EmptyState>{emptyMessage}</EmptyState>
+  const signed = (value: number) => fmtSigned(value, (n) => tooltipValue(n, unit, language))
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      <BarChart data={points} stackOffset="sign" margin={{ top: 4, right: 8, bottom: 0, left: -18 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" vertical={false} />
+        <XAxis dataKey="date" tick={AXIS} tickLine={false} axisLine={false} />
+        <YAxis tick={AXIS} tickLine={false} axisLine={false} allowDecimals={integerTicks(unit)} tickFormatter={tickFormatter(unit, language)} />
+        <ReferenceLine y={0} stroke="var(--text-tertiary)" />
+        <Tooltip
+          cursor={{ fill: 'var(--bg-surface)' }}
+          content={({ active, payload }) => {
+            if (!active || !payload?.length) return null
+            const point = payload[0].payload as DailyChangePoint
+            const shown = series.filter((s) => point[s.key] !== 0)
+            return (
+              <div style={{ ...TOOLTIP_SURFACE, padding: '6px 8px' }}>
+                <div style={{ marginBottom: 4, color: 'var(--text-tertiary)' }}>
+                  {monthly ? fmtMonth(point.date.slice(0, 7), language, { year: true }) : fmtDateShort(point.date, language)}
+                </div>
+                {shown.map((s) => (
+                  <div key={s.key} style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                    <span style={{ color: s.color }}>{s.label}</span>
+                    <span style={{ fontVariantNumeric: 'tabular-nums' }}>{signed(point[s.key])}</span>
+                  </div>
+                ))}
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginTop: 4, borderTop: '1px solid var(--border-subtle)', paddingTop: 4, fontWeight: 500 }}>
+                  <span>{totalLabel}</span>
+                  <span style={{ fontVariantNumeric: 'tabular-nums' }}>{signed(point.total)}</span>
+                </div>
+                {point.gaps > 0 ? <div style={{ marginTop: 4, color: 'var(--text-tertiary)' }}>{gapLabel(String(point.gaps))}</div> : null}
+              </div>
+            )
+          }}
+        />
+        {series.map((s) => (
+          <Bar key={s.key} dataKey={s.key} name={s.label} stackId="effect" fill={s.color} maxBarSize={14} isAnimationActive={false} />
         ))}
       </BarChart>
     </ResponsiveContainer>

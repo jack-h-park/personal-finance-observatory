@@ -72,7 +72,7 @@ export const holdings = defineCopy({
     },
     mix: {
       title: 'Market mix over time',
-      info: "Value held in each market, one point per weekday for periods up to a year and per month end for longer ones, ending with today's holdings. US stocks held at Toss Securities count as US stocks. A past day's point settles after the full refresh that stores that day's closes, which runs every six hours. It always covers every holding, whatever the search and filters below.",
+      info: "Value held in each market, one point per weekday for periods up to a year and per month end for longer ones, ending with today's holdings. US stocks held at Toss Securities count as US stocks. A past day's point settles after the full refresh that stores that day's closes, which runs every six hours. It always covers every holding, whatever the search and filters below. The bars under the chart show each day's market effect by market (each month's for periods over a year): the change in value from price and exchange rate moves, leaving out money you put in or took out.",
       markets: { KR: 'Korea', US: 'US', CRYPTO: 'Crypto' } as Record<string, string>,
       total: 'Total',
       viewFilter: 'Show',
@@ -85,6 +85,10 @@ export const holdings = defineCopy({
       rangeAll: 'all history',
       shareNow: 'Share now',
       shareChange: (change: string, range: string) => `${change} over ${range}`,
+      dailyTitle: 'Market effect per day',
+      dailyMonthlyTitle: 'Market effect per month',
+      dailyTotal: 'Total effect',
+      dailyGap: (count: string) => `${count} securities without a price on one of the two dates are left out.`,
     },
     weights: {
       title: 'Security weights over time',
@@ -237,7 +241,7 @@ export const holdings = defineCopy({
     },
     mix: {
       title: '시장별 비중 추이',
-      info: '시장별 보유 평가금액을 1년 이하 기간은 평일마다, 더 긴 기간은 월말마다 쌓은 차트이며, 마지막 점은 오늘의 보유종목입니다. 토스증권에서 산 미국 주식은 미국 주식으로 셉니다. 지난 날의 점은 그날 종가를 받아 오는 전체 갱신(6시간마다) 뒤에 확정됩니다. 아래 검색어와 필터와 관계없이 항상 전체 보유종목을 보여줍니다.',
+      info: '시장별 보유 평가금액을 1년 이하 기간은 평일마다, 더 긴 기간은 월말마다 쌓은 차트이며, 마지막 점은 오늘의 보유종목입니다. 토스증권에서 산 미국 주식은 미국 주식으로 셉니다. 지난 날의 점은 그날 종가를 받아 오는 전체 갱신(6시간마다) 뒤에 확정됩니다. 아래 검색어와 필터와 관계없이 항상 전체 보유종목을 보여줍니다. 차트 아래 막대는 하루(1년보다 긴 기간은 한 달)마다 시장별로 가격과 환율 변동이 만든 평가금액 변화를 보여주며, 새로 넣거나 뺀 돈은 제외합니다.',
       markets: { KR: '한국 주식', US: '미국 주식', CRYPTO: '가상자산' } as Record<string, string>,
       total: '합계',
       viewFilter: '보기',
@@ -250,6 +254,10 @@ export const holdings = defineCopy({
       rangeAll: '전체 기간',
       shareNow: '현재 비중',
       shareChange: (change: string, range: string) => `${range} 동안 ${change}`,
+      dailyTitle: '하루 시장 효과',
+      dailyMonthlyTitle: '한 달 시장 효과',
+      dailyTotal: '효과 합계',
+      dailyGap: (count: string) => `두 날짜 중 하루라도 가격이 없는 종목 ${count}개는 뺐습니다.`,
     },
     weights: {
       title: '종목별 비중 추이',

@@ -1,13 +1,14 @@
-import { getPositionTrendRows, portfolioToday, type HoldingWithCostStatus } from '@/lib/adapters/portfolio-db'
+import { getPositionTrendRows, getRealizedGains, portfolioToday, type HoldingWithCostStatus } from '@/lib/adapters/portfolio-db'
 import { holdingsChartDates } from '@/lib/snapshot-density'
 import { Card } from '@/components/ui'
-import { StackedSeriesChart } from '@/components/charts'
+import { DailyChangeBarChart, StackedSeriesChart } from '@/components/charts'
 import { TrendRangeLinks } from '@/components/TrendRangeLinks'
 import { ChipGroup, LinkChip } from '@/components/LinkChips'
 import { ShareBar } from '@/components/bars'
 import { MIX_MARKETS, marketMixSeries, mixShares, mixSummary } from '@/lib/market-mix'
 import { DEFAULT_TREND_RANGE, resolveTrendRange, trendRangeDays } from '@/lib/trend-ranges'
 import { marketColor } from '@/lib/palette'
+import { dailyChangeSeries, dailyChangeShares } from '@/lib/daily-change'
 import { convertMoney } from '@/lib/currency'
 import { getCurrencyPreferences } from '@/lib/currency-server'
 import { fmtPct } from '@/lib/format'
@@ -30,9 +31,21 @@ export async function MarketMixView({ params, rows, language }: { params: Record
   const rangeDays = trendRangeDays(mixRange.days)
   const chartRows = getPositionTrendRows(rangeDays) ?? []
   const chartDates = holdingsChartDates(chartRows.map((row) => row.date), rangeDays)
-  const mixPoints = marketMixSeries(chartRows, chartDates, rows, portfolioToday())
-  const mixShown = mixShareView ? mixShares(mixPoints) : mixPoints
   const toDisplay = (krw: number | null) => (krw == null ? null : convertMoney(krw, 'KRW', currencyPreferences.displayCurrency, currencyPreferences.usdKrwRate).value)
+  const today = portfolioToday()
+  const mixPoints = marketMixSeries(chartRows, chartDates, rows, today)
+  const dailyPoints = chartDates.length > 1 ? dailyChangeSeries({ dates: chartDates, rows: chartRows, realized: getRealizedGains(chartDates[0], today), held: rows }) : []
+  const dailyShown = mixShareView
+    ? dailyChangeShares(dailyPoints)
+    : dailyPoints.map((point) => ({
+        ...point,
+        KR: toDisplay(point.KR) ?? 0,
+        US: toDisplay(point.US) ?? 0,
+        CRYPTO: toDisplay(point.CRYPTO) ?? 0,
+        total: toDisplay(point.total) ?? 0,
+      }))
+  const monthly = rangeDays > 366
+  const mixShown = mixShareView ? mixShares(mixPoints) : mixPoints
   const mixSeries = MIX_MARKETS.filter((market) => mixPoints.some((point) => point[market] != null)).map((market) => ({
     key: market,
     label: mixCopy.markets[market],
@@ -72,6 +85,20 @@ export async function MarketMixView({ params, rows, language }: { params: Record
             emptyMessage={mixCopy.empty}
             height={240}
           />
+          <div>
+            <p className="mb-1 text-caption font-medium text-ink-2">{monthly ? mixCopy.dailyMonthlyTitle : mixCopy.dailyTitle}</p>
+            <DailyChangeBarChart
+              points={dailyShown}
+              series={mixSeries}
+              totalLabel={mixCopy.dailyTotal}
+              gapLabel={mixCopy.dailyGap}
+              monthly={monthly}
+              unit={mixShareView ? { kind: 'percent' } : { kind: 'money', currency: currencyPreferences.displayCurrency }}
+              language={language}
+              emptyMessage={mixCopy.empty}
+              height={140}
+            />
+          </div>
           {mixNow.length > 0 && (
             <div>
               <ShareBar
