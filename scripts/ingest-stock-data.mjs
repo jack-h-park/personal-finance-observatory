@@ -9,7 +9,8 @@ import Database from 'better-sqlite3'
 import { replayPensionHistory } from './pension-replay.mjs'
 import { STOCK_WRAPPERS, activePensionEntries, assetClassFor, loadAccountMap, ownerFor, tagRows, wrapperFor } from './account-map.mjs'
 import { loadLocalEnv } from './env.mjs'
-import { buildTodayPositions, writePositionSnapshots } from './position-snapshots.mjs'
+import { LONG_PERIOD_POSITION_SNAPSHOTS_DDL, buildTodayPositions, writePositionSnapshots } from './position-snapshots.mjs'
+import { longHoldingsReferenceDates } from '../lib/calendar-dates.mjs'
 import { portfolioDate, priceDatesByMarket, valuePortfolio } from './portfolio-snapshot.mjs'
 import { repriceFromQuote } from './broker-quote-reprice.mjs'
 import { resolveCryptoFiles, resolveUsHoldingFiles, resolveUsTransactionFiles, robinhoodStrategyLabel } from './source-files.mjs'
@@ -923,6 +924,7 @@ fs.mkdirSync(outDir, { recursive: true })
 fs.mkdirSync(path.dirname(dbPath), { recursive: true })
 let previousPortfolioSnapshots = []
 let previousPositionSnapshots = []
+let previousLongPeriodSnapshots = []
 if (fs.existsSync(dbPath)) {
   const previousDb = new Database(dbPath, { readonly: true })
   try {
@@ -934,6 +936,8 @@ if (fs.existsSync(dbPath)) {
       .prepare("select 1 from sqlite_master where type = 'table' and name = 'position_snapshots'")
       .get()
     if (hasPositions) previousPositionSnapshots = previousDb.prepare('select * from position_snapshots order by snapshot_date').all()
+    const hasLongPeriodPositions = previousDb.prepare("select 1 from sqlite_master where type = 'table' and name = 'long_period_position_snapshots'").get()
+    if (hasLongPeriodPositions) previousLongPeriodSnapshots = previousDb.prepare('select * from long_period_position_snapshots').all()
   } finally {
     previousDb.close()
   }
@@ -1606,15 +1610,16 @@ insertMany(db, 'portfolio_snapshots', previousPortfolioSnapshots.filter((row) =>
 
 // Past per-security rows ride along the same way. They were written by the
 // month-end backfill and by earlier ingests, and nothing here can rebuild them.
-insertMany(db, 'position_snapshots', previousPositionSnapshots.filter((row) => row.snapshot_date < snapshotDate), [
-  'snapshot_date',
-  'market',
-  'ticker',
-  'name',
-  'quantity',
-  'cost_krw',
-  'market_value_krw',
-])
+const positionSnapshotColumns = [
+  'snapshot_date', 'market', 'ticker', 'name', 'quantity', 'cost_krw', 'market_value_krw',
+]
+insertMany(db, 'position_snapshots', previousPositionSnapshots.filter((row) => row.snapshot_date < snapshotDate), positionSnapshotColumns)
+
+// Preserve usable reference rows across the atomic ingest swap until backfill
+// rebuilds them. A reference for a different date must never be reused.
+db.exec(LONG_PERIOD_POSITION_SNAPSHOTS_DDL)
+const longReferenceDates = new Set(longHoldingsReferenceDates(snapshotDate))
+insertMany(db, 'long_period_position_snapshots', previousLongPeriodSnapshots.filter((row) => longReferenceDates.has(row.snapshot_date)), positionSnapshotColumns)
 
 const historicalPriceDocument = fs.existsSync(historicalPricesPath)
   ? JSON.parse(fs.readFileSync(historicalPricesPath, 'utf8'))

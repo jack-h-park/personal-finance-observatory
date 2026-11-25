@@ -727,12 +727,14 @@ export function CumulativeEffectChart({
   keyboardHelp,
   currency,
   language,
+  monthly = false,
 }: {
   points: CumulativeEffectPoint[]
   label: string
   keyboardHelp: string
   currency: 'KRW' | 'USD'
   language: Language
+  monthly?: boolean
 }) {
   const [tapToInspect, setTapToInspect] = useState(false)
   const [activeIndex, setActiveIndex] = useState<number | undefined>()
@@ -749,7 +751,11 @@ export function CumulativeEffectChart({
   const formatPoint = (point: CumulativeEffectPoint) => fmtSigned(point.total, (value) => tooltipValue(value, unit, language))
   const activePoint = activeIndex == null ? undefined : points[activeIndex]
   const announcePoint = ({ activeTooltipIndex }: { activeTooltipIndex?: number }) => setActiveIndex(activeTooltipIndex)
-  const tickDate = new Intl.DateTimeFormat(localeFor(language), { month: 'short', day: 'numeric', timeZone: 'UTC' })
+  const tickDate = new Intl.DateTimeFormat(localeFor(language), {
+    month: 'short',
+    ...(monthly ? { year: 'numeric' } : { day: 'numeric' }),
+    timeZone: 'UTC',
+  })
 
   return (
     <div className="min-w-0 rounded-sm [&_svg:focus-visible]:outline [&_svg:focus-visible]:outline-2 [&_svg:focus-visible]:-outline-offset-2 [&_svg:focus-visible]:outline-info">

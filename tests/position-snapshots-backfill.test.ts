@@ -7,6 +7,7 @@ import test from 'node:test'
 import Database from 'better-sqlite3'
 import { REPO_ROOT, ingestEnv, runIngestWithOutput } from './ingest-harness'
 import { writeScenario } from './pension-fixtures'
+import { monthsBack } from '../lib/calendar-dates.mjs'
 
 const BACKFILL = path.join(REPO_ROOT, 'scripts/backfill-portfolio-history.mjs')
 
@@ -102,7 +103,9 @@ test('weekday snapshots are written for the last year, one per day with that day
     create table historical_prices (market text, ticker text, currency text, price_date text, close real);
     create table historical_fx_rates (price_date text, rate real);
     insert into portfolio_snapshots (snapshot_date, captured_at, global_base_cost) values ('2026-11-23', 'x', 0);
-    insert into tax_lots values ('US', 'a', 'ZZZ', 'Zed Corp', '2026-01-05', 'USD', 10, 1000, 1000);
+    insert into tax_lots values ('US', 'a', 'ZZZ', 'Zed Corp', '2023-01-05', 'USD', 10, 1000, 1000);
+    insert into historical_prices values ('US', 'ZZZ', 'USD', '2023-11-22', 1), ('US', 'ZZZ', 'USD', '2024-11-22', 2), ('US', 'ZZZ', 'USD', '2024-11-24', 99);
+    insert into historical_fx_rates values ('2024-11-22', 1000), ('2024-11-24', 9999);
   `)
   const days = ['2026-11-16', '2026-11-17', '2026-11-18', '2026-11-19', '2026-11-20']
   days.forEach((day, index) => {
@@ -119,7 +122,18 @@ test('weekday snapshots are written for the last year, one per day with that day
     .prepare("select snapshot_date from portfolio_snapshots where snapshot_date >= '2026-11-16' or snapshot_date like '%-31' or snapshot_date like '%-30' or snapshot_date like '%-28' order by snapshot_date")
     .all()
     .map((row: any) => row.snapshot_date)
+  const referenceRows = check.prepare(
+    "select snapshot_date, market_value_krw from long_period_position_snapshots order by snapshot_date"
+  ).all()
+  const sharedMonthEnd = check.prepare("select market_value_krw from position_snapshots where snapshot_date = '2023-11-30'").get()
   check.close()
+  assert.deepEqual(referenceRows, [
+    { snapshot_date: '2023-10-31', market_value_krw: null },
+    { snapshot_date: '2023-11-23', market_value_krw: null },
+    { snapshot_date: '2024-10-31', market_value_krw: null },
+    { snapshot_date: '2024-11-23', market_value_krw: 20000 },
+  ])
+  assert.deepEqual(sharedMonthEnd, { market_value_krw: 10400 })
   assert.deepEqual(
     positions,
     days.map((day, index) => ({ snapshot_date: day, market_value_krw: 10 * (10 + index) * (1000 + index * 10) }))
@@ -127,4 +141,28 @@ test('weekday snapshots are written for the last year, one per day with that day
   assert.ok(!portfolioDates.includes('2026-11-21'))
   assert.ok(!portfolioDates.includes('2026-11-22'))
   for (const day of [...days, '2026-01-31', '2026-10-31', '2026-11-23']) assert.ok(portfolioDates.includes(day), day)
+})
+
+
+test('ingest keeps matching long-range references during a database swap', () => {
+  const root = mkdtempSync(path.join(tmpdir(), 'long-references-ingest-'))
+  const env = writeScenario(root, { withPensions: false })
+  const { dbPath } = runIngestWithOutput(root, { env, allowFailure: true })
+  const db = new Database(dbPath)
+  const { date } = db.prepare('select max(snapshot_date) as date from portfolio_snapshots').get() as { date: string }
+  const reference = monthsBack(date, 24)
+  const insert = db.prepare("insert into long_period_position_snapshots (snapshot_date, market, ticker, quantity, cost_krw, market_value_krw) values (?, 'KR', 'SAMPLE', 1, 100, 110)")
+  insert.run(reference)
+  insert.run('1900-01-01')
+  db.close()
+
+  runIngestWithOutput(root, { env, allowFailure: true })
+  const result = new Database(dbPath, { readonly: true })
+  try {
+    assert.deepEqual(result.prepare('select snapshot_date, market_value_krw from long_period_position_snapshots').all(), [
+      { snapshot_date: reference, market_value_krw: 110 },
+    ])
+  } finally {
+    result.close()
+  }
 })

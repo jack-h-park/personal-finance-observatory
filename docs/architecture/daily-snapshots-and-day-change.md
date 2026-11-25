@@ -25,7 +25,7 @@ The card's own "how this is calculated" disclosure (`periodChange.rules` in `lib
 
 ## Snapshot history
 
-- `backfill:history` rebuilds `portfolio_snapshots` and `position_snapshots` for every month-end since the first lot, plus every weekday (Mon–Fri) from 365 days before the current snapshot date up to the day before it. The current date's row is the ingest's live snapshot and is not rebuilt.
+- `backfill:history` rebuilds `portfolio_snapshots` and `position_snapshots` for every month-end since the first lot, plus every weekday (Mon–Fri) from 365 days before the current snapshot date up to the day before it. It also reconstructs the 2Y and 3Y dates and their prior month-ends when they reach a recorded lot. These strict references live separately in `long_period_position_snapshots`. Ingest carries forward matching rows until the next backfill. The current date's row is the ingest's live snapshot and is not rebuilt.
 - Daily points use the same valuation as month-ends: lots held on the date × that date's close (latest on or before it) × that date's USD/KRW.
 - Holidays inside the window appear as flat points. Weekends do not appear.
 - Yahoo leaves the newest daily bar's close empty for a while after a Korean session ends, while its `regularMarketPrice` already holds the settled price. The history fetch fills that bar from the market price once the session is over (`withSettledLastClose` in `scripts/settled-bars.mjs`) instead of dropping it. Before this, on 2026-11-23, most Korean stocks had no close for the session and the daily chart valued them at the close before it.
@@ -60,21 +60,21 @@ Rules, in the order the card's disclosure states them:
 
 ## Period change
 
-The card on the holdings tab has period chips 1D, 1W, 1M, 3M, YTD and 1Y (`?chg=`, default 1D) and a basis toggle, Actual P&L or Holdings return (`?basis=`, default Actual P&L). 1D is the live day's change above in either basis. The disclosure groups its rules as below.
+The card on the holdings tab has period chips 1D, 1W, 1M, 3M, YTD, 1Y, 2Y and 3Y (`?chg=`, default 1D) and a basis toggle, Actual P&L or Holdings return (`?basis=`, default Actual P&L). 1D is the live day's change above in either basis. The disclosure groups its rules as below.
 
 ### Period start
 
-1. For 1W and longer, the period starts on the stored snapshot date (`portfolio_snapshots`) nearest the nominal start: the latest one on or before it, unless that is more than 4 days early (or absent) and one exists within 4 days after it, in which case the earliest such one is used and the start is not clamped. 365 days is 52 weeks and a day, so on Sundays and Mondays, and in any span containing 29 February, the weekday window can begin just after the nominal start. The nominal start is today minus 7 days for 1W, one calendar month for 1M, three months for 3M, 31 December of last year for YTD, one year for 1Y. A month step clamps to the last day of the shorter month. Snapshots are stored for every weekday of the past year and for each month end before that.
-2. When no snapshot reaches back that far, the period starts at the earliest snapshot, and the headline says the record starts there. The chip stays available.
-3. The period ends at the newest snapshot date, which the ingest writes from today's holdings in the same run as `holdings`. With no row for today yet, the newest snapshot is the end, and the headline names its date. For Actual P&L, start and end are the first and last dates inside the period that have `position_snapshots` rows, because a date with a portfolio total but no position rows would read as selling or buying everything.
+1. For 1W through 1Y, the period starts on the stored snapshot date (`portfolio_snapshots`) nearest the nominal start: the latest one on or before it, unless that is more than 4 days early (or absent) and one exists within 4 days after it, in which case the earliest such one is used and the start is not clamped. 365 days is 52 weeks and a day, so on Sundays and Mondays, and in any span containing 29 February, the weekday window can begin just after the nominal start. The nominal start is today minus 7 days for 1W, one calendar month for 1M, three months for 3M, 31 December of last year for YTD, one year for 1Y. A month step clamps to the last day of the shorter month. Snapshots are stored for every weekday of the past year and for each month end before that.
+2. For 1W through 1Y, when no snapshot reaches back that far, the headline starts at the earliest snapshot and discloses it. For 2Y and 3Y, both bases use a reference two or three calendar years before the latest stored portfolio snapshot. The backfill reconstructs that date from recorded lots and uses closes and FX on or before the date. When no position can be priced on the reference date, the card uses the preceding calendar month-end if it can be priced and discloses both dates. If neither is available, the card shows an empty state.
+3. The period ends at the newest snapshot date, which the ingest writes from today's holdings in the same run as `holdings`. With no row for today yet, the newest snapshot is the end, and the headline names its date. For Actual P&L through 1Y, start and end are the first and last dates inside the period with position rows. For 2Y and 3Y, the selected reference and latest snapshot must each have a priced position.
 
 ### Actual P&L
 
 1. **Definition.** Market effect = change in value − money in, per security, from `rangeBreakdown` over the start and end `position_snapshots` rows and the realized gains sold in (start, end]. Purchases add to money in and sales take it out, so a purchase never reads as a gain. Realized gains inside the period count.
 2. **Identity.** Start value + money in + market effect = end value. A security unpriced on either date is left out of all four and counted in the exclusion note. A ticker held under two lot markets is left out whole when either part is unpriced on a measured date.
-3. **Market assignment.** Before `rangeBreakdown`, rows and gains are remapped with `rowMarket`, using today's holdings as the held map, so per-market figures follow the market-mix chart (US stocks held at Toss count as US). A security sold in full keeps its lot market, except that a KR lot whose ticker has no digit counts as US. The total equals /net-worth's range breakdown for the same dates. The split by market can differ from /net-worth, which groups by the lot's market.
+3. **Market assignment.** Before `rangeBreakdown`, rows and gains are remapped with `rowMarket`, using today's holdings as the held map, so per-market figures follow the market-mix chart (US stocks held at Toss count as US). A security sold in full keeps its lot market, except that a KR lot whose ticker has no digit counts as US. For the same dates and valuations, the total equals /net-worth's range breakdown. The split by market can differ from /net-worth, which groups by the lot's market.
 4. **Waterfall.** Start value, one step per market's effect (zero steps are left out), a neutral money-in step, then the end value. The scale spans only the totals the period passes through, never zero.
-5. **Cumulative line.** The sum of the daily pairs' market effects (`dailyChangeSeries` over the stored dates inside the period that have position rows, starting at zero on the start date), the same series as the daily bars on the market-mix tab. A security unpriced on one date drops out of the pairs around that date only, so the line can end off the headline. It shows shape and is not rescaled. The headline is authoritative, and a note under the line says when any pair dropped a security.
+5. **Cumulative line.** The sum of the market effects between consecutive measured snapshots, starting at zero on the start date. For 2Y and 3Y the line uses calendar month-ends plus the actual start date and the latest evaluation. The headline still measures the full range in a single calculation. A security unpriced on one date drops out of the pairs around that date only, so the line can end off the headline. It shows shape and is not rescaled. The headline is authoritative, and a note under the line says when any pair dropped a security.
 6. **Movers.** The five largest positive and five most negative market effects per security, each linking to its position page.
 
 ### Holdings return
@@ -91,7 +91,7 @@ The 1D figure can differ from the last bar on the market-mix tab. 1D measures ea
 ### What a render reads
 
 - 1D reads only the day's-change rows, no snapshot history.
-- Holdings return reads the snapshot dates (to find the start) and the day's-change rows with the reference date.
+- Holdings return reads the snapshot dates and the day's-change rows with the reference date. For 2Y and 3Y both bases also read the same reconstructed starting dates.
 - Actual P&L reads the snapshot dates, the `position_snapshots` rows for the dates inside the period, and the realized gains in the period, once each. The headline uses the start and end rows and the line uses all of them.
 
 ## Decisions made during implementation

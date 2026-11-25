@@ -27,12 +27,15 @@ export type PeriodChangeCopy = {
   liveCaption: string
   range: (from: string, to: string) => string
   clampNote: (date: string) => string
+  monthEndFallback: (requested: string, used: string) => string
   markets: Record<string, string>
   marketsHeading: string
   session: (date: string) => string
   waterfall: { start: string; moneyIn: string; end: string }
   waterfallSummary: (start: string, steps: string, end: string) => string
   cumulativeTitle: string
+  monthlyCumulativeTitle: string
+  monthlyCumulativeHelp: string
   cumulativeHelpLabel: string
   cumulativeHelp: string
   cumulativeKeyboardHelp: string
@@ -59,8 +62,8 @@ export type PeriodChangeCopy = {
  */
 export type PeriodChangeView =
   | { kind: 'live'; change: DayChange }
-  | { kind: 'actual'; summary: ActualSummary; cumulative: CumulativeEffectPoint[]; gaps: number }
-  | { kind: 'held'; change: DayChange; from: string; clamped: boolean }
+  | { kind: 'actual'; summary: ActualSummary; requestedStart?: string; cumulative: CumulativeEffectPoint[]; gaps: number }
+  | { kind: 'held'; change: DayChange; from: string; clamped: boolean; requestedStart?: string }
   | { kind: 'empty' }
 
 const BASES: Basis[] = ['actual', 'held']
@@ -153,8 +156,14 @@ function Body({
 }) {
   if (view.kind === 'empty') return <p className="text-body text-ink-2">{copy.periodEmpty}</p>
 
+  const startNote = (from: string, clamped: boolean, requested?: string) => {
+    if (requested && requested !== from) return copy.monthEndFallback(date(requested), date(from))
+    return clamped ? copy.clampNote(date(from)) : null
+  }
+
   if (view.kind === 'actual') {
     const s = view.summary
+    const cumulativeTitle = view.requestedStart ? copy.monthlyCumulativeTitle : copy.cumulativeTitle
     const markets = s.markets.filter((m) => m.marketEffect !== 0 || m.moneyIn !== 0)
     const steps: WaterfallStep[] = [
       ...markets.filter((m) => m.marketEffect !== 0).map((m) => ({ key: m.market, value: m.marketEffect, color: marketColor(m.market) })),
@@ -180,7 +189,7 @@ function Body({
           change={s.marketEffect}
           pct={ratioPct(s.pct)}
           caption={`${copy.bases.actual} · ${copy.range(date(s.from), date(s.to))}`}
-          clampNote={s.clamped ? copy.clampNote(date(s.from)) : null}
+          clampNote={startNote(s.from, s.clamped, view.requestedStart)}
           money={money}
         />
         <Waterfall start={s.startValue} end={s.endValue} steps={steps} copy={copy} money={money} />
@@ -195,14 +204,16 @@ function Body({
         />
         <div>
           <div className="mb-1 flex items-center gap-1">
-            <h3 className="text-caption font-medium text-ink-2">{copy.cumulativeTitle}</h3>
+            <h3 className="text-caption font-medium text-ink-2">{cumulativeTitle}</h3>
             <HelpPopover label={copy.cumulativeHelpLabel} language={language} align="left">
               {copy.cumulativeHelp}
+              {view.requestedStart && <span className="mt-2 block">{copy.monthlyCumulativeHelp}</span>}
             </HelpPopover>
           </div>
           <CumulativeEffectChart
             points={cumulative}
-            label={copy.cumulativeTitle}
+            label={cumulativeTitle}
+            monthly={Boolean(view.requestedStart)}
             keyboardHelp={copy.cumulativeKeyboardHelp}
             currency={chartCurrency}
             language={language}
@@ -235,7 +246,7 @@ function Body({
         change={change.total.changeKrw}
         pct={pct(change.total.pct)}
         caption={caption}
-        clampNote={view.kind === 'held' && view.clamped ? copy.clampNote(date(view.from)) : null}
+        clampNote={view.kind === 'held' ? startNote(view.from, view.clamped, view.requestedStart) : null}
         money={money}
       />
       <Waterfall

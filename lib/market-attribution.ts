@@ -50,6 +50,12 @@ function mergeRows(rows: readonly PositionSnapshotRow[]): PositionSnapshotRow[] 
   return [...merged.values()]
 }
 
+/** Dates with a priced security after combining rows that share a displayed market. */
+export function pricedSnapshotDates(rows: readonly PositionSnapshotRow[], held: readonly { market: string; ticker: string }[]): string[] {
+  const merged = mergeRows(remapToHeld(rows, heldMarketMap(held)))
+  return [...new Set(merged.filter((row) => row.marketValueKrw !== null).map((row) => row.date))]
+}
+
 const emptyTotals = (): MarketTotals => ({ marketEffect: 0, moneyIn: 0, valueChange: 0, startValue: 0, endValue: 0 })
 
 /**

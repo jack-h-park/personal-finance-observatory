@@ -50,10 +50,10 @@ export function createLotValuer({ openLots, realizedLots, historicalPrices, hist
     return index < 0 ? null : rows[index]
   }
 
-  function fxRate(date) {
+  function fxRate(date, allowLaterFx = true) {
     if (fxByDate.has(date)) return fxByDate.get(date)
     const index = lastOnOrBefore(historicalFxRates, date)
-    return index < 0 ? latestFx : Number(historicalFxRates[index].rate)
+    return index < 0 ? (allowLaterFx ? latestFx : null) : Number(historicalFxRates[index].rate)
   }
 
   /** Raw positions keyed `market\taccount\tticker`; the quantity may be negative on bad data. */
@@ -83,9 +83,11 @@ export function createLotValuer({ openLots, realizedLots, historicalPrices, hist
   /**
    * Every position held on the date with its KRW market value, or null when no
    * price or rate reaches it.
+   * @param {string} date
+   * @param {{ allowLaterFx?: boolean }} options Keep the legacy fallback except for strict historical references.
    * @returns {{ market: string, account: string, ticker: string, quantity: number, cost: number, marketValue: number | null }[]}
    */
-  function valuedPositionsAt(date) {
+  function valuedPositionsAt(date, { allowLaterFx = true } = {}) {
     const valued = []
     for (const [key, rawPosition] of positionsAt(date)) {
       const [market, account, ticker] = key.split('\t')
@@ -95,7 +97,7 @@ export function createLotValuer({ openLots, realizedLots, historicalPrices, hist
       // Quote currency, not the account's market, decides whether FX applies.
       // A US security held in a Korean account is stored under market=KR so its
       // lots stay with that account, while its historical quote is still USD.
-      const rate = price?.currency === 'KRW' ? 1 : fxRate(date)
+      const rate = price?.currency === 'KRW' ? 1 : fxRate(date, allowLaterFx)
       valued.push({
         market,
         account,

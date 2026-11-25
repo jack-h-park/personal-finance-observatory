@@ -1,10 +1,12 @@
 import { getDayChangeRows, getPositionSnapshots, getRealizedGains, getSnapshotDates, portfolioToday } from '@/lib/adapters/portfolio-db'
 import type { PeriodChangeView } from '@/components/PeriodChangeCard'
 import { cumulativeEffect, dailyChangeSeries } from '@/lib/daily-change'
+import { previousMonthEnd } from '@/lib/calendar-dates.mjs'
 import { dayChange } from '@/lib/day-change'
-import { actualSummary, periodStart, type Basis, type Period } from '@/lib/period-change'
+import { pricedSnapshotDates } from '@/lib/market-attribution'
+import { actualSummary, isLongPeriod, longPeriodSnapshotDates, nominalStart, periodStart, type Basis, type Period } from '@/lib/period-change'
 
-/** Days of snapshot dates read to find a period start: comfortably more than 1Y plus the YTD reach. */
+/** Days of snapshot dates read to find a period start: allow for 3Y, leap days and an earlier month-end fallback. */
 const SNAPSHOT_LOOKBACK_DAYS = 400 * 3
 
 /**
@@ -20,28 +22,38 @@ export function measuredDates(dates: readonly string[], rows: readonly { date: s
 }
 
 /**
- * Reads only what the selected period needs. 1D is the live day's change and
- * reads no snapshot history. Holdings return reads the day's-change rows with
- * the period start as the reference date. Actual P&L reads the snapshot rows
- * for the dates inside the period and the gains realized in it, once, and
- * takes both the headline (start and end rows) and the daily line from them.
- * Start and end are the first and last dates inside the period that have
- * position rows.
+ * 1D reads live quotes. Longer periods compare snapshots or use the start as a
+ * quote reference for today's holdings. 2Y and 3Y read month-ends and the two
+ * endpoints, matching the reference date produced by the history backfill.
  */
 export function periodChangeView(period: Period, basis: Basis, held: readonly { market: string; ticker: string }[]): PeriodChangeView {
   if (period === '1d') return { kind: 'live', change: dayChange(getDayChangeRows()) }
 
+  const today = portfolioToday()
   const dates = getSnapshotDates(SNAPSHOT_LOOKBACK_DAYS, { daily: true })
-  const start = periodStart(period, portfolioToday(), dates)
+  const long = isLongPeriod(period)
+  const latest = long ? dates.findLast((date) => date <= today) : today
+  if (!latest) return { kind: 'empty' }
+
+  // Backfill uses the latest stored date for its long-range reference dates.
+  const requestedStart = long ? nominalStart(period, latest) : undefined
+  const referenceRows = requestedStart
+    ? getPositionSnapshots([requestedStart, previousMonthEnd(requestedStart)], { longPeriod: true }) ?? []
+    : []
+  const start = periodStart(period, latest, long ? pricedSnapshotDates(referenceRows, held) : dates)
   if (!start) return { kind: 'empty' }
 
   if (basis === 'held') {
-    return { kind: 'held', change: dayChange(getDayChangeRows({ referenceDate: start.date })), from: start.date, clamped: start.clamped }
+    return { kind: 'held', change: dayChange(getDayChangeRows({ referenceDate: start.date })), from: start.date, clamped: start.clamped, requestedStart }
   }
 
-  const inRange = dates.filter((d) => d >= start.date)
-  const rows = getPositionSnapshots(inRange)
-  if (!rows) return { kind: 'empty' }
+  const inRange = long
+    ? longPeriodSnapshotDates(dates.filter((date) => date !== requestedStart), start.date, latest)
+    : dates.filter((date) => date >= start.date)
+  const positionRows = getPositionSnapshots(long ? inRange.slice(1) : inRange)
+  if (!positionRows) return { kind: 'empty' }
+  if (long && pricedSnapshotDates(positionRows.filter((row) => row.date === latest), held).length === 0) return { kind: 'empty' }
+  const rows = long ? [...referenceRows.filter((row) => row.date === start.date), ...positionRows] : positionRows
   const measured = measuredDates(inRange, rows)
   if (!measured) return { kind: 'empty' }
   const from = measured[0]
@@ -56,5 +68,5 @@ export function periodChangeView(period: Period, basis: Basis, held: readonly { 
     held,
   })
   const points = dailyChangeSeries({ dates: measured, rows, realized, held })
-  return { kind: 'actual', summary, cumulative: cumulativeEffect(from, points), gaps: points.reduce((sum, p) => sum + p.gaps, 0) }
+  return { kind: 'actual', summary, requestedStart, cumulative: cumulativeEffect(from, points), gaps: points.reduce((sum, p) => sum + p.gaps, 0) }
 }
