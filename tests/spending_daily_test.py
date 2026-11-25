@@ -280,6 +280,8 @@ else:
                        ('refund', 'checking', '2026-11-24', 'USD', json.dumps(credit), 2000))
         packet = json.loads(self.original)
         packet['snapshot']['rows'] = [{'id':'prior', **ROW}, {'id':'refund', **credit}]
+        packet['snapshot']['holds'].append(dict(accountId='checking', source='simplefin', row=2,
+            reason='unconfirmed_credit', date='2026-11-24', amountMinor=2000, currency='USD'))
         start = daily.encode(packet)
         (seed / 'snapshot.json').write_bytes(start)
         self.remote.write_bytes(start)
@@ -300,8 +302,21 @@ else:
             old = json.loads(after)['snapshot']['holds']
             self.assertEqual(len(old), 2)
             self.assertEqual(old[1]['amountMinor'], 2000)
+            self.assertEqual(old[1]['reason'], 'unconfirmed_credit')
+            self.assertIn('observationKey', old[1])
             self.assertEqual(daily.tick(self.root, config)['sources']['archive']['status'], 'already_published')
             self.assertEqual(self.remote.read_bytes(), after)
+            from importlib.util import module_from_spec, spec_from_file_location
+            spec = spec_from_file_location('us_evidence', Path(config['checkout']) / 'scripts/spending-us-evidence.py')
+            us_evidence = module_from_spec(spec)
+            spec.loader.exec_module(us_evidence)
+            with sqlite3.connect(run / daily.STORAGE) as db:
+                scope, = db.execute('SELECT provider_scope FROM spending_us_provider_evidence LIMIT 1').fetchone()
+                copied = dict(sourceId='second-id', postedDate='2026-11-24', amountMinor=-300,
+                              descriptionSha256=daily.digest(b'Sample charge'), transactionId='prior')
+                with self.assertRaisesRegex(ValueError, 'us_evidence_link_mismatch'):
+                    us_evidence.review_rows(db, [(1, 'second-id', '2026-11-24', -300, 'Sample charge')],
+                                            'checking', {'rows': [copied]}, marker, 'simplefin-card', scope)
             issuer.write_bytes(issuer.read_bytes() + b'2026-11-24,Credit,20.00\n')
             next_batch = daily.enqueue_workbook(self.root, config, 'archive', provider, issuer,
                                                 '2026-11-24', '2026-11-24', True)

@@ -77,12 +77,12 @@ def review_rows(db, rows, account, review, pointer, provider, scope):
     accepted = []
     held = []
     seen = set()
-    targets = set()
     existing = {}
     if db.execute("SELECT 1 FROM sqlite_schema WHERE name='spending_us_provider_evidence'").fetchone():
         existing = dict((key, (fingerprint, target, reason)) for key, fingerprint, target, reason in db.execute(
             "SELECT observation_key,fingerprint,transaction_id,reason FROM spending_us_provider_evidence "
-            "WHERE account_id=? AND reason IS NOT 'unconfirmed_match'", (account,)))
+            "WHERE account_id=? AND provider_scope=? AND reason IS NOT 'unconfirmed_match'", (account, scope)))
+    targets = {target for _, target, _ in existing.values() if target is not None}
     for index, source_id, day, amount, description in rows:
         require(isinstance(source_id, str) and source_id and source_id not in seen and
                 isinstance(description, str) and date.fromisoformat(day).isoformat() == day
@@ -143,8 +143,9 @@ def run(ledger, directory, binding_path, accounts, token):
             if reg.get('accountId') == account and reg.get('role') == 'primary':
                 primary.append(reg)
     require(len(primary) == 1 and primary[0]['owner']['state'] == 'confirmed', 'unknown_account')
-    scope = [provider, binding['connectionId'], binding['providerAccountId']] if provider == 'simplefin-card' else [
-        provider, binding['connectionIdentity'], binding['accountRef']]
+    identity = [binding['connectionId'], binding['providerAccountId']] if provider == 'simplefin-card' else [
+        binding['connectionIdentity'], binding['accountRef']]
+    scope = sha(encode([provider, identity]))
     snapshot = directory / 'provider.json'
     issuer = directory / 'issuer.csv'
     for p, key in ((snapshot, 'providerSha256'), (issuer, 'issuerSha256'), (binding_path, 'bindingSha256')):
@@ -191,14 +192,15 @@ def run(ledger, directory, binding_path, accounts, token):
                     'reviewed-us-provider-evidence-v1', len(accepted), datetime.now().isoformat()))
         db.execute('''CREATE TABLE IF NOT EXISTS spending_us_provider_evidence (
             batch_id TEXT NOT NULL REFERENCES spending_batch(id), row_number INTEGER NOT NULL,
-            account_id TEXT NOT NULL, source_id TEXT NOT NULL, observation_key TEXT NOT NULL, fingerprint TEXT NOT NULL,
+            account_id TEXT NOT NULL, provider_scope TEXT NOT NULL, source_id TEXT NOT NULL,
+            observation_key TEXT NOT NULL, fingerprint TEXT NOT NULL,
             transaction_id TEXT REFERENCES spending_transaction(id),
             reason TEXT, CHECK ((transaction_id IS NULL) <> (reason IS NULL)),
-            PRIMARY KEY (batch_id, row_number))''')
-        db.executemany('INSERT INTO spending_us_provider_evidence VALUES (?,?,?,?,?,?,?,?)',
-                       [(batch, row, account, source, key, fingerprint, target, reason)
+            PRIMARY KEY (batch_id, row_number), UNIQUE (account_id, provider_scope, transaction_id))''')
+        db.executemany('INSERT INTO spending_us_provider_evidence VALUES (?,?,?,?,?,?,?,?,?)',
+                       [(batch, row, account, scope, source, key, fingerprint, target, reason)
                         for row, source, key, fingerprint, target, reason in accepted] +
-                       [(batch, item['row'], account, item['fingerprint']['sourceId'], item['observationKey'],
+                       [(batch, item['row'], account, scope, item['fingerprint']['sourceId'], item['observationKey'],
                          sha(encode(item['fingerprint'])), None, item['reason'])
                         for item in held])
         db.executemany('INSERT INTO spending_observation VALUES (?,?,?)',

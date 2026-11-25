@@ -77,7 +77,7 @@ def projection(before, after, published, account, expected_inserts, labels=None,
     view = packet['snapshot']
     previous_holds = list(view['holds'])
     if source_key and reviewed_holds is not None:
-        view['holds'] = [hold for hold in previous_holds
+        view['holds'] = [dict(hold) if isinstance(hold, dict) else hold for hold in previous_holds
                          if not isinstance(hold, dict) or
                          (hold.get('ingestSource') != source_key and hold.get('observationKey') not in resolved_keys)]
         for hold in reviewed_holds:
@@ -90,12 +90,13 @@ def projection(before, after, published, account, expected_inserts, labels=None,
                 item['observationKey'] = hold['observationKey']
             # Older reviewed snapshots may already surface this exact archived observation.
             identity = ('accountId', 'source', 'row', 'date', 'amountMinor', 'currency')
-            if item['date'] is None or not any(
-                isinstance(old, dict) and (old.get('observationKey') == item['observationKey']
-                    if old.get('observationKey') and item.get('observationKey')
-                    else all(old.get(k) == item[k] for k in identity)) for old in view['holds']
-            ):
+            existing = next((old for old in view['holds'] if item['date'] is not None and isinstance(old, dict) and
+                (old['observationKey'] == item['observationKey'] if old.get('observationKey') and item.get('observationKey')
+                 else all(old.get(k) == item[k] for k in identity))), None)
+            if existing is None:
                 view['holds'].append(item)
+            elif item.get('observationKey'):
+                existing.setdefault('observationKey', item['observationKey'])
     with closing(db_at(before)) as baseline, closing(db_at(after)) as staged:
         require(staged.execute('PRAGMA integrity_check').fetchone() == ('ok',), 'invalid_staged_ledger')
         require(not staged.execute('PRAGMA foreign_key_check').fetchall(), 'invalid_staged_references')
