@@ -661,7 +661,7 @@ export function DailyChangeBarChart({
   points,
   series,
   totalLabel,
-  gapLabel,
+  gapNote,
   monthly,
   height = 140,
   unit,
@@ -671,8 +671,8 @@ export function DailyChangeBarChart({
   points: DailyChangePoint[]
   series: { key: 'KR' | 'US' | 'CRYPTO'; label: string; color: string }[]
   totalLabel: string
-  /** The note for a date whose pair left securities out; the argument is the count. */
-  gapLabel: (count: string) => string
+  /** The note for a date whose pair left securities out; `{count}` is replaced by the count. Plain text, so a server page can pass it. */
+  gapNote: string
   /** One bar per month rather than per day: the tooltip names the month. */
   monthly: boolean
   height?: number
@@ -708,7 +708,7 @@ export function DailyChangeBarChart({
                   <span>{totalLabel}</span>
                   <span style={{ fontVariantNumeric: 'tabular-nums' }}>{signed(point.total)}</span>
                 </div>
-                {point.gaps > 0 ? <div style={{ marginTop: 4, color: 'var(--text-tertiary)' }}>{gapLabel(String(point.gaps))}</div> : null}
+                {point.gaps > 0 ? <div style={{ marginTop: 4, color: 'var(--text-tertiary)' }}>{gapNote.replace('{count}', String(point.gaps))}</div> : null}
               </div>
             )
           }}

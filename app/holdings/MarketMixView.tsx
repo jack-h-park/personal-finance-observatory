@@ -91,7 +91,7 @@ export async function MarketMixView({ params, rows, language }: { params: Record
               points={dailyShown}
               series={mixSeries}
               totalLabel={mixCopy.dailyTotal}
-              gapLabel={mixCopy.dailyGap}
+              gapNote={mixCopy.dailyGapTemplate}
               monthly={monthly}
               unit={mixShareView ? { kind: 'percent' } : { kind: 'money', currency: currencyPreferences.displayCurrency }}
               language={language}

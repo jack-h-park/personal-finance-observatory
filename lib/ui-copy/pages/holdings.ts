@@ -88,7 +88,7 @@ export const holdings = defineCopy({
       dailyTitle: 'Market effect per day',
       dailyMonthlyTitle: 'Market effect per month',
       dailyTotal: 'Total effect',
-      dailyGap: (count: string) => `${count} securities without a price on one of the two dates are left out.`,
+      dailyGapTemplate: '{count} securities without a price on one of the two dates are left out.',
     },
     weights: {
       title: 'Security weights over time',
@@ -257,7 +257,7 @@ export const holdings = defineCopy({
       dailyTitle: '하루 시장 효과',
       dailyMonthlyTitle: '한 달 시장 효과',
       dailyTotal: '효과 합계',
-      dailyGap: (count: string) => `두 날짜 중 하루라도 가격이 없는 종목 ${count}개는 뺐습니다.`,
+      dailyGapTemplate: '두 날짜 중 하루라도 가격이 없는 종목 {count}개는 뺐습니다.',
     },
     weights: {
       title: '종목별 비중 추이',
