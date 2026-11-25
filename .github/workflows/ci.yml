@@ -65,6 +65,9 @@ jobs:
       - name: Test
         run: pnpm test
 
+      - name: Spending publication tests
+        run: python3 -m unittest discover -s tests -p spending_daily_test.py
+
       # Static, so it needs no server: two Tailwind utilities setting the same
       # property on one element, where the winner is emit order rather than the
       # one that was written. See scripts/ui-guardrails.mjs.
