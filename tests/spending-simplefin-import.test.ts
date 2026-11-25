@@ -249,13 +249,15 @@ test('the saved-run loader accepts a pinned BofA card name without breaking an e
   }
   fs.writeFileSync(path.join(modules, 'config.js'), 'exports.loadBankConfig = value => value')
   fs.writeFileSync(path.join(modules, 'storage.js'), `exports.readBankRun = () => (${JSON.stringify(run)})`)
-  const loaded = await loadSimplefinSpending({ connectorRepo: connector, accountIds: accounts,
-    pointer: write('pointer.json', { ...run.manifest, manifestSha256: descriptionSha256(run.manifest.runId) }),
-    config: write('config.json', { ...run.manifest, institutionDomain: 'bankofamerica.com' }),
-    binding: write('binding.json', cardBinding), decisions: write('decisions.json', cardDecisions) })
-  const preview = importSpending({ ...first, ...loaded })
-  assert.equal(preview.matched, 4)
-  assert.equal(preview.inserted, 0)
+  for (const institutionDomain of ['bankofamerica.com', 'chase.com', 'robinhood.com']) {
+    const loaded = await loadSimplefinSpending({ connectorRepo: connector, accountIds: accounts,
+      pointer: write('pointer.json', { ...run.manifest, manifestSha256: descriptionSha256(run.manifest.runId) }),
+      config: write('config.json', { ...run.manifest, institutionDomain }),
+      binding: write('binding.json', cardBinding), decisions: write('decisions.json', cardDecisions) })
+    const preview = importSpending({ ...first, ...loaded })
+    assert.equal(preview.matched, 4)
+    assert.equal(preview.inserted, 0)
+  }
   assert.throws(() => prepareSimplefinSpending({ ...input,
     binding: { ...cardBinding, accountKind: 'checking' } }), /invalid_simplefin_binding/)
   run.data.accounts[0].name = 'Another Credit Card (6265)'

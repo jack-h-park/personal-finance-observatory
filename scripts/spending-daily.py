@@ -129,12 +129,18 @@ def projection(before, after, published, account, expected_inserts, labels=None,
     return encode(packet)
 
 
+def no_posted_activity(result):
+    return ('pendingIgnored' in result and result['status'] == 'preview' and not result['issues'] and
+            not result['held'] and result['inserted'] == result['matched'] == 0)
+
+
 def approve(root, run, token, keep_holds=False):
     require(RUN_ID.fullmatch(run) and HEX.fullmatch(token), 'invalid_approval')
     directory = root / 'runs' / run
     require(not (directory / 'rejected.json').is_file(), 'workbook_rejected')
     result = read(directory / 'preview.json')
     require(result['status'] == 'preview' and result['reviewToken'] == token, 'stale_review_token')
+    require(not no_posted_activity(result), 'no_posted_activity')
     require(not result['issues'] and (not result['held'] or (
         keep_holds and result.get('keepHoldsAllowed') and
         (result['inserted'] or result['matched'] or result.get('evidenceLinked')))), 'unresolved_review')
@@ -466,6 +472,8 @@ def tick_source(root, config, runs, active, key=None):
     result = preview(root, config, active, directory)
     if result['status'] == 'already_applied':
         return dict(status='already_applied', run=run, inserted=0, matched=0)
+    if no_posted_activity(result):
+        return dict(status='no_posted_activity', run=run, pendingIgnored=result['pendingIgnored'])
     if accepted(directory, result):
         return apply(root, config, active, directory, result)
     return dict(status='awaiting_review', run=run, held=len(result['held']), inserted=result['inserted'], matched=result['matched'])
@@ -503,7 +511,7 @@ def copy_evidence(parent, ledger):
 
 def accepted(directory, result):
     approval = directory / 'approval.json'
-    if not approval.is_file() or result['status'] != 'preview' or result['issues']:
+    if not approval.is_file() or result['status'] != 'preview' or result['issues'] or no_posted_activity(result):
         return False
     marker = read(approval)
     return (marker.get('reviewToken') == result['reviewToken'] and marker.get('keptHolds', []) == result['held']
