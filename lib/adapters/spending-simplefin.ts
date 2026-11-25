@@ -14,7 +14,7 @@ const newYorkDate = new Intl.DateTimeFormat('sv-SE', {
   timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit',
 })
 const kinds: SpendingRow['kind'][] = ['purchase', 'refund', 'card_payment', 'own_transfer', 'fee', 'other']
-type Decision = SavedBankFingerprint & { kind: SpendingRow['kind']; basis: string; transferRef?: string }
+type Decision = SavedBankFingerprint & { kind: SpendingRow['kind']; basis: string; transferRef?: string; linkToTransactionId?: string }
 
 function postedDate(value: unknown) {
   if (!instant(value)) throw new Error('invalid_simplefin_date')
@@ -40,19 +40,21 @@ function reviewDecisions(value: unknown) {
   const decisions = new Map<string, Decision>()
   for (const row of value.decisions) {
     if (!object(row)) throw new Error('invalid_simplefin_decisions')
-    const { sourceId, amountMinor, descriptionSha256, kind, basis, transferRef } = row
+    const { sourceId, amountMinor, descriptionSha256, kind, basis, transferRef, linkToTransactionId } = row
     const date = strictIsoDate(row.postedDate)
     if (!providerId(sourceId) || decisions.has(sourceId) || !date ||
       typeof amountMinor !== 'number' || !Number.isSafeInteger(amountMinor) || !amountMinor ||
       typeof descriptionSha256 !== 'string' || !sha256.test(descriptionSha256) ||
       !kinds.includes(kind as SpendingRow['kind']) || !text(basis) || basis.length > 800 ||
       (transferRef !== undefined && (!providerId(transferRef) || (kind !== 'card_payment' && kind !== 'own_transfer'))) ||
-      Object.keys(row).some(key => !['sourceId', 'postedDate', 'amountMinor', 'descriptionSha256', 'kind', 'basis', 'transferRef'].includes(key))) {
+      (linkToTransactionId !== undefined && (typeof linkToTransactionId !== 'string' || !sha256.test(linkToTransactionId))) ||
+      Object.keys(row).some(key => !['sourceId', 'postedDate', 'amountMinor', 'descriptionSha256', 'kind', 'basis', 'transferRef', 'linkToTransactionId'].includes(key))) {
       throw new Error('invalid_simplefin_decisions')
     }
     decisions.set(sourceId, {
       sourceId, postedDate: date, amountMinor, descriptionSha256, kind: kind as SpendingRow['kind'], basis,
       ...(transferRef === undefined ? {} : { transferRef }),
+      ...(linkToTransactionId === undefined ? {} : { linkToTransactionId }),
     })
   }
   return decisions
@@ -100,6 +102,8 @@ export function prepareSimplefinSpending(options: {
   const seen = new Set<string>()
   const dates: string[] = []
   const usedDecisions: Decision[] = []
+  const postingRows = new Map<string, number[]>()
+  const reviewedLinks: { row: number; transactionId: string }[] = []
   for (const [index, row] of data.transactions.entries()) {
     if (!object(row) || row.state !== 'posted' || row.currency !== 'USD' || row.accountRef !== account.accountRef ||
         !providerId(row.providerTransactionId) || seen.has(row.providerTransactionId) || typeof row.description !== 'string') {
@@ -111,6 +115,10 @@ export function prepareSimplefinSpending(options: {
     dates.push(date)
     const amountMinor = cents(row.amount)
     const rowNumber = index + 1
+    const postingKey = JSON.stringify([date, amountMinor])
+    const peers = postingRows.get(postingKey) ?? []
+    peers.push(rowNumber)
+    postingRows.set(postingKey, peers)
     if (!amountMinor || !row.description.trim() || row.description.length > 1000 || row.description.includes('\0')) {
       held.push({ row: rowNumber, reason: 'unsupported_posted_transaction' })
       continue
@@ -128,6 +136,7 @@ export function prepareSimplefinSpending(options: {
       description: row.description, kind: decision.kind, transferRef: decision.transferRef,
     })
     sourceRows.push(rowNumber)
+    if (decision.linkToTransactionId) reviewedLinks.push({ row: rowNumber, transactionId: decision.linkToTransactionId })
   }
   dates.sort()
   const start = dates[0] ?? postedDate(manifest.fetchedAt)
@@ -141,7 +150,8 @@ export function prepareSimplefinSpending(options: {
   return {
     batch, bytes, format: 'json' as const,
     savedBank: {
-      scope: hash(JSON.stringify([binding, connectionKey])), sourceRows, held,
+      scope: hash(JSON.stringify([binding, connectionKey])), sourceRows, held, reviewedLinks,
+      ambiguousPostingRows: [...postingRows.values()].filter(rows => rows.length > 1).flat(),
       pendingIgnored: data['pending-transactions'].length,
     },
   }
