@@ -15,7 +15,7 @@ const providers: Record<string, string> = {
   chase: 'chase', Chase: 'chase', fidelity: 'fidelity', Fidelity: 'fidelity', Merrill: 'merrill', merrill: 'merrill',
   Robinhood: 'robinhood', robinhood: 'robinhood', 'robinhood-bank': 'robinhood-bank', Bithumb: 'bithumb', bithumb: 'bithumb',
   mirae: 'mirae', '미래에셋증권': 'mirae', samsung: 'samsung', '삼성증권': 'samsung', toss: 'toss', '토스증권': 'toss',
-  tossbank: 'tossbank', amex: 'amex', boa: 'boa', hana: 'hana', mg: 'mg', kb: 'kb', shinhan: 'shinhan', woori: 'woori', nh: 'nh',
+  tossbank: 'tossbank', amex: 'amex', synchrony: 'synchrony', boa: 'boa', hana: 'hana', mg: 'mg', kb: 'kb', shinhan: 'shinhan', woori: 'woori', nh: 'nh',
 }
 export const providerId = (v: unknown) => typeof v === 'string' && Object.hasOwn(providers, v) ? providers[v] : null
 export function validScope(v: unknown): v is Scope {

@@ -7,6 +7,7 @@ import test, { type TestContext } from 'node:test'
 import Database from 'better-sqlite3'
 import { prepareSimplefinSpending } from '../lib/adapters/spending-simplefin'
 import { importSpending } from '../lib/adapters/spending-store'
+import { spendingAccountIds } from '../lib/domain/spending-import'
 
 const binding = { accountId: 'test-checking', providerAccountId: 'provider-account', connectionId: 'connection-id' }
 const accounts = new Set([binding.accountId])
@@ -170,6 +171,16 @@ test('two approved credit card scopes coexist with the legacy checking scope and
   t.after(() => db.close())
   db.exec('DROP TABLE spending_saved_bank_scope')
 
+  const inventory = spendingAccountIds({ accounts: Object.fromEntries(
+    [['Amex credit card', 'amex', 'card-one'], ['Synchrony credit card', 'synchrony', 'card-two']].map(
+      ([label, providerId, accountId]) => [label, { institution: providerId, inventory: {
+        role: 'primary', accountId, providerId, owner: { state: 'confirmed', ownerId: 'test-owner' },
+        dimensions: { wrappers: ['credit-card'], assetClasses: [] }, lifecycle: { state: 'active' },
+        requirements: [{ kind: 'activity', freshnessPolicyId: 'bank-30' }],
+      } }],
+    ),
+  ) })
+  assert.deepEqual([...inventory], ['card-one', 'card-two'])
   const rows = [tx('purchase-1', '-8.22', 'Sample retail'), tx('purchase-2', '-8.22', 'Sample retail'),
     tx('refund', '1.50', 'Sample retail'), tx('payment', '50.00', 'Payment'),
     tx('benefit', '2.00', 'Card benefit')]
