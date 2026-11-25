@@ -333,6 +333,17 @@ else:
             self.assertEqual(final['rows'], packet['snapshot']['rows'])
             self.assertEqual(final['holds'], ['keep-existing-hold'])
 
+    def test_simplefin_pending_only_does_not_request_approval_or_publish(self):
+        empty = dict(status='preview', reviewToken=TOKEN, issues=[], held=[], inserted=0, matched=0, pendingIgnored=2)
+        with patch.object(daily, 'cli', return_value=empty), patch.object(daily, 'publish', wraps=self.publish) as publish:
+            status = daily.tick(self.root, self.config)
+            self.assertEqual(status['status'], 'no_posted_activity')
+            self.assertEqual(status['pendingIgnored'], 2)
+            with self.assertRaisesRegex(ValueError, 'no_posted_activity'):
+                daily.approve(self.root, 'day-one', TOKEN)
+            publish.assert_not_called()
+        self.assertEqual(self.remote.read_bytes(), self.original)
+
     def test_review_gate_then_exact_replay(self):
         with patch.object(daily, 'cli', self.cli), patch.object(daily, 'publish', self.publish):
             self.assertEqual(daily.tick(self.root, self.config)['status'], 'awaiting_review')

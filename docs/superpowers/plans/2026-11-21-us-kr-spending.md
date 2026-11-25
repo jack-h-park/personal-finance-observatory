@@ -6,8 +6,8 @@ November 21, 2026 (America/Los_Angeles). Scope is the owner-operated Personal Fi
 
 The local CLI supports preview, review-token application, and replay for synthetic inputs, paired Samsung Card and BankSalad workbooks, saved SimpleFIN bank runs, and saved SnapTrade card activity paired with Chase issuer CSVs. SimpleFIN Bridge remains primary for US banks and cards. SnapTrade remains primarily a brokerage connector and serves as a card fallback where the verified provider feed lacks coverage. The [pilot guide](../../operations/spending-pilot.md) records input contracts, test results, and a roughly monthly read-only SimpleFIN coverage check. Scheduled collection and reuse of private operating inventory require separate authorization.
 
-The reviewed SimpleFIN schedule supports six approved accounts, including
-Chase Checking, Amex Marriott Brilliant, Amazon Store Card, and BofA and
+The reviewed SimpleFIN schedule includes Chase Checking, Amex Marriott
+Brilliant, Amazon Store Card, BofA Customized Cash Rewards, and BofA and
 Amex deposit bindings. It runs daily on the operating Mac Studio. The Studio also owns
 preview, review-token validation, and atomic publication into the shared ledger. The pipeline runs independently of the MacBook.
 Overlap reuses prior row decisions and remains subject to exact batch approval.
@@ -23,9 +23,12 @@ The same Mac Studio review schedule accepts queued Chase SnapTrade/issuer
 pairs and reviewed BofA and Robinhood saved evidence. The Chase fallback
 replays the two historical card imports. BofA and Robinhood evidence links
 cannot create economic rows. Keep incomplete dates and unconfirmed credits
-visible. BofA's second card needs issuer activity before an account-specific
-intake can be approved. Retained captures do not establish ongoing provider
-delivery. The system LaunchDaemons run as `runtime`; Hermes monitors them.
+visible. Enroll the second BofA card, both Chase cards, and the Robinhood card
+using their reviewed SimpleFIN account bindings. An empty verified collection
+does not require approval or establish full provider coverage. Pending activity
+stays outside spending. Review new posted rows against existing ledger entries
+before promotion. Continue using the Chase SnapTrade fallback for unresolved
+SimpleFIN coverage. The system LaunchDaemons run as `runtime`; Hermes monitors them.
 
 
 The combined local ledger holds separate USD and KRW records, two-sided card payments, Korean billing and evidence, and reviewed records from the US and Korean pilots. The read-only `/spending` view provides net spending for the last 12 or 24 months, this year or last year, category and merchant rankings, the largest individual purchases, account filters, and transaction-month drill-down. It continues to show observed coverage and holds. `/accounts` and `/data-ops` link to the same account filters. Months without purchase or refund evidence are marked unavailable. Production uses an explicitly published snapshot in the private state directory through the existing owner-only gateway. The original ledger and financial records remain private.

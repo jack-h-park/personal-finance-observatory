@@ -201,7 +201,7 @@ export async function loadSimplefinSpending(options: {
   }
   const binding = accountBinding(readJson(options.binding), options.accountIds)
   const domains = binding.accountKind === undefined ? ['chase.com'] :
-    binding.accountKind === 'credit_card' ? ['americanexpress.com', 'amazon.syf.com', 'bankofamerica.com'] :
+    binding.accountKind === 'credit_card' ? ['americanexpress.com', 'amazon.syf.com', 'bankofamerica.com', 'chase.com', 'robinhood.com'] :
       binding.accountKind === 'savings' ? ['americanexpress.com'] : ['americanexpress.com', 'bankofamerica.com']
   if (!object(config) || config.provider !== 'simplefin' || config.environment !== 'live' || config.sample !== false ||
       typeof config.institutionDomain !== 'string' || !domains.includes(config.institutionDomain) || config.connectionKey !== pointer.connectionKey) {

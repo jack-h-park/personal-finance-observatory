@@ -332,6 +332,12 @@ Issuer files can supplement unavailable history or resolve an exceptional
 item. The daily review uses the stored SimpleFIN run and does not require a
 monthly issuer statement.
 
+If a verified SimpleFIN run has only pending rows or no posted rows, the
+runner reports `no_posted_activity` and leaves the operating snapshot in
+place. That status describes the archived run. It does not establish an
+issuer's historical coverage. An account with new posted rows is still
+subject to the exact review-token gate.
+
 ## Run the Korean workbook importer
 
 Use a dedicated, existing private workspace outside Git. Set up the pinned
