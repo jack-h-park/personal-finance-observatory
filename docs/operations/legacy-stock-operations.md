@@ -284,27 +284,24 @@ running the publisher, and for that the receipt is exact.
 
 ## macOS launchd deployment
 
-### One machine is production. The other is not.
+### Production and development
 
 | | machine | role |
 | --- | --- | --- |
 | **Production** | the ops host — `ssh ops-host` (a Mac Studio since 2026-09-24; Jack's iMac before that) | every scheduled job, and the only database anyone should quote |
 | **Development** | Jack's MacBook Pro | editing, testing, and where broker exports are downloaded |
 
-**The laptop is development and test only.** It is worth saying outright because
-nothing on either machine says it: both run a launchd service named
-`com.jackpark.stock-observatory`, both serve port 3101, and both hold a
-`stock-portfolio-observatory.db`. A figure read locally looks exactly like the
-live one. Running the same ingest on each has already produced different check
-counts and different holding totals on the same day — both correct for their own
-machine, and only one of them the portfolio.
+Production serves port 3101 through the system LaunchDaemon
+`system/com.jackpark.stock-observatory` with `UserName=runtime`. A development
+LaunchAgent can use the same label and port on the laptop. Both machines can
+hold a `stock-portfolio-observatory.db` with different ingestion dates.
 
 So: a number is a fact about the machine it was read on. When reporting the
 state of the portfolio, read it on the host, or say which machine answered.
 
-Deploying means the host. A merged pull request changes nothing until
-`git pull` runs there — and `make redeploy` when code changed, since `next start`
-keeps serving the old build until launchd restarts it.
+Production deploys run from the checkout named by the system plist. Build
+under runtime and activate from an administrator session. The process starts
+serving the new build after activation.
 
 **The alias is `ops-host`.** `imac-hermes` and `imac-runner` appear in older
 prose; neither reaches production.
@@ -320,50 +317,67 @@ make pull-prod-db       # replace the local database; the old one is kept as <db
 
 It writes to the database the app reads (`STOCK_DB_PATH`), takes a consistent
 snapshot on the host with `sqlite3 .backup`, and refuses to run while the dev
-server holds the file open, or on a machine with the web service installed. It
+server holds the file open, or when the local system plist or a matching
+launchd registration identifies a service host. It
 is deliberately not scheduled: a copy that syncs itself looks current, and goes
 stale silently the day the sync stops. The label shows the age either way.
 
 Keep real brokerage exports, generated databases, and runtime JSON files outside
 git or in ignored local files.
 
-There are **three** launchd jobs across the two machines. The web service below
-and the [scheduled refresh](#scheduled-refresh) run on the host; the
-[source push](#source-push) runs on the laptop where the broker exports land.
-Installing only the host pair leaves the pipeline reading a directory nothing
-delivers to.
+The [scheduled refresh](#scheduled-refresh) runs under the Hermes trader
+scheduler on the host. The [source push](#source-push) runs on the laptop
+where broker exports land. LaunchAgent targets for those tasks are separate
+from web service deployment.
 
-**First-time install on the host:**
+**Production web deploy with refresh**
 
-```bash
-make install-service   # build + launchd registration (com.jackpark.stock-observatory, port 3101)
-make status / make stop / make logs
-```
-
-**Redeploy after code updates:**
+Use the deployed checkout as runtime on `ops-host`. Confirm that the
+planned maintenance includes a data refresh. Then run:
 
 ```bash
-make redeploy          # git pull --ff-only -> pnpm install --frozen-lockfile -> pnpm build -> refresh -> service restart -> status
+make prepare-system-redeploy
 ```
 
-`make redeploy` is the canonical live-update path. `pnpm build` alone only writes
-a new `.next/` build; the running `next start` process keeps serving the old build
-until launchd is restarted with `make restart` or `make redeploy`.
+This checks the registered system service and checkout, pulls with
+`git pull --ff-only`, installs frozen dependencies, checks the native SQLite
+binding, builds, and refreshes. The command reports that activation is
+pending. In a Studio administrator session, run:
 
-`make redeploy` also installs dependencies from the lockfile on every run, so a
-pull that bumps a package reaches `node_modules` before the build. The install
-compiles better-sqlite3 with the node the service runs under, and redeploy checks
-that the native module loads (rebuilding it once if not) before it builds. An
-install or load-check failure is reported like any other failure after the pull,
-including the MIXED STATE message when the checkout moved.
+```bash
+sudo launchctl kickstart -k system/com.jackpark.stock-observatory
+```
 
-Prefer `make <target>` over `pnpm <script>` when driving the host over SSH.
-A non-interactive `ssh host '...'` does not source the login profile, so `pnpm`
-and `node` — which live in `~/.local/bin` on the host — are not on PATH; the
-Makefile resolves both absolutely, the way launchd and the Hermes cron wrapper
-already have to. Missing tooling now fails on `require-tools` before `redeploy`
-pulls anything, and a failure after the pull prints the commit the service is
-still serving alongside the commit the checkout moved to.
+As runtime, run `make wait-listen status` and verify the existing health
+and owner routes. For releases whose approved scope is application-only,
+follow the [installation record](installation-status.md) and keep refresh
+out of that release.
+
+**System plist staging**
+
+Run `make stage-system-service` in the intended runtime checkout to build
+and render the system plist with explicit runtime identity and home. Review
+the printed plist path, checkout, and executable before administrator
+installation. For a first install, confirm there is no active GUI
+registration, install the reviewed plist as root:wheel mode 0644 under
+`/Library/LaunchDaemons`, then bootstrap it in `system`. For an existing
+installation preserve its previous plist and use the maintenance rollback
+procedure before reloading a replacement. The running plist from the
+Studio defines the production baseline.
+
+**Development LaunchAgent**
+
+```bash
+make install-service   # build and load the current user's GUI LaunchAgent
+make redeploy          # build, refresh, and restart the GUI LaunchAgent
+make status
+```
+
+Web-service GUI mutation targets refuse a detected system installation.
+`make status` reports the detected registration and port listener.
+`make require-tools` resolves node and pnpm before a deploy begins, including
+when the SSH shell has a minimal PATH. After a pull, a failed prep reports
+the previous and current commit along with the failing stage.
 
 Use a hostname or private-network address that resolves from the client browser;
 SSH aliases are not necessarily browser-resolvable DNS names.
