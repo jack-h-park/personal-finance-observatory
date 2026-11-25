@@ -1,7 +1,6 @@
 # Personal Finance Observatory macOS launchd deployment flow.
 PLIST_LABEL := com.jackpark.stock-observatory
-PLIST_SRC   := deploy/$(PLIST_LABEL).plist
-PLIST_DST   := $(HOME)/Library/LaunchAgents/$(PLIST_LABEL).plist
+SERVICE     := bash deploy/observatory-service.sh
 REFRESH_LABEL := $(PLIST_LABEL).refresh
 REFRESH_PLIST_SRC := deploy/$(REFRESH_LABEL).plist
 REFRESH_PLIST_DST := $(HOME)/Library/LaunchAgents/$(REFRESH_LABEL).plist
@@ -39,7 +38,7 @@ TOOL_PATH := $(subst $(space),:,$(strip $(TOOL_DIRS)))
 PNPM := PATH="$(NODE_BIN):$(TOOL_PATH):$$PATH" $(PNPM_BIN)
 UV_BIN := $(call find-tool,uv)
 
-.PHONY: python-env install ingest refresh dev build start stop restart redeploy status refresh-status wait-listen require-tools install-service install-refresh-service uninstall-service uninstall-refresh-service install-push-service uninstall-push-service push-status push-sources pull-prod-db pull-prod-db-dry file-downloads file-downloads-dry logs typecheck
+.PHONY: python-env install ingest refresh dev build start stop restart redeploy prepare-system-redeploy stage-system-service status refresh-status wait-listen require-tools install-service install-refresh-service uninstall-service uninstall-refresh-service install-push-service uninstall-push-service push-status push-sources pull-prod-db pull-prod-db-dry file-downloads file-downloads-dry logs typecheck
 
 # Every pnpm-invoking target depends on this, so a stripped PATH fails here —
 # before a target has done anything — instead of part-way through.
@@ -82,11 +81,11 @@ typecheck: require-tools
 	$(PNPM) typecheck
 
 stop:
-	-launchctl unload $(PLIST_DST) 2>/dev/null
+	$(SERVICE) stop-gui
 	-lsof -ti tcp:$(PORT) | xargs kill 2>/dev/null || true
 
 status:
-	@launchctl list | grep $(PLIST_LABEL) || echo "$(PLIST_LABEL): not loaded"
+	@$(SERVICE) status
 	@lsof -i tcp:$(PORT) -sTCP:LISTEN 2>/dev/null || echo "port $(PORT): not listening"
 
 wait-listen:
@@ -97,7 +96,7 @@ wait-listen:
 	echo "warning: :$(PORT) still not listening after 15s -- check 'make logs'"
 
 restart:
-	launchctl kickstart -k gui/$(shell id -u)/$(PLIST_LABEL)
+	$(SERVICE) restart-gui
 	@$(MAKE) wait-listen
 	@$(MAKE) status
 
@@ -125,7 +124,8 @@ restart:
 # check proves that before the build: if the binding is missing or was built for
 # another node, one rebuild is tried, and a second failure stops the redeploy
 # instead of letting the service crash on its first query.
-redeploy: require-tools
+redeploy prepare-system-redeploy: require-tools
+	@$(SERVICE) $(if $(filter redeploy,$@),gui-only,require-runtime-system) $@
 	@set -e; \
 	before=$$(git rev-parse HEAD); \
 	git pull --ff-only; \
@@ -136,7 +136,7 @@ redeploy: require-tools
 	  if [ "$$before" != "$$after" ]; then \
 	    echo "*** MIXED STATE — the checkout is at $$after, but :$(PORT) is still"; \
 	    echo "*** serving the build from $$before. Source and served app disagree."; \
-	    echo "*** Fix forward by re-running 'make redeploy', or roll the checkout back:"; \
+	    echo "*** Fix forward by re-running 'make $@', or roll the checkout back:"; \
 	    echo "***   git -C $(CURDIR) reset --hard $$before"; \
 	  else \
 	    echo "*** Checkout unchanged ($$before) and the service was not restarted."; \
@@ -149,17 +149,19 @@ redeploy: require-tools
 	  $(PNPM) rebuild better-sqlite3 && sqlite_ok; } || fail "better-sqlite3 load check"; \
 	$(PNPM) build   || fail "pnpm build"; \
 	$(PNPM) refresh || fail "pnpm refresh"; \
-	launchctl kickstart -k gui/$(shell id -u)/$(PLIST_LABEL) || fail "launchctl kickstart"
-	@$(MAKE) wait-listen
-	@$(MAKE) status
+	$(if $(filter redeploy,$@),$(SERVICE) restart-gui || fail "launchctl kickstart",:)
+	$(if $(filter redeploy,$@),@$(MAKE) wait-listen status,@echo "Build and refresh completed. From an administrator session run: sudo launchctl kickstart -k system/$(PLIST_LABEL)")
+	$(if $(filter prepare-system-redeploy,$@),@echo "Then run 'make wait-listen status' and check the service health.")
 
-install-service: require-tools build
-	mkdir -p $(HOME)/Library/LaunchAgents logs
-	sed -e "s|__WORKDIR__|$(CURDIR)|g" -e "s|__HOME__|$(HOME)|g" \
-	    -e "s|__PNPM__|$(PNPM_BIN)|g" -e "s|__NODE_BIN__|$(NODE_BIN)|g" $(PLIST_SRC) > $(PLIST_DST)
-	launchctl unload $(PLIST_DST) 2>/dev/null || true
-	launchctl load $(PLIST_DST)
-	@echo "installed: $(PLIST_DST) -> http://localhost:$(PORT) (pnpm: $(PNPM_BIN))"
+install-service: require-tools
+	@$(SERVICE) gui-only install-service
+	@$(MAKE) build
+	$(SERVICE) install-gui "$(CURDIR)" "$(PNPM_BIN)" "$(NODE_BIN)"
+
+stage-system-service: require-tools
+	@$(SERVICE) require-system-stage
+	@$(MAKE) build
+	$(SERVICE) stage-system "$(CURDIR)" "$(PNPM_BIN)" "$(NODE_BIN)"
 
 # The six-hourly refresh moved back to Hermes cron on 2026-08-29 (see README,
 # "Scheduled refresh"): launchd delivers nothing when a run fails, and one did for
@@ -178,8 +180,7 @@ install-refresh-service: require-tools
 	@echo "installed: $(REFRESH_PLIST_DST) -> refresh every 6 hours"
 
 uninstall-service:
-	-launchctl unload $(PLIST_DST)
-	rm -f $(PLIST_DST)
+	$(SERVICE) uninstall-gui
 
 uninstall-refresh-service:
 	-launchctl bootout gui/$(shell id -u)/$(REFRESH_LABEL)

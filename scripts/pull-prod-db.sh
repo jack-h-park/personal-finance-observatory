@@ -51,7 +51,6 @@ LOCAL_DB="${STOCK_DB_PATH:-$REPO_DIR/private-data/$DB_REL}"
 HOST="${STOCK_PROD_HOST:-ops-host}"
 REMOTE_DB="${STOCK_PROD_DATA_DIR:-workspace/data/financial-records}/$DB_REL"
 DRY=0
-SERVICE_LABEL=com.jackpark.stock-observatory
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -62,10 +61,7 @@ while [ $# -gt 0 ]; do
   esac
 done
 
-if launchctl list 2>/dev/null | awk '{print $3}' | grep -qx "$SERVICE_LABEL"; then
-  echo "refusing: $SERVICE_LABEL is installed here, so this is the host. Its database is the source, not a copy." >&2
-  exit 1
-fi
+bash "$REPO_DIR/deploy/observatory-service.sh" production-guard
 
 # immutable=1: the host database is in WAL mode and so is the copy. A plain
 # read-only open still creates -shm and -wal beside the file, which would leave
