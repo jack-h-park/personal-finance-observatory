@@ -505,3 +505,29 @@ later exports preserve earlier unresolved evidence.
 Keep Samsung issuer coverage current and retain out-of-window or ambiguous
 evidence privately. Additional Korean products need their own verified
 issuer and account bindings.
+
+### Hana Card, Hana Bank and Toss Bank BankSalad evidence
+
+A `banksalad-evidence` source accepts a BankSalad workbook and a pinned
+issuer original (XLSX, XLS or PDF) through the existing `enqueue-workbook`
+command. Bind a canonical account and its observed payment label. For a
+shared label, use explicit reviewed references and avoid automatic exact
+matching. The review tick verifies file hashes, previews links to existing
+native-currency spending rows, and exposes unmatched spend observations for
+the configured account. Incoming deposits and generic transfers do not
+automatically create spending.
+
+A private per-run `decisions.json` may record bank-confirmed row links or
+issuer-grouped card transit. Check the original, signed amount and
+account before recording the reviewed references. The issuer fee option
+accepts explicit outbound remittance references confirmed in bank
+activity. It preserves the original workbook, issuer file and decision
+hashes and holds competing ledger candidates. Re-run preview after
+changing decisions and approve the exact token. The normal publisher
+preserves existing amounts and shows approved unresolved holds. The
+same-file replay never changes monthly totals.
+
+The BankSalad export stays manual. For the next monthly refresh, use the
+two preceding completed months and keep originals in the financial-records
+inbox. This workflow can use already archived issuer evidence; new issuer
+exports are needed only for an uncovered period with relevant activity.
