@@ -74,6 +74,7 @@ export const holdings = defineCopy({
       unpricedNote: (count: string) => `${count} securities without a price on the start or end date are left out.`,
       empty: 'No holding has a previous close to compare with yet.',
       periodEmpty: 'No stored snapshot to measure this period from yet.',
+      sameBasesNote: 'For one day the two bases are the same.',
       rulesTitle: 'How this is calculated',
       rules: [
         {
@@ -90,7 +91,7 @@ export const holdings = defineCopy({
         {
           title: 'Period start',
           items: [
-            "For 1W and longer, the period starts on the latest stored snapshot on or before the date it reaches back to: 7 days for 1W, one calendar month for 1M, three months for 3M, 31 December of last year for YTD and one year for 1Y. Snapshots are stored for every weekday of the past year and for each month end before that.",
+            "For 1W and longer, the period starts on the stored snapshot nearest the date it reaches back to: 7 days for 1W, one calendar month for 1M, three months for 3M, 31 December of last year for YTD and one year for 1Y. That is the latest snapshot on or before the date, unless it is more than 4 days early and one exists within 4 days after, which is used instead. Snapshots are stored for every weekday of the past year and for each month end before that.",
             'When the stored record does not reach back that far, the period starts at the earliest snapshot, and the card says so.',
             "The period ends at the newest snapshot, which the refresh writes from today's holdings.",
           ],
@@ -293,6 +294,7 @@ export const holdings = defineCopy({
       unpricedNote: (count: string) => `시작일이나 마지막 날에 가격이 없는 종목 ${count}개는 계산에서 뺐습니다.`,
       empty: '비교할 직전 종가가 있는 종목이 아직 없습니다.',
       periodEmpty: '이 기간을 계산할 저장된 스냅샷이 아직 없습니다.',
+      sameBasesNote: '하루 변동은 두 기준이 같습니다.',
       rulesTitle: '계산 기준',
       rules: [
         {
@@ -309,7 +311,7 @@ export const holdings = defineCopy({
         {
           title: '기간 시작일',
           items: [
-            '1주 이상의 기간은 기간만큼 거슬러 올라간 날짜(1주는 7일 전, 1개월은 한 달 전, 3개월은 석 달 전, 연초 이후는 작년 12월 31일, 1년은 1년 전) 당일이나 그 전의 가장 최근 스냅샷에서 시작합니다. 스냅샷은 최근 1년은 평일마다, 그 전은 월말마다 저장되어 있습니다.',
+            '1주 이상의 기간은 기간만큼 거슬러 올라간 날짜(1주는 7일 전, 1개월은 한 달 전, 3개월은 석 달 전, 연초 이후는 작년 12월 31일, 1년은 1년 전)에 가장 가까운 저장된 스냅샷에서 시작합니다. 그 날짜 당일이나 그 전의 가장 최근 스냅샷을 쓰되, 4일보다 더 이전이고 그 날짜 뒤 4일 안에 스냅샷이 있으면 그것을 씁니다. 스냅샷은 최근 1년은 평일마다, 그 전은 월말마다 저장되어 있습니다.',
             '저장된 기록이 그만큼 거슬러 올라가지 않으면 가장 오래된 스냅샷에서 시작하고, 카드에 그 사실을 적습니다.',
             '기간의 끝은 가장 최근 스냅샷이며, 갱신 때 오늘의 보유종목으로 저장됩니다.',
           ],
@@ -318,7 +320,7 @@ export const holdings = defineCopy({
           title: '실제 손익',
           items: [
             '실제 손익은 평가금액 변화에서 새로 넣은 돈을 뺀 값입니다. 매수는 투입 금액에 더하고 매도는 빼므로 매수가 이익으로 보이지 않습니다. 기간 안에 매도해 실현한 손익도 포함합니다.',
-            '시작 금액 + 투입 금액 + 시장 효과 = 끝 금액입니다. 시작일이나 마지막 날에 가격이 없는 종목은 네 값 모두에서 빼고, 몇 개를 뺐는지 카드에 적습니다.',
+            '시작 금액 + 투입 금액 + 시장 효과 = 끝 금액입니다. 시작일이나 마지막 날에 가격이 없는 종목은 네 값 모두에서 빼고, 몇 개를 뺐는지 카드에 적습니다. 두 세금 단위 시장에 나뉘어 있는 종목은 측정한 날짜에 한쪽이라도 가격이 없으면 통째로 뺍니다.',
             '각 종목은 시장별 비중 차트처럼 지금 보유한 시장으로 셉니다. 그래서 토스증권에서 산 미국 주식은 미국 주식입니다. 모두 매도한 종목은 세금 단위의 시장을 따르되, 종목 코드에 숫자가 없는 한국 세금 단위는 미국 주식으로 셉니다. 합계는 같은 날짜의 순자산 페이지 시장 효과와 같지만, 순자산 페이지는 세금 단위의 시장으로 나누므로 시장별 값은 다를 수 있습니다.',
             '시장별 막대 아래 선은 저장된 날짜 두 개씩의 시장 효과를 차례로 더한 값으로, 시장별 비중 탭의 막대와 같습니다. 어느 날짜에 가격이 없는 종목은 그 날짜 앞뒤 구간에서만 빠지므로, 선은 모양을 보여줄 뿐이고 끝이 위 숫자와 조금 다를 수 있습니다. 읽을 값은 위 숫자입니다.',
           ],
