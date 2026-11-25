@@ -50,7 +50,7 @@ export const holdings = defineCopy({
     trendLabel: (name: string, change: string | null) => (change ? `${name}, value over 12 months: ${change}` : `${name}, value over 12 months`),
     periodChange: {
       title: 'Change over a period',
-      info: "How much the portfolio moved over the chosen period, by market, and the securities that moved it most. Actual P&L leaves out money you put in or took out; Holdings return values today's holdings from the close on the period's start date. It always covers every holding, whatever the search and filters below.",
+      info: "How much the portfolio moved over the chosen period, by market, and the securities that moved it most. Actual P&L combines the change in unrealized P&L with realized P&L; Holdings return values today's holdings from the close on the period's start date. It always covers every holding, whatever the search and filters below.",
       periodFilter: 'Period',
       periods: { '1d': '1D', '1w': '1W', '1m': '1M', '3m': '3M', ytd: 'YTD', '1y': '1Y', '2y': '2Y', '3y': '3Y' } as Record<string, string>,
       basisFilter: 'Basis',
@@ -67,7 +67,7 @@ export const holdings = defineCopy({
       markets: { KR: 'Korea', US: 'US', CRYPTO: 'Crypto' } as Record<string, string>,
       marketsHeading: 'By market',
       session: (date: string) => `as of ${date}`,
-      waterfall: { start: 'Start', moneyIn: 'Money in', end: 'End' },
+      waterfall: { start: 'Start', moneyIn: 'Trading and holdings adjustment', end: 'End' },
       waterfallSummary: (start: string, steps: string, end: string) => `Start ${start}; ${steps}; end ${end}.`,
       cumulativeTitle: 'Cumulative market effect',
       monthlyCumulativeTitle: 'Cumulative market effect by month-end',
@@ -110,8 +110,9 @@ export const holdings = defineCopy({
         {
           title: 'Actual P&L',
           items: [
-            'Actual P&L is the change in value minus the money put in: purchases add to money in and sales take it out, so a purchase never reads as a gain. Gains realized on sales inside the period are included.',
-            'Start value + money in + market effect = end value. A security without a price on the start or end date is left out of all four, and the card says how many. A security held under two lot markets is left out whole when either part has no price on a measured date.',
+            'Actual P&L combines the change in unrealized P&L with gains and losses realized on sales during the period.',
+            'The trading and holdings adjustment is the change in the cost of holdings minus realized P&L. It can include net purchases, dividend reinvestment, securities transfers in and out, and existing holdings first recorded during the period.',
+            'Start value + trading and holdings adjustment + market effect = end value. A security without a price on the start or end date is left out of all four, and the card says how many. A security held under two lot markets is left out whole when either part has no price on a measured date.',
             "Each security counts in the market it is held in now, as on the market-mix chart, so US stocks held at Toss Securities count as US. A security sold in full keeps its lot's market, except that a Korean lot whose ticker has no digit counts as US. The total equals the market effect on Net worth when the dates and valuations match; the split by market can differ, because Net worth groups by the lot's market.",
             'The line under the markets adds up the market effect of each pair of stored dates, using month-ends plus both endpoints for 2Y and 3Y. A security without a price on one date drops out of the pairs around it only, so the line shows the shape and can end slightly off the figure above, which is the one to read.',
           ],
@@ -127,7 +128,7 @@ export const holdings = defineCopy({
         {
           title: '1D and the daily bars',
           items: [
-            "The 1D figure can differ from the last bar on the market-mix tab. 1D compares each market with its own previous session at the live quote-file price, on today's quantities. The bar compares the last two stored snapshots and counts today's trades through money in.",
+            "The 1D figure can differ from the last bar on the market-mix tab. 1D compares each market with its own previous session at the live quote-file price, on today's quantities. The bar compares the last two stored snapshots and accounts for today's trades in the trading and holdings adjustment.",
           ],
         },
       ] as readonly { title: string; items: readonly string[] }[],
@@ -281,7 +282,7 @@ export const holdings = defineCopy({
     trendLabel: (name: string, change: string | null) => (change ? `${name}, 12개월 평가금액 추이: ${change}` : `${name}, 12개월 평가금액 추이`),
     periodChange: {
       title: '기간별 변동',
-      info: '고른 기간 동안 포트폴리오가 시장별로 얼마나 움직였는지와 가장 크게 움직인 종목을 보여줍니다. 실제 손익은 새로 넣거나 뺀 돈을 제외하고, 보유 종목 수익률은 오늘의 보유종목을 기간 시작일 종가부터 평가합니다. 아래 검색어와 필터와 관계없이 항상 전체 보유종목을 대상으로 합니다.',
+      info: '고른 기간 동안 포트폴리오가 시장별로 얼마나 움직였는지와 가장 크게 움직인 종목을 보여줍니다. 실제 손익은 평가손익 변화에 실현손익을 더하고, 보유 종목 수익률은 오늘의 보유종목을 기간 시작일 종가부터 평가합니다. 아래 검색어와 필터와 관계없이 항상 전체 보유종목을 대상으로 합니다.',
       periodFilter: '기간',
       periods: { '1d': '1일', '1w': '1주', '1m': '1개월', '3m': '3개월', ytd: '연초 이후', '1y': '1년', '2y': '2년', '3y': '3년' } as Record<string, string>,
       basisFilter: '기준',
@@ -298,7 +299,7 @@ export const holdings = defineCopy({
       markets: { KR: '한국 주식', US: '미국 주식', CRYPTO: '가상자산' } as Record<string, string>,
       marketsHeading: '시장별',
       session: (date: string) => `${date} 기준`,
-      waterfall: { start: '시작', moneyIn: '투입 금액', end: '끝' },
+      waterfall: { start: '시작', moneyIn: '매매·보유 조정액', end: '끝' },
       waterfallSummary: (start: string, steps: string, end: string) => `시작 ${start}, ${steps}, 끝 ${end}.`,
       cumulativeTitle: '날짜별 누적 시장 효과',
       monthlyCumulativeTitle: '월말 기준 누적 시장 효과',
@@ -341,8 +342,9 @@ export const holdings = defineCopy({
         {
           title: '실제 손익',
           items: [
-            '실제 손익은 평가금액 변화에서 새로 넣은 돈을 뺀 값입니다. 매수는 투입 금액에 더하고 매도는 빼므로 매수가 이익으로 보이지 않습니다. 기간 안에 매도해 실현한 손익도 포함합니다.',
-            '시작 금액 + 투입 금액 + 시장 효과 = 끝 금액입니다. 시작일이나 마지막 날에 가격이 없는 종목은 네 값 모두에서 빼고, 몇 개를 뺐는지 카드에 적습니다. 두 세금 단위 시장에 나뉘어 있는 종목은 측정한 날짜에 한쪽이라도 가격이 없으면 통째로 뺍니다.',
+            '실제 손익은 기간 중 평가손익의 변화에 매도로 실현한 손익을 더한 값입니다.',
+            '매매·보유 조정액은 시작과 끝의 보유 원가 차이에서 기간 중 실현손익을 뺀 금액입니다. 순매수 외에 배당 재투자, 주식 입출고, 기존 보유분의 뒤늦은 반영도 포함될 수 있습니다.',
+            '시작 금액 + 매매·보유 조정액 + 시장 효과 = 끝 금액입니다. 시작일이나 마지막 날에 가격이 없는 종목은 네 값 모두에서 빼고, 몇 개를 뺐는지 카드에 적습니다. 두 세금 단위 시장에 나뉘어 있는 종목은 측정한 날짜에 한쪽이라도 가격이 없으면 통째로 뺍니다.',
             '각 종목은 시장별 비중 차트처럼 지금 보유한 시장으로 셉니다. 그래서 토스증권에서 산 미국 주식은 미국 주식입니다. 모두 매도한 종목은 세금 단위의 시장을 따르되, 종목 코드에 숫자가 없는 한국 세금 단위는 미국 주식으로 셉니다. 날짜와 평가액이 같으면 합계는 순자산 페이지의 시장 효과와 같습니다. 순자산 페이지는 세금 단위의 시장으로 나누므로 시장별 값은 다를 수 있습니다.',
             '시장별 막대 아래 선은 저장된 날짜 두 개씩의 시장 효과를 차례로 더한 값으로, 2년·3년은 월말과 시작일·최신 평가일을 사용합니다. 어느 날짜에 가격이 없는 종목은 그 날짜 앞뒤 구간에서만 빠지므로, 선은 모양을 보여줄 뿐이고 끝이 위 숫자와 조금 다를 수 있습니다. 읽을 값은 위 숫자입니다.',
           ],
@@ -358,7 +360,7 @@ export const holdings = defineCopy({
         {
           title: '1일과 일별 막대',
           items: [
-            '1일 값은 시장별 비중 탭의 마지막 막대와 다를 수 있습니다. 1일은 오늘의 보유 수량으로 시장마다 직전 거래일과 시세 파일의 현재가를 비교하고, 막대는 마지막 두 스냅샷을 비교하며 오늘의 매매를 투입 금액으로 처리합니다.',
+            '1일 값은 시장별 비중 탭의 마지막 막대와 다를 수 있습니다. 1일은 오늘의 보유 수량으로 시장마다 직전 거래일과 시세 파일의 현재가를 비교하고, 막대는 마지막 두 스냅샷을 비교하며 오늘의 매매를 매매·보유 조정액에 반영합니다.',
           ],
         },
       ] as readonly { title: string; items: readonly string[] }[],
