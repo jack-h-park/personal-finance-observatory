@@ -136,6 +136,9 @@ export const overview = defineCopy({
     chartValueName: 'Value',
     chartAxisKrw: 'KRW',
     chartAxisUsd: 'USD',
+    realizedAxisFilter: 'Realized G/L axis',
+    realizedAxisShared: 'Shared',
+    realizedAxisRight: 'Right axis',
     onRightAxis: (label: string) => `${label} (right axis)`,
     trendRangeSummary: (start: string, end: string, valued: number, total: number, gaps: number) =>
       `${start} to ${end} · ${valued} valued / ${total} total snapshot(s)${gaps ? ` · ${gaps} gap(s)` : ''}`,
@@ -161,7 +164,7 @@ export const overview = defineCopy({
     goldScopeInfo:
       'How the Gold tab is calculated. Holdings: KRX physical gold plus the gold ETFs IAU, IAUM and SGOL. The ETFs come from the stock book and the physical gold from the gold account statements, so no position is counted twice. Overlap: Global and United States already include the ETFs but not the physical gold; this tab is a separate view and is never added to them. Physical gold value: grams held × the latest KRX price on or before each date (cost when there is no price). Realized G/L: running total of ETF sales and physical gold sales, in won; each gold sale is matched to the purchase it consumed (first in, first out), with commissions included.',
     goldScopeNote:
-      'Gold = KRX physical gold + gold ETFs (IAU · IAUM · SGOL). The ETFs are also counted in Global and United States; this tab is a separate view, not an addition.',
+      'Gold includes KRX physical gold and the gold ETFs IAU, IAUM and SGOL. Global and United States already include these ETFs.',
   },
   ko: {
     title: '재무 개요',
@@ -297,6 +300,9 @@ export const overview = defineCopy({
     chartValueName: '값',
     chartAxisKrw: '원',
     chartAxisUsd: '달러',
+    realizedAxisFilter: '실현손익 축',
+    realizedAxisShared: '공통 축',
+    realizedAxisRight: '오른쪽 축',
     onRightAxis: (label: string) => `${label} (오른쪽 축)`,
     trendRangeSummary: (start: string, end: string, valued: number, total: number, gaps: number) =>
       `${start}부터 ${end}까지 · 가격 확인 ${valued}개 / 전체 ${total}개 스냅샷${gaps ? ` · 공백 ${gaps}개` : ''}`,
@@ -322,6 +328,6 @@ export const overview = defineCopy({
     goldScopeInfo:
       '금 탭 계산 방식. 구성: KRX 금현물 + 금 ETF(IAU, IAUM, SGOL). 금 ETF는 주식 보유내역에서, 금현물은 금 계좌 거래내역에서 가져오므로 같은 자산이 두 번 잡히지 않습니다. 중복 처리: 전체·미국 탭에는 금 ETF만 들어 있고 금현물은 없습니다. 금 탭은 별도 보기이며 다른 탭에 더하지 않습니다. 금현물 평가금액: 보유 그램 × 해당 날짜 이전 최신 KRX 시세(시세가 없으면 취득원가). 실현손익: 금 ETF 매도와 금현물 매도의 누적 합계(원화)이며, 금현물은 오래된 매수분부터 차례로 매칭(선입선출)하고 수수료를 반영합니다.',
     goldScopeNote:
-      '금 = KRX 금현물 + 금 ETF(IAU · IAUM · SGOL). 금 ETF는 전체·미국 탭에도 포함되어 있으며, 이 탭은 합산이 아니라 별도로 보는 화면입니다.',
+      '금 탭에는 KRX 금현물과 금 ETF(IAU · IAUM · SGOL)가 들어 있습니다. 이 ETF는 전체와 미국 탭에도 포함됩니다.',
   },
 })

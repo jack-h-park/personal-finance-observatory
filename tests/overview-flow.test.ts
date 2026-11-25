@@ -65,6 +65,9 @@ test('overviewHref carries every control, so a trend chip keeps the flow period 
   assert.equal(overviewHref(state), '/?trend=1y&scope=global&metric=market_value&view=combined&flow=ytd')
   assert.equal(overviewHref({ ...state, trend: '3m' }), '/?trend=3m&scope=global&metric=market_value&view=combined&flow=ytd')
   assert.equal(overviewHref({ ...state, flow: 'lastYear' }), '/?trend=1y&scope=global&metric=market_value&view=combined&flow=lastYear')
+  assert.equal(overviewHref({ ...state, realizedAxis: 'right' }), overviewHref(state))
+  assert.equal(overviewHref({ ...state, scope: 'GOLD', view: 'single', trend: '3m', realizedAxis: 'shared' }),
+    '/?trend=3m&scope=GOLD&metric=market_value&view=single&flow=ytd&realizedAxis=shared')
 })
 
 test('a published snapshot carries its date and review state onto the card', () => {

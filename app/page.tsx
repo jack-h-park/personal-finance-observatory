@@ -82,7 +82,7 @@ type TrendViewKey = 'single' | 'combined'
 export default async function OverviewPage({
   searchParams,
 }: {
-  searchParams: Promise<{ trend?: string; metric?: string; scope?: string; view?: string; flow?: string }>
+  searchParams: Promise<{ trend?: string; metric?: string; scope?: string; view?: string; flow?: string; realizedAxis?: string }>
 }) {
   const language = await getLanguage()
   const currencyPreferences = await getCurrencyPreferences()
@@ -123,6 +123,7 @@ export default async function OverviewPage({
   const selectedCoverageField = TREND_COVERAGE_FIELDS[selectedScope]
   const selectedScopeLabel = copy.scopeLabels[selectedScope]
   const selectedView: TrendViewKey = params.view === 'single' ? 'single' : 'combined'
+  const realizedAxis: 'shared' | 'right' = params.realizedAxis === 'shared' ? 'shared' : 'right'
   const combinedMetrics = TREND_METRICS.filter((metric) => metric.key !== 'return_pct')
   const overview = getOverview()
   const netWorthSummary = getNetWorth(overview)
@@ -166,7 +167,7 @@ export default async function OverviewPage({
     : null
   // Income and spending over the chosen period, all view only: /cash-inflow and /spending summarized.
   const flowRange = resolveFlowRange(params.flow)
-  const overviewState = { trend: selectedRange.key, scope: selectedScope, metric: selectedMetric.key, view: selectedView, flow: flowRange }
+  const overviewState = { trend: selectedRange.key, scope: selectedScope, metric: selectedMetric.key, view: selectedView, flow: flowRange, realizedAxis }
   const flow = netWorth && inflow12m
     ? (() => {
         const { year, month } = portfolioYearMonth()
@@ -513,56 +514,68 @@ export default async function OverviewPage({
         {latestSnapshot && latestSnapshotStale ? (
           <div className="-mt-1 mb-3 text-label text-warning">{copy.snapshotStale}</div>
         ) : null}
-        {/* Three named single-choice groups, one per line, as on /net-worth: dividers alone did not say where a group began. */}
-        <div className="mb-3 flex flex-col gap-2">
-          <ChipGroup label={copy.trendViewFilter}>
-            <LinkSegmentedControl
-              items={[
-                { key: 'single', href: overviewHref({ ...overviewState, view: 'single' }), label: copy.individual },
-                { key: 'combined', href: overviewHref({ ...overviewState, view: 'combined' }), label: copy.combined },
-              ]}
-              current={selectedView}
-            />
-          </ChipGroup>
-          <ChipGroup label={copy.trendScopeFilter}>
-            <LinkSegmentedControl
-              items={TREND_SCOPES.map((scope) => ({
-                key: scope.key,
-                href: overviewHref({ ...overviewState, scope: scope.key }),
-                label: copy.scopeLabels[scope.key],
-                title: scope.key === 'GOLD' ? copy.scopeHints.GOLD : undefined,
-              }))}
-              current={selectedScope}
-            />
-          </ChipGroup>
-          {/* The metric picks the single-metric chart; the combined view already draws every metric, so the whole group goes. */}
-          {selectedView === 'single' ? (
-            <ChipGroup label={copy.trendMetricFilter}>
+        <div className="mb-3 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex min-w-0 flex-col gap-2">
+            <ChipGroup label={copy.trendViewFilter}>
               <LinkSegmentedControl
-                items={TREND_METRICS.map((metric) => ({
-                  key: metric.key,
-                  href: overviewHref({ ...overviewState, metric: metric.key, view: 'single' }),
-                  label: copy.metricLabels[metric.key],
-                }))}
-                current={selectedMetric.key}
+                items={[
+                  { key: 'single', href: overviewHref({ ...overviewState, view: 'single' }), label: copy.individual },
+                  { key: 'combined', href: overviewHref({ ...overviewState, view: 'combined' }), label: copy.combined },
+                ]}
+                current={selectedView}
               />
             </ChipGroup>
+            <ChipGroup label={copy.trendScopeFilter}>
+              <LinkSegmentedControl
+                items={TREND_SCOPES.map((scope) => ({
+                  key: scope.key,
+                  href: overviewHref({ ...overviewState, scope: scope.key }),
+                  label: copy.scopeLabels[scope.key],
+                  title: scope.key === 'GOLD' ? copy.scopeHints.GOLD : undefined,
+                }))}
+                current={selectedScope}
+              />
+            </ChipGroup>
+            {selectedView === 'combined' ? (
+              <ChipGroup label={copy.realizedAxisFilter}>
+                <LinkSegmentedControl
+                  items={[
+                    { key: 'shared', label: copy.realizedAxisShared, href: overviewHref({ ...overviewState, realizedAxis: 'shared' }) },
+                    { key: 'right', label: copy.realizedAxisRight, href: overviewHref({ ...overviewState, realizedAxis: 'right' }) },
+                  ]}
+                  current={realizedAxis}
+                />
+              </ChipGroup>
+            ) : (
+              <ChipGroup label={copy.trendMetricFilter}>
+                <LinkSegmentedControl
+                  items={TREND_METRICS.map((metric) => ({
+                    key: metric.key,
+                    href: overviewHref({ ...overviewState, metric: metric.key, view: 'single' }),
+                    label: copy.metricLabels[metric.key],
+                  }))}
+                  current={selectedMetric.key}
+                />
+              </ChipGroup>
+            )}
+          </div>
+          {selectedScope === 'GOLD' ? (
+            <div className="lg:max-w-md">
+              <Panel as="p" bordered={false} text="label-note">{copy.goldScopeNote}</Panel>
+            </div>
           ) : null}
         </div>
-        {selectedScope === 'GOLD' ? (
-          <Panel bordered={false} text="label-note" spacing="mb-3">{copy.goldScopeNote}</Panel>
-        ) : null}
         {selectedView === 'combined' ? (
           combinedTrendData.length === 0 ? (
             <EmptyState hint={copy.firstSnapshotHint}>{copy.noCombinedHistory}</EmptyState>
           ) : (
             <PortfolioMultiTrendChart
               data={combinedTrendData}
-              series={combinedMetrics.map((metric) => metric.key === 'realized_gl'
+              series={combinedMetrics.map((metric) => metric.key === 'realized_gl' && realizedAxis === 'right'
                 ? { dataKey: metric.key, name: copy.onRightAxis(copy.metricLabels[metric.key]), color: metric.color, axis: 'right' as const }
                 : { dataKey: metric.key, name: copy.metricLabels[metric.key], color: metric.color })}
               axisLabel={displayAxisLabel}
-              rightAxisLabel={`${copy.metricLabels.realized_gl} · ${displayAxisLabel}`}
+              rightAxisLabel={realizedAxis === 'right' ? `${copy.metricLabels.realized_gl} · ${displayAxisLabel}` : undefined}
               unit={moneyUnit}
               language={language}
               emptyMessage={copy.noCombinedHistory}

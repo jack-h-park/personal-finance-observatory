@@ -65,6 +65,14 @@ export function spendingHref(range: FlowRange): string {
  * An Overview link with every control in its query, so changing one (a trend
  * range, a flow period) keeps the others where they were.
  */
-export function overviewHref(state: { trend: string; scope: string; metric: string; view: string; flow: FlowRange }): string {
-  return `/?trend=${state.trend}&scope=${state.scope}&metric=${state.metric}&view=${state.view}&flow=${state.flow}`
+export function overviewHref(state: {
+  trend: string
+  scope: string
+  metric: string
+  view: string
+  flow: FlowRange
+  realizedAxis?: 'shared' | 'right'
+}): string {
+  const realizedAxisQuery = state.realizedAxis === 'shared' ? '&realizedAxis=shared' : ''
+  return `/?trend=${state.trend}&scope=${state.scope}&metric=${state.metric}&view=${state.view}&flow=${state.flow}${realizedAxisQuery}`
 }
