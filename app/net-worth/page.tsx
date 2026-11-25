@@ -1,3 +1,5 @@
+import { config } from '@/config'
+import { loadCashBalanceEvidence } from '@/lib/adapters/cash-balance-evidence'
 import { CoverageLine } from '@/components/CoverageLine'
 import { DataTable } from '@/components/DataTable'
 import { PageHeader } from '@/components/PageHeader'
@@ -204,6 +206,7 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
   const flaggedShown = flaggedAll.filter((month) => shownHistory.some((row) => row.month === month.month))
   // Cash balances, largest first; a balance with no rate (no won value) goes last.
   const cashRows = [...netWorth.cash].sort((a, b) => (b.krw ?? -Infinity) - (a.krw ?? -Infinity))
+  const findCashEvidence = loadCashBalanceEvidence(config.finance.recordsDir)
   const notesFor = (key: (typeof ASSET_CLASSES)[number]) =>
     netWorth.asOfNotes.filter((note) => note.assetClass === key).map((note) => copy.asOfNote(maskAccountLabel(note.label), fmtDate(note.asOf, language))).join(' · ')
   const amount = (value: number | null) => <span className="tabular-nums">{value == null ? copy.none : money(value)}</span>
@@ -256,6 +259,7 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
               <div className="mt-2 text-hero-sm font-medium leading-none tracking-normal text-ink sm:text-hero">{money(netWorth.totalKrw)}</div>
               <div className="mt-3">
                 <CoverageLine summary={netWorth} language={language} review={coverageReview} />
+                {cashRows.length ? <TextLink href="#deposit-balances">{copy.cashEvidence.jump}</TextLink> : null}
               </div>
             </div>
             <div className="min-w-0 sm:max-w-[60%] sm:text-right">
@@ -604,7 +608,7 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
           </Card>
         ) : null}
 
-        <Card title={copy.balances}>
+        <Card id="deposit-balances" title={copy.balances}>
           {netWorth.unpricedCash.length ? (
             <div className="border-b border-line-subtle bg-surface px-4 py-3 text-label leading-relaxed text-ink-3">
               <p>{copy.unpriced(netWorth.unpricedCash.map(maskAccountLabel).join(', '))}</p>
@@ -613,11 +617,40 @@ export default async function NetWorthPage({ searchParams }: { searchParams: Pro
           <DataTable
             caption={copy.balances}
             rows={cashRows}
-            getRowKey={(row: CashRow) => `${row.institution}|${row.account}`}
+            getRowKey={(row: CashRow) => JSON.stringify([row.institution, row.account, row.currency])}
             emptyMessage={copy.empty}
             columns={[
               { key: 'institution', label: copy.columns.institution, render: (row: CashRow) => <span className="font-medium text-ink">{row.institution}</span> },
-              { key: 'account', label: copy.columns.account, render: (row: CashRow) => maskAccountLabel(row.account) },
+              {
+                key: 'account',
+                label: copy.columns.account,
+                render: (row: CashRow) => {
+                  const evidence = findCashEvidence(row)
+                  return <>
+                    {maskAccountLabel(row.account)}
+                    {evidence ? (
+                      <details className="mt-1">
+                        <summary className="min-h-6 cursor-pointer leading-6 text-label font-medium text-info">{copy.cashEvidence.details}</summary>
+                        <dl className="mt-1 grid gap-2 text-label">
+                          <div>
+                            <dt>{copy.cashEvidence.statement}</dt>
+                            <dd className="tabular-nums">{formatUsd(evidence.closingMinor / 100)}</dd>
+                            <dd>{copy.cashEvidence.statementPeriod(fmtDate(evidence.statementStart, language), fmtDate(evidence.statementEnd, language), evidence.statementPage)}</dd>
+                          </div>
+                          <div>
+                            <dt>{copy.cashEvidence.confirmed}</dt>
+                            <dd className="tabular-nums">{formatUsd(evidence.confirmationMinor / 100)} · {fmtDate(evidence.confirmationDate, language)}</dd>
+                          </div>
+                        </dl>
+                        <Note spacing="above-2">
+                          {copy.cashEvidence.csvUnconfirmed}
+                          <span className="block">{copy.cashEvidence.index}</span>
+                        </Note>
+                      </details>
+                    ) : null}
+                  </>
+                },
+              },
               { key: 'kind', label: copy.columns.kind, priority: 'secondary', render: (row: CashRow) => kindLabel(row.kind) },
               {
                 key: 'asOf',
