@@ -16,9 +16,9 @@ const newYorkDate = new Intl.DateTimeFormat('sv-SE', {
 const kinds: SpendingRow['kind'][] = ['purchase', 'refund', 'card_payment', 'own_transfer', 'fee', 'other']
 type Decision = SavedBankFingerprint & { kind: SpendingRow['kind']; basis: string; transferRef?: string; linkToTransactionId?: string }
 
-function postedDate(value: unknown) {
+function postedDate(value: unknown, card: boolean) {
   if (!instant(value)) throw new Error('invalid_simplefin_date')
-  return newYorkDate.format(new Date(value))
+  return card ? new Date(value).toISOString().slice(0, 10) : newYorkDate.format(new Date(value))
 }
 
 function cents(value: unknown) {
@@ -61,10 +61,12 @@ function reviewDecisions(value: unknown) {
 }
 
 function accountBinding(value: unknown, accountIds: Set<string>) {
-  if (!object(value) || Object.keys(value).length !== 3 || !text(value.accountId) ||
-      !providerId(value.providerAccountId) || !providerId(value.connectionId)) throw new Error('invalid_simplefin_binding')
+  if (!object(value) || Object.keys(value).some(key => !['accountId', 'providerAccountId', 'connectionId', 'accountKind'].includes(key)) || !text(value.accountId) ||
+      !providerId(value.providerAccountId) || !providerId(value.connectionId) ||
+      (value.accountKind !== undefined && value.accountKind !== 'credit_card')) throw new Error('invalid_simplefin_binding')
   if (!accountIds.has(value.accountId)) throw new Error('unknown_account')
-  return { accountId: value.accountId, providerAccountId: value.providerAccountId, connectionId: value.connectionId }
+  return { accountId: value.accountId, providerAccountId: value.providerAccountId, connectionId: value.connectionId,
+    ...(value.accountKind === 'credit_card' ? { accountKind: value.accountKind as 'credit_card' } : {}) }
 }
 
 /** Prepare transactions from the connector's already verified banking/v1 run. */
@@ -77,6 +79,8 @@ export function prepareSimplefinSpending(options: {
   connectionKey: string
 }) {
   const binding = accountBinding(options.binding, options.accountIds)
+  const card = binding.accountKind === 'credit_card'
+  const accountName = card ? /\bcard\b/i : /\bchecking\b/i
   const decisions = reviewDecisions(options.decisions)
   const { run, manifestSha256, connectionKey } = options
   if (!sha256.test(manifestSha256) || !runKey.test(connectionKey) ||
@@ -89,7 +93,7 @@ export function prepareSimplefinSpending(options: {
       !Array.isArray(data['pending-transactions'])) throw new Error('invalid_simplefin_run')
   const [account] = data.accounts
   if (!object(account) || !text(account.accountRef) || account.currency !== 'USD' ||
-      typeof account.name !== 'string' || !/\bchecking\b/i.test(account.name) ||
+      typeof account.name !== 'string' || !accountName.test(account.name) ||
       account.providerAccountId !== binding.providerAccountId || account.connectionId !== binding.connectionId ||
       manifest.connectionId !== binding.connectionId || !Array.isArray(manifest.accountIds) ||
       manifest.accountIds.length !== 1 || manifest.accountIds[0] !== binding.providerAccountId) {
@@ -111,7 +115,7 @@ export function prepareSimplefinSpending(options: {
     }
     const sourceId = row.providerTransactionId
     seen.add(sourceId)
-    const date = postedDate(row.postedAt)
+    const date = postedDate(row.postedAt, card)
     dates.push(date)
     const amountMinor = cents(row.amount)
     const rowNumber = index + 1
@@ -139,18 +143,20 @@ export function prepareSimplefinSpending(options: {
     if (decision.linkToTransactionId) reviewedLinks.push({ row: rowNumber, transactionId: decision.linkToTransactionId })
   }
   dates.sort()
-  const start = dates[0] ?? postedDate(manifest.fetchedAt)
+  const start = dates[0] ?? postedDate(manifest.fetchedAt, card)
   const batch = normalizeSimplefinBatch({
-    schemaVersion: 1, mode: 'offline', status: 'complete', source: 'offline-simplefin-chase',
+    schemaVersion: 1, mode: 'offline', status: 'complete', source: card ? 'offline-simplefin-card' : 'offline-simplefin-chase',
     periodStart: start, periodEnd: dates.at(-1) ?? start, transactions,
-  }, options.accountIds)
+  }, options.accountIds, card)
   // The collector keeps the immutable original; this archive preserves its
   // manifest hash, normalized rows with their raw pointers, and review evidence.
   const bytes = Buffer.from(JSON.stringify({ manifestSha256, run, binding, decisions: usedDecisions }))
   return {
     batch, bytes, format: 'json' as const,
     savedBank: {
-      scope: hash(JSON.stringify([binding, connectionKey])), sourceRows, held, reviewedLinks,
+      scope: hash(JSON.stringify([binding, connectionKey])),
+      accountId: binding.accountId, card, providerKey: hash(JSON.stringify([binding.connectionId, binding.providerAccountId])),
+      sourceRows, held, reviewedLinks,
       ambiguousPostingRows: [...postingRows.values()].filter(rows => rows.length > 1).flat(),
       pendingIgnored: data['pending-transactions'].length,
     },
@@ -177,11 +183,12 @@ export async function loadSimplefinSpending(options: {
       typeof pointer.manifestSha256 !== 'string' || !sha256.test(pointer.manifestSha256)) {
     throw new Error('invalid_simplefin_pointer')
   }
+  const binding = accountBinding(readJson(options.binding), options.accountIds)
+  const domains = binding.accountKind === 'credit_card' ? ['americanexpress.com', 'amazon.syf.com'] : ['chase.com']
   if (!object(config) || config.provider !== 'simplefin' || config.environment !== 'live' || config.sample !== false ||
-      config.institutionDomain !== 'chase.com' || config.connectionKey !== pointer.connectionKey) {
+      typeof config.institutionDomain !== 'string' || !domains.includes(config.institutionDomain) || config.connectionKey !== pointer.connectionKey) {
     throw new Error('invalid_simplefin_config')
   }
-  const binding = accountBinding(readJson(options.binding), options.accountIds)
   if (config.connectionId !== binding.connectionId || !Array.isArray(config.accountIds) ||
       config.accountIds.length !== 1 || config.accountIds[0] !== binding.providerAccountId) {
     throw new Error('simplefin_account_mismatch')

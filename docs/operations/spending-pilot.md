@@ -252,7 +252,7 @@ a later export never remove retained history.
 
 ## Schedule reviewed SimpleFIN spending refresh
 
-The review runner consumes the existing saved Chase Checking pointer. It
+The review runner consumes saved SimpleFIN pointers for Chase Checking and the approved Amex and Amazon cards. It
 pins each immutable run, previews it with the standard importer, and
 writes a private preview in `runs/<run-id>/preview.json`. It does not call
 the provider. Install the spending-review launch agent on the collector
@@ -290,6 +290,38 @@ receiver verifies the existing snapshot without rewriting it. If an
 interrupted run may have published, the next tick retries the prepared
 candidate before adopting the new local ledger. An unexpected operating
 snapshot hash requires reconciling the competing publication first.
+
+### Collect and review the Amex and Amazon cards
+
+Install the card collector launch agent on the collector machine with the
+merged finance-connectors CLI and a separate mode-0600 SimpleFIN batch config.
+Its two explicit USD selections use the existing grant and the verified
+`americanexpress.com` and `amazon.syf.com` institution domains. The 10:05
+collector-host local time schedule is independent of the existing bank job.
+The collector stores immutable runs and updates each card's latest-good
+pointer. Actual provider history can be shorter than the requested window.
+
+For multiple accounts, put source-specific paths under `sources`, keyed by
+the connector's connection key. Each entry supplies `pointer`, `binding`,
+and `simplefinConfig`, with optional localized `accountLabels` and
+`carryDecisions`. Keep the inventory and publisher shared. Use bindings with
+`accountKind: "credit_card"` for cards. Existing checking bindings retain
+their prior shape and New York posting-day convention. Card runs use the UTC
+posted day supplied by the connector. The ledger permits one approved mapping
+per canonical account and provider identity.
+
+Enable `carryDecisions` to seed a new preview from the last applied run of
+the same connection. A previously reviewed row must still match its signed
+amount, posted date, source ID, and original description hash. Review new
+purchases and merchant refunds, and record repayments as card payments and
+explicit card benefits as other. Pending rows and unreviewed credits are
+excluded from publication. Same-day, same-amount card purchases with
+different provider IDs remain distinct. Each batch needs its own exact
+approval, including an overlap-only batch.
+
+Issuer files can supplement unavailable history or resolve an exceptional
+item. The daily review uses the stored SimpleFIN run and does not require a
+monthly issuer statement.
 
 ## Run the Korean workbook importer
 

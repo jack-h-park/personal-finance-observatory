@@ -120,6 +120,33 @@ class DailySpendingTest(unittest.TestCase):
         self.assertEqual(self.remote.read_bytes(), self.original)
         self.assertFalse(daily.receive(self.remote, previous, candidate, lambda *_: None)['unchanged'])
 
+    def test_multiple_sources_keep_approvals_and_carried_decisions_account_scoped(self):
+        self.source.write_bytes(daily.encode(dict(runId='day-one', connectionKey='checking')))
+        card = self.root / 'card-latest.json'
+        card.write_bytes(daily.encode(dict(runId='card-one', connectionKey='card')))
+        config = dict(sources={'card': {**self.config, 'pointer': str(card), 'carryDecisions': True},
+                               'checking': self.config})
+        with patch.object(daily, 'cli', self.cli), patch.object(daily, 'publish', self.publish):
+            first = daily.tick(self.root, config)
+            self.assertEqual(first['status'], 'checked')
+            self.assertEqual(first['sources']['card']['status'], 'awaiting_review')
+            self.assertEqual(first['sources']['checking']['status'], 'awaiting_review')
+            evidence = self.root / 'runs/card-one/decisions.json'
+            evidence.write_bytes(daily.encode(dict(schemaVersion=1, decisions=[])))
+            daily.approve(self.root, 'card-one', TOKEN)
+            card.unlink()
+            status = daily.tick(self.root, config)['sources']
+            self.assertEqual(status['card']['status'], 'awaiting_source')
+            self.assertEqual(status['checking']['status'], 'awaiting_review')
+            self.assertEqual(self.remote.read_bytes(), self.original)
+            card.write_bytes(daily.encode(dict(runId='card-two', connectionKey='card')))
+            status = daily.tick(self.root, config)['sources']
+            self.assertEqual(status['card']['status'], 'published')
+            status = daily.tick(self.root, config)['sources']
+            self.assertEqual(status['checking']['status'], 'awaiting_review')
+            self.assertEqual((self.root / 'runs/card-two/decisions.json').read_bytes(), evidence.read_bytes())
+            self.assertFalse((self.root / 'runs/day-one/decisions.json').exists())
+
     def test_held_batch_cannot_be_approved(self):
         def held(config, directory, apply_token=None):
             return {**self.cli(config, directory, apply_token), 'held':[dict(row=1)]}
