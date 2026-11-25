@@ -2,7 +2,7 @@ import { strict as assert } from 'node:assert'
 import { test } from 'node:test'
 
 import type { PositionSnapshotRow } from '@/lib/adapters/portfolio-db'
-import { actualSummary, nominalStart, periodStart, resolveBasis, resolvePeriod } from '@/lib/period-change'
+import { actualSummary, longPeriodSnapshotDates, nominalStart, periodStart, resolveBasis, resolvePeriod } from '@/lib/period-change'
 
 test('nominalStart steps back by the period and clamps month ends', () => {
   assert.equal(nominalStart('1w', '2030-03-12'), '2030-03-05')
@@ -95,4 +95,22 @@ test('periodStart keeps a snapshot on or just before the nominal start', () => {
 
 test('periodStart clamps when nothing is on, before, or within 4 days after the nominal start', () => {
   assert.deepEqual(periodStart('1w', '2030-03-12', ['2030-03-11', '2030-03-12']), { date: '2030-03-11', clamped: true })
+})
+
+
+test('long periods prefer the exact valuation and fall back only to an earlier month-end', () => {
+  const dates = ['2023-10-31', '2023-11-25', '2023-11-30', '2024-10-31', '2024-11-23', '2024-11-30', '2026-11-25']
+  assert.equal(resolvePeriod('2y'), '2y')
+  assert.equal(resolvePeriod('3y'), '3y')
+  assert.equal(nominalStart('3y', '2024-02-29'), '2021-02-28')
+  assert.deepEqual(periodStart('3y', '2026-11-25', dates), { date: '2023-11-25', clamped: false })
+  assert.deepEqual(periodStart('2y', '2026-11-25', dates), { date: '2024-10-31', clamped: false })
+  assert.equal(periodStart('3y', '2026-11-25', dates.slice(2)), null)
+})
+
+test('the long-period graph keeps the reference date, calendar month-ends and the latest evaluation only', () => {
+  const dates = ['2024-10-31', '2024-11-25', '2024-11-30', '2025-11-22', '2025-11-30', '2026-11-24', '2026-11-25', '2026-11-30']
+  assert.deepEqual(longPeriodSnapshotDates(dates, '2024-11-25', '2026-11-25'), [
+    '2024-11-25', '2024-11-30', '2025-11-30', '2026-11-25',
+  ])
 })

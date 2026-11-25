@@ -1155,17 +1155,18 @@ export type PositionSnapshotRow = {
   marketValueKrw: number | null
 }
 
-/** Position rows at the given snapshot dates, or null when the database has no position_snapshots table. */
-export function getPositionSnapshots(dates: string[]): PositionSnapshotRow[] | null {
+/** Position rows at the given dates, or null when the requested history table is absent. */
+export function getPositionSnapshots(dates: string[], { longPeriod = false } = {}): PositionSnapshotRow[] | null {
   const conn = db()
   try {
-    const table = conn.prepare("select 1 from sqlite_master where type = 'table' and name = 'position_snapshots'").get()
-    if (!table) return null
+    const table = longPeriod ? 'long_period_position_snapshots' : 'position_snapshots'
+    const exists = conn.prepare("select 1 from sqlite_master where type = 'table' and name = ?").get(table)
+    if (!exists) return null
     if (dates.length === 0) return []
     const rows = conn
       .prepare(
         `select snapshot_date, market, ticker, coalesce(name, ticker) as name, quantity, cost_krw, market_value_krw
-         from position_snapshots
+         from ${table}
          where snapshot_date in (${dates.map(() => '?').join(', ')})
          order by snapshot_date, market, ticker`
       )

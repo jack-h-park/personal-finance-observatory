@@ -4,8 +4,8 @@
  * and the ingest writes today's, both through writePositionSnapshots.
  */
 
-export const POSITION_SNAPSHOTS_DDL = `
-create table if not exists position_snapshots (
+const positionSnapshotsDdl = (table) => `
+create table if not exists ${table} (
   id integer primary key,
   snapshot_date text not null,
   market text not null,
@@ -16,6 +16,8 @@ create table if not exists position_snapshots (
   market_value_krw real,
   unique(snapshot_date, market, ticker)
 )`
+export const POSITION_SNAPSHOTS_DDL = positionSnapshotsDdl('position_snapshots')
+export const LONG_PERIOD_POSITION_SNAPSHOTS_DDL = positionSnapshotsDdl('long_period_position_snapshots')
 
 /**
  * Sum per-account valued positions into one row per security. The market value
@@ -43,9 +45,10 @@ export function aggregatePositions(valued, names) {
   return [...bySecurity.values()]
 }
 
-export function writePositionSnapshots(db, date, rows) {
+export function writePositionSnapshots(db, date, rows, { longPeriod = false } = {}) {
+  const table = longPeriod ? 'long_period_position_snapshots' : 'position_snapshots'
   const insert = db.prepare(`
-    insert or replace into position_snapshots
+    insert or replace into ${table}
       (snapshot_date, market, ticker, name, quantity, cost_krw, market_value_krw)
     values (?, ?, ?, ?, ?, ?, ?)
   `)

@@ -3,9 +3,10 @@ import Database from 'better-sqlite3'
 import path from 'node:path'
 import { loadLocalEnv } from './env.mjs'
 import { createLotValuer, dateOnly } from './lot-valuation.mjs'
+import { longHoldingsReferenceDates } from '../lib/calendar-dates.mjs'
 import { snapshotDates } from './snapshot-dates.mjs'
 import { valuePortfolio } from './portfolio-snapshot.mjs'
-import { POSITION_SNAPSHOTS_DDL, aggregatePositions, writePositionSnapshots } from './position-snapshots.mjs'
+import { LONG_PERIOD_POSITION_SNAPSHOTS_DDL, POSITION_SNAPSHOTS_DDL, aggregatePositions, writePositionSnapshots } from './position-snapshots.mjs'
 
 loadLocalEnv()
 
@@ -61,6 +62,7 @@ try {
   const historicalPrices = db.prepare('select market, ticker, currency, price_date, close from historical_prices order by market, ticker, price_date').all()
   const historicalFxRates = db.prepare('select price_date, rate from historical_fx_rates order by price_date').all()
   const dates = snapshotDates(firstDate, currentDate)
+  const longReferences = longHoldingsReferenceDates(currentDate).filter((date) => date >= firstDate)
   const currentPositions = db
     .prepare('select market, base_cost as cost, base_market_value as marketValue from holdings where quantity != 0')
     .all()
@@ -119,6 +121,14 @@ try {
         krwCost, usdCost, dividendsKrw, dividendsUsd, valuation.global.positionCount, shareCount
       )
     }
+    // Keep strict reference valuations separate from month-ends used by other
+    // views, even when an anniversary itself lands on a calendar month-end.
+    db.exec(LONG_PERIOD_POSITION_SNAPSHOTS_DDL)
+    db.prepare('delete from long_period_position_snapshots').run()
+    for (const date of longReferences) {
+      const valued = valuedPositionsAt(date, { allowLaterFx: false })
+      writePositionSnapshots(db, date, aggregatePositions(valued, names), { longPeriod: true })
+    }
     // A standalone backfill may be the first command run against an older DB.
     // Upgrade its preserved current row too; the normal production refresh has
     // already written these values during ingest, so this is idempotent there.
@@ -150,7 +160,7 @@ try {
     )
   })
   rebuild()
-  console.log(`Backfilled ${dates.length} portfolio snapshot(s) (month-ends and the last year's weekdays) from ${firstDate} to ${currentDate}.`)
+  console.log(`Backfilled ${dates.length} portfolio snapshot(s) and ${longReferences.length} long-range reference date(s) from ${firstDate} to ${currentDate}.`)
 } finally {
   db.close()
 }
