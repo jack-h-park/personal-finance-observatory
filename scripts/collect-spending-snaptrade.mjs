@@ -20,7 +20,10 @@ try {
   const sync = account.sync_status?.transactions
   if (sync?.initial_sync_completed !== true || !/^\d{4}-\d{2}-\d{2}$/.test(sync.last_successful_sync))
     throw new Error('snaptrade_card_sync_incomplete')
-  const { data, pagination } = await p.activities(account.id, from, through, 0, 1000)
+  // Activities are queryable by trade date. Include the preceding week so
+  // purchases made before the boundary can still post inside it.
+  const queryFrom = new Date(Date.parse(from) - 7 * 86_400_000).toISOString().slice(0, 10)
+  const { data, pagination } = await p.activities(account.id, queryFrom, through, 0, 1000)
   if (!Array.isArray(data) || pagination?.offset !== 0 || pagination.total !== data.length ||
       !Number.isSafeInteger(pagination.limit) || pagination.limit < data.length)
     throw new Error('snaptrade_card_pagination_incomplete')
