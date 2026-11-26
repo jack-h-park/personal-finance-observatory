@@ -29,7 +29,7 @@ export function positionQuantity(position: SalePosition) {
 
 export type SaleLine = { positionId: string; quantity: string }
 
-function shareUnits(input: string) {
+export function saleShareUnits(input: string) {
   const match = /^(\d+)(?:\.(\d{1,8}))?$/.exec(input.trim())
   if (!match) return 0
   const units = Number(match[1] + (match[2] ?? '').padEnd(8, '0'))
@@ -85,7 +85,7 @@ function roundUsd(amount: { shortUsd: number; longUsd: number } | null) {
 }
 
 export function estimateHoldingSale(position: SalePosition, input: string, usdKrw: number | null) {
-  const units = shareUnits(input)
+  const units = saleShareUnits(input)
   if (!units || units / shareScale > positionQuantity(position)) return null
   const { lots, proceedsUsd, us, krw } = valueLots(position, units, usdKrw, 0)
   return { lots, proceedsUsd, us: roundUsd(us), krw: krw == null ? null : Math.round(krw) }
@@ -93,7 +93,7 @@ export function estimateHoldingSale(position: SalePosition, input: string, usdKr
 
 export function estimateHoldingSales(positions: SalePosition[], lines: SaleLine[], usdKrw: number | null) {
   const byId = new Map(positions.map(position => [position.id, position]))
-  const quantities = lines.map(line => shareUnits(line.quantity))
+  const quantities = lines.map(line => saleShareUnits(line.quantity))
   const totals = new Map<string, number>()
   lines.forEach((line, index) => totals.set(line.positionId, (totals.get(line.positionId) ?? 0) + quantities[index]))
 
@@ -116,9 +116,11 @@ export function estimateHoldingSales(positions: SalePosition[], lines: SaleLine[
   })
   const usComplete = rows.length > 0 && rows.every(row => row.estimate?.us != null)
   const krComplete = rows.length > 0 && rows.every(row => row.estimate?.krw != null)
+  const proceedsComplete = rows.length > 0 && rows.every(row => row.estimate?.proceedsUsd != null)
   const totalUsd = { shortUsd: 0, longUsd: 0 }
+  let proceedsUsd = 0
   let totalKrw = 0
-  if (usComplete || krComplete) {
+  if (usComplete || krComplete || proceedsComplete) {
     // Value each position's total once so splitting a sale across lines does
     // not introduce different rounding at a tax input's cent or won boundary.
     for (const position of positions) {
@@ -128,7 +130,8 @@ export function estimateHoldingSales(positions: SalePosition[], lines: SaleLine[
       totalUsd.shortUsd += value.us?.shortUsd ?? 0
       totalUsd.longUsd += value.us?.longUsd ?? 0
       totalKrw += value.krw ?? 0
+      proceedsUsd += value.proceedsUsd ?? 0
     }
   }
-  return { rows, us: usComplete ? roundUsd(totalUsd) : null, krw: krComplete ? Math.round(totalKrw) : null }
+  return { rows, proceedsUsd: proceedsComplete ? proceedsUsd : null, us: usComplete ? roundUsd(totalUsd) : null, krw: krComplete ? Math.round(totalKrw) : null }
 }

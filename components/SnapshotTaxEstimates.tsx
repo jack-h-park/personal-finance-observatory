@@ -6,6 +6,9 @@ import { Button, Note, TextLink } from '@/components/ui'
 import { INVESTMENT_TAX_YEARS, readInvestmentTaxYear, type InvestmentTaxYear } from '@/lib/domain/taxes/investment-tax-year'
 import { estimateHoldingSales, positionQuantity, type HoldingsForSale, type SaleLine } from '@/lib/domain/taxes/holding-sale'
 import { InvestmentTaxReserve } from '@/components/InvestmentTaxReserve'
+import { SavedSaleComparisons } from '@/components/SavedSaleComparisons'
+import { savedSales } from '@/lib/ui-copy/pages/savedSales'
+import type { SavedSaleLine } from '@/lib/application/saved-holding-sales'
 import { KrOverseasStockTax } from '@/components/KrOverseasStockTax'
 import { localeFor } from '@/lib/format'
 import type { RealizedTaxInputs } from '@/lib/application/realized-tax-inputs'
@@ -25,7 +28,7 @@ export function SnapshotTaxEstimates({ language, defaultYear, recorded, saleYear
   const [jurisdiction, setJurisdiction] = useState('')
   const [purpose, setPurpose] = useState('realized')
   const [manual, setManual] = useState(false)
-  const [lines, setLines] = useState<(SaleLine & { id: number })[]>([{ id: 0, positionId: '', quantity: '' }])
+  const [lines, setLines] = useState<(SaleLine & { id: number; label?: string })[]>([{ id: 0, positionId: '', quantity: '' }])
   const nextLine = useRef(1)
   const pendingFocus = useRef<number | null>(null)
   const linePrefix = useId()
@@ -42,6 +45,18 @@ export function SnapshotTaxEstimates({ language, defaultYear, recorded, saleYear
   const ledger = sale ? saleRecorded : recorded
   const available = useRealizedRecords ? (isUs ? ledger?.us : ledger?.kr) : null
   const proposed = useMemo(() => sale && sales ? estimateHoldingSales(sales.positions, lines, sales.fx?.rate ?? null) : null, [sale, sales, lines])
+  const draft = proposed && proposed.rows.every(row => !row.error) ? lines.map((line, index) => {
+    const position = proposed.rows[index].position
+    return { positionId: line.positionId, quantity: line.quantity.trim(),
+      label: position ? [position.ticker, position.accountLabel].filter(Boolean).join(' · ') : '' }
+  }) : null
+  const loadSale = (saved: SavedSaleLine[]) => {
+    const restored = saved.map(line => ({ ...line, id: nextLine.current++ }))
+    pendingFocus.current = restored[0].id
+    setManual(false)
+    if (!jurisdiction) setJurisdiction('us')
+    setLines(restored)
+  }
   const proposedForJurisdiction = isUs ? proposed?.us : proposed?.krw
   const locale = localeFor(language)
   const usd = new Intl.NumberFormat(locale, { style: 'currency', currency: 'USD' })
@@ -131,6 +146,9 @@ export function SnapshotTaxEstimates({ language, defaultYear, recorded, saleYear
                         <Select id={positionControl} className="w-full" value={line.positionId} aria-describedby="snapshot-sale-scope"
                           onChange={event => editLine(line.id, { positionId: event.target.value, quantity: '' })}>
                           <option value="">{copy.choosePosition}</option>
+                          {!position && line.positionId && <option value={line.positionId} disabled>
+                            {savedSales[language].unavailablePosition(line.label ?? '')}
+                          </option>}
                           {sales.positions.map(item => (
                             <option key={item.id} value={item.id}>{[item.ticker, item.accountLabel].filter(Boolean).join(' · ')}</option>
                           ))}
@@ -153,6 +171,7 @@ export function SnapshotTaxEstimates({ language, defaultYear, recorded, saleYear
                         }}>{copy.removeSale}</Button>
                       )}
                     </div>
+                    {!position && line.positionId && <Note>{savedSales[language].unavailablePosition(line.label ?? '')}</Note>}
                     {position && (
                       <div className="space-y-1.5" aria-live="polite">
                         <div id={quantityHelp} className="space-y-1">
@@ -186,6 +205,7 @@ export function SnapshotTaxEstimates({ language, defaultYear, recorded, saleYear
           )}
         </div>
       )}
+      {sale && sales && <SavedSaleComparisons language={language} book={sales} ledger={saleRecorded} year={year} draft={draft} onLoad={loadSale} />}
       {!!jurisdiction && (
         <div hidden={!showForm}>
           {isUs ? (

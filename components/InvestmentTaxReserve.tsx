@@ -7,7 +7,7 @@ import { STANDALONE_ESTIMATE_YEAR, type InvestmentTaxYear } from '@/lib/domain/t
 import type { Language } from '@/lib/i18n'
 import { localeFor } from '@/lib/format'
 import { investmentTaxReserve } from '@/lib/ui-copy/pages/investmentTaxReserve'
-import { estimateInvestmentTaxReserve, reserveFields, RESERVE_RULES, scenarioWithRecordedGains } from '@/lib/domain/taxes/investment-tax-reserve'
+import { estimateInvestmentTaxReserve, estimateUsSaleComparison, reserveFields, RESERVE_RULES, scenarioWithRecordedGains } from '@/lib/domain/taxes/investment-tax-reserve'
 
 const emptyScenario = { taxable: '', preferential: '', magi: '', nii: '' }
 const components = ['regular', 'niit', 'total'] as const
@@ -52,12 +52,12 @@ export function InvestmentTaxReserve({
             aria-describedby="reserve-scope reserve-exclusions"
             onSubmit={event => {
               event.preventDefault()
-              const before = recorded && proposed ? scenarioWithRecordedGains(baseline, recorded, adjustments) : baseline
-              const after = recorded ? scenarioWithRecordedGains(baseline, {
-                shortUsd: recorded.shortUsd + (proposed?.shortUsd ?? 0),
-                longUsd: recorded.longUsd + (proposed?.longUsd ?? 0),
-              }, adjustments) : scenario
-              setResult(before && after ? estimateInvestmentTaxReserve({ profile, filing, baseline: before, scenario: after, year }) : 'recorded')
+              if (recorded && proposed) {
+                setResult(estimateUsSaleComparison({ profile, filing, baseline, adjustments }, recorded, proposed, year) ?? 'recorded')
+                return
+              }
+              const after = recorded ? scenarioWithRecordedGains(baseline, recorded, adjustments) : scenario
+              setResult(after ? estimateInvestmentTaxReserve({ profile, filing, baseline, scenario: after, year }) : 'recorded')
             }}
           >
             <div className="flex flex-wrap gap-4">

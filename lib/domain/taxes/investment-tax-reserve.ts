@@ -109,3 +109,18 @@ export function estimateInvestmentTaxReserve(input: { profile: string; filing: s
     delta: { regular: scenario.regular - baseline.regular, niit: scenario.niit - baseline.niit, total: scenario.total - baseline.total },
   } as const
 }
+
+/** Compare the recorded year with the same year plus a proposed sale. */
+export function estimateUsSaleComparison(
+  input: { profile: string; filing: string; baseline: Scenario; adjustments: { short: string; long: string } },
+  recorded: { shortUsd: number; longUsd: number },
+  proposed: { shortUsd: number; longUsd: number },
+  year: InvestmentTaxYear,
+) {
+  const baseline = scenarioWithRecordedGains(input.baseline, recorded, input.adjustments)
+  const scenario = scenarioWithRecordedGains(input.baseline, {
+    shortUsd: recorded.shortUsd + proposed.shortUsd,
+    longUsd: recorded.longUsd + proposed.longUsd,
+  }, input.adjustments)
+  return baseline && scenario ? estimateInvestmentTaxReserve({ profile: input.profile, filing: input.filing, baseline, scenario, year }) : null
+}

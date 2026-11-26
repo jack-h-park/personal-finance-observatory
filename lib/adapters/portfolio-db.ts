@@ -5565,7 +5565,7 @@ export function getHoldingsForSale(date: string): HoldingsForSale | null {
       let position = positions.get(key)
       if (!position) {
         position = {
-          id: String(positions.size + 1), ticker, accountLabel: displayAccount(lot.brokerage, lot.account),
+          id: createHash('sha256').update(key).digest('hex'), ticker, accountLabel: displayAccount(lot.brokerage, lot.account),
           holdingQuantity, quote: quotes.get(ticker) ?? null, lots: [],
         }
         positions.set(key, position)
