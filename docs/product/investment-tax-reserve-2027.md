@@ -1,4 +1,4 @@
-# 2027 US federal investment tax estimate
+# 2027 US federal tax estimate for investment income
 
 ## Decision and inputs
 

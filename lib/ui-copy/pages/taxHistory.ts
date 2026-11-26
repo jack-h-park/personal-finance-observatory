@@ -51,8 +51,8 @@ export const taxHistory = defineCopy({
     unallocatedNote: 'These amounts are outside scoped totals until their obligations are reviewed.',
     missingDate: 'Some events have no occurrence date and cannot enter date-bounded totals.',
     compare:
-      'Investment tax scenarios estimate incremental investment effects. An annual return comparison requires matching annual-total coverage.',
-    planning: 'Investment tax planning',
+      'The planning estimates show how changes in dividends or stock sales affect tax. A comparison with a filed return requires matching annual coverage.',
+    planning: 'Tax planning for dividends and stock sales',
     revision: 'State revision',
     readOnly: 'This host is read-only for tax history.',
     basis: 'Effective liability basis',
@@ -128,8 +128,8 @@ export const taxHistory = defineCopy({
     unallocatedNote: '대상 세금 의무를 확인하기 전까지 선택 범위의 합계에서 제외합니다.',
     missingDate: '발생일이 없는 기록은 날짜 범위를 지정한 합계에서 제외합니다.',
     compare:
-      '투자 세금 시나리오는 투자로 인한 추가 영향을 추산합니다. 종합 신고 세액과 비교하려면 같은 연간 전체 계산 범위가 필요합니다.',
-    planning: '투자 세금 계획',
+      '배당이나 주식 매도에 따른 세액 변화를 추산합니다. 신고 세액과 비교하려면 연간 계산 범위가 같아야 합니다.',
+    planning: '배당·주식 매도 세금 계획',
     revision: '기록 버전',
     readOnly: '이 호스트에서는 세금 이력을 수정할 수 없습니다.',
     basis: '세액 계산의 기준 기록',

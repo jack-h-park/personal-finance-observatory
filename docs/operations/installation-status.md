@@ -146,7 +146,7 @@ The checks below record the two approved data changes on the existing owner web 
 
 The checks preserved existing financial records, prior-year projections, original evidence, account mappings and the effective access restrictions. Web tax-history writes remain disabled. The actual 2025 comparison remains blocked and further deployment is held. Both data changes were verified on the existing build. Detailed figures, exact evidence dates, paths and private identifiers remain in the operator's receipts.
 
-## 2027 investment tax worksheet and cross-border release: November 26, 2026
+## 2027 US income tax worksheet and Korea–US stock sale comparison: November 26, 2026
 
 [#503](https://github.com/jack-h-park/personal-finance-observatory/pull/503) merged as `321355fc129ba32d986ce8361d940316870b4292`. [#505](https://github.com/jack-h-park/personal-finance-observatory/pull/505) merged as `2b508ca031e1e593b722497934e388fc734ab202`. The owner authorized a combined app-only deployment. The release applied the 16 changed app, component, library and test paths to the serving revision and retained the existing Holdings sale comparisons.
 

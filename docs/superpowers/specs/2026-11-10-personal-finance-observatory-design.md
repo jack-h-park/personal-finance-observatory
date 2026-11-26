@@ -65,7 +65,7 @@ Tax-treatment questions are being collected in [PR #271](https://github.com/jack
 
 - Promote the already supported asset classes; do not expand the parser set merely to justify the new name.
 - Deliver tax-history recording through a reviewed structured import and local editing before broad PDF automation.
-- Reuse the existing investment tax engine with explicit coverage labels.
+- Reuse the existing tax calculation for investment income and stock sales with explicit coverage labels.
 - Select one complete, owner-chosen historical tax year for private acceptance across relevant KR/US authorities; do not invent missing records or infer completion from filenames.
 - Support additional years through the same contract after that vertical slice works.
 
