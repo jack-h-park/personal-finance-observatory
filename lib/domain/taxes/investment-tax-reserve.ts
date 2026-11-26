@@ -35,6 +35,37 @@ function parseUsd(text: string) {
   return match ? BigInt(match[1].replaceAll(',', '')) * 100n + BigInt((match[2] ?? '').padEnd(2, '0')) : null
 }
 
+function parseAdjustment(text: string) {
+  const value = text.trim()
+  if (!value) return 0n
+  const digits = parseUsd(value.replace(/^[+-]/, ''))
+  return digits == null || !value.startsWith('-') ? digits : -digits
+}
+
+/** Ordinary capital-gain comparison with fixed deductions and NIIT treatment. */
+export function scenarioWithRecordedGains(
+  baseline: Scenario,
+  recorded: { shortUsd: number; longUsd: number },
+  adjustment: { short: string; long: string },
+): Scenario | null {
+  const [taxable, preferential, magi, nii] = reserveFields.map(key => parseUsd(baseline[key]))
+  const extraShort = parseAdjustment(adjustment.short)
+  const extraLong = parseAdjustment(adjustment.long)
+  if (taxable == null || preferential == null || magi == null || nii == null || extraShort == null || extraLong == null) return null
+
+  // A zero ordinary base can hide unused deductions or preferential income.
+  if (taxable <= preferential) return null
+
+  const short = BigInt(Math.round(recorded.shortUsd * 100)) + extraShort
+  const long = BigInt(Math.round(recorded.longUsd * 100)) + extraLong
+  const net = short + long
+  // A net loss requires the annual loss allowance and NIIT adjustments.
+  if (net < 0n) return null
+  const eligible = positive(min(long, net))
+  const dollars = (cents: bigint) => `${cents / 100n}.${String(cents % 100n).padStart(2, '0')}`
+  return { taxable: dollars(taxable + net), preferential: dollars(preferential + eligible), magi: dollars(magi + net), nii: dollars(nii + net) }
+}
+
 function ordinaryNumerator(taxable: bigint, ceilings: number[]) {
   let prior = 0n
   let numerator = 0n

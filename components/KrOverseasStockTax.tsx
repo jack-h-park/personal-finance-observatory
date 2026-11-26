@@ -1,9 +1,9 @@
 'use client'
 
-import { useState } from 'react'
-import { Input } from '@/components/form'
+import { useEffect, useState } from 'react'
+import { Checkbox, Input } from '@/components/form'
 import { Button, Card, Note } from '@/components/ui'
-import { estimateKrOverseasStockTax, KR_OVERSEAS_STOCK_RULES, krStockTaxRows } from '@/lib/domain/taxes/kr-overseas-stock-tax'
+import { estimateKrOverseasStockTax, estimateKrRecordedStockTax, KR_OVERSEAS_STOCK_RULES, krStockTaxRows } from '@/lib/domain/taxes/kr-overseas-stock-tax'
 import { localeFor } from '@/lib/format'
 import { STANDALONE_ESTIMATE_YEAR, type InvestmentTaxYear } from '@/lib/domain/taxes/investment-tax-year'
 import type { Language } from '@/lib/i18n'
@@ -16,15 +16,21 @@ export function KrOverseasStockTax({
   language,
   year = STANDALONE_ESTIMATE_YEAR,
   comparison,
+  recordedKrw,
 }: {
   language: Language
   year?: InvestmentTaxYear
+  recordedKrw?: number
   comparison?: { baseline: string; scenario: string; result: string }
 }) {
   const copy = krOverseasStockTax[language]
   const labels = comparison ?? copy
   const [amounts, setAmounts] = useState({ baseline: '', scenario: '' })
+  const automatic = recordedKrw !== undefined
+  const [adjustment, setAdjustment] = useState('')
+  const [confirmed, setConfirmed] = useState(false)
   const [result, setResult] = useState<ReturnType<typeof estimateKrOverseasStockTax> | null>(null)
+  useEffect(() => setResult(null), [automatic])
   const locale = localeFor(language)
   const money = new Intl.NumberFormat(locale, { style: 'currency', currency: 'KRW' })
   const signedMoney = new Intl.NumberFormat(locale, { style: 'currency', currency: 'KRW', signDisplay: 'exceptZero' })
@@ -34,40 +40,68 @@ export function KrOverseasStockTax({
       <Card title={copy.inputs}>
         <div className="space-y-4 p-4">
           <p id="kr-stock-tax-assumption" className="text-body text-ink-2">{copy.assumption}</p>
-          <Note>{investmentTaxReserve[language].privacy}</Note>
+          <Note>{automatic ? investmentTaxReserve[language].recordedPrivacy : investmentTaxReserve[language].privacy}</Note>
           <form
             autoComplete="off"
             aria-describedby="kr-stock-tax-assumption"
             className="space-y-4"
             onSubmit={event => {
               event.preventDefault()
-              setResult(estimateKrOverseasStockTax(amounts.baseline, amounts.scenario, year))
+              if (recordedKrw === undefined) {
+                setResult(estimateKrOverseasStockTax(amounts.baseline, amounts.scenario, year))
+              } else if (confirmed) {
+                setResult(estimateKrRecordedStockTax(recordedKrw, adjustment, year))
+              }
             }}
           >
-            <p id="kr-stock-tax-hint" className="text-body text-ink-2">{copy.hint}</p>
-            <div className="flex flex-wrap gap-4">
-              {scenarios.map(key => (
-                <label key={key} className="block min-w-0 flex-1 basis-64">
-                  <span className="mb-1 block text-label">{labels[key]}</span>
+            {automatic ? (
+              <div className="space-y-3">
+                <p id="kr-recorded-hint" className="text-body text-ink-2">{copy.recordedHint}</p>
+                <label className="block max-w-sm">
+                  <span className="mb-1 block text-label">{copy.recordedAdjustment}</span>
                   <Input
                     className="w-full tabular-nums"
-                    aria-describedby="kr-stock-tax-hint"
                     size="md"
-                    value={amounts[key]}
-                    onChange={event => {
-                      setAmounts({ ...amounts, [key]: event.target.value })
-                      setResult(null)
-                    }}
+                    inputMode="text"
+                    maxLength={20}
+                    aria-describedby="kr-recorded-hint"
+                    value={adjustment}
+                    onChange={event => { setAdjustment(event.target.value); setResult(null) }}
                   />
                 </label>
-              ))}
-            </div>
-            <Button type="submit" size="md">{copy.calculate}</Button>
+                <label className="flex min-h-6 items-center gap-2 text-label">
+                  <Checkbox checked={confirmed} onChange={event => { setConfirmed(event.target.checked); setResult(null) }} />
+                  {copy.recordedConfirm}
+                </label>
+              </div>
+            ) : (
+              <>
+                <p id="kr-stock-tax-hint" className="text-body text-ink-2">{copy.hint}</p>
+                <div className="flex flex-wrap gap-4">
+                  {scenarios.map(key => (
+                    <label key={key} className="block min-w-0 flex-1 basis-64">
+                      <span className="mb-1 block text-label">{labels[key]}</span>
+                      <Input
+                        className="w-full tabular-nums"
+                        aria-describedby="kr-stock-tax-hint"
+                        size="md"
+                        value={amounts[key]}
+                        onChange={event => {
+                          setAmounts({ ...amounts, [key]: event.target.value })
+                          setResult(null)
+                        }}
+                      />
+                    </label>
+                  ))}
+                </div>
+              </>
+            )}
+            <Button type="submit" size="md" disabled={automatic && !confirmed}>{copy.calculate}</Button>
           </form>
         </div>
       </Card>
       <div role="status" aria-live="polite">
-        {result?.status === 'unavailable' ? <Note>{copy.invalid}</Note> : null}
+        {result?.status === 'unavailable' ? <Note>{automatic ? copy.recordedInvalid : copy.invalid}</Note> : null}
         {result?.status === 'ready' ? (
           <Card title={labels.result}>
             <div className="overflow-x-auto p-4">

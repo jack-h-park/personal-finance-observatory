@@ -2,6 +2,8 @@ import { Note, TextLink } from '@/components/ui'
 import { SnapshotTaxEstimates } from '@/components/SnapshotTaxEstimates'
 import { todayLosAngeles } from '@/lib/cli/common'
 import { INVESTMENT_TAX_YEARS } from '@/lib/domain/taxes/investment-tax-year'
+import { getRealizedLots } from '@/lib/adapters/portfolio-db'
+import { summarizeRealizedTaxInputs, type RealizedTaxInputs } from '@/lib/application/realized-tax-inputs'
 import { readTaxHistory } from '@/lib/adapters/tax-history-store'
 import { snapshotTaxPayments } from '@/lib/application/snapshot-tax-payments'
 import { formatMoney } from '@/lib/domain/taxes/reconcile'
@@ -20,6 +22,13 @@ export function SnapshotTaxContext({ language }: { language: Language }) {
     payments = snapshotTaxPayments(readTaxHistory())
   } catch {
     // An unreadable history is distinct from a history without investment payments.
+  }
+
+  let recorded: RealizedTaxInputs | null = null
+  try {
+    recorded = summarizeRealizedTaxInputs(getRealizedLots({ includeGold: true }), 2026)
+  } catch {
+    // The manual estimate stays available when the realized ledger cannot be read.
   }
 
   return (
@@ -52,7 +61,7 @@ export function SnapshotTaxContext({ language }: { language: Language }) {
           ) : <Note>{payments ? copy.paymentEmpty : copy.paymentUnavailable}</Note>}
           <TextLink href="/taxes/history">{copy.history}</TextLink>
         </div>
-        <SnapshotTaxEstimates language={language} defaultYear={defaultYear} />
+        <SnapshotTaxEstimates language={language} defaultYear={defaultYear} recorded={recorded} />
       </div>
     </details>
   )
