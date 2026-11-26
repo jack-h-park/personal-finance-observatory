@@ -1,3 +1,4 @@
+import { positionQuantity, type HoldingsForSale, type SalePosition } from '@/lib/domain/taxes/holding-sale'
 import { CRYPTO_PRICE_STALE_MS, FX_RATE_STALE_MS, priceStaleAfterMs } from '@/lib/price-staleness'
 import { buildValuationBasis, quoteWindow, securityValuationBasis, sourceText, type CashRange, type ValuationBasisItem } from '@/lib/valuation-basis'
 import { cryptoStatementCoverageEnd, strictIsoDate } from '@/lib/domain/assets/query-coverage'
@@ -11,7 +12,7 @@ import Database from 'better-sqlite3'
 import { rateOnOrBefore, toRealizedView, type RealizedLotRow, type RealizedLotView } from '@/lib/realized-lots'
 import { config } from '@/config'
 import { datedAmountSql, NET_DIVIDEND_SQL, type DisplayCurrency } from '@/lib/adapters/income-fx'
-import { buildTaxPlan, summarizeTaxCandidates, type TaxPlanningLot } from '@/lib/tax-planning'
+import { buildTaxPlan, longTermEligibleOn, summarizeTaxCandidates, type TaxPlanningLot } from '@/lib/tax-planning'
 import { allocateTax, buildInvestmentEpisodes, mergeAssetEvents, type AssetEvent, type ClosedLot, type DividendRow, type InflowEvent, type OpenLot } from '@/lib/asset-events'
 import { MARKET_GAP_HOLD_PCT, SHORT_TERM_WATCH_PCT, getRebalancePolicy, marketTargetsFor } from '@/lib/rebalance-policy'
 import { deriveUsTargetPct, getAllocationPolicy } from '@/lib/rebalance/allocation-policy'
@@ -20,7 +21,7 @@ import { ASSET_CLASSES, depositsSeries, totalAssetsSeries, type CashBalanceRow, 
 import type { PensionContributionYear } from '@/lib/pension'
 import { summarizeAllocation, type AssetAllocation } from '@/lib/asset-allocation'
 import { getInstrumentClasses } from '@/lib/rebalance/instrument-classes'
-import { maskAccountLabel } from '@/lib/account-label'
+import { displayAccount, maskAccountLabel } from '@/lib/account-label'
 import { groupAccountRanges, type AccountDataRange, type AssetType, type RangeKind, type RangeRow } from '@/lib/account-ranges'
 import { foreignAccountMaxima, isUsBrokerage, isUsCashInstitution, maxBalance, treasuryRateFor, type BalancePoint, type ForeignAccountInput, type ForeignAccountMaxima } from '@/lib/fbar'
 import treasuryRates from '@/data/treasury-reporting-rates.json'
@@ -5056,10 +5057,12 @@ export function getDataOpsReview(): DataOpsReview {
   }
 }
 
+const POSITION_QUANTITY_TOLERANCE = 0.0001
+
 function reconciliationStatus(row: any): ReconciliationReview['positionBreaks'][number]['status'] {
   if (!row.holding_present) return 'lot_only'
   if (!row.lot_present) return 'holding_only'
-  if (Math.abs(Number(row.quantity_diff ?? 0)) > 0.0001) return 'quantity_break'
+  if (Math.abs(Number(row.quantity_diff ?? 0)) > POSITION_QUANTITY_TOLERANCE) return 'quantity_break'
   return 'cost_break'
 }
 
@@ -5110,7 +5113,7 @@ function readPositionBreaks(conn: Database.Database): ReconciliationReview['posi
        left join l on l.market = keys.market and l.brokerage = keys.brokerage and l.ticker = keys.ticker
        where h.holding_present is null
           or l.lot_present is null
-          or abs(coalesce(h.holding_quantity, 0) - coalesce(l.lot_quantity, 0)) > 0.0001
+          or abs(coalesce(h.holding_quantity, 0) - coalesce(l.lot_quantity, 0)) > ${POSITION_QUANTITY_TOLERANCE}
           or abs(coalesce(h.holding_base_cost, 0) - coalesce(l.lot_base_cost, 0)) > 1000
        order by
          case when h.holding_present is null or l.lot_present is null then 0 else 1 end,
@@ -5503,6 +5506,97 @@ export function getTaxPlanningLots(
          limit ?`
       )
       .all(...params) as TaxPlanningLot[]
+  } finally {
+    conn.close()
+  }
+}
+
+/** A dated quote and self-owned open lots for the Holdings sale comparison. */
+export function getHoldingsForSale(date: string): HoldingsForSale | null {
+  const conn = db()
+  try {
+    const columns = (table: string) => new Set(
+      (conn.prepare(`pragma table_info(${table})`).all() as { name: string }[]).map(column => column.name)
+    )
+    // Older books cannot establish the ownership and wrapper for this comparison.
+    if (!columns('tax_lots_all').has('owner') || !columns('holdings_all').has('owner')) return null
+    const priceColumns = columns('historical_prices')
+    const fxColumns = columns('fx_rates')
+    const readQuote = priceColumns.size ? conn.prepare(
+      `select price_date as date, close as usd from historical_prices
+        where market = 'US'${priceColumns.has('currency') ? " and currency = 'USD'" : ''}
+          and ticker = ? and price_date <= ? order by price_date desc limit 1`
+    ) : null
+    const readFx = fxColumns.size ? conn.prepare(
+      `select substr(as_of_date, 1, 10) as date, rate from fx_rates
+        where from_currency = 'USD' and to_currency = 'KRW' and substr(as_of_date, 1, 10) <= ?
+        order by as_of_date desc, id desc limit 1`
+    ) : null
+    const fx = readFx?.get(date) as { date: string; rate: number } | undefined
+    const goldFunds = new Set<string>(GOLD_ETF_TICKERS)
+    const positionKey = (brokerage: string | null, account: string, ticker: string) =>
+      JSON.stringify([brokerage ?? '', account, ticker])
+    const holdings = conn.prepare(
+      `select coalesce(brokerage, '') as brokerage, account, upper(trim(ticker)) as symbol, sum(quantity) as quantity
+        from holdings_all
+        where market = 'US' and currency = 'USD' and asset_class = 'security' and account_wrapper = 'taxable'
+          and ${SELF_OWNER_SQL} and trim(ticker) <> ''
+        group by coalesce(brokerage, ''), account, upper(trim(ticker))
+        having sum(quantity) > 0`
+    ).all() as { brokerage: string; account: string; symbol: string; quantity: number }[]
+    const balances = new Map(holdings.filter(row => !goldFunds.has(row.symbol))
+      .map(row => [positionKey(row.brokerage, row.account, row.symbol), row.quantity]))
+    const positions = new Map<string, SalePosition>()
+    const quotes = new Map<string, SalePosition['quote']>()
+    const lots = getTaxPlanningLots(-1, undefined, { allWrappers: true, selfOnly: true })
+      .sort((a, b) => (a.acquired_date ?? '').localeCompare(b.acquired_date ?? '') || a.id - b.id)
+    const positive = (amount: number | null | undefined) =>
+      amount != null && Number.isFinite(amount) && amount > 0 ? amount : null
+    for (const lot of lots) {
+      const ticker = lot.ticker.trim().toUpperCase()
+      if (!ticker || goldFunds.has(ticker) || lot.market !== 'US' || lot.currency !== 'USD' || lot.account_wrapper !== 'taxable') continue
+      const key = positionKey(lot.brokerage, lot.account, ticker)
+      const holdingQuantity = balances.get(key)
+      if (holdingQuantity === undefined) continue
+      if (!quotes.has(ticker)) {
+        const quote = readQuote?.get(ticker, date) as NonNullable<SalePosition['quote']> | undefined
+        quotes.set(ticker, quote && positive(quote.usd) ? quote : null)
+      }
+      let position = positions.get(key)
+      if (!position) {
+        position = {
+          id: String(positions.size + 1), ticker, accountLabel: displayAccount(lot.brokerage, lot.account),
+          holdingQuantity, quote: quotes.get(ticker) ?? null, lots: [],
+        }
+        positions.set(key, position)
+      }
+
+      const acquired = lot.acquired_date
+      const epoch = Date.parse(`${acquired}T00:00:00Z`)
+      const dated = Number.isFinite(epoch) && new Date(epoch).toISOString().slice(0, 10) === acquired && acquired <= date
+      position.lots.push({
+        quantity: lot.open_quantity,
+        costUsd: positive(lot.acquisition_cost_usd),
+        costKrw: positive(lot.acquisition_cost_krw),
+        term: dated ? (date >= longTermEligibleOn(acquired) ? 'long' : 'short') : null,
+      })
+    }
+
+    // An undated lot could be the oldest. Put it first so no partial FIFO
+    // estimate can silently assume a newer lot would be sold ahead of it.
+    for (const position of positions.values()) {
+      position.lots.sort((a, b) => Number(a.term != null) - Number(b.term != null))
+    }
+    const reconciled = [...positions.values()].filter(position => {
+      const lotQuantity = position.lots.reduce((sum, lot) => sum + lot.quantity, 0)
+      return Math.abs(lotQuantity - position.holdingQuantity) <= POSITION_QUANTITY_TOLERANCE && positionQuantity(position) > 0
+    })
+    return {
+      date,
+      fx: fx && positive(fx.rate) ? fx : null,
+      positions: reconciled.sort((a, b) => a.ticker.localeCompare(b.ticker) || a.accountLabel.localeCompare(b.accountLabel)),
+      unreconciled: balances.size - reconciled.length,
+    }
   } finally {
     conn.close()
   }

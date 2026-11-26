@@ -75,9 +75,12 @@ export function estimateKrOverseasStockTax(
   }
 }
 
-export function estimateKrRecordedStockTax(recordedKrw: number, adjustment: string, year: InvestmentTaxYear): Estimate {
+export function estimateKrRecordedStockTax(recordedKrw: number, adjustment: string, year: InvestmentTaxYear, proposedKrw?: number): Estimate {
   const text = adjustment.trim()
   const extra = parseKrw(text.replace(/^\+(?=\d)/, '') || '0')
   if (extra == null || !Number.isSafeInteger(recordedKrw)) return { status: 'unavailable' }
-  return estimateKrOverseasStockTax('0', String(BigInt(recordedKrw) + extra), year)
+  const realized = BigInt(recordedKrw) + extra
+  if (proposedKrw === undefined) return estimateKrOverseasStockTax('0', String(realized), year)
+  if (!Number.isSafeInteger(proposedKrw)) return { status: 'unavailable' }
+  return estimateKrOverseasStockTax(String(realized), String(realized + BigInt(proposedKrw)), year)
 }

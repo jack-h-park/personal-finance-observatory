@@ -1,8 +1,9 @@
 import { Note, TextLink } from '@/components/ui'
 import { SnapshotTaxEstimates } from '@/components/SnapshotTaxEstimates'
 import { todayLosAngeles } from '@/lib/cli/common'
-import { INVESTMENT_TAX_YEARS } from '@/lib/domain/taxes/investment-tax-year'
-import { getRealizedLots } from '@/lib/adapters/portfolio-db'
+import type { HoldingsForSale } from '@/lib/domain/taxes/holding-sale'
+import { INVESTMENT_TAX_YEARS, readInvestmentTaxYear } from '@/lib/domain/taxes/investment-tax-year'
+import { getHoldingsForSale, getRealizedLots } from '@/lib/adapters/portfolio-db'
 import { summarizeRealizedTaxInputs, type RealizedTaxInputs } from '@/lib/application/realized-tax-inputs'
 import { readTaxHistory } from '@/lib/adapters/tax-history-store'
 import { snapshotTaxPayments } from '@/lib/application/snapshot-tax-payments'
@@ -15,7 +16,9 @@ import { snapshotTax } from '@/lib/ui-copy/pages/snapshotTax'
 export function SnapshotTaxContext({ language }: { language: Language }) {
   const copy = snapshotTax[language]
   const history = getPageCopy('taxHistory', language)
-  const currentYear = Number(todayLosAngeles().slice(0, 4))
+  const today = todayLosAngeles()
+  const currentYear = Number(today.slice(0, 4))
+  const saleYear = readInvestmentTaxYear(String(currentYear))
   const defaultYear = INVESTMENT_TAX_YEARS.findLast(year => year <= currentYear) ?? INVESTMENT_TAX_YEARS[0]
   let payments: ReturnType<typeof snapshotTaxPayments> | null = null
   try {
@@ -25,10 +28,23 @@ export function SnapshotTaxContext({ language }: { language: Language }) {
   }
 
   let recorded: RealizedTaxInputs | null = null
+  let saleRecorded: RealizedTaxInputs | null = null
   try {
-    recorded = summarizeRealizedTaxInputs(getRealizedLots({ includeGold: true }), 2026)
+    const lots = getRealizedLots({ includeGold: true })
+    recorded = summarizeRealizedTaxInputs(lots, 2026)
+    if (saleYear !== undefined) {
+      saleRecorded = summarizeRealizedTaxInputs(lots.filter(lot => lot.sold_date != null && lot.sold_date <= today), saleYear)
+    }
   } catch {
     // The manual estimate stays available when the realized ledger cannot be read.
+  }
+  let sales: HoldingsForSale | null = null
+  if (saleYear !== undefined) {
+    try {
+      sales = getHoldingsForSale(today)
+    } catch {
+      // Dated quotes and open lots are required for the automatic sale comparison.
+    }
   }
 
   return (
@@ -61,7 +77,7 @@ export function SnapshotTaxContext({ language }: { language: Language }) {
           ) : <Note>{payments ? copy.paymentEmpty : copy.paymentUnavailable}</Note>}
           <TextLink href="/taxes/history">{copy.history}</TextLink>
         </div>
-        <SnapshotTaxEstimates language={language} defaultYear={defaultYear} recorded={recorded} />
+        <SnapshotTaxEstimates language={language} defaultYear={defaultYear} recorded={recorded} saleYear={saleYear} sales={sales} saleRecorded={saleRecorded} />
       </div>
     </details>
   )

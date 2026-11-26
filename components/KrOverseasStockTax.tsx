@@ -17,10 +17,12 @@ export function KrOverseasStockTax({
   year = STANDALONE_ESTIMATE_YEAR,
   comparison,
   recordedKrw,
+  proposedKrw,
 }: {
   language: Language
   year?: InvestmentTaxYear
   recordedKrw?: number
+  proposedKrw?: number
   comparison?: { baseline: string; scenario: string; result: string }
 }) {
   const copy = krOverseasStockTax[language]
@@ -30,7 +32,7 @@ export function KrOverseasStockTax({
   const [adjustment, setAdjustment] = useState('')
   const [confirmed, setConfirmed] = useState(false)
   const [result, setResult] = useState<ReturnType<typeof estimateKrOverseasStockTax> | null>(null)
-  useEffect(() => setResult(null), [automatic])
+  useEffect(() => setResult(null), [automatic, proposedKrw])
   const locale = localeFor(language)
   const money = new Intl.NumberFormat(locale, { style: 'currency', currency: 'KRW' })
   const signedMoney = new Intl.NumberFormat(locale, { style: 'currency', currency: 'KRW', signDisplay: 'exceptZero' })
@@ -50,7 +52,7 @@ export function KrOverseasStockTax({
               if (recordedKrw === undefined) {
                 setResult(estimateKrOverseasStockTax(amounts.baseline, amounts.scenario, year))
               } else if (confirmed) {
-                setResult(estimateKrRecordedStockTax(recordedKrw, adjustment, year))
+                setResult(estimateKrRecordedStockTax(recordedKrw, adjustment, year, proposedKrw))
               }
             }}
           >
@@ -130,7 +132,7 @@ export function KrOverseasStockTax({
         ) : null}
       </div>
       <Note>{copy.rule}</Note>
-      <p className="text-body text-ink-2">{copy.exclusions}</p>
+      <p className="text-body text-ink-2">{proposedKrw !== undefined ? copy.saleExclusions : copy.exclusions}</p>
       <details>
         <summary className="min-h-6 cursor-pointer underline">{copy.rules}</summary>
         <ul className="mt-2 space-y-2 text-caption">
