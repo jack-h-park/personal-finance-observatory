@@ -24,12 +24,12 @@ const filingRules = {
 }
 const ordinaryRates = [1000n, 1200n, 2200n, 2400n, 3200n, 3500n, 3700n]
 export const reserveFields = ['taxable', 'preferential', 'magi', 'nii'] as const
-type Scenario = Record<(typeof reserveFields)[number], string>
+export type ReserveScenario = Record<(typeof reserveFields)[number], string>
 export type PreferentialWorksheet =
   | { kind: 'schedule-d'; qualifiedDividends: string; netLongTermGain: string; netCapitalGain: string }
   | { kind: 'distributions-only'; qualifiedDividends: string; capitalGainDistributions: string }
 
-type EstimateScenario = Scenario | (Omit<Scenario, 'preferential'> & { worksheet: PreferentialWorksheet })
+type EstimateScenario = ReserveScenario | (Omit<ReserveScenario, 'preferential'> & { worksheet: PreferentialWorksheet })
 type FilingRules = (typeof filingRules)[InvestmentTaxYear]['single' | 'mfj']
 
 const min = (left: bigint, right: bigint) => left < right ? left : right
@@ -37,23 +37,23 @@ const positive = (amount: bigint) => amount < 0n ? 0n : amount
 const usd = (dollars: number) => BigInt(dollars) * 100n
 const roundCents = (numerator: bigint) => (numerator + 5000n) / 10000n
 
-function parseUsd(text: string) {
+export function parseUsdCents(text: string) {
   const match = /^(\d{1,12}|\d{1,3}(?:,\d{3}){1,3})(?:\.(\d{1,2}))?$/.exec(text.trim())
   return match ? BigInt(match[1].replaceAll(',', '')) * 100n + BigInt((match[2] ?? '').padEnd(2, '0')) : null
 }
 
 function parseSignedUsd(text: string) {
   const value = text.trim()
-  const digits = parseUsd(value.replace(/^[+-]/, ''))
+  const digits = parseUsdCents(value.replace(/^[+-]/, ''))
   return digits == null || !value.startsWith('-') ? digits : -digits
 }
 
 function worksheetPreferential(worksheet: PreferentialWorksheet): bigint | null {
-  const dividends = parseUsd(worksheet.qualifiedDividends)
+  const dividends = parseUsdCents(worksheet.qualifiedDividends)
   if (dividends === null) return null
 
   if (worksheet.kind === 'distributions-only') {
-    const distributions = parseUsd(worksheet.capitalGainDistributions)
+    const distributions = parseUsdCents(worksheet.capitalGainDistributions)
     return distributions === null ? null : dividends + distributions
   }
 
@@ -63,21 +63,21 @@ function worksheetPreferential(worksheet: PreferentialWorksheet): bigint | null 
 }
 
 function parseScenarioAmounts(scenario: EstimateScenario) {
-  const taxable = parseUsd(scenario.taxable)
-  const magi = parseUsd(scenario.magi)
-  const nii = parseUsd(scenario.nii)
-  const preferential = 'worksheet' in scenario ? worksheetPreferential(scenario.worksheet) : parseUsd(scenario.preferential)
+  const taxable = parseUsdCents(scenario.taxable)
+  const magi = parseUsdCents(scenario.magi)
+  const nii = parseUsdCents(scenario.nii)
+  const preferential = 'worksheet' in scenario ? worksheetPreferential(scenario.worksheet) : parseUsdCents(scenario.preferential)
   if (taxable === null || preferential === null || magi === null || nii === null) return null
   return [taxable, 'worksheet' in scenario ? min(preferential, taxable) : preferential, magi, nii]
 }
 
 /** Ordinary capital-gain comparison with fixed deductions and NIIT treatment. */
 export function scenarioWithRecordedGains(
-  baseline: Scenario,
+  baseline: ReserveScenario,
   recorded: { shortUsd: number; longUsd: number },
   adjustment: { short: string; long: string },
-): Scenario | null {
-  const [taxable, preferential, magi, nii] = reserveFields.map(key => parseUsd(baseline[key]))
+): ReserveScenario | null {
+  const [taxable, preferential, magi, nii] = reserveFields.map(key => parseUsdCents(baseline[key]))
   const extraShort = parseSignedUsd(adjustment.short.trim() || '0')
   const extraLong = parseSignedUsd(adjustment.long.trim() || '0')
   if (taxable == null || preferential == null || magi == null || nii == null || extraShort == null || extraLong == null) return null

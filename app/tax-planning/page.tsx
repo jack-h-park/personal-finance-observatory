@@ -1,3 +1,4 @@
+import { crossBorderSaleTax } from '@/lib/ui-copy/pages/crossBorderSaleTax'
 import { investmentTaxReserve } from '@/lib/ui-copy/pages/investmentTaxReserve'
 import { krOverseasStockTax } from '@/lib/ui-copy/pages/krOverseasStockTax'
 import { PageHeader } from '@/components/PageHeader'
@@ -125,6 +126,7 @@ export default async function TaxPlanningPage({
           <>
             <TextLink href="/tax-planning/reserve">{investmentTaxReserve[language].title}</TextLink>
             <TextLink href="/tax-planning/reserve/korea">{krOverseasStockTax[language].title}</TextLink>
+            <TextLink href="/tax-planning/reserve/cross-border">{crossBorderSaleTax[language].title}</TextLink>
             <TextLink href="/tax-planning/annual">{getPageCopy('hypotheticalTax', language).title}</TextLink>
             <TextLink href="/tax-settings">{copy.page.editAssumptions}</TextLink>
           </>
