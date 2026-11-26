@@ -5,11 +5,13 @@ import { Checkbox, Input, Select } from '@/components/form'
 import { Button, Note } from '@/components/ui'
 import { compareHoldingSale, readSavedHoldingSale, SAVED_SALE_PREFIX, type SaleComparisonAssumptions, type SavedHoldingSale, type SavedSaleLine } from '@/lib/application/saved-holding-sales'
 import type { RealizedTaxInputs } from '@/lib/application/realized-tax-inputs'
+import type { CreditAmounts, CreditInput } from '@/lib/domain/taxes/cross-border-sale-tax'
 import type { HoldingsForSale } from '@/lib/domain/taxes/holding-sale'
 import { reserveFields } from '@/lib/domain/taxes/investment-tax-reserve'
 import type { InvestmentTaxYear } from '@/lib/domain/taxes/investment-tax-year'
 import { EMPTY_VALUE, localeFor } from '@/lib/format'
 import type { Language } from '@/lib/i18n'
+import { crossBorderSaleTax } from '@/lib/ui-copy/pages/crossBorderSaleTax'
 import { investmentTaxReserve } from '@/lib/ui-copy/pages/investmentTaxReserve'
 import { krOverseasStockTax } from '@/lib/ui-copy/pages/krOverseasStockTax'
 import { snapshotTax } from '@/lib/ui-copy/pages/snapshotTax'
@@ -18,6 +20,46 @@ import { savedSales } from '@/lib/ui-copy/pages/savedSales'
 const emptyInputs: SaleComparisonAssumptions = {
   us: { profile: '', filing: '', baseline: { taxable: '', preferential: '', magi: '', nii: '' }, adjustments: { short: '', long: '' } },
   kr: { confirmed: false, adjustment: '' },
+}
+
+const authorities = ['unknown', 'none', 'us', 'kr'] as const
+const creditFields = ['eligibleTax', 'limit'] as const
+const emptyAmounts: CreditAmounts = { eligibleTax: '', limit: '' }
+type CreditReview = {
+  authority: CreditInput['authority']
+  baseline: CreditAmounts
+  scenarios: Map<string, CreditAmounts>
+  noCreditConfirmed: string[]
+}
+const emptyReview: CreditReview = { authority: 'unknown', baseline: emptyAmounts, scenarios: new Map(), noCreditConfirmed: [] }
+
+function creditKey(combo: SavedHoldingSale) {
+  return JSON.stringify([combo.id, combo.lines])
+}
+
+function creditForCombination(review: CreditReview, key: string): CreditInput {
+  const { authority, baseline } = review
+  if (authority === 'none' && review.noCreditConfirmed.includes(key)) return { authority }
+  if (authority === 'us' || authority === 'kr') return { authority, baseline, scenario: review.scenarios.get(key) ?? emptyAmounts }
+  return { authority: 'unknown' }
+}
+
+function CreditFields({ amounts, labels, onChange }: {
+  amounts: CreditAmounts
+  labels: CreditAmounts
+  onChange: (value: CreditAmounts) => void
+}) {
+  return (
+    <div className="flex flex-wrap gap-3">
+      {creditFields.map(key => (
+        <label key={key} className="block min-w-0 flex-1 basis-52">
+          <span className="mb-1 block text-label">{labels[key]}</span>
+          <Input className="w-full tabular-nums" size="md" maxLength={20} inputMode="decimal" value={amounts[key]} aria-describedby="saved-sale-credit-hint"
+            onChange={event => onChange({ ...amounts, [key]: event.target.value })} />
+        </label>
+      ))}
+    </div>
+  )
 }
 
 function readCombinations() {
@@ -41,6 +83,7 @@ export function SavedSaleComparisons({ language, book, ledger, year, draft, onLo
 }) {
   const copy = savedSales[language]
   const formCopy = investmentTaxReserve[language]
+  const creditCopy = crossBorderSaleTax[language]
   const locale = localeFor(language)
   const [saved, setSaved] = useState<SavedHoldingSale[]>([])
   const [storage, setStorage] = useState<'loading' | 'ready' | 'error'>('loading')
@@ -49,6 +92,19 @@ export function SavedSaleComparisons({ language, book, ledger, year, draft, onLo
   const [selected, setSelected] = useState<string[]>([])
   const [inputs, setInputs] = useState(emptyInputs)
   const [applied, setApplied] = useState<SaleComparisonAssumptions | null>(null)
+  const [creditContext, setCreditContext] = useState<{
+    book: HoldingsForSale
+    ledger: RealizedTaxInputs | null
+    applied: SaleComparisonAssumptions
+    year: InvestmentTaxYear
+    review: CreditReview
+  } | null>(null)
+  const review = creditContext?.book === book && creditContext.ledger === ledger &&
+    creditContext.applied === applied && creditContext.year === year ? creditContext.review : emptyReview
+  const direction = review.authority
+  const setReview = (value: CreditReview) => {
+    if (applied) setCreditContext({ book, ledger, applied, year, review: value })
+  }
   useEffect(() => {
     const sync = () => {
       try {
@@ -68,8 +124,8 @@ export function SavedSaleComparisons({ language, book, ledger, year, draft, onLo
   const ordered = useMemo(() => [...saved].sort((a, b) => a.name.localeCompare(b.name, locale) || a.id.localeCompare(b.id)), [saved, locale])
   const chosen = useMemo(() => ordered.filter(combo => selected.includes(combo.id)), [ordered, selected])
   const rows = useMemo(() => chosen.map(combo => ({
-    combo, estimate: compareHoldingSale(combo.lines, book, ledger, applied, year),
-  })), [chosen, book, ledger, applied, year])
+    combo, estimate: compareHoldingSale(combo.lines, book, ledger, applied, year, creditForCombination(review, creditKey(combo))),
+  })), [chosen, book, ledger, applied, year, review])
   const quoteDates = [...new Set(chosen.flatMap(combo => combo.lines.map(line => book.positions.find(position => position.id === line.positionId)?.quote?.date).filter(Boolean)))].sort()
   const money = (currency: 'USD' | 'KRW', amount: number | null | undefined, signed = false) =>
     amount == null ? EMPTY_VALUE : new Intl.NumberFormat(locale, { style: 'currency', currency, signDisplay: signed ? 'exceptZero' : 'auto' }).format(amount)
@@ -188,6 +244,50 @@ export function SavedSaleComparisons({ language, book, ledger, year, draft, onLo
             </fieldset>
             <Button type="submit" disabled={!ledger}>{copy.compare}</Button>
           </form>
+          {applied ? (
+            <details className="space-y-3 rounded-md border border-line p-3">
+              <summary className="cursor-pointer text-body font-medium">{creditCopy.credit}</summary>
+              <div className="space-y-3">
+                <p className="text-body text-ink-2" id="saved-sale-credit-hint">{copy.creditHint}</p>
+                <label className="block max-w-xl">
+                  <span className="mb-1 block text-label">{copy.creditDirection}</span>
+                  <Select className="w-full" value={review.authority} aria-describedby="saved-sale-credit-hint" onChange={event => {
+                    const authority = authorities.find(item => item === event.target.value) ?? 'unknown'
+                    setReview({ ...emptyReview, authority })
+                  }}>
+                    {authorities.map(authority => <option value={authority} key={authority}>{creditCopy.authorities[authority]}</option>)}
+                  </Select>
+                </label>
+                {(direction === 'us' || direction === 'kr') && (
+                  <>
+                    <fieldset className="min-w-0 rounded-md border border-line-subtle p-3">
+                      <legend className="px-1 text-label">{copy.creditBefore}</legend>
+                      <CreditFields amounts={review.baseline} labels={creditCopy.creditFields[direction]}
+                        onChange={baseline => setReview({ ...review, baseline })} />
+                    </fieldset>
+                    {chosen.map(combo => (
+                      <fieldset key={combo.id} className="min-w-0 rounded-md border border-line-subtle p-3">
+                        <legend className="break-all px-1 text-label">{copy.creditAfter(combo.name)}</legend>
+                        <CreditFields amounts={review.scenarios.get(creditKey(combo)) ?? emptyAmounts}
+                          labels={creditCopy.creditFields[direction]}
+                          onChange={scenario => setReview({ ...review, scenarios: new Map(review.scenarios).set(creditKey(combo), scenario) })} />
+                      </fieldset>
+                    ))}
+                  </>
+                )}
+                {review.authority === 'none' && chosen.map(combo => (
+                  <label key={combo.id} className="flex min-h-6 items-center gap-2 text-body">
+                    <Checkbox checked={review.noCreditConfirmed.includes(creditKey(combo))} onChange={event => {
+                      const noCreditConfirmed = event.target.checked ? [...review.noCreditConfirmed, creditKey(combo)] :
+                        review.noCreditConfirmed.filter(key => key !== creditKey(combo))
+                      setReview({ ...review, noCreditConfirmed })
+                    }} />
+                    <span className="break-all">{copy.confirmNone(combo.name)}</span>
+                  </label>
+                ))}
+              </div>
+            </details>
+          ) : <p className="text-body text-ink-2">{copy.creditAfterCalculation}</p>}
           <div className="max-w-full overflow-x-auto" role="region" aria-label={copy.table} tabIndex={0}>
             <table className="w-full text-body">
               <caption className="sr-only">{copy.table}</caption>
@@ -205,7 +305,18 @@ export function SavedSaleComparisons({ language, book, ledger, year, draft, onLo
                       money('USD', estimate.grossUsd), money('KRW', estimate.grossKrw),
                       money('USD', estimate.us?.delta, true), money('USD', estimate.us?.after),
                       money('KRW', estimate.kr?.delta, true), money('KRW', estimate.kr?.after),
+                      money('KRW', estimate.combined?.grossDeltaKrw, true), money('KRW', estimate.combined?.creditEffectKrw, true),
                     ].map((value, index) => <td key={index} className="whitespace-nowrap p-2 text-right tabular-nums">{value}</td>)}
+                    <td className="p-2 text-right tabular-nums">
+                      {estimate.combined?.afterKrw != null ? money('KRW', estimate.combined.afterKrw) : (
+                        <>
+                          <span className="whitespace-nowrap">{copy.creditReview}</span>
+                          {estimate.combined?.reason && estimate.combined.reason !== 'unknown' && (
+                            <span className="mt-1 block text-caption text-ink-2">{creditCopy.errors[estimate.combined.reason]}</span>
+                          )}
+                        </>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>

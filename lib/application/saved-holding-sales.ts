@@ -1,6 +1,7 @@
 import { estimateHoldingSales, saleShareUnits, type HoldingsForSale, type SaleLine } from '@/lib/domain/taxes/holding-sale'
 import { estimateInvestmentTaxReserve, scenarioWithRecordedGains } from '@/lib/domain/taxes/investment-tax-reserve'
 import { estimateKrRecordedStockTax } from '@/lib/domain/taxes/kr-overseas-stock-tax'
+import { compareAnnualTaxCredits, type CreditInput } from '@/lib/domain/taxes/cross-border-sale-tax'
 import type { InvestmentTaxYear } from '@/lib/domain/taxes/investment-tax-year'
 import type { RealizedTaxInputs } from './realized-tax-inputs'
 
@@ -44,6 +45,7 @@ export function compareHoldingSale(
   ledger: RealizedTaxInputs | null,
   assumptions: SaleComparisonAssumptions | null,
   year: InvestmentTaxYear,
+  credit: CreditInput = { authority: 'unknown' },
 ) {
   const sales = estimateHoldingSales(book.positions, lines, book.fx?.rate ?? null)
   const proceeds = sales.proceedsUsd
@@ -63,8 +65,17 @@ export function compareHoldingSale(
     : null
   const usdDelta = us?.status === 'ready' ? Number(us.delta.total) / 100 : null
   const krwDelta = kr?.status === 'ready' ? Number(kr.delta.total) : null
+  const taxes = us?.status === 'ready' && kr?.status === 'ready' && book.fx
+    ? compareAnnualTaxCredits(us, kr, book.fx.rate, credit)
+    : null
+  const combined = taxes && grossKrw != null ? {
+    grossDeltaKrw: Number(taxes.delta.grossKrw),
+    creditEffectKrw: taxes.credit.status === 'ready' ? Number(taxes.delta.grossKrw - taxes.credit.delta.combinedKrw) : null,
+    afterKrw: taxes.credit.status === 'ready' ? grossKrw - Number(taxes.credit.delta.combinedKrw) : null,
+    reason: taxes.credit.status === 'unavailable' ? taxes.credit.reason : null,
+  } : null
   return {
-    grossUsd, grossKrw, invalidLines,
+    grossUsd, grossKrw, invalidLines, combined,
     missingBasis: { us: sales.us == null, kr: sales.krw == null },
     us: grossUsd != null && usdDelta != null ? { delta: usdDelta, after: (Math.round(grossUsd * 100) - Math.round(usdDelta * 100)) / 100 } : null,
     kr: grossKrw != null && krwDelta != null ? { delta: krwDelta, after: grossKrw - krwDelta } : null,
