@@ -542,7 +542,9 @@ def tick_source(root, config, runs, active, key=None):
 
 
 def preview(root, config, active, directory):
-    require(RUN_ID.fullmatch(directory.name) and read(directory / 'pointer.json')['runId'] == directory.name,
+    run = read(directory / 'pointer.json')['runId']
+    require(RUN_ID.fullmatch(directory.name) and RUN_ID.fullmatch(run) and
+            (directory.name == run or (config.get('kind') is None and directory.name == f'review-{run}')),
             'invalid_review_directory')
     ledger = directory / STORAGE
     ledger.parent.mkdir(parents=True, exist_ok=True)
