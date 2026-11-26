@@ -14,7 +14,7 @@ export default async function TaxReservePage() {
   const copy = investmentTaxReserve[language]
   return <>
     <PageHeader eyebrow={routeSection('/tax-planning', language)} title={copy.title} subtitle={copy.subtitle} autoRefresh={false} />
-    <InvestmentTaxReserve language={language} />
+    <InvestmentTaxReserve language={language} enableWorksheet />
     <div className="mt-5"><TextLink href="/tax-planning">{copy.back}</TextLink></div>
   </>
 }
