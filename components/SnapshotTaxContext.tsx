@@ -5,6 +5,8 @@ import type { HoldingsForSale } from '@/lib/domain/taxes/holding-sale'
 import { INVESTMENT_TAX_YEARS, readInvestmentTaxYear } from '@/lib/domain/taxes/investment-tax-year'
 import { getHoldingsForSale, getRealizedLots } from '@/lib/adapters/portfolio-db'
 import { summarizeRealizedTaxInputs, type RealizedTaxInputs } from '@/lib/application/realized-tax-inputs'
+import { readForeignCreditEvidence } from '@/lib/adapters/foreign-credit-evidence-store'
+import { projectForeignCreditRecords, type ForeignCreditRecord } from '@/lib/application/foreign-credit-evidence'
 import { readTaxHistory } from '@/lib/adapters/tax-history-store'
 import { snapshotTaxPayments } from '@/lib/application/snapshot-tax-payments'
 import { formatMoney } from '@/lib/domain/taxes/reconcile'
@@ -21,10 +23,13 @@ export function SnapshotTaxContext({ language }: { language: Language }) {
   const saleYear = readInvestmentTaxYear(String(currentYear))
   const defaultYear = INVESTMENT_TAX_YEARS.findLast(year => year <= currentYear) ?? INVESTMENT_TAX_YEARS[0]
   let payments: ReturnType<typeof snapshotTaxPayments> | null = null
+  let creditRecords: ForeignCreditRecord[] | null = null
   try {
-    payments = snapshotTaxPayments(readTaxHistory())
+    const store = readTaxHistory()
+    payments = snapshotTaxPayments(store)
+    creditRecords = projectForeignCreditRecords(store, readForeignCreditEvidence())
   } catch {
-    // An unreadable history is distinct from a history without investment payments.
+    // An unreadable history or credit evidence file remains distinct from an empty one.
   }
 
   let recorded: RealizedTaxInputs | null = null
@@ -77,7 +82,7 @@ export function SnapshotTaxContext({ language }: { language: Language }) {
           ) : <Note>{payments ? copy.paymentEmpty : copy.paymentUnavailable}</Note>}
           <TextLink href="/taxes/history">{copy.history}</TextLink>
         </div>
-        <SnapshotTaxEstimates language={language} defaultYear={defaultYear} recorded={recorded} saleYear={saleYear} sales={sales} saleRecorded={saleRecorded} />
+        <SnapshotTaxEstimates language={language} defaultYear={defaultYear} recorded={recorded} saleYear={saleYear} sales={sales} saleRecorded={saleRecorded} creditRecords={creditRecords} payments={payments} />
       </div>
     </details>
   )
