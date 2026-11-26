@@ -564,7 +564,11 @@ an explicit review decision and an exact signed amount match.
 Robinhood Checking and Savings can use the scoped SimpleFIN deposit importer. Keep the
 existing ledger account identifiers and review retained SnapTrade evidence for
 overlap before approving a SimpleFIN batch. An empty deposit run records provider
-status without changing the published snapshot.
+status without changing the published snapshot. A reviewed deposit decision can
+pin an existing transaction on an adjacent posting day with `targetPostedDate`,
+`linkToTransactionId`, and `targetDescriptionSha256`. Confirm the original
+payment and bank evidence before supplying the date. Keep the provider date in
+the fingerprint and preserve the original ledger transaction date and amount.
 
 This queue consumes saved input pairs. Collection and delivery of new files
 for accounts outside the scheduled SimpleFIN bindings are separate steps.

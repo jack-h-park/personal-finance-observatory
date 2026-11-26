@@ -110,7 +110,7 @@ type SavedBankEvidence = {
   sourceRows: number[]
   held: SavedBankHold[]
   pendingIgnored: number
-  reviewedLinks?: { row: number; transactionId: string; targetDescriptionSha256?: string }[]
+  reviewedLinks?: { row: number; transactionId: string; targetDescriptionSha256?: string; targetPostedDate?: string }[]
   ambiguousPostingRows?: number[]
   reviewedEvidenceScope?: string
 }
@@ -386,8 +386,15 @@ function processBatch(db: Database.Database | null, input: ImportInput) {
   const multiplicity = new Map<string, number>()
   const matchModes = new Map<string, boolean>()
   const ambiguousPostings = new Set(savedBank?.ambiguousPostingRows)
-  function bankCandidate(row: SpendingRow, rowNumber: number, targetHash?: string, knownId?: string, reviewedId?: string) {
-    const posted = stored.filter(candidate => postingKey(candidate.row) === postingKey(row))
+  function bankCandidate(row: SpendingRow, rowNumber: number, knownId?: string) {
+    const review = reviewedLinks.get(rowNumber)
+    const targetHash = review?.targetDescriptionSha256
+    const reviewedId = review?.transactionId
+    const sourceKey = postingKey(row)
+    const offset = review?.targetPostedDate
+    if (offset && stored.some(candidate => postingKey(candidate.row) === sourceKey)) return
+    const targetKey = offset ? postingKey({ ...row, postedDate: offset }) : sourceKey
+    const posted = stored.filter(candidate => postingKey(candidate.row) === targetKey)
     const proof = row.sourceId ? proofBySource.get(row.sourceId) : undefined
     // Match the sorted keys used by the retained provider evidence writer.
     const provenId = proof && targetHash && proof.transactionId === reviewedId && proof.fingerprint === digest({
@@ -436,8 +443,7 @@ function processBatch(db: Database.Database | null, input: ImportInput) {
     else if (targetId && row.sourceId) {
       const claimedBy = sourceByAlias.get(targetId)
       if (prior || (previousAlias && previousAlias.transaction_id !== targetId) || (claimedBy && claimedBy !== row.sourceId) ||
-          bankCandidate(row, rowNumber, approvedTarget?.targetDescriptionSha256, previousAlias?.transaction_id,
-            approvedTarget?.transactionId) !== targetId) {
+          bankCandidate(row, rowNumber, previousAlias?.transaction_id) !== targetId) {
         issues.push({ row: rowNumber, code: 'reviewed_link_mismatch' })
       } else {
         pending.push({ id: targetId, row, rowNumber, insert: false })

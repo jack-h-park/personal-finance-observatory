@@ -408,8 +408,11 @@ def applied_evidence(directory, evidence_hash):
     require(digest(body) == evidence_hash, 'applied_evidence_changed')
     evidence = json.loads(body)
     pointer = read(directory / 'pointer.json')
-    require(evidence['manifestSha256'] == pointer['manifestSha256'] and
-            evidence['run']['manifest']['runId'] == directory.name and
+    run = pointer['runId']
+    # An explicit evidence review may reuse a published provider capture.
+    require(RUN_ID.fullmatch(run) and directory.name in (run, f'review-{run}') and
+            evidence['manifestSha256'] == pointer['manifestSha256'] and
+            evidence['run']['manifest']['runId'] == run and
             isinstance(evidence['decisions'], list), 'invalid_applied_evidence')
     return evidence
 
