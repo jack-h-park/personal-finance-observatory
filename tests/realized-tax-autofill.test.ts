@@ -7,7 +7,7 @@ import type { RealizedLotView } from '@/lib/realized-lots'
 
 const lot = (overrides: Partial<RealizedLotView> = {}) => ({
   sold_year: '2026', market: 'US', currency: 'USD', ticker: 'SAMPLE', account_wrapper: 'taxable',
-  asset_class: 'security', tax_term: 'Short-term', basis: 'replay', gain_usd: 100.21,
+  asset_class: 'security', tax_term: 'Short-term', basis: 'replay', gain_usd: 100.21, cost_usd: 150,
   proceeds_krw: 260000, acquisition_cost_krw: 100000, ...overrides,
 }) as RealizedLotView
 
@@ -16,6 +16,8 @@ test('rolls up the selected year with jurisdiction-specific measures and records
     lot(),
     lot({ tax_term: 'Long-term', gain_usd: -20.55 }),
     lot({ tax_term: 'Long-term', basis: '1099b', native_realized_gl: 12, gain_usd: 3 }),
+    lot({ ticker: '', basis: '1099b', native_realized_gl: 9999 }),
+    lot({ ticker: ' ' }),
     lot({ tax_term: 'Undetermined', acquisition_cost_krw: null }),
     lot({ ticker: 'IAU', collectible: true }),
     lot({ account_wrapper: 'isa', market: 'KR' }),
@@ -23,8 +25,8 @@ test('rolls up the selected year with jurisdiction-specific measures and records
     lot({ superseded_by: 'form' }),
     lot({ sold_year: '2027' }),
   ], 2026)
-  assert.deepEqual(input.us, { shortUsd: 100.21, longUsd: -8.55, lots: 3, skipped: 4 })
-  assert.deepEqual(input.kr, { gainKrw: 320000, lots: 2, skipped: 3 })
+  assert.deepEqual(input.us, { shortUsd: 100.21, longUsd: -20.55, lots: 2, skipped: 7 })
+  assert.deepEqual(input.kr, { gainKrw: 320000, lots: 2, skipped: 5 })
 })
 
 test('distinguishes zero, unavailable basis, and no rows in the selected year', () => {
@@ -35,9 +37,10 @@ test('distinguishes zero, unavailable basis, and no rows in the selected year', 
   const input = summarizeRealizedTaxInputs([
     lot({ gain_usd: 0, acquisition_cost_krw: 260000 }),
     lot({ gain_usd: null, acquisition_cost_krw: null }),
+    lot({ gain_usd: 900, cost_usd: 0, acquisition_cost_krw: 0 }),
   ], 2026)
-  assert.deepEqual(input.us, { shortUsd: 0, longUsd: 0, lots: 1, skipped: 1 })
-  assert.deepEqual(input.kr, { gainKrw: 0, lots: 1, skipped: 1 })
+  assert.deepEqual(input.us, { shortUsd: 0, longUsd: 0, lots: 1, skipped: 2 })
+  assert.deepEqual(input.kr, { gainKrw: 0, lots: 1, skipped: 2 })
 })
 
 test('adds recorded gains and signed adjustments to complete US baseline values', () => {
