@@ -28,7 +28,7 @@ export const krOverseasStockTax = defineCopy({
     back: 'Back to investment planning',
   },
   ko: {
-    title: '2027년 해외주식 매도 한국 세금 추산',
+    title: '2027년 해외주식 양도소득세·개인지방소득세 추산',
     subtitle: '예정한 매도로 한국 양도소득세와 지방소득세가 얼마나 달라지는지 확인합니다.',
     assumption: '한국 과세 대상이고 해외 상장 보통주 일반세율이 적용된다고 가정합니다. 한 사람의 한 과세연도 기준이며, 한국 주식 양도소득세가 적용되는 다른 매도가 없는 경우를 다룹니다.',
     inputs: '연간 순손익 (원)',

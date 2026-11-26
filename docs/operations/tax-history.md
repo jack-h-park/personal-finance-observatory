@@ -1,6 +1,6 @@
 # Tax history workflow
 
-Tax history records reported/assessed liability, actual settlements, and evidence separately. It does not expand the investment tax engine into a complete annual return calculator.
+Tax history records reported/assessed liability, actual settlements, and evidence separately. The investment-income and stock-sale estimates cover selected tax components. A complete annual return calculation requires a separate workflow.
 
 ## Import and review
 

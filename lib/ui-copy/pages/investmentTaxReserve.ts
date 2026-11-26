@@ -2,7 +2,7 @@ import { defineCopy } from '@/lib/ui-copy/define'
 
 export const investmentTaxReserve = defineCopy({
   en: {
-    title: '2027 US federal investment tax estimate',
+    title: '2027 US federal tax estimate for investment income',
     subtitle: 'See how a planned change in investment income affects the federal tax amount you may want to set aside.',
     scope: 'Use the same filing status and other assumptions in both scenarios. Enter the after-deduction taxable income and the two NIIT bases for each scenario. Enter the eligible preferential amount or use the worksheet inputs.',
     recordedScope: 'Enter the four annual figures before any capital gains or losses. The estimate adds the recorded and adjusted gains to taxable income, MAGI and net investment income, and applies preferential rates after netting. Use manual entry if deductions or NIIT treatment change, there are investment losses hidden by a zero NIIT base, or a special rate applies.',
@@ -68,7 +68,7 @@ export const investmentTaxReserve = defineCopy({
     back: 'Back to investment planning',
   },
   ko: {
-    title: '2027년 미국 연방 투자소득 세금 추산',
+    title: '2027년 미국 투자소득 관련 연방세 추산',
     subtitle: '투자소득이 달라질 때 미국 연방세를 얼마나 더 준비할지 가늠합니다.',
     scope: '두 시나리오의 신고 유형과 나머지 가정은 동일하게 두세요. 각 시나리오의 공제 후 과세소득과 순투자소득세 기준액 두 가지를 입력하세요. 우대세율 대상 금액은 직접 입력하거나 워크시트 방식으로 계산할 수 있습니다.',
     recordedScope: '양도손익을 반영하기 전의 연간 기준액 네 가지를 입력하세요. 장부 손익과 보정액을 합산해 과세소득, 수정조정총소득, 순투자소득에 반영하고 손익통산 후 우대세율을 적용합니다. 공제나 순투자소득세 처리가 달라지거나, 순투자소득이 0으로 표시되기 전 투자손실이 있거나, 특별세율이 적용되면 두 시나리오를 직접 입력하세요.',

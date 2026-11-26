@@ -1,6 +1,6 @@
 # Personal Finance Observatory
 
-A local personal finance application that connects assets, cash flow, KR/US investment tax estimates, filing history, payments, refunds, and their evidence.
+A local personal finance application that connects assets, cash flow, KR/US tax estimates for investment income and stock sales, filing history, payments, refunds, and their evidence.
 
 Application code, schemas, and synthetic examples are public. Actual institution records, tax documents, account mappings, policies, and review history remain private. The application supports local planning/review writes while preserving original evidence; it does not place trades, file returns, or make payments.
 

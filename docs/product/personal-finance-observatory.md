@@ -1,6 +1,6 @@
 # Personal Finance Observatory
 
-Personal Finance Observatory connects assets, cash flow, KR/US investment tax estimates, and financial evidence. The application is personally operated and publicly reusable: code, contracts, and synthetic examples are public, while actual financial records and operating state remain private.
+Personal Finance Observatory connects assets, cash flow, KR/US tax estimates for investment income and stock sales, and financial evidence. The application is personally operated and publicly reusable: code, contracts, and synthetic examples are public, while actual financial records and operating state remain private.
 
 ## Product boundary
 
@@ -24,7 +24,7 @@ Asset ownership, account regime, economic exposure, and tax-unit membership are 
 1. Document supported scope and operational contracts.
 2. Separate financial sources, tax documents, durable state, and runtime outputs while preserving legacy paths.
 3. Deliver tax-history import, review, evidence links, and independent tax-year/payment-date views.
-4. Make all-assets overview the entry point without changing investment tax/rebalance scope.
+4. Make all-assets overview the entry point while preserving the scope of tax planning and rebalancing.
 5. Expand annual tax estimation and liabilities only through separately reviewed designs.
 
 Automated trading, tax filing/payment, general budgeting, universal tax support, and multi-user SaaS are outside this expansion. The target product name does not authorize a GitHub rename, archive move, or operational restart.
