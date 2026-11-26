@@ -340,3 +340,36 @@ test('an explicit deposit binding preserves a reviewed cross-source merchant ali
   assert.equal(importSpending({ ...good, reviewToken: preview.reviewToken }).status, 'applied')
   assert.equal(db.prepare('select count(*) from spending_transaction').pluck().get(), 1)
 })
+
+test('Robinhood checking and savings loads remain scoped to their verified account', async (t) => {
+  for (const [accountKind, name] of [['checking', 'Checking (8149)'], ['savings', 'Savings (6227)']]) {
+    const p = pilot(t)
+    const connector = path.join(p.root, 'connector')
+    const modules = path.join(connector, 'dist/providers/simplefin')
+    fs.mkdirSync(modules, { recursive: true })
+    fs.writeFileSync(path.join(modules, 'config.js'), 'exports.loadBankConfig = value => value')
+    fs.writeFileSync(path.join(modules, 'storage.js'), 'exports.readBankRun = config => config.fixture')
+    const write = (name: string, data: unknown) => {
+      const file = path.join(p.root, name)
+      fs.writeFileSync(file, JSON.stringify(data))
+      return file
+    }
+    const run = snapshot(accountKind, [checking[0]])
+    run.data.accounts[0].name = name
+    const config = { ...run.manifest, institutionDomain: 'robinhood.com', fixture: run }
+    const load = (changedBinding = binding, institutionDomain = config.institutionDomain) => loadSimplefinSpending({
+      connectorRepo: connector, accountIds: accounts,
+      pointer: write('pointer.json', { ...run.manifest, manifestSha256: descriptionSha256(run.manifest.runId) }),
+      config: write('config.json', { ...config, institutionDomain }),
+      binding: write('binding.json', { ...changedBinding, accountKind }), decisions: write('decisions.json', decisions),
+    })
+    const input = { ...p.input(), ...await load() }
+    const preview = importSpending(input)
+    const applied = importSpending({ ...input, reviewToken: preview.reviewToken })
+    assert.equal(applied.status, 'applied')
+    assert.equal(applied.totals[0].netMinor, '2000')
+    assert.equal(importSpending({ ...input, reviewToken: preview.reviewToken }).status, 'already_applied')
+    await assert.rejects(load({ ...binding, providerAccountId: 'other-account' }), /simplefin_account_mismatch/)
+    await assert.rejects(load(binding, 'unapproved.example'), /invalid_simplefin_config/)
+  }
+})
