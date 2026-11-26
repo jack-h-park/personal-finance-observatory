@@ -1,4 +1,5 @@
 import { STANDALONE_ESTIMATE_YEAR, type InvestmentTaxYear } from './investment-tax-year'
+import { qualifiedScheduleDGain } from './qualified-stock-gain'
 
 export const RESERVE_RULES = {
   revenueProcedure: {
@@ -6,6 +7,7 @@ export const RESERVE_RULES = {
     2027: 'https://www.irs.gov/irb/2026-48_irb',
   },
   capitalGainLaw: 'https://uscode.house.gov/us/usc/t26/s1/',
+  qualifiedGainWorksheet: 'https://www.irs.gov/instructions/i1040gi',
   niitGuide: 'https://www.irs.gov/individuals/net-investment-income-tax',
 } as const
 
@@ -23,6 +25,11 @@ const filingRules = {
 const ordinaryRates = [1000n, 1200n, 2200n, 2400n, 3200n, 3500n, 3700n]
 export const reserveFields = ['taxable', 'preferential', 'magi', 'nii'] as const
 type Scenario = Record<(typeof reserveFields)[number], string>
+export type PreferentialWorksheet =
+  | { kind: 'schedule-d'; qualifiedDividends: string; netLongTermGain: string; netCapitalGain: string }
+  | { kind: 'distributions-only'; qualifiedDividends: string; capitalGainDistributions: string }
+
+type EstimateScenario = Scenario | (Omit<Scenario, 'preferential'> & { worksheet: PreferentialWorksheet })
 type FilingRules = (typeof filingRules)[InvestmentTaxYear]['single' | 'mfj']
 
 const min = (left: bigint, right: bigint) => left < right ? left : right
@@ -35,11 +42,33 @@ function parseUsd(text: string) {
   return match ? BigInt(match[1].replaceAll(',', '')) * 100n + BigInt((match[2] ?? '').padEnd(2, '0')) : null
 }
 
-function parseAdjustment(text: string) {
+function parseSignedUsd(text: string) {
   const value = text.trim()
-  if (!value) return 0n
   const digits = parseUsd(value.replace(/^[+-]/, ''))
   return digits == null || !value.startsWith('-') ? digits : -digits
+}
+
+function worksheetPreferential(worksheet: PreferentialWorksheet): bigint | null {
+  const dividends = parseUsd(worksheet.qualifiedDividends)
+  if (dividends === null) return null
+
+  if (worksheet.kind === 'distributions-only') {
+    const distributions = parseUsd(worksheet.capitalGainDistributions)
+    return distributions === null ? null : dividends + distributions
+  }
+
+  const long = parseSignedUsd(worksheet.netLongTermGain)
+  const total = parseSignedUsd(worksheet.netCapitalGain)
+  return long === null || total === null ? null : dividends + qualifiedScheduleDGain(long, total)
+}
+
+function parseScenarioAmounts(scenario: EstimateScenario) {
+  const taxable = parseUsd(scenario.taxable)
+  const magi = parseUsd(scenario.magi)
+  const nii = parseUsd(scenario.nii)
+  const preferential = 'worksheet' in scenario ? worksheetPreferential(scenario.worksheet) : parseUsd(scenario.preferential)
+  if (taxable === null || preferential === null || magi === null || nii === null) return null
+  return [taxable, 'worksheet' in scenario ? min(preferential, taxable) : preferential, magi, nii]
 }
 
 /** Ordinary capital-gain comparison with fixed deductions and NIIT treatment. */
@@ -49,8 +78,8 @@ export function scenarioWithRecordedGains(
   adjustment: { short: string; long: string },
 ): Scenario | null {
   const [taxable, preferential, magi, nii] = reserveFields.map(key => parseUsd(baseline[key]))
-  const extraShort = parseAdjustment(adjustment.short)
-  const extraLong = parseAdjustment(adjustment.long)
+  const extraShort = parseSignedUsd(adjustment.short.trim() || '0')
+  const extraLong = parseSignedUsd(adjustment.long.trim() || '0')
   if (taxable == null || preferential == null || magi == null || nii == null || extraShort == null || extraLong == null) return null
 
   // A zero ordinary base can hide unused deductions or preferential income.
@@ -61,7 +90,7 @@ export function scenarioWithRecordedGains(
   const net = short + long
   // A net loss requires the annual loss allowance and NIIT adjustments.
   if (net < 0n) return null
-  const eligible = positive(min(long, net))
+  const eligible = qualifiedScheduleDGain(long, net)
   const dollars = (cents: bigint) => `${cents / 100n}.${String(cents % 100n).padStart(2, '0')}`
   return { taxable: dollars(taxable + net), preferential: dollars(preferential + eligible), magi: dollars(magi + net), nii: dollars(nii + net) }
 }
@@ -90,13 +119,14 @@ function calculate([taxable, preferential, magi, nii]: bigint[], rules: FilingRu
 }
 
 /** Rate-schedule estimate for two user-supplied scenarios. No filing or record is read. */
-export function estimateInvestmentTaxReserve(input: { profile: string; filing: string; baseline: Scenario; scenario: Scenario; year?: InvestmentTaxYear }) {
+export function estimateInvestmentTaxReserve(input: { profile: string; filing: string; baseline: EstimateScenario; scenario: EstimateScenario; year?: InvestmentTaxYear }) {
+  if (input.profile === 'special-method') return { status: 'unavailable', reason: 'specialMethod' } as const
   if (input.profile !== 'supported') return { status: 'unavailable', reason: 'profile' } as const
   if (input.filing !== 'single' && input.filing !== 'mfj') return { status: 'unavailable', reason: 'filing' } as const
   const rules = filingRules[input.year ?? STANDALONE_ESTIMATE_YEAR][input.filing]
-  const baselineAmounts = reserveFields.map(key => parseUsd(input.baseline[key]))
-  const scenarioAmounts = reserveFields.map(key => parseUsd(input.scenario[key]))
-  if (!baselineAmounts.every(amount => amount !== null) || !scenarioAmounts.every(amount => amount !== null)) {
+  const baselineAmounts = parseScenarioAmounts(input.baseline)
+  const scenarioAmounts = parseScenarioAmounts(input.scenario)
+  if (!baselineAmounts || !scenarioAmounts) {
     return { status: 'unavailable', reason: 'amount' } as const
   }
   if (baselineAmounts[1] > baselineAmounts[0] || scenarioAmounts[1] > scenarioAmounts[0]) {
@@ -106,21 +136,7 @@ export function estimateInvestmentTaxReserve(input: { profile: string; filing: s
   const scenario = calculate(scenarioAmounts, rules)
   return {
     status: 'ready', baseline, scenario,
+    preferential: { baseline: baselineAmounts[1], scenario: scenarioAmounts[1] },
     delta: { regular: scenario.regular - baseline.regular, niit: scenario.niit - baseline.niit, total: scenario.total - baseline.total },
   } as const
-}
-
-/** Compare the recorded year with the same year plus a proposed sale. */
-export function estimateUsSaleComparison(
-  input: { profile: string; filing: string; baseline: Scenario; adjustments: { short: string; long: string } },
-  recorded: { shortUsd: number; longUsd: number },
-  proposed: { shortUsd: number; longUsd: number },
-  year: InvestmentTaxYear,
-) {
-  const baseline = scenarioWithRecordedGains(input.baseline, recorded, input.adjustments)
-  const scenario = scenarioWithRecordedGains(input.baseline, {
-    shortUsd: recorded.shortUsd + proposed.shortUsd,
-    longUsd: recorded.longUsd + proposed.longUsd,
-  }, input.adjustments)
-  return baseline && scenario ? estimateInvestmentTaxReserve({ profile: input.profile, filing: input.filing, baseline, scenario, year }) : null
 }

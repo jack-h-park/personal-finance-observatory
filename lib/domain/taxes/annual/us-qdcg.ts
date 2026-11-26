@@ -1,5 +1,6 @@
 import type { AnnualEstimateInput, AmountKey } from './contracts'
 import type { AnnualRulePack } from './rules'
+import { qualifiedScheduleDGain } from '../qualified-stock-gain'
 import { ordinaryTaxNumerator } from './us-ordinary'
 
 /** Complete eligible 25-line QDCG worksheet; exact USD numerator / 10,000 through line 25. */
@@ -20,7 +21,7 @@ export function qualifiedGainTaxNumerator(input: AnnualEstimateInput, pack: Annu
   // Ordinary dividends establish the reviewed classification ceiling, not extra taxable income.
   formLine('ordinaryDividends')
   if (input.qdcgWorksheet?.state === 'schedule-d-reviewed') {
-    wholeLine(3, floor(min(formLine('netLongTermGain'), formLine('netCapitalGain'))))
+    wholeLine(3, qualifiedScheduleDGain(formLine('netLongTermGain'), formLine('netCapitalGain')))
   } else if (input.qdcgWorksheet?.state === 'distributions-only-reviewed') {
     wholeLine(3, formLine('capitalGainDistributions'))
   } else throw new Error('Unreviewed QDCG gain-selection branch')

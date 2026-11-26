@@ -1,5 +1,5 @@
 import { estimateHoldingSales, saleShareUnits, type HoldingsForSale, type SaleLine } from '@/lib/domain/taxes/holding-sale'
-import { estimateUsSaleComparison } from '@/lib/domain/taxes/investment-tax-reserve'
+import { estimateInvestmentTaxReserve, scenarioWithRecordedGains } from '@/lib/domain/taxes/investment-tax-reserve'
 import { estimateKrRecordedStockTax } from '@/lib/domain/taxes/kr-overseas-stock-tax'
 import type { InvestmentTaxYear } from '@/lib/domain/taxes/investment-tax-year'
 import type { RealizedTaxInputs } from './realized-tax-inputs'
@@ -29,7 +29,12 @@ export function readSavedHoldingSale(raw: string): SavedHoldingSale | null {
 }
 
 export type SaleComparisonAssumptions = {
-  us: Parameters<typeof estimateUsSaleComparison>[0]
+  us: {
+    profile: string
+    filing: string
+    baseline: Parameters<typeof scenarioWithRecordedGains>[0]
+    adjustments: Parameters<typeof scenarioWithRecordedGains>[2]
+  }
   kr: { confirmed: boolean; adjustment: string }
 }
 
@@ -45,7 +50,14 @@ export function compareHoldingSale(
   const invalidLines = proceeds == null
   const grossUsd = proceeds == null ? null : Math.round(proceeds * 100) / 100
   const grossKrw = proceeds == null || !book.fx ? null : Math.round(proceeds * book.fx.rate)
-  const us = ledger && assumptions && sales.us ? estimateUsSaleComparison(assumptions.us, ledger.us, sales.us, year) : null
+  const recorded = ledger?.us
+  const input = assumptions?.us
+  const baseline = recorded && input && scenarioWithRecordedGains(input.baseline, recorded, input.adjustments)
+  const scenario = recorded && input && sales.us && scenarioWithRecordedGains(input.baseline, {
+    shortUsd: recorded.shortUsd + sales.us.shortUsd,
+    longUsd: recorded.longUsd + sales.us.longUsd,
+  }, input.adjustments)
+  const us = baseline && scenario && input ? estimateInvestmentTaxReserve({ profile: input.profile, filing: input.filing, baseline, scenario, year }) : null
   const kr = ledger && assumptions?.kr.confirmed && sales.krw != null
     ? estimateKrRecordedStockTax(ledger.kr.gainKrw, assumptions.kr.adjustment, year, sales.krw)
     : null

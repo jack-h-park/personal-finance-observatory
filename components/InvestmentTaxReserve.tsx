@@ -7,9 +7,14 @@ import { STANDALONE_ESTIMATE_YEAR, type InvestmentTaxYear } from '@/lib/domain/t
 import type { Language } from '@/lib/i18n'
 import { localeFor } from '@/lib/format'
 import { investmentTaxReserve } from '@/lib/ui-copy/pages/investmentTaxReserve'
-import { estimateInvestmentTaxReserve, estimateUsSaleComparison, reserveFields, RESERVE_RULES, scenarioWithRecordedGains } from '@/lib/domain/taxes/investment-tax-reserve'
+import { estimateInvestmentTaxReserve, reserveFields, RESERVE_RULES, scenarioWithRecordedGains, type PreferentialWorksheet } from '@/lib/domain/taxes/investment-tax-reserve'
 
 const emptyScenario = { taxable: '', preferential: '', magi: '', nii: '' }
+const worksheetKinds = ['direct', 'schedule-d', 'distributions-only'] as const
+const emptyWorksheet = { qualifiedDividends: '', netLongTermGain: '', netCapitalGain: '', capitalGainDistributions: '' }
+type WorksheetKind = (typeof worksheetKinds)[number]
+const emptySelection = { ...emptyWorksheet, kind: 'direct' as WorksheetKind }
+
 const components = ['regular', 'niit', 'total'] as const
 
 export function InvestmentTaxReserve({
@@ -18,9 +23,11 @@ export function InvestmentTaxReserve({
   comparison,
   recorded,
   proposed,
+  enableWorksheet = false,
 }: {
   language: Language
   year?: InvestmentTaxYear
+  enableWorksheet?: boolean
   recorded?: { shortUsd: number; longUsd: number }
   proposed?: { shortUsd: number; longUsd: number }
   comparison?: { baseline: string; scenario: string; result: string }
@@ -32,6 +39,7 @@ export function InvestmentTaxReserve({
   const [filing, setFiling] = useState('')
   const [baseline, setBaseline] = useState(emptyScenario)
   const [scenario, setScenario] = useState(emptyScenario)
+  const [worksheets, setWorksheets] = useState({ baseline: emptySelection, scenario: emptySelection })
   const [adjustments, setAdjustments] = useState({ short: '', long: '' })
   const [result, setResult] = useState<ReturnType<typeof estimateInvestmentTaxReserve> | 'recorded' | null>(null)
   useEffect(() => setResult(null), [recorded, proposed])
@@ -39,12 +47,24 @@ export function InvestmentTaxReserve({
   const money = new Intl.NumberFormat(locale, { style: 'currency', currency: 'USD' })
   const change = new Intl.NumberFormat(locale, { style: 'currency', currency: 'USD', signDisplay: 'exceptZero' })
 
+  const hasWorksheet = enableWorksheet && !recorded && year === STANDALONE_ESTIMATE_YEAR
+  function withWorksheet(amounts: typeof emptyScenario, key: 'baseline' | 'scenario') {
+    const { kind, ...values } = worksheets[key]
+    if (!hasWorksheet || kind === 'direct') return amounts
+    const worksheet: PreferentialWorksheet = kind === 'schedule-d'
+      ? { kind, qualifiedDividends: values.qualifiedDividends, netLongTermGain: values.netLongTermGain, netCapitalGain: values.netCapitalGain }
+      : { kind, qualifiedDividends: values.qualifiedDividends, capitalGainDistributions: values.capitalGainDistributions }
+    const { taxable, magi, nii } = amounts
+    return { taxable, magi, nii, worksheet }
+  }
+
   return (
     <div className="space-y-5">
       <Card title={copy.profile}>
         <div className="space-y-4 p-4">
           <p className="text-body text-ink-2" id="reserve-scope">{proposed ? copy.saleScope : recorded ? copy.recordedScope : copy.scope}</p>
           <p className="text-body text-ink-2" id="reserve-exclusions">{copy.exclusion}</p>
+          {hasWorksheet && <Note>{copy.scopeBoundary}</Note>}
           <Note>{recorded ? copy.recordedPrivacy : copy.privacy}</Note>
           <form
             autoComplete="off"
@@ -52,12 +72,12 @@ export function InvestmentTaxReserve({
             aria-describedby="reserve-scope reserve-exclusions"
             onSubmit={event => {
               event.preventDefault()
-              if (recorded && proposed) {
-                setResult(estimateUsSaleComparison({ profile, filing, baseline, adjustments }, recorded, proposed, year) ?? 'recorded')
-                return
-              }
-              const after = recorded ? scenarioWithRecordedGains(baseline, recorded, adjustments) : scenario
-              setResult(after ? estimateInvestmentTaxReserve({ profile, filing, baseline, scenario: after, year }) : 'recorded')
+              const before = recorded && proposed ? scenarioWithRecordedGains(baseline, recorded, adjustments) : withWorksheet(baseline, 'baseline')
+              const after = recorded ? scenarioWithRecordedGains(baseline, {
+                shortUsd: recorded.shortUsd + (proposed?.shortUsd ?? 0),
+                longUsd: recorded.longUsd + (proposed?.longUsd ?? 0),
+              }, adjustments) : withWorksheet(scenario, 'scenario')
+              setResult(before && after ? estimateInvestmentTaxReserve({ profile, filing, baseline: before, scenario: after, year }) : 'recorded')
             }}
           >
             <div className="flex flex-wrap gap-4">
@@ -66,6 +86,7 @@ export function InvestmentTaxReserve({
                 <Select className="w-full" value={profile} onChange={event => { setProfile(event.target.value); setResult(null) }}>
                   <option value="">{copy.profileUnknown}</option>
                   <option value="supported">{recorded ? copy.recordedProfile : copy.profileSupported}</option>
+                  {hasWorksheet && <option value="special-method">{copy.specialMethodOption}</option>}
                 </Select>
               </label>
               <label className="block min-w-0 flex-1 basis-48">
@@ -77,7 +98,7 @@ export function InvestmentTaxReserve({
                 </Select>
               </label>
             </div>
-            <Note>{copy.amountHint}</Note>
+            <Note>{hasWorksheet ? copy.worksheetAmountHint : copy.amountHint}</Note>
             <div className="flex flex-wrap gap-4">
               {([
                 { key: 'baseline', amounts: baseline, setAmounts: setBaseline },
@@ -85,7 +106,24 @@ export function InvestmentTaxReserve({
               ] as const).filter(({ key }) => !recorded || key === 'baseline').map(({ key, amounts, setAmounts }) => (
                 <fieldset key={key} className="min-w-0 flex-1 basis-72 space-y-3 rounded-md border border-line p-4">
                   <legend className="px-1 text-body font-medium">{proposed ? copy.beforeCapital : labels[key]}</legend>
-                  {reserveFields.map(field => (
+                  {hasWorksheet && (
+                    <label className="block">
+                      <span id={`reserve-${key}-source`} className="mb-1 block text-label">{copy.worksheetSource}</span>
+                      <Select
+                        className="w-full"
+                        aria-labelledby={`reserve-${key}-source`}
+                        value={worksheets[key].kind}
+                        onChange={event => {
+                          const kind = worksheetKinds.find(option => option === event.target.value) ?? 'direct'
+                          setWorksheets({ ...worksheets, [key]: { ...worksheets[key], kind } })
+                          setResult(null)
+                        }}
+                      >
+                        {worksheetKinds.map(kind => <option key={kind} value={kind}>{copy.worksheetChoices[kind]}</option>)}
+                      </Select>
+                    </label>
+                  )}
+                  {reserveFields.filter(field => field !== 'preferential' || !hasWorksheet || worksheets[key].kind === 'direct').map(field => (
                     <label key={field} className="block">
                       <span className="mb-1 block text-label">{copy.fields[field]}</span>
                       <Input
@@ -94,7 +132,7 @@ export function InvestmentTaxReserve({
                         maxLength={18}
                         size="md"
                         value={amounts[field]}
-                        aria-describedby={field === 'preferential' ? 'reserve-preferential' : undefined}
+                        aria-describedby={field === 'preferential' ? 'reserve-preferential' : hasWorksheet && (field === 'magi' || field === 'nii') ? 'reserve-niit' : undefined}
                         onChange={event => {
                           setAmounts({ ...amounts, [field]: event.target.value })
                           setResult(null)
@@ -102,6 +140,27 @@ export function InvestmentTaxReserve({
                       />
                     </label>
                   ))}
+                  {hasWorksheet && worksheets[key].kind !== 'direct' && (
+                    (worksheets[key].kind === 'schedule-d'
+                      ? ['qualifiedDividends', 'netLongTermGain', 'netCapitalGain'] as const
+                      : ['qualifiedDividends', 'capitalGainDistributions'] as const
+                    ).map(field => (
+                      <label key={field} className="block">
+                        <span className="mb-1 block text-label">{copy.worksheetFields[field]}</span>
+                        <Input
+                          className="w-full tabular-nums"
+                          inputMode={field === 'netLongTermGain' || field === 'netCapitalGain' ? 'text' : 'decimal'}
+                          size="md"
+                          value={worksheets[key][field]}
+                          aria-describedby="reserve-worksheet"
+                          onChange={event => {
+                            setWorksheets({ ...worksheets, [key]: { ...worksheets[key], [field]: event.target.value } })
+                            setResult(null)
+                          }}
+                        />
+                      </label>
+                    ))
+                  )}
                 </fieldset>
               ))}
             </div>
@@ -127,13 +186,19 @@ export function InvestmentTaxReserve({
               </fieldset>
             )}
             <div id="reserve-preferential"><Note>{copy.preferentialHint}</Note></div>
+            {hasWorksheet && (
+              <>
+                <p id="reserve-worksheet" className="text-body text-ink-2">{copy.worksheetHint}</p>
+                <p id="reserve-niit" className="text-body text-ink-2">{copy.niitHint}</p>
+              </>
+            )}
             <Button type="submit" size="md">{copy.calculate}</Button>
           </form>
         </div>
       </Card>
       <div role="status" aria-live="polite">
         {result === 'recorded' ? <Note>{copy.recordedInvalid}</Note> : null}
-        {result && result !== 'recorded' && result.status === 'unavailable' ? <Note>{copy.unavailable[result.reason]}</Note> : null}
+        {result && result !== 'recorded' && result.status === 'unavailable' ? <Note>{hasWorksheet && result.reason === 'amount' ? copy.worksheetInvalid : copy.unavailable[result.reason]}</Note> : null}
         {result && result !== 'recorded' && result.status === 'ready' ? (
           <Card title={labels.result}>
             <div className="overflow-x-auto p-4">
@@ -147,6 +212,14 @@ export function InvestmentTaxReserve({
                   </tr>
                 </thead>
                 <tbody>
+                  {hasWorksheet && (
+                    <tr className="border-t border-line-subtle">
+                      <th scope="row" className="py-2 text-left font-medium">{copy.eligibleResult}</th>
+                      <td className="whitespace-nowrap px-1 text-right tabular-nums">{money.format(Number(result.preferential.baseline) / 100)}</td>
+                      <td className="whitespace-nowrap px-1 text-right tabular-nums">{money.format(Number(result.preferential.scenario) / 100)}</td>
+                      <td className="whitespace-nowrap px-1 text-right tabular-nums">{change.format(Number(result.preferential.scenario - result.preferential.baseline) / 100)}</td>
+                    </tr>
+                  )}
                   {components.map(key => (
                     <tr key={key} className="border-t border-line-subtle">
                       <th scope="row" className="py-2 text-left font-medium">{copy.components[key]}</th>
@@ -158,6 +231,7 @@ export function InvestmentTaxReserve({
                 </tbody>
               </table>
             </div>
+            {hasWorksheet && <div className="px-4 pb-4"><Note>{copy.resultBoundary}</Note></div>}
           </Card>
         ) : null}
       </div>
@@ -165,6 +239,7 @@ export function InvestmentTaxReserve({
         <summary className="min-h-6 cursor-pointer underline">{copy.rules}</summary>
         <ul className="mt-2 space-y-2 text-caption">
           {sources.map((url, index) => <li key={url}><a className="underline" href={url}>{copy.sources(year)[index]}</a></li>)}
+          {hasWorksheet && <li><a className="underline" href={RESERVE_RULES.qualifiedGainWorksheet}>{copy.worksheetReference}</a></li>}
         </ul>
       </details>
     </div>

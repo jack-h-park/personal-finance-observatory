@@ -128,6 +128,7 @@ export function KrOverseasStockTax({
                 </tbody>
               </table>
             </div>
+            {!automatic && <div className="px-4 pb-4"><Note>{copy.resultBoundary}</Note></div>}
           </Card>
         ) : null}
       </div>
