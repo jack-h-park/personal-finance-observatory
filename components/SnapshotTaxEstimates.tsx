@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Select } from '@/components/form'
 import { TextLink } from '@/components/ui'
-import { INVESTMENT_TAX_YEARS, type InvestmentTaxYear } from '@/lib/domain/taxes/investment-tax-year'
+import { INVESTMENT_TAX_YEARS, readInvestmentTaxYear, type InvestmentTaxYear } from '@/lib/domain/taxes/investment-tax-year'
 import { InvestmentTaxReserve } from '@/components/InvestmentTaxReserve'
 import { KrOverseasStockTax } from '@/components/KrOverseasStockTax'
 import type { Language } from '@/lib/i18n'
@@ -25,7 +25,7 @@ export function SnapshotTaxEstimates({ language, defaultYear }: { language: Lang
           <span className="mb-1 block text-label">{copy.taxYear}</span>
           <Select
             value={year}
-            onChange={event => setYear(INVESTMENT_TAX_YEARS.find(item => String(item) === event.target.value) ?? defaultYear)}
+            onChange={event => setYear(readInvestmentTaxYear(event.target.value) ?? defaultYear)}
           >
             {INVESTMENT_TAX_YEARS.map(item => <option key={item} value={item}>{item}</option>)}
           </Select>

@@ -101,7 +101,7 @@ test('the page opens on this year, else the latest year with sales, else every y
   assert.equal(defaultSoldYear([], '2026'), ALL_YEARS)
 })
 
-test('the year filter defaults, can be widened to every year, and ignores a year with no sales', () => {
+test('the year filter defaults, can be widened to every year, and retains an empty estimate year', () => {
   const rows = [
     toRealizedView(lot({ ticker: 'NEW' }), at),
     toRealizedView(lot({ ticker: 'OLD', sold_date: '2025-03-03' }), at),
@@ -110,6 +110,10 @@ test('the year filter defaults, can be widened to every year, and ignores a year
   assert.deepEqual(queryRealized(rows, { year: ALL_YEARS }, '2026').filtered.map((r) => r.ticker).sort(), ['NEW', 'OLD'])
   assert.deepEqual(queryRealized(rows, { year: '2025' }, '2026').filtered.map((r) => r.ticker), ['OLD'])
   assert.equal(queryRealized(rows, { year: '1999' }, '2026').year, '2026')
+  const noSales = queryRealized(rows, { year: '2027' }, '2026')
+  assert.equal(noSales.year, '2027')
+  assert.ok(noSales.years.includes('2027'))
+  assert.deepEqual(noSales.filtered, [])
   assert.deepEqual(queryRealized(rows, { year: ALL_YEARS, market: 'KR' }, '2026').filtered, [])
   assert.deepEqual(queryRealized(rows, { q: 'old', year: ALL_YEARS }, '2026').filtered.map((r) => r.ticker), ['OLD'])
 })

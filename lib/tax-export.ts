@@ -1,3 +1,4 @@
+import { readInvestmentTaxYear } from '@/lib/domain/taxes/investment-tax-year'
 /**
  * The tax worksheet: rows, per-file account aliases, a summary and the notes file.
  *
@@ -255,6 +256,6 @@ export function taxExportNotes(summary: TaxExportSummary, ctx: { year: string; b
 
 export function readExportParams(params: URLSearchParams, years: string[], currentYear: string): { year: string; audit: boolean } {
   const asked = params.get('year')
-  const year = asked === ALL_YEARS || (asked != null && years.includes(asked)) ? asked : defaultSoldYear(years, currentYear)
+  const year = asked === ALL_YEARS || (asked != null && (years.includes(asked) || readInvestmentTaxYear(asked) != null)) ? asked : defaultSoldYear(years, currentYear)
   return { year, audit: params.get('audit') === '1' }
 }
