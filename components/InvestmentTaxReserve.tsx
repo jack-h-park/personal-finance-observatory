@@ -1,13 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Button, Card, Note } from '@/components/ui'
 import { Input, Select } from '@/components/form'
 import { STANDALONE_ESTIMATE_YEAR, type InvestmentTaxYear } from '@/lib/domain/taxes/investment-tax-year'
 import type { Language } from '@/lib/i18n'
 import { localeFor } from '@/lib/format'
 import { investmentTaxReserve } from '@/lib/ui-copy/pages/investmentTaxReserve'
-import { estimateInvestmentTaxReserve, reserveFields, RESERVE_RULES } from '@/lib/domain/taxes/investment-tax-reserve'
+import { estimateInvestmentTaxReserve, reserveFields, RESERVE_RULES, scenarioWithRecordedGains } from '@/lib/domain/taxes/investment-tax-reserve'
 
 const emptyScenario = { taxable: '', preferential: '', magi: '', nii: '' }
 const components = ['regular', 'niit', 'total'] as const
@@ -16,9 +16,11 @@ export function InvestmentTaxReserve({
   language,
   year = STANDALONE_ESTIMATE_YEAR,
   comparison,
+  recorded,
 }: {
   language: Language
   year?: InvestmentTaxYear
+  recorded?: { shortUsd: number; longUsd: number }
   comparison?: { baseline: string; scenario: string; result: string }
 }) {
   const copy = investmentTaxReserve[language]
@@ -28,7 +30,9 @@ export function InvestmentTaxReserve({
   const [filing, setFiling] = useState('')
   const [baseline, setBaseline] = useState(emptyScenario)
   const [scenario, setScenario] = useState(emptyScenario)
-  const [result, setResult] = useState<ReturnType<typeof estimateInvestmentTaxReserve> | null>(null)
+  const [adjustments, setAdjustments] = useState({ short: '', long: '' })
+  const [result, setResult] = useState<ReturnType<typeof estimateInvestmentTaxReserve> | 'recorded' | null>(null)
+  useEffect(() => setResult(null), [recorded])
   const locale = localeFor(language)
   const money = new Intl.NumberFormat(locale, { style: 'currency', currency: 'USD' })
   const change = new Intl.NumberFormat(locale, { style: 'currency', currency: 'USD', signDisplay: 'exceptZero' })
@@ -37,16 +41,17 @@ export function InvestmentTaxReserve({
     <div className="space-y-5">
       <Card title={copy.profile}>
         <div className="space-y-4 p-4">
-          <p className="text-body text-ink-2" id="reserve-scope">{copy.scope}</p>
+          <p className="text-body text-ink-2" id="reserve-scope">{recorded ? copy.recordedScope : copy.scope}</p>
           <p className="text-body text-ink-2" id="reserve-exclusions">{copy.exclusion}</p>
-          <Note>{copy.privacy}</Note>
+          <Note>{recorded ? copy.recordedPrivacy : copy.privacy}</Note>
           <form
             autoComplete="off"
             className="space-y-4"
             aria-describedby="reserve-scope reserve-exclusions"
             onSubmit={event => {
               event.preventDefault()
-              setResult(estimateInvestmentTaxReserve({ profile, filing, baseline, scenario, year }))
+              const after = recorded ? scenarioWithRecordedGains(baseline, recorded, adjustments) : scenario
+              setResult(after ? estimateInvestmentTaxReserve({ profile, filing, baseline, scenario: after, year }) : 'recorded')
             }}
           >
             <div className="flex flex-wrap gap-4">
@@ -54,7 +59,7 @@ export function InvestmentTaxReserve({
                 <span className="mb-2 block text-label">{copy.profile}</span>
                 <Select className="w-full" value={profile} onChange={event => { setProfile(event.target.value); setResult(null) }}>
                   <option value="">{copy.profileUnknown}</option>
-                  <option value="supported">{copy.profileSupported}</option>
+                  <option value="supported">{recorded ? copy.recordedProfile : copy.profileSupported}</option>
                 </Select>
               </label>
               <label className="block min-w-0 flex-1 basis-48">
@@ -71,7 +76,7 @@ export function InvestmentTaxReserve({
               {([
                 { key: 'baseline', amounts: baseline, setAmounts: setBaseline },
                 { key: 'scenario', amounts: scenario, setAmounts: setScenario },
-              ] as const).map(({ key, amounts, setAmounts }) => (
+              ] as const).filter(({ key }) => !recorded || key === 'baseline').map(({ key, amounts, setAmounts }) => (
                 <fieldset key={key} className="min-w-0 flex-1 basis-72 space-y-3 rounded-md border border-line p-4">
                   <legend className="px-1 text-body font-medium">{labels[key]}</legend>
                   {reserveFields.map(field => (
@@ -94,14 +99,36 @@ export function InvestmentTaxReserve({
                 </fieldset>
               ))}
             </div>
+            {recorded && (
+              <fieldset className="space-y-3 rounded-md border border-line p-4">
+                <legend className="px-1 text-body font-medium">{copy.adjustments}</legend>
+                <p id="reserve-adjustments" className="text-body text-ink-2">{copy.recordedAdjustments}</p>
+                <div className="flex flex-wrap gap-4">
+                  {(['short', 'long'] as const).map(key => (
+                    <label key={key} className="block min-w-0 flex-1 basis-48">
+                      <span className="mb-1 block text-label">{copy.adjustmentFields[key]}</span>
+                      <Input
+                        className="w-full tabular-nums"
+                        maxLength={18}
+                        inputMode="text"
+                        value={adjustments[key]}
+                        aria-describedby="reserve-adjustments"
+                        onChange={event => { setAdjustments({ ...adjustments, [key]: event.target.value }); setResult(null) }}
+                      />
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+            )}
             <div id="reserve-preferential"><Note>{copy.preferentialHint}</Note></div>
             <Button type="submit" size="md">{copy.calculate}</Button>
           </form>
         </div>
       </Card>
       <div role="status" aria-live="polite">
-        {result?.status === 'unavailable' ? <Note>{copy.unavailable[result.reason]}</Note> : null}
-        {result?.status === 'ready' ? (
+        {result === 'recorded' ? <Note>{copy.recordedInvalid}</Note> : null}
+        {result && result !== 'recorded' && result.status === 'unavailable' ? <Note>{copy.unavailable[result.reason]}</Note> : null}
+        {result && result !== 'recorded' && result.status === 'ready' ? (
           <Card title={labels.result}>
             <div className="overflow-x-auto p-4">
               <table className="w-full text-body">

@@ -74,3 +74,10 @@ export function estimateKrOverseasStockTax(
     },
   }
 }
+
+export function estimateKrRecordedStockTax(recordedKrw: number, adjustment: string, year: InvestmentTaxYear): Estimate {
+  const text = adjustment.trim()
+  const extra = parseKrw(text.replace(/^\+(?=\d)/, '') || '0')
+  if (extra == null || !Number.isSafeInteger(recordedKrw)) return { status: 'unavailable' }
+  return estimateKrOverseasStockTax('0', String(BigInt(recordedKrw) + extra), year)
+}

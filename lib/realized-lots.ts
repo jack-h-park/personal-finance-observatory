@@ -23,6 +23,8 @@ export type RealizedLotRow = {
   sold_date: string | null
   quantity_sold: number | null
   cost_basis_krw: number | null
+  acquisition_cost_krw?: number | null
+  account_wrapper?: string | null
   proceeds_krw: number | null
   realized_gl_krw: number | null
   acquisition_cost_usd: number | null

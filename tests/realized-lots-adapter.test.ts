@@ -68,12 +68,22 @@ test('getRealizedLots works on a table without the extra columns', async () => {
   assert.equal(rows[0].covered_status, null)
   assert.equal(rows[0].superseded_by, null)
   assert.equal(rows[0].native_realized_gl, null)
+  assert.equal(rows[0].account_wrapper, null)
+  assert.equal(rows[0].acquisition_cost_krw, null)
 })
 
 test('getRealizedLots selects native_realized_gl when the column exists', async () => {
   rebuild('native_realized_gl real', [lot('AAA', 12.34)])
   const { getRealizedLots } = await import('../lib/adapters/portfolio-db')
   assert.equal(getRealizedLots()[0].native_realized_gl, 12.34)
+})
+
+test('getRealizedLots reads the account wrapper and acquisition-date won basis when available', async () => {
+  rebuild('account_wrapper text, acquisition_cost_krw real', [lot('AAA', 'taxable', 875)])
+  const { getRealizedLots } = await import('../lib/adapters/portfolio-db')
+  const [row] = getRealizedLots()
+  assert.equal(row.account_wrapper, 'taxable')
+  assert.equal(row.acquisition_cost_krw, 875)
 })
 
 test('getIngestedAt reads the meta value, or null', async () => {
