@@ -33,7 +33,7 @@ type Estimate =
   | { status: 'unavailable' }
   | { status: 'ready'; baseline: Amounts; scenario: Amounts; delta: Amounts }
 
-function parseKrw(value: string): bigint | null {
+export function parseKrwWon(value: string): bigint | null {
   const text = value.trim()
   if (!/^-?(?:[0-9]+|[0-9]{1,3}(?:,[0-9]{3})+)$/.test(text)) return null
   const digits = text.replaceAll(',', '')
@@ -56,8 +56,8 @@ export function estimateKrOverseasStockTax(
   scenarioInput: string,
   year: InvestmentTaxYear = STANDALONE_ESTIMATE_YEAR,
 ): Estimate {
-  const baselineGain = parseKrw(baselineInput)
-  const scenarioGain = parseKrw(scenarioInput)
+  const baselineGain = parseKrwWon(baselineInput)
+  const scenarioGain = parseKrwWon(scenarioInput)
   if (baselineGain === null || scenarioGain === null) return { status: 'unavailable' }
 
   const baseline = estimateAnnualTax(baselineGain, year)
@@ -77,7 +77,7 @@ export function estimateKrOverseasStockTax(
 
 export function estimateKrRecordedStockTax(recordedKrw: number, adjustment: string, year: InvestmentTaxYear, proposedKrw?: number): Estimate {
   const text = adjustment.trim()
-  const extra = parseKrw(text.replace(/^\+(?=\d)/, '') || '0')
+  const extra = parseKrwWon(text.replace(/^\+(?=\d)/, '') || '0')
   if (extra == null || !Number.isSafeInteger(recordedKrw)) return { status: 'unavailable' }
   const realized = BigInt(recordedKrw) + extra
   if (proposedKrw === undefined) return estimateKrOverseasStockTax('0', String(realized), year)
