@@ -561,6 +561,11 @@ exclusion. The evidence-only helper creates zero economic rows. A one-day
 difference between the captured bank date and issuer posting date requires
 an explicit review decision and an exact signed amount match.
 
+Robinhood Checking and Savings can use the scoped SimpleFIN deposit importer. Keep the
+existing ledger account identifiers and review retained SnapTrade evidence for
+overlap before approving a SimpleFIN batch. An empty deposit run records provider
+status without changing the published snapshot.
+
 This queue consumes saved input pairs. Collection and delivery of new files
 for accounts outside the scheduled SimpleFIN bindings are separate steps.
 An account present in a connection or in a historical batch has no implied
