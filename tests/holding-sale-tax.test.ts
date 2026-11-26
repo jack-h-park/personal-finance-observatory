@@ -135,6 +135,13 @@ test('only the current owner’s reconciled brokerage balance can supply sale lo
     assert.deepEqual(position.quote, { date: '2026-11-24', usd: 120 })
     assert.equal(position.lots[0].term, 'short')
     assert.equal(getHoldingsForSale('2026-11-27')?.positions[0].lots[0].term, 'long')
+    db.exec(`
+      insert into holdings_all (account, quantity) values ('New holding', 1);
+      insert into tax_lots_all (account, open_quantity, acquired_date) values ('New holding', 1, '2020-01-01');
+    `)
+    const refreshed = getHoldingsForSale('2026-11-27')
+    assert.equal(refreshed?.positions.find(row => row.accountLabel === position.accountLabel)?.id, position.id)
+    assert.equal(new Set(refreshed?.positions.map(row => row.id)).size, 2)
   } finally {
     db.close()
     rmSync(dir, { recursive: true, force: true })
