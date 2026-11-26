@@ -218,7 +218,7 @@ test('readExportParams falls back for an unknown year and reads audit', () => {
   assert.equal(readExportParams(new URLSearchParams('year=2025'), years, '2026').year, '2025')
   const emptyEstimateYear = readExportParams(new URLSearchParams('year=2027'), years, '2026')
   assert.equal(emptyEstimateYear.year, '2027')
-  assert.deepEqual(selectTaxExportRows([lot({ sold_year: '2026' })], emptyEstimateYear), [])
+  assert.deepEqual(selectTaxExportRows([lot({ sold_date: '2026-10-12' })], emptyEstimateYear), [])
   assert.equal(readExportParams(new URLSearchParams('audit=1'), years, '2026').audit, true)
   assert.equal(readExportParams(new URLSearchParams('audit=yes'), years, '2026').audit, false)
   assert.equal(readExportParams(new URLSearchParams('year=all-years'), years, '2026').year, ALL_YEARS)
