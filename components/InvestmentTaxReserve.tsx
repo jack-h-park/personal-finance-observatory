@@ -17,10 +17,12 @@ export function InvestmentTaxReserve({
   year = STANDALONE_ESTIMATE_YEAR,
   comparison,
   recorded,
+  proposed,
 }: {
   language: Language
   year?: InvestmentTaxYear
   recorded?: { shortUsd: number; longUsd: number }
+  proposed?: { shortUsd: number; longUsd: number }
   comparison?: { baseline: string; scenario: string; result: string }
 }) {
   const copy = investmentTaxReserve[language]
@@ -32,7 +34,7 @@ export function InvestmentTaxReserve({
   const [scenario, setScenario] = useState(emptyScenario)
   const [adjustments, setAdjustments] = useState({ short: '', long: '' })
   const [result, setResult] = useState<ReturnType<typeof estimateInvestmentTaxReserve> | 'recorded' | null>(null)
-  useEffect(() => setResult(null), [recorded])
+  useEffect(() => setResult(null), [recorded, proposed])
   const locale = localeFor(language)
   const money = new Intl.NumberFormat(locale, { style: 'currency', currency: 'USD' })
   const change = new Intl.NumberFormat(locale, { style: 'currency', currency: 'USD', signDisplay: 'exceptZero' })
@@ -41,7 +43,7 @@ export function InvestmentTaxReserve({
     <div className="space-y-5">
       <Card title={copy.profile}>
         <div className="space-y-4 p-4">
-          <p className="text-body text-ink-2" id="reserve-scope">{recorded ? copy.recordedScope : copy.scope}</p>
+          <p className="text-body text-ink-2" id="reserve-scope">{proposed ? copy.saleScope : recorded ? copy.recordedScope : copy.scope}</p>
           <p className="text-body text-ink-2" id="reserve-exclusions">{copy.exclusion}</p>
           <Note>{recorded ? copy.recordedPrivacy : copy.privacy}</Note>
           <form
@@ -50,8 +52,12 @@ export function InvestmentTaxReserve({
             aria-describedby="reserve-scope reserve-exclusions"
             onSubmit={event => {
               event.preventDefault()
-              const after = recorded ? scenarioWithRecordedGains(baseline, recorded, adjustments) : scenario
-              setResult(after ? estimateInvestmentTaxReserve({ profile, filing, baseline, scenario: after, year }) : 'recorded')
+              const before = recorded && proposed ? scenarioWithRecordedGains(baseline, recorded, adjustments) : baseline
+              const after = recorded ? scenarioWithRecordedGains(baseline, {
+                shortUsd: recorded.shortUsd + (proposed?.shortUsd ?? 0),
+                longUsd: recorded.longUsd + (proposed?.longUsd ?? 0),
+              }, adjustments) : scenario
+              setResult(before && after ? estimateInvestmentTaxReserve({ profile, filing, baseline: before, scenario: after, year }) : 'recorded')
             }}
           >
             <div className="flex flex-wrap gap-4">
@@ -78,7 +84,7 @@ export function InvestmentTaxReserve({
                 { key: 'scenario', amounts: scenario, setAmounts: setScenario },
               ] as const).filter(({ key }) => !recorded || key === 'baseline').map(({ key, amounts, setAmounts }) => (
                 <fieldset key={key} className="min-w-0 flex-1 basis-72 space-y-3 rounded-md border border-line p-4">
-                  <legend className="px-1 text-body font-medium">{labels[key]}</legend>
+                  <legend className="px-1 text-body font-medium">{proposed ? copy.beforeCapital : labels[key]}</legend>
                   {reserveFields.map(field => (
                     <label key={field} className="block">
                       <span className="mb-1 block text-label">{copy.fields[field]}</span>
