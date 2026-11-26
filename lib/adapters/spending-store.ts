@@ -117,6 +117,7 @@ type SavedBankEvidence = {
 
 export type SnaptradeHold = { source: 'snaptrade' | 'chase'; row: number; reason: string }
 type SnaptradeEvidence = {
+  fallback?: boolean
   accountId: string
   providerAccountId: string
   sourceRows: number[]
@@ -403,6 +404,13 @@ function processBatch(db: Database.Database | null, input: ImportInput) {
   const priorCardKeys = snaptrade && new Set(stored
     .filter(record => record.source === batch.source)
     .map(record => snaptradeMatchKey(record.row)))
+  const shiftedCardCandidates = snaptrade?.fallback ? stored.filter(record => record.source === 'offline-simplefin-card') :
+    savedBank?.card ? stored.filter(record => record.source === 'offline-snaptrade-chase') : []
+  function hasShiftedCardCandidate(row: SpendingRow) {
+    return shiftedCardCandidates.some(({ row: existing }) => existing.accountId === row.accountId &&
+      existing.currency === row.currency && existing.amountMinor === row.amountMinor &&
+      Math.abs(Date.parse(existing.postedDate) - Date.parse(row.postedDate)) <= 3 * 86_400_000)
+  }
   let pending: Pending[] = []
   const issues: Issue[] = []
   const held = [...(workbook?.held ?? [])]
@@ -437,7 +445,7 @@ function processBatch(db: Database.Database | null, input: ImportInput) {
       }
     } else if ((batchMode !== undefined && batchMode !== hasSourceId) ||
       candidates?.get(row.accountId, row.postedDate, row.currency, row.amountMinor, batch.source, Number(!hasSourceId)) ||
-      (!prior && priorCardKeys?.has(snaptradeMatchKey(row)))) {
+      (!prior && (priorCardKeys?.has(snaptradeMatchKey(row)) || hasShiftedCardCandidate(row)))) {
       issues.push({ row: rowNumber, code: 'possible_duplicate' })
     } else pending.push({ id, row, rowNumber, insert: !prior })
     seenIds.add(id)

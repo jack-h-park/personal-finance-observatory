@@ -2,7 +2,7 @@
 """Review saved SimpleFIN runs and publish approved spending snapshots."""
 import argparse
 from contextlib import closing, contextmanager
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 import fcntl
 import hashlib
 import json
@@ -164,7 +164,16 @@ def cli(config, directory, apply_token=None):
         return json.loads(result.stdout)
     command = [config['node'], config['tsx'], str(Path(config['checkout']) / 'scripts/import-spending.ts'),
                '--workspace', str(directory), '--accounts', config['accounts'], '--binding', config['binding']]
-    if config.get('kind') == 'snaptrade-card':
+    if config.get('kind') == 'snaptrade-fallback':
+        pointer = read(directory / 'pointer.json')
+        provider = directory / 'provider.json'
+        require(digest(Path(config['binding']).read_bytes()) == pointer['bindingSha256'] and
+                digest(provider.read_bytes()) == pointer['providerSha256'], 'us_evidence_input_changed')
+        command.extend(['--input', str(provider), '--snaptrade-fallback'])
+        decisions = directory / 'snaptrade-decisions.json'
+        if decisions.is_file():
+            command.extend(['--snaptrade-decisions', str(decisions)])
+    elif config.get('kind') == 'snaptrade-card':
         pointer = read(directory / 'pointer.json')
         for path, key in ((Path(config['binding']), 'bindingSha256'), (directory / 'provider.json', 'providerSha256'),
                           (directory / 'issuer.csv', 'issuerSha256')):
@@ -303,6 +312,47 @@ def recover(root, config, runs, active):
     return None
 
 
+def collect_snaptrade_fallback(config, runs, key):
+    now = datetime.now(ZoneInfo('America/Los_Angeles'))
+    pointer = Path(config['pointer'])
+    status_path = pointer.with_suffix('.capture.json')
+    capture = config['fallbackCapture']
+    prior = read(status_path) if status_path.is_file() else {}
+    through = now.date()
+    if prior.get('through') == through.isoformat():
+        return prior
+    if now.hour < 10 or (now.hour == 10 and now.minute < 15):
+        return prior
+    previous = date.fromisoformat(prior['through']) if prior else through
+    start = max(date.fromisoformat(capture['from']), min(through, previous) - timedelta(days=30))
+    result = subprocess.run([config['node'], '--env-file', capture['credentials'],
+                             str(Path(config['checkout']) / 'scripts/collect-spending-snaptrade.mjs'),
+                             config['connectorRepo'], config['binding'], start.isoformat(), through.isoformat()],
+                            capture_output=True, timeout=120)
+    require(result.returncode == 0, 'snaptrade_card_collection_failed')
+    snapshot = json.loads(result.stdout)
+    require(snapshot['through'] == through.isoformat() and snapshot['from'] == start.isoformat(),
+            'snaptrade_card_collection_window_changed')
+    status = dict(through=through.isoformat(), posted=len(snapshot['data']), pending=snapshot['pending'],
+                  providerSyncDay=snapshot['providerSyncDay'])
+    if snapshot['data']:
+        # Compare economic content across captures. A repeated capture leaves
+        # approvals and the pinned batch intact.
+        binding_hash = digest(Path(config['binding']).read_bytes())
+        identity = digest(encode([binding_hash, snapshot['account']['id'], snapshot['data']]))
+        run = 'snaptrade-' + key + '-' + identity[:32]
+        require(RUN_ID.fullmatch(run), 'invalid_run_id')
+        directory = runs / run
+        directory.mkdir(exist_ok=True)
+        provider = directory / 'provider.json'
+        if not provider.is_file():
+            atomic(provider, encode(snapshot))
+        atomic(pointer, encode(dict(runId=run, connectionKey=key, bindingSha256=binding_hash,
+                                    providerSha256=digest(provider.read_bytes()))))
+    atomic(status_path, encode(status))
+    return status
+
+
 def tick(root, config):
     runs = root / 'runs'
     runs.mkdir(exist_ok=True)
@@ -317,10 +367,19 @@ def tick(root, config):
     results = {}
     for key, source in sources.items():
         require(RUN_ID.fullmatch(key) and isinstance(source, dict) and
-                source.keys() <= {'pointer', 'binding', 'simplefinConfig', 'accountLabels', 'carryDecisions', 'kind', 'keepHeld'},
+                source.keys() <= {'pointer', 'binding', 'simplefinConfig', 'accountLabels', 'carryDecisions', 'kind', 'keepHeld', 'fallbackCapture'},
                 'invalid_review_source')
         try:
-            results[key] = tick_source(root, {**config, **source, 'sourceKey': key}, runs, active_run(root), key)
+            scoped = {**config, **source, 'sourceKey': key}
+            if source.get('kind') == 'snaptrade-fallback':
+                capture = collect_snaptrade_fallback(scoped, runs, key)
+                results[key] = tick_source(root, scoped, runs, active_run(root), key)
+                if capture:
+                    results[key]['capture'] = capture
+                    if results[key]['status'] == 'awaiting_source' and not capture['posted']:
+                        results[key]['status'] = 'no_posted_activity'
+            else:
+                results[key] = tick_source(root, scoped, runs, active_run(root), key)
         except Exception as error:
             results[key] = dict(status='failed', reason=safe_reason(error))
             # Finish an interrupted publication before any later source stages changes.
@@ -426,7 +485,7 @@ def enqueue_workbook(root, config, key, banksalad, issuer, start, end, us=False)
 def reject_workbook(root, config, key, run):
     require(RUN_ID.fullmatch(key) and RUN_ID.fullmatch(run), 'invalid_run_id')
     source = config.get('sources', {}).get(key, {})
-    require(source.get('kind') in ('workbook', 'banksalad-evidence', 'us-evidence', 'snaptrade-card'), 'invalid_workbook_source')
+    require(source.get('kind') in ('workbook', 'banksalad-evidence', 'us-evidence', 'snaptrade-card', 'snaptrade-fallback'), 'invalid_workbook_source')
     pointer = read(Path(source['pointer']))
     require(pointer['connectionKey'] == key and pointer['runId'] == run, 'workbook_pointer_changed')
     directory = root / 'runs' / run
@@ -488,7 +547,7 @@ def preview(root, config, active, directory):
     clone(parent, ledger)
     copy_evidence(parent, ledger)
     result = cli(config, directory)
-    require(result['status'] == 'preview' or (config.get('kind') in ('workbook', 'banksalad-evidence', 'us-evidence', 'snaptrade-card') and
+    require(result['status'] == 'preview' or (config.get('kind') in ('workbook', 'banksalad-evidence', 'us-evidence', 'snaptrade-card', 'snaptrade-fallback') and
             result['status'] == 'already_applied'), 'unexpected_preview_status')
     if config.get('kind') in ('workbook', 'banksalad-evidence') or config.get('keepHeld') is True:
         result['keepHoldsAllowed'] = True
@@ -528,7 +587,7 @@ def apply(root, config, active, directory, preview_result):
     account = read(Path(config['binding']))['accountId']
     workbook = config.get('kind') in ('workbook', 'banksalad-evidence')
     source_key = config.get('sourceKey')
-    if workbook or config.get('kind') in ('us-evidence', 'snaptrade-card'):
+    if workbook or config.get('kind') in ('us-evidence', 'snaptrade-card', 'snaptrade-fallback'):
         # An overlapping export may omit earlier unresolved observations.
         # Keep those receipts unless a separate evidence review resolves them.
         source_key = f'{source_key}:{directory.name}'

@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 import sqlite3
 import tempfile
+from datetime import datetime
 import unittest
 from unittest.mock import patch
 
@@ -41,6 +42,34 @@ class DailySpendingTest(unittest.TestCase):
         (ledger.parent.parent / 'account-labels.json').write_bytes(b'{}')
         (base / 'snapshot.json').write_bytes(self.original)
         (self.root / 'current.json').write_bytes(daily.encode(dict(run='seed')))
+
+    def test_chase_fallback_keeps_pinned_batch_and_captures_once_per_day(self):
+        pointer = self.root / 'snaptrade.json'
+        config = {**self.config, 'pointer': str(pointer), 'node': 'node', 'checkout': str(self.root),
+                  'connectorRepo': str(self.root), 'fallbackCapture': {'from': '2026-11-23', 'credentials': 'private'}}
+        def snapshot(day, rows):
+            return daily.encode(dict(through=day, **{'from': '2026-11-23'},
+                pending=0, providerSyncDay=day, account=dict(id='sample'), data=rows))
+        with patch.object(daily, 'datetime') as clock, patch.object(daily.subprocess, 'run') as collect:
+            clock.now.return_value = datetime(2026, 11, 26, 10, 30)
+            collect.return_value.returncode = 0
+            collect.return_value.stdout = snapshot('2026-11-26', [dict(id='sample-row')])
+            first = daily.collect_snaptrade_fallback(config, self.root / 'runs', 'card-fallback')
+            pinned = pointer.read_bytes()
+            archived = self.root / 'runs' / json.loads(pinned)['runId'] / 'provider.json'
+            evidence = archived.read_bytes()
+            self.assertEqual(first['posted'], 1)
+            self.assertEqual(daily.collect_snaptrade_fallback(config, self.root / 'runs', 'card-fallback'), first)
+            self.assertEqual(collect.call_count, 1)
+            clock.now.return_value = datetime(2026, 11, 27, 10, 30)
+            collect.return_value.stdout = snapshot('2026-11-27', [dict(id='sample-row')])
+            daily.collect_snaptrade_fallback(config, self.root / 'runs', 'card-fallback')
+            self.assertEqual(pointer.read_bytes(), pinned)
+            self.assertEqual(archived.read_bytes(), evidence)
+            clock.now.return_value = datetime(2026, 11, 28, 10, 30)
+            collect.return_value.stdout = snapshot('2026-11-28', [])
+            self.assertEqual(daily.collect_snaptrade_fallback(config, self.root / 'runs', 'card-fallback')['posted'], 0)
+            self.assertEqual(pointer.read_bytes(), pinned)
 
     def cli(self, config, directory, apply_token=None):
         result = {}

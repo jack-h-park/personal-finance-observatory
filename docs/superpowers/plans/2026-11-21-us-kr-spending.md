@@ -21,7 +21,9 @@ references for shared labels and transit aggregates.
 
 The same Mac Studio review schedule accepts queued Chase SnapTrade/issuer
 pairs and reviewed BofA and Robinhood saved evidence. The Chase fallback
-replays the two historical card imports. BofA and Robinhood evidence links
+also supports scheduled capture from the existing read-only SnapTrade
+connection. The review runner stages new nonempty results and requires
+explicit classification and an approval token before publication. BofA and Robinhood evidence links
 cannot create economic rows. Keep incomplete dates and unconfirmed credits
 visible. Enroll the second BofA card, both Chase cards, and the Robinhood card
 using their reviewed SimpleFIN account bindings. An empty verified collection

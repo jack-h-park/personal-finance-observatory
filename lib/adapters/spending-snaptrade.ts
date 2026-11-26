@@ -156,12 +156,7 @@ function classification(row: IssuerRow): SpendingRow['kind'] | undefined {
   }
 }
 
-export function loadSnaptradeChaseSpending(options: {
-  snapshot: string
-  chaseCsv: string
-  binding: string
-  accountIds: Set<string>
-}) {
+function readBoundSnapshot(options: { snapshot: string; binding: string; accountIds: Set<string> }) {
   const binding: unknown = JSON.parse(fs.readFileSync(options.binding, 'utf8'))
   if (!object(binding) || Object.keys(binding).length !== 3 || !text(binding.accountId) ||
       !providerId(binding.providerAccountId) || typeof binding.maskedSuffix !== 'string' ||
@@ -169,8 +164,59 @@ export function loadSnaptradeChaseSpending(options: {
   const { accountId, providerAccountId, maskedSuffix } = binding
   if (!options.accountIds.has(accountId)) throw new Error('unknown_account')
   const snapshotBytes = fs.readFileSync(options.snapshot)
-  const issuerBytes = fs.readFileSync(options.chaseCsv)
   const provider = readSnapshot(JSON.parse(decode(snapshotBytes)), providerAccountId, maskedSuffix)
+  return { binding: { accountId, providerAccountId, maskedSuffix }, snapshotBytes, provider }
+}
+
+export function loadSnaptradeChaseFallback(options: {
+  snapshot: string; binding: string; accountIds: Set<string>; decisions?: string
+}) {
+  const { binding, snapshotBytes, provider } = readBoundSnapshot(options)
+  const posted = new Map(provider.map(row => [row.id, row]))
+  const decisions: unknown = options.decisions
+    ? JSON.parse(fs.readFileSync(options.decisions, 'utf8'))
+    : { snapshotSha256: sha(snapshotBytes), rows: [] }
+  if (!object(decisions) || decisions.snapshotSha256 !== sha(snapshotBytes) || !Array.isArray(decisions.rows))
+    throw new Error('invalid_snaptrade_fallback_review')
+  const sourceRows: number[] = []
+  const reviewed = new Set<string>()
+  const transactions = decisions.rows.map((decision: unknown) => {
+    if (!object(decision) || !providerId(decision.sourceId) || !text(decision.basis) ||
+        decision.basis.length > 800 || reviewed.has(decision.sourceId))
+      throw new Error('invalid_snaptrade_fallback_review')
+    const row = posted.get(decision.sourceId)
+    const kind = decision.kind
+    if (!row || row.transactionDate > row.postedDate || !text(row.description) || row.description.length > 1000 ||
+        row.description.includes('\0') || !row.amountMinor ||
+        !(kind === 'other' || (kind === 'purchase' || kind === 'fee') && row.amountMinor < 0 ||
+          (kind === 'refund' || kind === 'card_payment') && row.amountMinor > 0))
+      throw new Error('invalid_snaptrade_fallback_review')
+    reviewed.add(row.id)
+    sourceRows.push(row.row)
+    return { accountId: binding.accountId, postedDate: row.postedDate, transactionDate: row.transactionDate,
+      description: row.description, kind, currency: 'USD', amountMinor: row.amountMinor, sourceId: row.id }
+  })
+  const dates = provider.map(row => row.postedDate).sort()
+  if (!dates.length) throw new Error('empty_snaptrade_fallback')
+  const held: SnaptradeHold[] = provider.filter(row => !reviewed.has(row.id))
+    .map(row => ({ source: 'snaptrade', row: row.row, reason: 'unreviewed_transaction' }))
+  const batch = normalizeSnaptradeChaseBatch({ schemaVersion: 1, mode: 'offline', status: 'complete',
+    source: 'offline-snaptrade-chase', periodStart: dates[0], periodEnd: dates.at(-1), transactions }, options.accountIds)
+  const bytes = Buffer.from(JSON.stringify({ version: 1, binding, snapshot: decode(snapshotBytes), decisions }))
+  return { batch, bytes, format: 'json' as const, snaptrade: {
+    fallback: true, accountId: binding.accountId, providerAccountId: binding.providerAccountId, held, sourceRows, fallbackMatches: [],
+  } }
+}
+
+export function loadSnaptradeChaseSpending(options: {
+  snapshot: string
+  chaseCsv: string
+  binding: string
+  accountIds: Set<string>
+}) {
+  const { binding, snapshotBytes, provider } = readBoundSnapshot(options)
+  const { accountId, providerAccountId } = binding
+  const issuerBytes = fs.readFileSync(options.chaseCsv)
   const issuer = readIssuer(issuerBytes)
   const { matches, held } = matchRows(issuer, provider)
   const transactions = []

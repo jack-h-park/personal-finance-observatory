@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict'
+import { createHash } from 'node:crypto'
 import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 import Database from 'better-sqlite3'
-import type { SnaptradeHold } from '../lib/adapters/spending-store'
+import { importSpending, type SnaptradeHold } from '../lib/adapters/spending-store'
+import { prepareSimplefinSpending } from '../lib/adapters/spending-simplefin'
 
 type Activity = readonly [id: string, description: string, amount: number, type: string]
 
@@ -93,6 +95,53 @@ test('SnapTrade CLI previews, holds uncertain rows, and preserves totals on repl
     assert.equal(db.prepare('SELECT count(*) FROM spending_transaction').pluck().get(), 7)
     assert.equal(db.prepare('SELECT count(*) FROM spending_observation').pluck().get(), 9)
     assert.equal(db.pragma('integrity_check', { simple: true }), 'ok')
+    const fallback = snapshot('fallback.json', [['next', 'New shop', -89, 'Sale'], ['pending-review', 'Credit', 12, 'Adjustment']])
+    const hash = createHash('sha256').update(fs.readFileSync(fallback)).digest('hex')
+    const reviewed = write('fallback-decisions.json', { snapshotSha256: hash, rows: [
+      { sourceId: 'next', kind: 'purchase', basis: 'Reviewed against the primary feed and the ledger.' },
+    ] })
+    function runFallback(...flags: string[]) {
+      const result = spawnSync(process.execPath, ['--import', 'tsx', 'scripts/import-spending.ts',
+        '--workspace', root, '--accounts', accounts, '--input', fallback, '--snaptrade-fallback',
+        '--binding', bindingFile, ...flags], { encoding: 'utf8' })
+      assert.equal(result.status, 0, result.stderr)
+      return JSON.parse(result.stdout)
+    }
+    assert.equal(runFallback().inserted, 0)
+    const fallbackPreview = runFallback('--snaptrade-decisions', reviewed)
+    assert.equal(fallbackPreview.inserted, 1)
+    assert.equal(fallbackPreview.held.length, 1)
+    const posted = runFallback('--snaptrade-decisions', reviewed, '--apply', '--review-token', fallbackPreview.reviewToken)
+    assert.equal(posted.totals[0].netMinor, '12500')
+    assert.equal(runFallback('--snaptrade-decisions', reviewed).status, 'already_applied')
+    assert.equal(db.prepare('SELECT count(*) FROM spending_transaction').pluck().get(), 8)
+
+    const primary = prepareSimplefinSpending({
+      accountIds: new Set([binding.accountId]), connectionKey: 'primary', manifestSha256: 'a'.repeat(64),
+      binding: { accountId: binding.accountId, accountKind: 'credit_card',
+        providerAccountId: 'primary-provider-card', connectionId: 'primary-connection' },
+      run: {
+        manifest: { schemaVersion: 'banking/1.0', provider: 'simplefin', environment: 'live', sample: false,
+          connectionKey: 'primary', runId: 'primary-run', fetchedAt: '2026-11-09T10:00:00Z',
+          connectionId: 'primary-connection', accountIds: ['primary-provider-card'] },
+        data: {
+          accounts: [{ providerAccountId: 'primary-provider-card', accountRef: 'primary-ref',
+            connectionId: 'primary-connection', name: 'Sample Card', currency: 'USD' }],
+          transactions: [{ accountRef: 'primary-ref', providerTransactionId: 'primary-shop', currency: 'USD',
+            postedAt: '2026-11-08T10:00:00Z', amount: '-89.00', description: 'New shop', state: 'posted' }],
+          'pending-transactions': [],
+        },
+      },
+      decisions: { schemaVersion: 1, decisions: [{ sourceId: 'primary-shop', postedDate: '2026-11-08',
+        amountMinor: -8900, descriptionSha256: createHash('sha256').update('New shop').digest('hex'),
+        kind: 'purchase', basis: 'Posted purchase in the primary feed.' }] },
+    })
+    const duplicate = importSpending({ ...primary, ledgerPath: ledger,
+      recordsDir: path.join(root, 'private-data/personal-finance-offline/records/spending'), inventorySha256: 'fixture' })
+    assert.equal(duplicate.inserted, 0)
+    assert.equal(duplicate.held?.[0].reason, 'possible_duplicate')
+
+
   } finally {
     db.close()
   }
