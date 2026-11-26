@@ -2,13 +2,16 @@
 
 import { useState } from 'react'
 import { Select } from '@/components/form'
+import { TextLink } from '@/components/ui'
+import { INVESTMENT_TAX_YEARS, type InvestmentTaxYear } from '@/lib/domain/taxes/investment-tax-year'
 import { InvestmentTaxReserve } from '@/components/InvestmentTaxReserve'
 import { KrOverseasStockTax } from '@/components/KrOverseasStockTax'
 import type { Language } from '@/lib/i18n'
 import { snapshotTax } from '@/lib/ui-copy/pages/snapshotTax'
 
-export function SnapshotTaxEstimates({ language }: { language: Language }) {
+export function SnapshotTaxEstimates({ language, defaultYear }: { language: Language; defaultYear: InvestmentTaxYear }) {
   const copy = snapshotTax[language]
+  const [year, setYear] = useState(defaultYear)
   const [jurisdiction, setJurisdiction] = useState('')
   const [purpose, setPurpose] = useState('realized')
   const comparison = purpose === 'realized' ? copy.realizedComparison : copy.saleComparison
@@ -18,6 +21,15 @@ export function SnapshotTaxEstimates({ language }: { language: Language }) {
       <h3 className="text-body font-medium">{copy.estimateTitle}</h3>
       <p className="text-caption text-ink-2">{copy.estimateScope}</p>
       <div className="flex flex-wrap gap-3">
+        <label className="block min-w-0 max-w-full">
+          <span className="mb-1 block text-label">{copy.taxYear}</span>
+          <Select
+            value={year}
+            onChange={event => setYear(INVESTMENT_TAX_YEARS.find(item => String(item) === event.target.value) ?? defaultYear)}
+          >
+            {INVESTMENT_TAX_YEARS.map(item => <option key={item} value={item}>{item}</option>)}
+          </Select>
+        </label>
         <label className="block min-w-0 max-w-full">
           <span className="mb-1 block text-label">{copy.jurisdiction}</span>
           <Select className="max-w-full" value={jurisdiction} onChange={event => setJurisdiction(event.target.value)}>
@@ -34,8 +46,9 @@ export function SnapshotTaxEstimates({ language }: { language: Language }) {
           </Select>
         </label>
       </div>
-      {jurisdiction === 'us' && <InvestmentTaxReserve key={purpose} language={language} comparison={comparison} />}
-      {jurisdiction === 'kr' && <KrOverseasStockTax key={purpose} language={language} comparison={comparison} />}
+      {purpose === 'realized' && <TextLink href={`/realized?year=${year}`}>{copy.realizedHistory}</TextLink>}
+      {jurisdiction === 'us' && <InvestmentTaxReserve key={`${year}-${purpose}`} language={language} year={year} comparison={comparison} />}
+      {jurisdiction === 'kr' && <KrOverseasStockTax key={`${year}-${purpose}`} language={language} year={year} comparison={comparison} />}
     </div>
   )
 }

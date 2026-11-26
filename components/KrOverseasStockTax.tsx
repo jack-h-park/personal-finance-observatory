@@ -5,6 +5,7 @@ import { Input } from '@/components/form'
 import { Button, Card, Note } from '@/components/ui'
 import { estimateKrOverseasStockTax, KR_OVERSEAS_STOCK_RULES, krStockTaxRows } from '@/lib/domain/taxes/kr-overseas-stock-tax'
 import { localeFor } from '@/lib/format'
+import { STANDALONE_ESTIMATE_YEAR, type InvestmentTaxYear } from '@/lib/domain/taxes/investment-tax-year'
 import type { Language } from '@/lib/i18n'
 import { investmentTaxReserve } from '@/lib/ui-copy/pages/investmentTaxReserve'
 import { krOverseasStockTax } from '@/lib/ui-copy/pages/krOverseasStockTax'
@@ -13,9 +14,11 @@ const scenarios = ['baseline', 'scenario'] as const
 
 export function KrOverseasStockTax({
   language,
+  year = STANDALONE_ESTIMATE_YEAR,
   comparison,
 }: {
   language: Language
+  year?: InvestmentTaxYear
   comparison?: { baseline: string; scenario: string; result: string }
 }) {
   const copy = krOverseasStockTax[language]
@@ -38,7 +41,7 @@ export function KrOverseasStockTax({
             className="space-y-4"
             onSubmit={event => {
               event.preventDefault()
-              setResult(estimateKrOverseasStockTax(amounts.baseline, amounts.scenario))
+              setResult(estimateKrOverseasStockTax(amounts.baseline, amounts.scenario, year))
             }}
           >
             <p id="kr-stock-tax-hint" className="text-body text-ink-2">{copy.hint}</p>
@@ -98,7 +101,7 @@ export function KrOverseasStockTax({
         <summary className="min-h-6 cursor-pointer underline">{copy.rules}</summary>
         <ul className="mt-2 space-y-2 text-caption">
           {(['national', 'local', 'guidance'] as const).map(key => (
-            <li key={key}><a className="underline" href={KR_OVERSEAS_STOCK_RULES.sources[key]}>{copy.sources[key]}</a></li>
+            <li key={key}><a className="underline" href={KR_OVERSEAS_STOCK_RULES[year].sources[key]}>{copy.sources[key]}</a></li>
           ))}
         </ul>
       </details>

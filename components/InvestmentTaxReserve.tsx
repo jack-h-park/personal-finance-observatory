@@ -3,24 +3,27 @@
 import { useState } from 'react'
 import { Button, Card, Note } from '@/components/ui'
 import { Input, Select } from '@/components/form'
+import { STANDALONE_ESTIMATE_YEAR, type InvestmentTaxYear } from '@/lib/domain/taxes/investment-tax-year'
 import type { Language } from '@/lib/i18n'
 import { localeFor } from '@/lib/format'
 import { investmentTaxReserve } from '@/lib/ui-copy/pages/investmentTaxReserve'
 import { estimateInvestmentTaxReserve, reserveFields, RESERVE_RULES } from '@/lib/domain/taxes/investment-tax-reserve'
 
 const emptyScenario = { taxable: '', preferential: '', magi: '', nii: '' }
-const sources = [RESERVE_RULES.revenueProcedure, RESERVE_RULES.capitalGainLaw, RESERVE_RULES.niitGuide]
 const components = ['regular', 'niit', 'total'] as const
 
 export function InvestmentTaxReserve({
   language,
+  year = STANDALONE_ESTIMATE_YEAR,
   comparison,
 }: {
   language: Language
+  year?: InvestmentTaxYear
   comparison?: { baseline: string; scenario: string; result: string }
 }) {
   const copy = investmentTaxReserve[language]
   const labels = comparison ?? copy
+  const sources = [RESERVE_RULES.revenueProcedure[year], RESERVE_RULES.capitalGainLaw, RESERVE_RULES.niitGuide]
   const [profile, setProfile] = useState('')
   const [filing, setFiling] = useState('')
   const [baseline, setBaseline] = useState(emptyScenario)
@@ -43,7 +46,7 @@ export function InvestmentTaxReserve({
             aria-describedby="reserve-scope reserve-exclusions"
             onSubmit={event => {
               event.preventDefault()
-              setResult(estimateInvestmentTaxReserve({ profile, filing, baseline, scenario }))
+              setResult(estimateInvestmentTaxReserve({ profile, filing, baseline, scenario, year }))
             }}
           >
             <div className="flex flex-wrap gap-4">
@@ -128,7 +131,7 @@ export function InvestmentTaxReserve({
       <details>
         <summary className="min-h-6 cursor-pointer underline">{copy.rules}</summary>
         <ul className="mt-2 space-y-2 text-caption">
-          {sources.map((url, index) => <li key={url}><a className="underline" href={url}>{copy.sources[index]}</a></li>)}
+          {sources.map((url, index) => <li key={url}><a className="underline" href={url}>{copy.sources(year)[index]}</a></li>)}
         </ul>
       </details>
     </div>

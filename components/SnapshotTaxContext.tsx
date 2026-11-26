@@ -1,5 +1,7 @@
 import { Note, TextLink } from '@/components/ui'
 import { SnapshotTaxEstimates } from '@/components/SnapshotTaxEstimates'
+import { todayLosAngeles } from '@/lib/cli/common'
+import { INVESTMENT_TAX_YEARS } from '@/lib/domain/taxes/investment-tax-year'
 import { readTaxHistory } from '@/lib/adapters/tax-history-store'
 import { snapshotTaxPayments } from '@/lib/application/snapshot-tax-payments'
 import { formatMoney } from '@/lib/domain/taxes/reconcile'
@@ -11,6 +13,8 @@ import { snapshotTax } from '@/lib/ui-copy/pages/snapshotTax'
 export function SnapshotTaxContext({ language }: { language: Language }) {
   const copy = snapshotTax[language]
   const history = getPageCopy('taxHistory', language)
+  const currentYear = Number(todayLosAngeles().slice(0, 4))
+  const defaultYear = INVESTMENT_TAX_YEARS.findLast(year => year <= currentYear) ?? INVESTMENT_TAX_YEARS[0]
   let payments: ReturnType<typeof snapshotTaxPayments> | null = null
   try {
     payments = snapshotTaxPayments(readTaxHistory())
@@ -48,7 +52,7 @@ export function SnapshotTaxContext({ language }: { language: Language }) {
           ) : <Note>{payments ? copy.paymentEmpty : copy.paymentUnavailable}</Note>}
           <TextLink href="/taxes/history">{copy.history}</TextLink>
         </div>
-        <SnapshotTaxEstimates language={language} />
+        <SnapshotTaxEstimates language={language} defaultYear={defaultYear} />
       </div>
     </details>
   )

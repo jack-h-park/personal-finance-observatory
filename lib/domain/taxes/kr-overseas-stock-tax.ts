@@ -1,12 +1,29 @@
-export const KR_OVERSEAS_STOCK_RULES = {
-  year: 2027,
+import { STANDALONE_ESTIMATE_YEAR, type InvestmentTaxYear } from './investment-tax-year'
+
+const stockTaxRates = {
   deductionKrw: 2_500_000n,
   nationalRatePercent: 20n,
   localRatePercent: 2n,
-  sources: {
-    national: 'https://www.law.go.kr/LSW/lsInfoP.do?efYd=20270101&lsiSeq=280405',
-    local: 'https://www.law.go.kr/LSW/lsLawLinkInfo.do?chrClsCd=010202&lsId=001649&lsJoLnkSeq=1000899162&print=print',
-    guidance: 'https://www.nts.go.kr/nts/cm/cntnts/cntntsView.do?cntntsId=8800&mi=12274',
+} as const
+
+const guidance = 'https://www.nts.go.kr/nts/cm/cntnts/cntntsView.do?cntntsId=8800&mi=12274'
+
+export const KR_OVERSEAS_STOCK_RULES = {
+  2026: {
+    ...stockTaxRates,
+    sources: {
+      national: 'https://www.law.go.kr/LSW/lsInfoP.do?efYd=20260701&lsiSeq=280405',
+      local: 'https://www.law.go.kr/LSW/lsPdfPrint.do?ancYnChk=0&bylChaChk=N&efGubun=Y&efYd=20260701&joAllCheck=Y&joEfOutPutYn=on&lsiSeq=282559&mokChaChk=N#page=64',
+      guidance,
+    },
+  },
+  2027: {
+    ...stockTaxRates,
+    sources: {
+      national: 'https://www.law.go.kr/LSW/lsInfoP.do?efYd=20270101&lsiSeq=280405',
+      local: 'https://www.law.go.kr/LSW/lsLawLinkInfo.do?chrClsCd=010202&lsId=001649&lsJoLnkSeq=1000899162&print=print',
+      guidance,
+    },
   },
 } as const
 
@@ -24,8 +41,8 @@ function parseKrw(value: string): bigint | null {
   return BigInt(digits)
 }
 
-function estimateAnnualTax(netGain: bigint): Amounts {
-  const rules = KR_OVERSEAS_STOCK_RULES
+function estimateAnnualTax(netGain: bigint, year: InvestmentTaxYear): Amounts {
+  const rules = KR_OVERSEAS_STOCK_RULES[year]
   const afterDeduction = netGain - rules.deductionKrw
   const taxable = afterDeduction > 0n ? afterDeduction : 0n
   // Round each planning estimate to the nearest won, half up.
@@ -34,13 +51,17 @@ function estimateAnnualTax(netGain: bigint): Amounts {
   return { taxable, national, local, total: national + local }
 }
 
-export function estimateKrOverseasStockTax(baselineInput: string, scenarioInput: string): Estimate {
+export function estimateKrOverseasStockTax(
+  baselineInput: string,
+  scenarioInput: string,
+  year: InvestmentTaxYear = STANDALONE_ESTIMATE_YEAR,
+): Estimate {
   const baselineGain = parseKrw(baselineInput)
   const scenarioGain = parseKrw(scenarioInput)
   if (baselineGain === null || scenarioGain === null) return { status: 'unavailable' }
 
-  const baseline = estimateAnnualTax(baselineGain)
-  const scenario = estimateAnnualTax(scenarioGain)
+  const baseline = estimateAnnualTax(baselineGain, year)
+  const scenario = estimateAnnualTax(scenarioGain, year)
   return {
     status: 'ready',
     baseline,
