@@ -341,6 +341,36 @@ test('an explicit deposit binding preserves a reviewed cross-source merchant ali
   assert.equal(db.prepare('select count(*) from spending_transaction').pluck().get(), 1)
 })
 
+test('a pinned deposit posting-date offset links to the original purchase and survives replay', (t) => {
+  const p = pilot(t)
+  const baseline = p.input(snapshot('seed-offset', [checking[0]]))
+  const seed = { ...baseline, savedBank: undefined, batch: { ...baseline.batch, source: 'reviewed-csv' } }
+  importSpending({ ...seed, reviewToken: importSpending(seed).reviewToken })
+  const db = new Database(p.ledgerPath, { readonly: true })
+  t.after(() => db.close())
+  const id = db.prepare('select id from spending_transaction').pluck().get() as string
+  const row = { ...tx('reviewed-debit', '-20.00', 'Processor'), postedAt: '2026-11-12T01:00:00.000Z' }
+  const reviewed = { ...decision('reviewed-debit', -2000, row.description, 'purchase'), postedDate: '2026-11-11',
+    linkToTransactionId: id, targetDescriptionSha256: descriptionSha256('Known shop'), targetPostedDate: postedDate }
+  const input = (runId: string, choice = reviewed) => ({ ...baseline, ...prepareSimplefinSpending({
+    run: snapshot(runId, [row]), binding: { ...binding, accountKind: 'checking' },
+    decisions: { schemaVersion: 1, decisions: [choice] }, accountIds: accounts,
+    manifestSha256: descriptionSha256(runId), connectionKey: 'chase-checking',
+  }) })
+  assert.throws(() => input('bad-offset', { ...reviewed, targetPostedDate: '2026-11-09' }), /invalid_simplefin_decisions/)
+  const mismatch = input('bad-description', { ...reviewed, targetDescriptionSha256: descriptionSha256('another shop') })
+  assert.equal(importSpending(mismatch).held?.[0].reason, 'reviewed_link_mismatch')
+  for (const id of ['offset', 'offset-replay']) {
+    const data = input(id)
+    const preview = importSpending(data)
+    assert.equal(preview.matched, 1)
+    assert.equal(preview.inserted, 0)
+    assert.deepEqual(preview.held, [])
+    assert.equal(importSpending({ ...data, reviewToken: preview.reviewToken }).totals[0].netMinor, '2000')
+  }
+  assert.deepEqual(db.prepare('select posted_date from spending_transaction').pluck().all(), [postedDate])
+})
+
 test('Robinhood checking and savings loads remain scoped to their verified account', async (t) => {
   for (const [accountKind, name] of [['checking', 'Checking (8149)'], ['savings', 'Savings (6227)']]) {
     const p = pilot(t)

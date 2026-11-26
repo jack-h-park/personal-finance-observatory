@@ -71,6 +71,26 @@ class DailySpendingTest(unittest.TestCase):
             self.assertEqual(daily.collect_snaptrade_fallback(config, self.root / 'runs', 'card-fallback')['posted'], 0)
             self.assertEqual(pointer.read_bytes(), pinned)
 
+    def test_review_receipt_keeps_the_original_provider_run_and_carries_its_decision(self):
+        directory = self.root / 'runs/review-provider-run'
+        archived = (directory / daily.STORAGE).parent.parent / 'records/spending'
+        archived.mkdir(parents=True)
+        evidence = dict(manifestSha256=TOKEN, run=dict(manifest=dict(runId='provider-run')),
+                        decisions=[dict(targetPostedDate='2026-11-06')])
+        body = daily.encode(evidence)
+        digest = daily.digest(body)
+        (archived / (digest + '.json')).write_bytes(body)
+        (directory / 'pointer.json').write_bytes(daily.encode(
+            dict(runId='provider-run', manifestSha256=TOKEN, connectionKey='deposit')))
+        (directory / 'published.json').write_bytes(daily.encode(dict(evidenceSha256=digest)))
+        next_directory = self.root / 'runs/next-provider-run'
+        next_directory.mkdir()
+        daily.carry_decisions(self.root / 'runs', next_directory, 'deposit', directory.name)
+        self.assertEqual(daily.read(next_directory / 'carried-decisions.json')['decisions'], evidence['decisions'])
+        (directory / 'pointer.json').write_bytes(daily.encode(dict(runId='different-run', manifestSha256=TOKEN)))
+        with self.assertRaisesRegex(ValueError, 'invalid_applied_evidence'):
+            daily.applied_evidence(directory, digest)
+
     def cli(self, config, directory, apply_token=None):
         result = {}
         if apply_token:

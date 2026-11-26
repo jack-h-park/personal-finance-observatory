@@ -408,8 +408,11 @@ def applied_evidence(directory, evidence_hash):
     require(digest(body) == evidence_hash, 'applied_evidence_changed')
     evidence = json.loads(body)
     pointer = read(directory / 'pointer.json')
-    require(evidence['manifestSha256'] == pointer['manifestSha256'] and
-            evidence['run']['manifest']['runId'] == directory.name and
+    run = pointer['runId']
+    # An explicit evidence review may reuse a published provider capture.
+    require(RUN_ID.fullmatch(run) and directory.name in (run, f'review-{run}') and
+            evidence['manifestSha256'] == pointer['manifestSha256'] and
+            evidence['run']['manifest']['runId'] == run and
             isinstance(evidence['decisions'], list), 'invalid_applied_evidence')
     return evidence
 
@@ -539,7 +542,9 @@ def tick_source(root, config, runs, active, key=None):
 
 
 def preview(root, config, active, directory):
-    require(RUN_ID.fullmatch(directory.name) and read(directory / 'pointer.json')['runId'] == directory.name,
+    run = read(directory / 'pointer.json')['runId']
+    require(RUN_ID.fullmatch(directory.name) and RUN_ID.fullmatch(run) and
+            (directory.name == run or (config.get('kind') is None and directory.name == f'review-{run}')),
             'invalid_review_directory')
     ledger = directory / STORAGE
     ledger.parent.mkdir(parents=True, exist_ok=True)

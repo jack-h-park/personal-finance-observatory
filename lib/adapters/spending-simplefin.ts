@@ -14,7 +14,14 @@ const newYorkDate = new Intl.DateTimeFormat('sv-SE', {
   timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit',
 })
 const kinds: SpendingRow['kind'][] = ['purchase', 'refund', 'card_payment', 'own_transfer', 'fee', 'other']
-type Decision = SavedBankFingerprint & { kind: SpendingRow['kind']; basis: string; transferRef?: string; linkToTransactionId?: string; targetDescriptionSha256?: string }
+type Decision = SavedBankFingerprint & {
+  kind: SpendingRow['kind']
+  basis: string
+  transferRef?: string
+  linkToTransactionId?: string
+  targetDescriptionSha256?: string
+  targetPostedDate?: string
+}
 
 function postedDate(value: unknown, card: boolean) {
   if (!instant(value)) throw new Error('invalid_simplefin_date')
@@ -34,13 +41,13 @@ function providerId(value: unknown): value is string {
   return text(value) && value.length <= 200 && value.trim() === value && !/[\x00-\x1f\x7f]/.test(value)
 }
 
-function reviewDecisions(value: unknown) {
+function reviewDecisions(value: unknown, allowDateOffset: boolean) {
   if (!object(value) || value.schemaVersion !== 1 || !Array.isArray(value.decisions) ||
       Object.keys(value).some(key => !['schemaVersion', 'decisions'].includes(key))) throw new Error('invalid_simplefin_decisions')
   const decisions = new Map<string, Decision>()
   for (const row of value.decisions) {
     if (!object(row)) throw new Error('invalid_simplefin_decisions')
-    const { sourceId, amountMinor, descriptionSha256, kind, basis, transferRef, linkToTransactionId, targetDescriptionSha256 } = row
+    const { sourceId, amountMinor, descriptionSha256, kind, basis, transferRef, linkToTransactionId, targetDescriptionSha256, targetPostedDate } = row
     const date = strictIsoDate(row.postedDate)
     if (!providerId(sourceId) || decisions.has(sourceId) || !date ||
       typeof amountMinor !== 'number' || !Number.isSafeInteger(amountMinor) || !amountMinor ||
@@ -50,7 +57,10 @@ function reviewDecisions(value: unknown) {
       (linkToTransactionId !== undefined && (typeof linkToTransactionId !== 'string' || !sha256.test(linkToTransactionId))) ||
       (targetDescriptionSha256 !== undefined && (typeof targetDescriptionSha256 !== 'string' ||
         !sha256.test(targetDescriptionSha256) || !linkToTransactionId)) ||
-      Object.keys(row).some(key => !['sourceId', 'postedDate', 'amountMinor', 'descriptionSha256', 'kind', 'basis', 'transferRef', 'linkToTransactionId', 'targetDescriptionSha256'].includes(key))) {
+      (targetPostedDate !== undefined && (!allowDateOffset || !linkToTransactionId || !targetDescriptionSha256 ||
+        typeof targetPostedDate !== 'string' || !strictIsoDate(targetPostedDate) ||
+        Math.abs(Date.parse(targetPostedDate) - Date.parse(date)) !== 86_400_000)) ||
+      Object.keys(row).some(key => !['sourceId', 'postedDate', 'amountMinor', 'descriptionSha256', 'kind', 'basis', 'transferRef', 'linkToTransactionId', 'targetDescriptionSha256', 'targetPostedDate'].includes(key))) {
       throw new Error('invalid_simplefin_decisions')
     }
     decisions.set(sourceId, {
@@ -58,6 +68,7 @@ function reviewDecisions(value: unknown) {
       ...(transferRef === undefined ? {} : { transferRef }),
       ...(linkToTransactionId === undefined ? {} : { linkToTransactionId }),
       ...(targetDescriptionSha256 === undefined ? {} : { targetDescriptionSha256 }),
+      ...(targetPostedDate === undefined ? {} : { targetPostedDate }),
     })
   }
   return decisions
@@ -93,7 +104,7 @@ export function prepareSimplefinSpending(options: {
   const accountName = binding.accountKind === 'savings' ? /\bsavings\b/i :
     card ? /\bcard\b/i : legacyChecking ? /\bchecking\b/i : /\b(checking|banking)\b/i
   const source = card ? 'offline-simplefin-card' : legacyChecking ? 'offline-simplefin-chase' : 'offline-simplefin-deposit'
-  const decisions = reviewDecisions(options.decisions)
+  const decisions = reviewDecisions(options.decisions, !card && !legacyChecking)
   const { run, manifestSha256, connectionKey } = options
   if (!sha256.test(manifestSha256) || !runKey.test(connectionKey) ||
       !object(run) || !object(run.manifest) || !object(run.data)) throw new Error('invalid_simplefin_run')
@@ -120,7 +131,7 @@ export function prepareSimplefinSpending(options: {
   const dates: string[] = []
   const usedDecisions: Decision[] = []
   const postingRows = new Map<string, number[]>()
-  const reviewedLinks: { row: number; transactionId: string; targetDescriptionSha256?: string }[] = []
+  const reviewedLinks: { row: number; transactionId: string; targetDescriptionSha256?: string; targetPostedDate?: string }[] = []
   for (const [index, row] of data.transactions.entries()) {
     if (!object(row) || row.state !== 'posted' || row.currency !== 'USD' || row.accountRef !== account.accountRef ||
         !providerId(row.providerTransactionId) || seen.has(row.providerTransactionId) || typeof row.description !== 'string') {
@@ -154,7 +165,7 @@ export function prepareSimplefinSpending(options: {
     })
     sourceRows.push(rowNumber)
     if (decision.linkToTransactionId) reviewedLinks.push({ row: rowNumber, transactionId: decision.linkToTransactionId,
-      targetDescriptionSha256: decision.targetDescriptionSha256 })
+      targetDescriptionSha256: decision.targetDescriptionSha256, targetPostedDate: decision.targetPostedDate })
   }
   dates.sort()
   const start = dates[0] ?? postedDate(manifest.fetchedAt, card)
