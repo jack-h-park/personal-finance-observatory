@@ -89,3 +89,64 @@ test('2026 eligible capital gains cross the 0% and 15% thresholds at the exact d
     }
   }
 })
+
+test('worksheet inputs net short-term losses against long-term gain while keeping NIIT independent', () => {
+  const result = estimateInvestmentTaxReserve({
+    ...input,
+    scenario: {
+      taxable: '114000', magi: '261000', nii: '19000',
+      worksheet: { kind: 'schedule-d', qualifiedDividends: '3000', netLongTermGain: '12000', netCapitalGain: '7000' },
+    },
+  })
+  assert.equal(result.status, 'ready')
+  if (result.status !== 'ready') return
+  assert.deepEqual(result.delta, { regular: 198000n, niit: 41800n, total: 239800n })
+  assert.deepEqual(result.preferential, { baseline: 0n, scenario: 1_000_000n })
+})
+
+test('worksheet keeps eligible dividends when either Schedule D amount is zero or a loss', () => {
+  for (const [netLongTermGain, netCapitalGain] of [['-1000', '3000'], ['15000', '-5000'], ['0', '3000']]) {
+    const result = estimateInvestmentTaxReserve({
+      ...input,
+      scenario: {
+        taxable: '114000', magi: '261000', nii: '19000',
+        worksheet: { kind: 'schedule-d', qualifiedDividends: '3000', netLongTermGain, netCapitalGain },
+      },
+    })
+    assert.equal(result.status, 'ready')
+    if (result.status === 'ready') assert.equal(result.preferential.scenario, 300_000n)
+  }
+})
+
+test('distributions-only worksheet caps the eligible amount at taxable income', () => {
+  const result = estimateInvestmentTaxReserve({
+    ...input,
+    filing: 'single',
+    scenario: {
+      taxable: '600', magi: '0', nii: '0',
+      worksheet: { kind: 'distributions-only', qualifiedDividends: '500', capitalGainDistributions: '1000' },
+    },
+  })
+  assert.equal(result.status, 'ready')
+  if (result.status !== 'ready') return
+  assert.equal(result.preferential.scenario, 60_000n)
+  assert.equal(result.scenario.total, 0n)
+})
+
+test('a required worksheet figure stays unknown when blank and unsigned fields reject losses', () => {
+  for (const [qualifiedDividends, netLongTermGain] of [['0', ''], ['-100', '100'], ['0', '--100']]) {
+    assert.deepEqual(estimateInvestmentTaxReserve({
+      ...input,
+      scenario: {
+        taxable: '114000', magi: '261000', nii: '19000',
+        worksheet: { kind: 'schedule-d', qualifiedDividends, netLongTermGain, netCapitalGain: '0' },
+      },
+    }), { status: 'unavailable', reason: 'amount' })
+  }
+})
+
+test('reported special methods block estimates even with all amounts present', () => {
+  assert.deepEqual(estimateInvestmentTaxReserve({ ...input, profile: 'special-method' }), {
+    status: 'unavailable', reason: 'specialMethod',
+  })
+})
