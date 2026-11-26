@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import Database from 'better-sqlite3'
 import test from 'node:test'
-import { estimateHoldingSale, type SalePosition } from '@/lib/domain/taxes/holding-sale'
+import { estimateHoldingSale, estimateHoldingSales, type SalePosition } from '@/lib/domain/taxes/holding-sale'
 import { estimateKrRecordedStockTax } from '@/lib/domain/taxes/kr-overseas-stock-tax'
 
 const position: SalePosition = {
@@ -37,6 +37,56 @@ test('a missing cost blocks its jurisdiction only when FIFO consumes the lot', (
   assert.equal(estimateHoldingSale(withMissing, '2.5', 1400)?.us?.shortUsd, 5)
   assert.equal(estimateHoldingSale(position, '2.5', null)?.krw, null)
   assert.equal(estimateHoldingSale({ ...position, quote: null }, '2.5', 1400)?.us, null)
+})
+
+test('combines accounts while consuming a repeated position’s FIFO lots only once', () => {
+  const other = { ...position, id: '2', holdingQuantity: 1, lots: [
+    { quantity: 1, costUsd: 140, costKrw: 188000, term: 'short' as const },
+  ] }
+  const basket = estimateHoldingSales([position, other], [
+    { positionId: '1', quantity: '2' }, { positionId: '2', quantity: '1' }, { positionId: '1', quantity: '0.5' },
+  ], 1400)
+  assert.deepEqual(basket.rows[2].estimate?.us, { shortUsd: 5, longUsd: 10 })
+  assert.deepEqual(basket.us, { shortUsd: -15, longUsd: 90 })
+  assert.equal(basket.krw, 142500)
+})
+
+test('rounds tax inputs after adding lines so splitting one lot does not change the estimate', () => {
+  const split = { ...position, holdingQuantity: 3, quote: { date: '2026-11-24', usd: 1 },
+    lots: [{ quantity: 3, costUsd: 2.9856, costKrw: 4198.8, term: 'short' as const }],
+  }
+  const separate = estimateHoldingSales([split], ['1', '1', '1'].map(quantity => ({ positionId: split.id, quantity })), 1400)
+  const single = estimateHoldingSale(split, '3', 1400)
+  assert.deepEqual(separate.us, single?.us)
+  assert.equal(separate.krw, single?.krw)
+  assert.equal(separate.us?.shortUsd, 0.01)
+  assert.equal(separate.krw, 1)
+
+  const midpoint = { ...split, holdingQuantity: 1, lots: [{ ...split.lots[0], quantity: 1, costUsd: 1.425 }] }
+  const divided = estimateHoldingSales([midpoint], ['0.3', '0.7'].map(quantity => ({ positionId: midpoint.id, quantity })), 1400)
+  assert.deepEqual(divided.us, estimateHoldingSale(midpoint, '1', 1400)?.us)
+})
+
+test('attributes aggregate balance and missing basis to affected sale lines', () => {
+  const lines = [{ positionId: '1', quantity: '2' }, { positionId: '1', quantity: '1.50000001' }]
+  const overdraw = estimateHoldingSales([position], lines, 1400)
+  assert.deepEqual(overdraw.rows.map(row => row.error), ['balance', 'balance'])
+  assert.equal(overdraw.us, null)
+  assert.equal(overdraw.krw, null)
+
+  const missing = { ...position, lots: [position.lots[0], { ...position.lots[1], costKrw: null }] }
+  const incomplete = estimateHoldingSales([missing], [lines[0], { positionId: '1', quantity: '0.5' }], 1400)
+  assert.deepEqual(incomplete.rows.map(row => row.estimate?.missingBasis.kr), [false, true])
+  assert.deepEqual(incomplete.us, { shortUsd: 5, longUsd: 90 })
+  assert.equal(incomplete.krw, null)
+})
+
+test('withholds aggregate results if a sale line is incomplete', () => {
+  const basket = estimateHoldingSales([position], [
+    { positionId: '1', quantity: '1' }, { positionId: '', quantity: '' }, { positionId: '1', quantity: '0' },
+  ], 1400)
+  assert.deepEqual(basket.rows.map(row => row.error), [null, 'position', 'quantity'])
+  assert.equal(basket.krw, null)
 })
 
 test('the Korean scenario applies the annual deduction to both annual totals', () => {

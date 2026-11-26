@@ -1,10 +1,10 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { Checkbox, Input, Select } from '@/components/form'
-import { Note, TextLink } from '@/components/ui'
+import { Button, Note, TextLink } from '@/components/ui'
 import { INVESTMENT_TAX_YEARS, readInvestmentTaxYear, type InvestmentTaxYear } from '@/lib/domain/taxes/investment-tax-year'
-import { estimateHoldingSale, positionQuantity, type HoldingsForSale } from '@/lib/domain/taxes/holding-sale'
+import { estimateHoldingSales, positionQuantity, type HoldingsForSale, type SaleLine } from '@/lib/domain/taxes/holding-sale'
 import { InvestmentTaxReserve } from '@/components/InvestmentTaxReserve'
 import { KrOverseasStockTax } from '@/components/KrOverseasStockTax'
 import { localeFor } from '@/lib/format'
@@ -25,16 +25,23 @@ export function SnapshotTaxEstimates({ language, defaultYear, recorded, saleYear
   const [jurisdiction, setJurisdiction] = useState('')
   const [purpose, setPurpose] = useState('realized')
   const [manual, setManual] = useState(false)
-  const [positionId, setPositionId] = useState('')
-  const [quantity, setQuantity] = useState('')
+  const [lines, setLines] = useState<(SaleLine & { id: number })[]>([{ id: 0, positionId: '', quantity: '' }])
+  const nextLine = useRef(1)
+  const pendingFocus = useRef<number | null>(null)
+  const linePrefix = useId()
+  useEffect(() => {
+    if (pendingFocus.current == null) return
+    document.getElementById(`${linePrefix}-position-${pendingFocus.current}`)?.focus()
+    pendingFocus.current = null
+  }, [lines, linePrefix])
+  const editLine = (id: number, changes: Partial<SaleLine>) =>
+    setLines(current => current.map(line => line.id === id ? { ...line, ...changes } : line))
   const isUs = jurisdiction === 'us'
   const sale = purpose === 'sale' && year === saleYear
   const useRealizedRecords = !!jurisdiction && (sale || (year === 2026 && purpose === 'realized'))
   const ledger = sale ? saleRecorded : recorded
   const available = useRealizedRecords ? (isUs ? ledger?.us : ledger?.kr) : null
-  const position = sale ? sales?.positions.find(item => item.id === positionId) : undefined
-  const fxRate = sales?.fx?.rate ?? null
-  const proposed = useMemo(() => position ? estimateHoldingSale(position, quantity, fxRate) : null, [position, quantity, fxRate])
+  const proposed = useMemo(() => sale && sales ? estimateHoldingSales(sales.positions, lines, sales.fx?.rate ?? null) : null, [sale, sales, lines])
   const proposedForJurisdiction = isUs ? proposed?.us : proposed?.krw
   const locale = localeFor(language)
   const usd = new Intl.NumberFormat(locale, { style: 'currency', currency: 'USD' })
@@ -106,46 +113,76 @@ export function SnapshotTaxEstimates({ language, defaultYear, recorded, saleYear
           </p>
           {sales?.positions.length === 0 && <Note>{copy.saleEmpty}</Note>}
           {!!sales?.unreconciled && <Note>{copy.saleUnreconciled(sales.unreconciled)}</Note>}
-          {!!sales?.positions.length && (
-            <div className="flex flex-wrap gap-4">
-              <label className="block min-w-0 flex-1 basis-64">
-                <span className="mb-1 block text-label">{copy.position}</span>
-                <Select className="w-full" value={positionId} aria-describedby="snapshot-sale-scope" onChange={event => {
-                  setPositionId(event.target.value)
-                  setQuantity('')
-                }}>
-                  <option value="">{copy.choosePosition}</option>
-                  {sales.positions.map(item => (
-                    <option key={item.id} value={item.id}>{[item.ticker, item.accountLabel].filter(Boolean).join(' · ')}</option>
-                  ))}
-                </Select>
-              </label>
-              {position && (
-                <label className="block min-w-0 flex-1 basis-48">
-                  <span className="mb-1 block text-label">{copy.saleQuantity}</span>
-                  <Input className="w-full tabular-nums" inputMode="decimal" value={quantity} size="md"
-                    aria-describedby="snapshot-sale-quantity"
-                    aria-invalid={!!quantity && proposed == null}
-                    onChange={event => setQuantity(event.target.value)}
-                  />
-                </label>
+          {sales && proposed && sales.positions.length > 0 && (
+            <>
+              {!isUs && <p className="text-body text-ink-2">{sales.fx ? copy.fx(fx.format(sales.fx.rate), sales.fx.date) : copy.fxMissing}</p>}
+              {lines.map((line, index) => {
+                const { position, error, estimate } = proposed.rows[index]
+                const positionControl = `${linePrefix}-position-${line.id}`
+                const quantityHelp = `${linePrefix}-quantity-help-${line.id}`
+                const quantityError = error === 'balance' && position ? copy.saleOverdraw(shares.format(positionQuantity(position))) :
+                  error === 'quantity' && line.quantity.trim() ? copy.saleInvalid : null
+                return (
+                  <fieldset key={line.id} className="min-w-0 space-y-2 rounded-md border border-line p-3">
+                    <legend className="px-1 text-label">{copy.saleLine(index + 1)}</legend>
+                    <div className="flex flex-wrap items-end gap-3">
+                      <label className="block min-w-0 flex-1 basis-64">
+                        <span className="mb-1 block text-label">{copy.position}</span>
+                        <Select id={positionControl} className="w-full" value={line.positionId} aria-describedby="snapshot-sale-scope"
+                          onChange={event => editLine(line.id, { positionId: event.target.value, quantity: '' })}>
+                          <option value="">{copy.choosePosition}</option>
+                          {sales.positions.map(item => (
+                            <option key={item.id} value={item.id}>{[item.ticker, item.accountLabel].filter(Boolean).join(' · ')}</option>
+                          ))}
+                        </Select>
+                      </label>
+                      {position && (
+                        <label className="block min-w-0 flex-1 basis-36">
+                          <span className="mb-1 block text-label">{copy.saleQuantity}</span>
+                          <Input className="w-full tabular-nums" inputMode="decimal" value={line.quantity} size="md"
+                            aria-describedby={quantityHelp}
+                            aria-invalid={!!quantityError}
+                            onChange={event => editLine(line.id, { quantity: event.target.value })}
+                          />
+                        </label>
+                      )}
+                      {lines.length > 1 && (
+                        <Button type="button" variant="ghost" aria-label={copy.removeSaleLine(index + 1)} onClick={() => {
+                          pendingFocus.current = (lines[index + 1] ?? lines[index - 1]).id
+                          setLines(current => current.filter(item => item.id !== line.id))
+                        }}>{copy.removeSale}</Button>
+                      )}
+                    </div>
+                    {position && (
+                      <div className="space-y-1.5" aria-live="polite">
+                        <div id={quantityHelp} className="space-y-1">
+                          <p className="text-body text-ink-2">{copy.saleQuantityHint(shares.format(positionQuantity(position)))}</p>
+                          {quantityError && <p className="text-body text-danger">{quantityError}</p>}
+                        </div>
+                        <p className="text-body text-ink-2">{position.quote ? copy.quote(usd.format(position.quote.usd), position.quote.date) : copy.quoteMissing}</p>
+                        {estimate?.proceedsUsd != null && <p className="text-body tabular-nums">{copy.saleProceeds(usd.format(estimate.proceedsUsd), estimate.lots)}</p>}
+                        {isUs && estimate?.us && <p className="text-body tabular-nums">{copy.proposedUs(usd.format(estimate.us.shortUsd), usd.format(estimate.us.longUsd))}</p>}
+                        {!isUs && estimate?.krw != null && <p className="text-body tabular-nums">{copy.proposedKr(krw.format(estimate.krw))}</p>}
+                        {estimate?.missingDate && <Note>{copy.saleMissingDate}</Note>}
+                        {estimate?.missingBasis[isUs ? 'us' : 'kr'] && <Note>{isUs ? copy.saleMissingUsdBasis : copy.saleMissingKrwBasis}</Note>}
+                      </div>
+                    )}
+                  </fieldset>
+                )
+              })}
+              <Button type="button" variant="outline" onClick={() => {
+                const id = nextLine.current++
+                pendingFocus.current = id
+                setLines(current => [...current, { id, positionId: '', quantity: '' }])
+              }}>{copy.addSaleLine}</Button>
+              {lines.length > 1 && (
+                <div aria-live="polite">
+                  {isUs && proposed.us && <Note>{copy.saleTotalUs(usd.format(proposed.us.shortUsd), usd.format(proposed.us.longUsd))}</Note>}
+                  {!isUs && proposed.krw != null && <Note>{copy.saleTotalKr(krw.format(proposed.krw))}</Note>}
+                  {proposedForJurisdiction == null && <Note>{copy.saleResolveLines}</Note>}
+                </div>
               )}
-            </div>
-          )}
-          {position && (
-            <div className="space-y-2" aria-live="polite">
-              <p id="snapshot-sale-quantity" className="text-body text-ink-2">{copy.saleQuantityHint(shares.format(positionQuantity(position)))}</p>
-              <p className="text-body text-ink-2">{position.quote ? copy.quote(usd.format(position.quote.usd), position.quote.date) : copy.quoteMissing}</p>
-              {!isUs && <p className="text-body text-ink-2">{sales?.fx ? copy.fx(fx.format(sales.fx.rate), sales.fx.date) : copy.fxMissing}</p>}
-              {!!quantity && (proposed == null ? <Note>{copy.saleInvalid}</Note> : (
-                <>
-                  {proposed.proceedsUsd != null && <p className="text-body tabular-nums">{copy.saleProceeds(usd.format(proposed.proceedsUsd), proposed.lots)}</p>}
-                  {isUs && proposed.us && <p className="text-body tabular-nums">{copy.proposedUs(usd.format(proposed.us.shortUsd), usd.format(proposed.us.longUsd))}</p>}
-                  {!isUs && proposed.krw != null && <p className="text-body tabular-nums">{copy.proposedKr(krw.format(proposed.krw))}</p>}
-                  {proposedForJurisdiction == null && <Note>{copy.saleMissingBasis}</Note>}
-                </>
-              ))}
-            </div>
+            </>
           )}
         </div>
       )}
