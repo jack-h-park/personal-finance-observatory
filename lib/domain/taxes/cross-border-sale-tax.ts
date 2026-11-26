@@ -5,7 +5,7 @@ const year = 2027
 
 type SaleScenario = { us: ReserveScenario; krwGain: string }
 export type CreditAmounts = { eligibleTax: string; limit: string }
-type CreditInput =
+export type CreditInput =
   | { authority: 'unknown' | 'none' }
   | { authority: 'us' | 'kr'; baseline: CreditAmounts; scenario: CreditAmounts }
 
@@ -18,10 +18,11 @@ export type CrossBorderSaleInput = {
   credit: CreditInput
 }
 
-function parseFx(value: string) {
-  const match = /^(\d{1,9}|\d{1,3}(?:,\d{3}){1,2})(?:\.(\d{1,4}))?$/.exec(value.trim())
-  if (!match) return null
-  const rate = BigInt(match[1].replaceAll(',', '')) * 10_000n + BigInt((match[2] ?? '').padEnd(4, '0'))
+function parseFx(value: string, precision = 4) {
+  const match = /^(\d{1,9}|\d{1,3}(?:,\d{3}){1,2})(?:\.(\d{1,6}))?$/.exec(value.trim())
+  const fraction = match?.[2] ?? ''
+  if (!match || fraction.length > precision) return null
+  const rate = BigInt(match[1].replaceAll(',', '')) * 1_000_000n + BigInt(fraction.padEnd(6, '0'))
   return rate > 0n ? rate : null
 }
 
@@ -45,13 +46,25 @@ export function estimateCrossBorderSaleTax(input: CrossBorderSaleInput) {
   const kr = estimateKrOverseasStockTax(input.baseline.krwGain, input.scenario.krwGain, year)
   if (kr.status !== 'ready') return { status: 'unavailable', reason: 'kr' } as const
 
+  return combineAnnualTaxes(us, kr, rate, input.credit)
+}
+
+type UsTaxes = Extract<ReturnType<typeof estimateInvestmentTaxReserve>, { status: 'ready' }>
+type KoreanTaxes = Extract<ReturnType<typeof estimateKrOverseasStockTax>, { status: 'ready' }>
+
+/** Apply confirmed credits to annual tax estimates with the holdings snapshot's planning rate. */
+export function compareAnnualTaxCredits(us: UsTaxes, kr: KoreanTaxes, krwPerUsd: number, credit: CreditInput) {
+  const rate = parseFx(krwPerUsd.toFixed(6), 6)
+  return rate === null ? null : combineAnnualTaxes(us, kr, rate, credit)
+}
+
+function combineAnnualTaxes(us: UsTaxes, kr: KoreanTaxes, rate: bigint, credit: CreditInput) {
   // One common planning FX rate, applied to the USD subtotal and rounded to whole won.
-  const toWon = (cents: bigint) => (cents * rate + 500_000n) / 1_000_000n
+  const toWon = (cents: bigint) => (cents * rate + 50_000_000n) / 100_000_000n
   const baseline = { us: us.baseline, kr: kr.baseline, grossKrw: toWon(us.baseline.total) + kr.baseline.total }
   const scenario = { us: us.scenario, kr: kr.scenario, grossKrw: toWon(us.scenario.total) + kr.scenario.total }
   const delta = { us: us.delta, kr: kr.delta, grossKrw: scenario.grossKrw - baseline.grossKrw }
   const gross = { status: 'ready', baseline, scenario, delta } as const
-  const { credit } = input
 
   let beforeCredit = 0n
   let afterCredit = 0n

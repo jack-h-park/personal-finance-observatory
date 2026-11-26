@@ -57,3 +57,29 @@ test('accepts only versioned draft quantities and labels from browser storage', 
   assert.equal(readSavedHoldingSale(JSON.stringify({ version: 1, ...sale, lines: [{ id: 'position-a', quantity: '1e3' }] })), null)
   assert.equal(readSavedHoldingSale('{'), null)
 })
+
+test('applies confirmed credit separately before and after the proposed sale', () => {
+  const result = compareHoldingSale(sale.lines, book, ledger, assumptions, 2026, {
+    authority: 'us', baseline: { eligibleTax: '20', limit: '15' }, scenario: { eligibleTax: '32', limit: '25' },
+  })
+  assert.deepEqual(result.combined, { grossDeltaKrw: 36160, creditEffectKrw: 14000, afterKrw: 481840, reason: null })
+})
+
+test('retains gross comparison and withholds net when authority or annual limit is missing', () => {
+  const unknown = compareHoldingSale(sale.lines, book, ledger, assumptions, 2026)
+  assert.deepEqual(unknown.combined, { grossDeltaKrw: 36160, creditEffectKrw: null, afterKrw: null, reason: 'unknown' })
+  const missingLimit = compareHoldingSale(sale.lines, book, ledger, assumptions, 2026, {
+    authority: 'kr', baseline: { eligibleTax: '2000', limit: '2000' }, scenario: { eligibleTax: '5000', limit: '' },
+  })
+  assert.equal(missingLimit.combined?.reason, 'creditAmount')
+  assert.equal(missingLimit.combined?.afterKrw, null)
+  const confirmedNone = compareHoldingSale(sale.lines, book, ledger, assumptions, 2026, { authority: 'none' })
+  assert.deepEqual(confirmedNone.combined, { grossDeltaKrw: 36160, creditEffectKrw: 0, afterKrw: 467840, reason: null })
+})
+
+test('uses Korean national tax limits and handles a lower post-sale credit', () => {
+  const result = compareHoldingSale(sale.lines, book, ledger, assumptions, 2026, {
+    authority: 'kr', baseline: { eligibleTax: '6000', limit: '6000' }, scenario: { eligibleTax: '1000', limit: '9000' },
+  })
+  assert.deepEqual(result.combined, { grossDeltaKrw: 36160, creditEffectKrw: -5000, afterKrw: 462840, reason: null })
+})
