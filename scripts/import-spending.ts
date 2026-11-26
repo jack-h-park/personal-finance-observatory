@@ -7,14 +7,14 @@ import { normalizeSpendingBatch, readSpendingCsv, spendingAccountIds } from '../
 import { importSpending } from '../lib/adapters/spending-store'
 import { loadSpendingWorkbooks } from '../lib/adapters/spending-workbooks'
 import { loadSimplefinSpending } from '../lib/adapters/spending-simplefin'
-import { loadSnaptradeChaseSpending } from '../lib/adapters/spending-snaptrade'
+import { loadSnaptradeChaseFallback, loadSnaptradeChaseSpending } from '../lib/adapters/spending-snaptrade'
 
 async function main() {
   const { values } = parseArgs({ options: {
     workspace: { type: 'string' }, accounts: { type: 'string' }, input: { type: 'string' },
     source: { type: 'string' }, from: { type: 'string' }, to: { type: 'string' },
     banksalad: { type: 'string' }, binding: { type: 'string' },
-    'chase-csv': { type: 'string' },
+    'chase-csv': { type: 'string' }, 'snaptrade-fallback': { type: 'boolean' }, 'snaptrade-decisions': { type: 'string' },
     'simplefin-config': { type: 'string' }, 'connector-repo': { type: 'string' }, decisions: { type: 'string' },
     apply: { type: 'boolean' }, 'review-token': { type: 'string' },
   } })
@@ -30,7 +30,9 @@ async function main() {
   const roots = resolveFinancePaths({ NODE_ENV: 'test', FINANCE_MODE: 'sample' }, workspace)
   const format = path.extname(values.input).toLowerCase().slice(1)
   const simplefin = [values['simplefin-config'], values['connector-repo'], values.decisions].some(value => value !== undefined)
-  const snaptrade = values['chase-csv'] !== undefined
+  const fallback = values['snaptrade-fallback'] === true
+  if (values['snaptrade-decisions'] && !fallback) throw new Error('invalid_snaptrade_fallback_options')
+  const snaptrade = values['chase-csv'] !== undefined || fallback
   const offline = format === 'xlsx' || simplefin || snaptrade
   const storage = offline ? path.join(workspace, 'private-data/personal-finance-offline') : path.dirname(roots.recordsDir)
   const state = path.join(storage, 'state')
@@ -46,7 +48,15 @@ async function main() {
     ledgerPath, recordsDir, reviewToken: token,
     inventorySha256: createHash('sha256').update(inventory).digest('hex'),
   }
-  if (snaptrade) {
+  if (fallback) {
+    if (format !== 'json' || !values.binding || simplefin ||
+        [values['chase-csv'], values.source, values.banksalad, values.from, values.to].some(value => value !== undefined))
+      throw new Error('invalid_snaptrade_fallback_options')
+    const input = loadSnaptradeChaseFallback({
+      snapshot: values.input, binding: values.binding, accountIds, decisions: values['snaptrade-decisions'],
+    })
+    console.log(JSON.stringify(importSpending({ ...common, ...input }), null, 2))
+  } else if (snaptrade) {
     if (format !== 'json' || !values['chase-csv'] || !values.binding || simplefin ||
         [values.source, values.banksalad].some(value => value !== undefined)) {
       throw new Error('--chase-csv FILE and --binding FILE require a saved SnapTrade card JSON as --input')

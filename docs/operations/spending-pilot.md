@@ -565,3 +565,26 @@ This queue consumes saved input pairs. Collection and delivery of new files
 for accounts outside the scheduled SimpleFIN bindings are separate steps.
 An account present in a connection or in a historical batch has no implied
 ongoing transaction coverage.
+
+
+### Scheduled Chase card fallback
+
+The Studio spending review runner can collect Chase card activity from an
+existing read-only SnapTrade connection once each Pacific day, starting at
+10:15 a.m. Register each card as a `snaptrade-fallback` source with an
+existing account binding, a private pointer location, and a
+`fallbackCapture` object containing the earliest posted date (`from`) and
+the runtime-owned credentials file path (`credentials`). Keep the primary
+SimpleFIN source in the same review configuration. The capture reports
+the provider's last successful sync day even when the query returns zero.
+
+A nonempty capture stages a pinned provider snapshot. Unknown rows are
+held by default. Review the scoped SimpleFIN postings and existing ledger
+before entering a `snaptrade-decisions.json` with `snapshotSha256` and
+`rows` containing `sourceId`, `kind`, and `basis`. Review overlapping
+or shifted posting dates before classifying a new purchase. The importer holds
+equal signed amounts on the same account with posting dates within three days
+across the two feeds. The normal
+review token gates publication. Unchanged captures reuse the same batch;
+an empty capture has no economic effect. An issuer statement is useful
+for a specific unresolved classification or overlap.
