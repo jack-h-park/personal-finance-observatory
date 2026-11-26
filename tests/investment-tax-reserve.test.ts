@@ -60,3 +60,32 @@ test('regular tax at every published bracket boundary matches the IRS table base
     }
   }
 })
+
+test('2026 rate schedules match the published ordinary bracket base amounts', () => {
+  const zero = { taxable: '0', preferential: '0', magi: '0', nii: '0' }
+  const references = {
+    single: [[12400, 124000], [50400, 580000], [105700, 1796600], [201775, 4102400], [256225, 5844800], [640600, 19297925]],
+    mfj: [[24800, 248000], [100800, 1160000], [211400, 3593200], [403550, 8204800], [512450, 11689600], [768700, 20658350]],
+  }
+  for (const [filing, rows] of Object.entries(references)) {
+    for (const [taxable, taxCents] of rows) {
+      const result = estimateInvestmentTaxReserve({ ...input, year: 2026, filing, baseline: zero, scenario: { ...zero, taxable: String(taxable) } })
+      assert.equal(result.status, 'ready')
+      if (result.status === 'ready') assert.equal(result.scenario.regular, BigInt(taxCents))
+    }
+  }
+})
+
+test('2026 eligible capital gains cross the 0% and 15% thresholds at the exact dollar', () => {
+  const zero = { taxable: '0', preferential: '0', magi: '0', nii: '0' }
+  const references = { single: [49450, 545500], mfj: [98900, 613700] }
+  for (const [filing, [zeroCeiling, fifteenCeiling]] of Object.entries(references)) {
+    for (const [gain, expected] of [[zeroCeiling, 0], [zeroCeiling + 1, 15], [fifteenCeiling + 1, (fifteenCeiling - zeroCeiling) * 15 + 20]]) {
+      const result = estimateInvestmentTaxReserve({
+        ...input, year: 2026, filing, baseline: zero, scenario: { ...zero, taxable: String(gain), preferential: String(gain) },
+      })
+      assert.equal(result.status, 'ready')
+      if (result.status === 'ready') assert.equal(result.delta.regular, BigInt(expected))
+    }
+  }
+})

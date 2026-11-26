@@ -1,3 +1,4 @@
+import { readInvestmentTaxYear } from '@/lib/domain/taxes/investment-tax-year'
 import { ALL_YEARS, defaultSoldYear, type RealizedLotView } from '@/lib/realized-lots'
 import { applyFilters, applySearch, applyTicker, filterOptions, readFilters, readTicker, type FilterGroup } from '@/lib/table-filter'
 
@@ -27,6 +28,11 @@ export function queryRealized(rows: RealizedLotView[], params: Params, currentYe
   const years = Array.from(new Set(rows.map((row) => row.sold_year).filter(Boolean))).sort().reverse()
   const defaultYear = defaultSoldYear(years, currentYear)
   const requested = first(params.year)
+  const estimateYear = readInvestmentTaxYear(requested)
+  if (estimateYear && !years.includes(String(estimateYear))) {
+    years.push(String(estimateYear))
+    years.sort().reverse()
+  }
   const year = requested === ALL_YEARS || (requested && years.includes(requested)) ? requested : defaultYear
 
   // A position page links here with its exact ticker. It narrows before the

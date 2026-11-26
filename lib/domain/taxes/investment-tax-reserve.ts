@@ -1,20 +1,29 @@
+import { STANDALONE_ESTIMATE_YEAR, type InvestmentTaxYear } from './investment-tax-year'
+
 export const RESERVE_RULES = {
-  year: 2027,
-  revenueProcedure: 'https://www.irs.gov/irb/2026-48_irb',
+  revenueProcedure: {
+    2026: 'https://www.irs.gov/irb/2025-45_IRB',
+    2027: 'https://www.irs.gov/irb/2026-48_irb',
+  },
   capitalGainLaw: 'https://uscode.house.gov/us/usc/t26/s1/',
   niitGuide: 'https://www.irs.gov/individuals/net-investment-income-tax',
 } as const
 
-// Rev. Proc. 2026-35 sections 3.01 and 3.03. NIIT thresholds are statutory.
+// Rev. Proc. 2025-32 sections 4.01 and 4.03; Rev. Proc. 2026-35 sections 3.01 and 3.03.
 const filingRules = {
-  single: { ceilings: [12800, 52025, 109125, 208325, 264550, 661375], zero: 51050, fifteen: 563200, niit: 200000 },
-  mfj: { ceilings: [25600, 104050, 218250, 416650, 529100, 793650], zero: 102100, fifteen: 633600, niit: 250000 },
+  2026: {
+    single: { ceilings: [12400, 50400, 105700, 201775, 256225, 640600], zero: 49450, fifteen: 545500, niit: 200000 },
+    mfj: { ceilings: [24800, 100800, 211400, 403550, 512450, 768700], zero: 98900, fifteen: 613700, niit: 250000 },
+  },
+  2027: {
+    single: { ceilings: [12800, 52025, 109125, 208325, 264550, 661375], zero: 51050, fifteen: 563200, niit: 200000 },
+    mfj: { ceilings: [25600, 104050, 218250, 416650, 529100, 793650], zero: 102100, fifteen: 633600, niit: 250000 },
+  },
 }
 const ordinaryRates = [1000n, 1200n, 2200n, 2400n, 3200n, 3500n, 3700n]
 export const reserveFields = ['taxable', 'preferential', 'magi', 'nii'] as const
 type Scenario = Record<(typeof reserveFields)[number], string>
-type Scope = keyof typeof filingRules
-type FilingRules = typeof filingRules[Scope]
+type FilingRules = (typeof filingRules)[InvestmentTaxYear]['single' | 'mfj']
 
 const min = (left: bigint, right: bigint) => left < right ? left : right
 const positive = (amount: bigint) => amount < 0n ? 0n : amount
@@ -50,10 +59,10 @@ function calculate([taxable, preferential, magi, nii]: bigint[], rules: FilingRu
 }
 
 /** Rate-schedule estimate for two user-supplied scenarios. No filing or record is read. */
-export function estimateInvestmentTaxReserve(input: { profile: string; filing: string; baseline: Scenario; scenario: Scenario }) {
+export function estimateInvestmentTaxReserve(input: { profile: string; filing: string; baseline: Scenario; scenario: Scenario; year?: InvestmentTaxYear }) {
   if (input.profile !== 'supported') return { status: 'unavailable', reason: 'profile' } as const
   if (input.filing !== 'single' && input.filing !== 'mfj') return { status: 'unavailable', reason: 'filing' } as const
-  const rules = filingRules[input.filing]
+  const rules = filingRules[input.year ?? STANDALONE_ESTIMATE_YEAR][input.filing]
   const baselineAmounts = reserveFields.map(key => parseUsd(input.baseline[key]))
   const scenarioAmounts = reserveFields.map(key => parseUsd(input.scenario[key]))
   if (!baselineAmounts.every(amount => amount !== null) || !scenarioAmounts.every(amount => amount !== null)) {

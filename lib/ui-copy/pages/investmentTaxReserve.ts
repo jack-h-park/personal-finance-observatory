@@ -37,7 +37,7 @@ export const investmentTaxReserve = defineCopy({
       preferential: 'The eligible preferential amount cannot exceed taxable income in either scenario.',
     },
     rules: 'Official rules',
-    sources: ['IRS Revenue Procedure 2026-35', '26 USC § 1(h)', 'IRS guidance on net investment income tax'],
+    sources: (year: number) => [year === 2026 ? 'IRS Revenue Procedure 2025-32' : 'IRS Revenue Procedure 2026-35', '26 USC § 1(h)', 'IRS guidance on net investment income tax'],
     back: 'Back to investment planning',
   },
   ko: {
@@ -76,7 +76,7 @@ export const investmentTaxReserve = defineCopy({
       preferential: '우대세율 대상 금액은 각 시나리오의 과세소득 이하여야 합니다.',
     },
     rules: '공식 계산 근거',
-    sources: ['IRS 2027년 세율 지침', '미국 연방법 제26편 제1조 (h)', 'IRS 순투자소득세 안내'],
+    sources: (year: number) => [`IRS ${year}년 세율 지침`, '미국 연방법 제26편 제1조 (h)', 'IRS 순투자소득세 안내'],
     back: '투자 계획으로 돌아가기',
   },
 })
