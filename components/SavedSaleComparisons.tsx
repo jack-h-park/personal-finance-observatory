@@ -2,8 +2,12 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { Checkbox, Input, Select } from '@/components/form'
-import { Button, Note } from '@/components/ui'
+import { Button, Note, TextLink } from '@/components/ui'
 import { compareHoldingSale, readSavedHoldingSale, SAVED_SALE_PREFIX, type SaleComparisonAssumptions, type SavedHoldingSale, type SavedSaleLine } from '@/lib/application/saved-holding-sales'
+import type { ForeignCreditRecord } from '@/lib/application/foreign-credit-evidence'
+import type { snapshotTaxPayments } from '@/lib/application/snapshot-tax-payments'
+import { taxHistory } from '@/lib/ui-copy/pages/taxHistory'
+import { labelFor } from '@/lib/ui-copy/label'
 import type { RealizedTaxInputs } from '@/lib/application/realized-tax-inputs'
 import type { CreditAmounts, CreditInput } from '@/lib/domain/taxes/cross-border-sale-tax'
 import type { HoldingsForSale } from '@/lib/domain/taxes/holding-sale'
@@ -73,17 +77,21 @@ function readCombinations() {
   return saved
 }
 
-export function SavedSaleComparisons({ language, book, ledger, year, draft, onLoad }: {
+export function SavedSaleComparisons({ language, book, ledger, year, draft, onLoad, creditRecords, payments }: {
   language: Language
   book: HoldingsForSale
   ledger: RealizedTaxInputs | null
   year: InvestmentTaxYear
   draft: SavedSaleLine[] | null
   onLoad: (lines: SavedSaleLine[]) => void
+  creditRecords: ForeignCreditRecord[] | null
+  payments: ReturnType<typeof snapshotTaxPayments> | null
 }) {
   const copy = savedSales[language]
   const formCopy = investmentTaxReserve[language]
   const creditCopy = crossBorderSaleTax[language]
+  const taxHistoryCopy = taxHistory[language]
+  const paid = payments?.filter(row => row.principal != null) ?? []
   const locale = localeFor(language)
   const [saved, setSaved] = useState<SavedHoldingSale[]>([])
   const [storage, setStorage] = useState<'loading' | 'ready' | 'error'>('loading')
@@ -188,6 +196,55 @@ export function SavedSaleComparisons({ language, book, ledger, year, draft, onLo
               <span className="block">{snapshotTax[language].recordedCoverage(ledger.kr.lots, ledger.kr.skipped)}</span>
             </Note>
           ) : <Note>{copy.ledgerMissing}</Note>}
+          <details className="space-y-3 rounded-md border border-line p-3">
+            <summary className="cursor-pointer text-body font-medium">{copy.creditEvidence}</summary>
+            <div className="space-y-3">
+              <p className="text-body text-ink-2">{copy.creditEvidenceHint(year)}</p>
+              {creditRecords == null ? <Note>{copy.creditEvidenceUnavailable}</Note> :
+                creditRecords.length === 0 ? <Note>{copy.creditEvidenceEmpty}</Note> : (
+                <div className="overflow-x-auto" role="region" aria-label={copy.creditEvidence} tabIndex={0}>
+                  <table className="w-full text-body">
+                    <thead><tr>
+                      {copy.evidenceColumns.map(column => <th key={column} scope="col" className="p-2 text-left">{column}</th>)}
+                    </tr></thead>
+                    <tbody>{creditRecords.map(row => {
+                      const currency = row.authority === 'us' ? 'USD' : 'KRW'
+                      const showAmount = (minor: string | null) => money(currency, minor == null ? null : Number(minor) / (currency === 'USD' ? 100 : 1))
+                      return (
+                        <tr key={row.id} className="border-t border-line-subtle">
+                          <th scope="row" className="p-2 text-left">
+                            <TextLink href={row.source}>{copy.evidenceSource[row.authority](row.year, row.page)}</TextLink>
+                            <span className="block text-caption text-ink-2">{copy.evidenceCategories[row.category]}</span>
+                          </th>
+                          <td className="p-2">{creditCopy.authorities[row.authority]}</td>
+                          {[row.eligibleMinor, row.limitMinor, row.appliedMinor].map((amount, index) =>
+                            <td key={index} className="whitespace-nowrap p-2 tabular-nums">{showAmount(amount)}</td>
+                          )}
+                        </tr>
+                      )
+                    })}</tbody>
+                  </table>
+                </div>
+              )}
+              {paid.length > 0 && (
+                <div className="space-y-1">
+                  <p className="text-body text-ink-2">{copy.evidencePayments}</p>
+                  <ul className="space-y-1">
+                    {paid.map(row => (
+                      <li key={row.id} className="flex flex-wrap items-baseline gap-x-2">
+                        <TextLink href={`/taxes/records/${encodeURIComponent(row.id)}`}>
+                          {copy.evidencePaymentSource(row.year, labelFor(taxHistoryCopy.authorities, row.authority))}
+                        </TextLink>
+                        <span className="text-body tabular-nums">
+                          {money(row.currency, Number(row.principal) / (row.currency === 'USD' ? 100 : 1))}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </details>
           <form autoComplete="off" className="space-y-3" onSubmit={event => { event.preventDefault(); setApplied(inputs) }}>
             <fieldset className="space-y-2 rounded-md border border-line p-3">
               <legend className="px-1 text-label">{copy.usInputs}</legend>

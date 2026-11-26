@@ -6,6 +6,8 @@ import { Button, Note, TextLink } from '@/components/ui'
 import { INVESTMENT_TAX_YEARS, readInvestmentTaxYear, type InvestmentTaxYear } from '@/lib/domain/taxes/investment-tax-year'
 import { estimateHoldingSales, positionQuantity, type HoldingsForSale, type SaleLine } from '@/lib/domain/taxes/holding-sale'
 import { InvestmentTaxReserve } from '@/components/InvestmentTaxReserve'
+import type { ForeignCreditRecord } from '@/lib/application/foreign-credit-evidence'
+import type { snapshotTaxPayments } from '@/lib/application/snapshot-tax-payments'
 import { SavedSaleComparisons } from '@/components/SavedSaleComparisons'
 import { savedSales } from '@/lib/ui-copy/pages/savedSales'
 import type { SavedSaleLine } from '@/lib/application/saved-holding-sales'
@@ -15,13 +17,15 @@ import type { RealizedTaxInputs } from '@/lib/application/realized-tax-inputs'
 import type { Language } from '@/lib/i18n'
 import { snapshotTax } from '@/lib/ui-copy/pages/snapshotTax'
 
-export function SnapshotTaxEstimates({ language, defaultYear, recorded, saleYear, sales, saleRecorded }: {
+export function SnapshotTaxEstimates({ language, defaultYear, recorded, saleYear, sales, saleRecorded, creditRecords, payments }: {
   language: Language
   defaultYear: InvestmentTaxYear
   recorded: RealizedTaxInputs | null
   saleYear?: InvestmentTaxYear
   sales: HoldingsForSale | null
   saleRecorded: RealizedTaxInputs | null
+  creditRecords: ForeignCreditRecord[] | null
+  payments: ReturnType<typeof snapshotTaxPayments> | null
 }) {
   const copy = snapshotTax[language]
   const [year, setYear] = useState(defaultYear)
@@ -205,7 +209,7 @@ export function SnapshotTaxEstimates({ language, defaultYear, recorded, saleYear
           )}
         </div>
       )}
-      {sale && sales && <SavedSaleComparisons language={language} book={sales} ledger={saleRecorded} year={year} draft={draft} onLoad={loadSale} />}
+      {sale && sales && <SavedSaleComparisons language={language} book={sales} ledger={saleRecorded} year={year} draft={draft} onLoad={loadSale} creditRecords={creditRecords} payments={payments} />}
       {!!jurisdiction && (
         <div hidden={!showForm}>
           {isUs ? (
